@@ -1,0 +1,8 @@
+context7:
+  transport: http
+  url: https://mcp.context7.com/mcp
+playwright:
+  transport: stdio
+  command: npx
+  args: ["@playwright/mcp@latest"]
+  env_from: [PLAYWRIGHT_BROWSERS_PATH]

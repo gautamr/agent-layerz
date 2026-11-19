@@ -1,0 +1,6 @@
+stack:
+  - source: path:../personal
+  - source: path:./.layer
+targets: [claude]
+options:
+  strict_slots: false

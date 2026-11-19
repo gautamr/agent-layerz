@@ -1,0 +1,7 @@
+aliases:
+  strong: { claude: opus }
+  fast: { claude: sonnet }
+roles:
+  review: strong
+  implementation: fast
+default: fast

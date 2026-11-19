@@ -1,0 +1,12 @@
+stack:
+  - source: path:../personal
+  - source: path:../client
+  - source: path:./.layer
+targets: [claude]
+mcp:
+  enable: [context7]
+budgets:
+  instructions_max_lines: 400
+options:
+  commit_generated: true
+  strict_slots: true

@@ -1,0 +1,10 @@
+- id: guard
+  event: pre_tool
+  match: { tools: [edit, write] }
+  command: '"${PROJECT_DIR}"/.harness/scripts/guard.sh'
+  timeout: 10
+  on_fail: deny
+- id: notify
+  event: claude:Notification
+  matcher: permission_prompt
+  command: '"${PROJECT_DIR}"/.harness/scripts/notify.sh'

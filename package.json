@@ -1,0 +1,58 @@
+{
+  "name": "agent-layerz",
+  "version": "0.1.0",
+  "description": "Layered coding-agent configuration (instructions, subagents, skills, hooks, permissions, MCP) composed into each repository",
+  "type": "module",
+  "bin": {
+    "alz": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc --noEmit && esbuild src/cli/bin.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist/cli.js",
+    "test": "vitest run",
+    "lint": "biome check . && tsc --noEmit",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run lint && vitest run"
+  },
+  "dependencies": {
+    "diff": "9.0.0",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1"
+  },
+  "license": "MIT",
+  "author": "gautamr",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gautamr/agent-layerz.git"
+  },
+  "homepage": "https://github.com/gautamr/agent-layerz#readme",
+  "bugs": {
+    "url": "https://github.com/gautamr/agent-layerz/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "agents",
+    "ai-agents",
+    "agents-md",
+    "claude-md",
+    "subagents",
+    "skills",
+    "mcp",
+    "configuration"
+  ]
+}

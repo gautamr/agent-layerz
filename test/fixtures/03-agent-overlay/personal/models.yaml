@@ -1,0 +1,4 @@
+aliases:
+  strong: { claude: opus }
+roles:
+  planning: strong

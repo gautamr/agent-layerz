@@ -1,0 +1,6 @@
+- id: block-secrets
+  event: pre_tool
+  match: { tools: [read, edit], paths: [".env*"] }
+  run: scripts/block-secrets.sh
+  on_fail: deny
+  locked: true

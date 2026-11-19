@@ -1,0 +1,2 @@
+#!/bin/sh
+echo '{"type":"system","subtype":"init","agents":["Explore"],"skills":[],"mcp_servers":[]}'

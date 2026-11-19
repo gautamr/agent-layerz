@@ -1,0 +1,6 @@
+name: personal
+kind: personal
+visibility: public
+version: 1.0.0
+forbid_patterns:
+  - "(?i)\\bacme\\b"

@@ -1,0 +1,8 @@
+stack:
+  - source: path:../personal
+  - source: path:../hub/layer
+    ref: layer-v0.1.0
+  - source: path:./.layer
+targets: [claude]
+workspace:
+  hub: ../hub

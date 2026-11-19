@@ -1,0 +1,2 @@
+- Separate what the contract requires, what the code does now, and what you propose.
+- Never claim a check passed that you did not run.

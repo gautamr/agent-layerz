@@ -1,0 +1,3 @@
+allow: ["bash:git status"]
+deny: ["read:.env*", "bash:rm -rf *"]
+default_mode: default

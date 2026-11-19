@@ -1,0 +1,4 @@
+---
+extends: builder
+tools: +[write]
+---

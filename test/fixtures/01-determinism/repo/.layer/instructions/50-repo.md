@@ -1,0 +1,1 @@
+- Run `mise run test` before declaring work done.

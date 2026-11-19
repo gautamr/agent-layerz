@@ -1,0 +1,4 @@
+- id: both
+  event: stop
+  run: scripts/x.sh
+  command: echo hi

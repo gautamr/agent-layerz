@@ -1,0 +1,11 @@
+- id: block-secrets
+  event: pre_tool
+  match: { tools: [read], paths: [".env*"] }
+  run: scripts/block-secrets.sh
+  on_fail: deny
+  locked: true
+- id: format-on-save
+  event: post_tool
+  match: { tools: [edit, write] }
+  run: scripts/format.sh
+  on_fail: warn

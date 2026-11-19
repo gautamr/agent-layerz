@@ -1,0 +1,4 @@
+name: acme
+kind: client
+visibility: private
+version: 0.1.0

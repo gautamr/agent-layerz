@@ -1,0 +1,26 @@
+[tools]
+node = "22"
+
+[tasks.install]
+description = "Install npm dependencies"
+run = "npm install"
+
+[tasks.test]
+description = "Run the acceptance and unit tests"
+run = "npm test"
+
+[tasks.lint]
+description = "Biome check and TypeScript type check"
+run = "npm run lint"
+
+[tasks.build]
+description = "Type check and bundle the CLI to dist/cli.js"
+run = "npm run build"
+
+[tasks."test:node24"]
+description = "Run the tests on the newest supported Node line too"
+run = "mise x node@24 -- npm test"
+
+[tasks."install:local"]
+description = "Install this checkout as a real copy into ~/.local (command: ~/.local/bin/alz)"
+run = "npm install -g --prefix ~/.local \"$(npm pack --silent)\" && rm -f ./*.tgz"

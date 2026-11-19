@@ -1,0 +1,2 @@
+allow: ["bash:mise run *"]
+deny: ["bash:git push --force*"]

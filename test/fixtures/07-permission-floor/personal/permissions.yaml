@@ -1,0 +1,2 @@
+allow: ["bash:git status"]
+deny: ["read:.env*", "bash:rm -rf *"]

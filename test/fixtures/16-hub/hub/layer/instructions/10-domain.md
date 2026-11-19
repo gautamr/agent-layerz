@@ -1,0 +1,1 @@
+- CLIENT-RULE-V1: prices are in INR, GST inclusive.
