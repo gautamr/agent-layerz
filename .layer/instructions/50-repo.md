@@ -23,7 +23,8 @@ run `mise run alz:build`. Never edit generated files.
   rely on facts recorded there.
 - `src/resolve` stack and sources, `src/merge` merge rules per item type, `src/adapters/<target>`
   native output and adoption, `src/adopt` adoption planning, `src/render` writing files,
-  `src/cli` commands, `src/checks` leak guard and secret scan.
+  `src/cli` commands, `src/checks` leak guard and secret scan, `src/identity` git identity
+  inspection, reports and local setup.
 - `test/acceptance/NN-*.test.ts` with fixtures in `test/fixtures/NN-*`.
 
 ## Invariants

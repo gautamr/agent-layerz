@@ -1,3 +1,5 @@
+import { stripControl } from "./sanitize";
+
 export type Level = "error" | "warning";
 
 export interface Diagnostic {
@@ -46,8 +48,9 @@ export class FatalError extends Error {
 }
 
 export function formatDiagnostic(item: Diagnostic): string {
-  const where = item.where ? `${item.where}: ` : "";
-  return `${item.level} [${item.code}] ${where}${item.message}`;
+  const where = item.where ? `${stripControl(item.where)}: ` : "";
+  // Messages can carry text from layer files and manifests, so they never reach a terminal raw.
+  return `${item.level} [${item.code}] ${where}${stripControl(item.message)}`;
 }
 
 /** Code for references to a more general layer; `lint` of a single layer skips these. */

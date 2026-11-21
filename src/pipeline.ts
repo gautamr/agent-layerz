@@ -54,9 +54,9 @@ export function computeBuild(ctx: BuildContext): BuildResult {
   }
   for (const layer of layers) scanPublicLayer(layer, diags);
 
-  const config = resolveConfig(manifest, layers, diags);
+  const config = resolveConfig(manifest, layers, ctx.repoRoot, diags);
   const tree = new FileTree();
-  const agentsMd = renderAgentsMd(config.instructions);
+  const agentsMd = renderAgentsMd(config.instructions, config.commitIdentity);
   checkInstructionBudgets(agentsMd, manifest, diags);
   tree.add(AGENTS_MD, agentsMd);
   for (const adapter of adapters) adapter.render(config, tree, diags);

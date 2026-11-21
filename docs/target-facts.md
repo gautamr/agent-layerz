@@ -1,8 +1,8 @@
 # target-facts.md — verified facts about Claude Code and Codex
 
-**Date:** 2026-11-19
-**Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c)
-**Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`)
+**Date:** 2026-11-19; §10–§11 added 2026-11-21
+**Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c); §7.12/§9.4 commit identity (§10–§11 here)
+**Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155)
 **Host:** macOS (Darwin 25.6.0), both installed through Homebrew casks
 
 ## How to read this
@@ -269,3 +269,39 @@ These need Codex trust (granted by the user, e.g. `codex exec --trust` in a thro
 - Project `[mcp_servers.*]` actually starting, and `enabled = false` honoured.
 - Codex rules / permission profiles syntax (relevant to §7.6).
 - Claude: project-vs-user agent precedence and user+project hook merge (need a write to `~/.claude`, or a dedicated logged-in test account).
+
+## 10. Commit attribution (spec §7.12) — checked 2026-11-21
+
+The spec relies on **none** of these: the Co-Authored-By rule is a generated instruction only. They are recorded so nobody builds on them by accident, and because a user setting can hide Claude's trailer.
+
+| Item | Spec assumes | Verified now | Status / how |
+|---|---|---|---|
+| Claude default trailer | nothing | In a scratch git repo with no settings of its own, Claude Code 2.1.323 reports that its instructions say to end commit messages with `Co-Authored-By: <model name> <noreply@anthropic.com>`. | SMOKE: `claude -p "…quote that trailer line verbatim… otherwise NONE" --max-turns 1` (model-reported; the real user settings were in effect, see §0.1) |
+| Claude settings | nothing | `attribution` ("customize the attribution Claude Code adds to commits and pull requests"), `attribution.commit` (change or hide the commit trailer), `attribution.pr`, `attribution.sessionUrl`; `includeCoAuthoredBy` is deprecated in favour of `attribution`. Scope: any settings file (user, project, local, managed). Default values not read. | DOCS (`code.claude.com/docs/en/settings-reference`, settings index) |
+| Codex built-in trailer | nothing | `codex_git_commit` feature is **removed** (`false`). `codex debug prompt-input "commit"` in a scratch git repo contains no `Co-authored-by` text, with or without `-c features.codex_git_commit=true`. So Codex 0.169.0 adds no trailer by itself. | HELP (`codex features list`) + SMOKE (prompt-input, untrusted project) |
+| Codex `commit_attribution` key | nothing | Vendor docs describe `commit_attribution` in `config.toml` (default `Codex <noreply@openai.com>`, `""` disables), effective only with `[features].codex_git_commit`, which 0.169.0 reports as removed. | DOCS (`developers.openai.com/codex/config-reference`), not effective here |
+
+Consequence: alz writes no attribution setting. With Claude the generated rule and the tool's own trailer agree; with Codex the rule is the only source of the trailer. A layer can still set Claude's `attribution` through `settings.yaml`.
+
+## 11. Git behaviour the commit-identity checks rely on (spec §9.4) — git 2.50.1
+
+Not an agent target, but §9.4 is built on it. Scratch repo with `HOME` pointed at a scratch dir holding a `.gitconfig` with a reserved-domain identity, and `GIT_CONFIG_NOSYSTEM=1`.
+
+| Item | Observed | Status |
+|---|---|---|
+| Origin and scope | `git config --show-origin --show-scope --get user.email` prints `<scope>\t<origin>\t<value>`; e.g. `global\tfile:<home>/.gitconfig\t…`, `local\tfile:.git/config\t…` (local origin is relative). | SMOKE |
+| Command-line config | `git -c user.email=…` and `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/`GIT_CONFIG_VALUE_0` both show scope `command`, origin `command line:`. | SMOKE |
+| Environment overrides | `GIT_AUTHOR_EMAIL` changes `git var GIT_AUTHOR_IDENT` but is invisible to `git config`. So the effective identity must come from `git var`, and environment variables must be checked separately. | SMOKE |
+| Effective identity | `git var GIT_AUTHOR_IDENT` / `GIT_COMMITTER_IDENT` print `Name <email> <epoch> <tz>`. | SMOKE |
+| Includes | An `[include] path = extra.inc` in `.git/config` overrides a `user.email` set in `.git/config`; origin shows `file:.git/extra.inc`, scope `local`. So a write must be followed by a re-read. | SMOKE |
+| Local scope | Several scopes: `--get` returns the winning value with its origin; `--get-all` lists every scope in order. `--local` outside a repo exits 128; `--get` of an unset key exits 1. | SMOKE |
+| Subdirectory | From a subdirectory, `git rev-parse --show-toplevel` gives the parent work tree, so a repo root that is not the top level would write into another repo's config unless checked. | SMOKE |
+| Name trimming | `git var GIT_AUTHOR_IDENT` removes these from both ends of a configured name: `,` `:` `;` `"` `'` `\` `<` `>` and whitespace (`,Owner;` gives `Owner`; `.Owner<` gives `.Owner`). A `.` at either end is kept here, and so is a `.` in the local part of an email (`.o.@example.com`), but older git versions may treat `.` as trimmable too, so the spec rejects it at the edges anyway (not checked on older versions). A name with an apostrophe inside (`O'Example`) is kept unchanged. | SMOKE (scratch repo, git 2.50.1) |
+| Broken config | A malformed global config makes `git rev-parse --git-dir`, `git var` and `git config` all exit 128, the same status as "not a git repository". Only the message text tells them apart (`fatal: not a git repository`), so alz reads it with `LC_ALL=C`. | SMOKE |
+| Clone argument is tried as a local path first | With a bare repo in a folder named `x:y` in the working directory, `git clone -- x:y out` clones that folder (git 2.50.1: local path wins over the `host:path` reading). With `file:///nonexistent-dir/r` and a bare repo at `file:/nonexistent-dir/r` relative to the working directory, git 2.50.1 does not clone it: it fails with `protocol '<cwd>/file' is not supported`, with or without the setting below. Both are treated as local by alz, since other versions may differ. | SMOKE (scratch dirs, git 2.50.1) |
+| `protocol.file.allow=never` | `git -c protocol.file.allow=never clone -- x:y out` with that folder present fails with `fatal: transport 'file' not allowed` and clones nothing; a plain local `q` (folder `q.git`) is also refused. A genuinely remote name (`nohost.invalid:z`) fails as before with a connection error. So the setting blocks the local-path fallback, and alz adds it to every clone of a source it classed as remote. | SMOKE (git 2.50.1) |
+| `GIT_ALLOW_PROTOCOL` | With `GIT_ALLOW_PROTOCOL=file` in the environment, `git -c protocol.file.allow=never clone -- x:y out` clones the local folder `x:y` anyway: the variable overrides the setting. So alz removes it from the environment of a guarded clone. `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=protocol.file.allow`/`GIT_CONFIG_VALUE_0=always` does not override `-c`: the clone is still refused. | SMOKE (git 2.50.1) |
+| `..` and symlinks | The operating system resolves `..` on disk through symlinks, while `path.resolve` resolves it as text, so `link/../../x.git` can name two different folders. alz therefore refuses `..` in a local `git:` source, and checks and clones the canonical path of the folder found by looking up the string as written. | REASONED from path semantics; covered by an acceptance test |
+| Local clones of untrusted repositories | Git's security advisories list CVE-2022-39253 (local clone follows symlinks, fixed in 2.38.1) and CVE-2024-32004 and CVE-2024-32021 (local clone of a crafted repository, fixed in 2.45.1). A `git:` source that is a local path is such a clone, so use git 2.45.1 or later when layers may come from untrusted repositories. | DOCS (git security advisories as cited; not re-verified here) |
+| Minimum version | `git config --show-scope` is listed in the git 2.26.0 release notes ("git config" learned to show in which "scope", in addition to in which file, each config setting comes from), and `{author,committer}.{name,email}` in the 2.22.0 notes. So the checks need git 2.26 or later. | DOCS (`Documentation/RelNotes/2.26.0.txt` line 48 and `2.22.0.txt` line 25 in git.git, fetched 2026-11-21); not run on those versions |
+

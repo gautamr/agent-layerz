@@ -1,6 +1,6 @@
 # LAYERING-SPEC.md — Layered agent configuration for any client and project
 
-**Status:** Draft v1 · 2026-11-19
+**Status:** Draft v1 · 2026-11-21 (§7.12 commit identity added; needs agent-layerz 0.2.0)
 **Audience:** a coding agent (Claude Code / Codex) implementing the tool, and humans who use it
 **Name:** `agent-layerz`, with the CLI command `alz`
 
@@ -72,6 +72,9 @@ org/client (private)  — client domain, constraints, compliance, shared stack c
 group      (private)  — optional: a product line or set of related repos within a client
 repo       (private)  — repo-specific stack, commands, paths, contract ownership
 ```
+
+`kind` is a free-form label, with one exception: only a layer with `kind: client` may
+override the commit identity (§7.12).
 
 Each layer declares a `visibility`: `public`, `private` or `confidential`. A layer may only
 `extend` layers whose visibility is the **same or more public** (a public layer can't
@@ -230,7 +233,13 @@ requires_slots:                # skills this layer references but expects others
   - domain-glossary
 forbid_patterns:               # leak guard for public layers (§9.2), regex
   - "(?i)\\b(acme|clientname)\\b"
+commit_identity:               # optional; first layer or one client layer only (§7.12)
+  name: Your Name
+  email: you@example.com
 ```
+
+Unknown fields are a schema error, so a layer that declares `commit_identity` needs
+agent-layerz 0.2.0 or later.
 
 ### 5.2 `layer.yaml` (repo stack manifest)
 
@@ -472,6 +481,103 @@ This is the escape hatch for target features the neutral schema doesn't cover. F
 copied into place, and the most specific layer wins per path. The build warns on each use
 so passthroughs get turned into first-class items over time.
 
+### 7.12 Commit identity
+The person who owns the stack declares the identity that every commit is authored and
+committed under, in the `layer.yaml` of the stack's first layer (§5.1). A client layer may
+override it for that client's repos, for example with a client-issued email:
+
+```yaml
+commit_identity:
+  name: Your Name
+  email: you@example.com
+```
+
+- **Who may declare it.** A layer is *outside the repository* when its source is `github:`
+  or a `git:` URL of a remote, or a `path:` (or a `git:` local path or `file://` URL, read
+  against the repo root) that resolves outside the repo root both as written and after
+  following symlinks, using the file system's own spelling of each name, so a case variant of
+  a path inside the repo, and a link outside the repo that points into it, are inside. A
+  `git:` argument counts as a local path, whatever it looks like (`x:y`, `file:///dir`), when
+  a path of that name exists relative to the repo root, as given or with git's own suffixes
+  `/.git`, `.git/.git`, `.git` or `.bundle`, because `git clone` looks for such a path before
+  it reads the argument as a URL. Only then is a `file://` URL its absolute path, and a
+  `scheme://` or `host:path` argument a remote. The path is looked up from the string as
+  written, so the operating system resolves any `..` through symlinks exactly as git will,
+  then canonicalised; the inside check and `git clone` both use that canonical path, never the
+  URL as written. A local `git:` source (including `file://`) with a `..` segment is a source
+  error that names the source, because text and disk can disagree about where it leads. A
+  `git:` or `github:` source classed as a remote is cloned with `-c protocol.file.allow=never`
+  and without `GIT_ALLOW_PROTOCOL`, which would override that setting, so git cannot fall back
+  to a local path (`docs/target-facts.md` §11); a `url.<base>.insteadOf` that rewrites such a
+  URL to a local mirror therefore fails to clone. Only two layers may declare `commit_identity`:
+  1. the **first stack entry** (normally `personal`), if it is outside the repository;
+  2. one **client layer**: a later layer with `kind: client`, `visibility: private` or
+     `confidential`, outside the repository (normally the hub's `layer/`, §4.4).
+
+  `kind` stays a free-form label everywhere else (§3.1); `client` has this one meaning. Any
+  other declaration is a build error that names the layer: the repo layer (inside the
+  repository, whatever its `kind` says), group layers, any other kind, and a public layer
+  that calls itself `client`. In the hub repo itself (§4.4) `layer/` is inside the
+  repository, so the hub's own commits use the first layer's identity. There is no overlay,
+  `~` or remove form. `alz lint` of a single layer checks the shape only, because it cannot
+  know the layer's position or source.
+- **Which one wins.** The client layer's declaration replaces the first layer's whole
+  identity, name and email together; the two are never mixed. Equal values are fine. A
+  declaration by a second client layer is a build error naming all the client layers that
+  declare, so no further layer can override silently. If only one of the two declares, that one applies.
+- **Where it came from.** The winning layer is named in the generated Commits section, in
+  the `AGENTS.md` header sources, and in every `init`, `build` and `check` report (§9.4).
+- **No declaration, no feature.** Nothing is added to `AGENTS.md`, and `init`, `build` and
+  `check` run no git command for it and print nothing about it. (`init` still resolves the
+  stack to look for a declaration, which fetches remote layers like `build` does.)
+- **Validation.** The identity is untrusted layer content and reaches a git subprocess
+  (§9.4), so `layer.yaml` parsing rejects it as a schema error unless:
+  - the map has exactly the keys `name` and `email`, both strings;
+  - `name` is 1 to 128 characters, has no leading or trailing whitespace, does not start with
+    `-`, and contains no control character (U+0000–U+001F, U+007F–U+009F, U+2028, U+2029),
+    no Unicode format character (category Cf: zero-width, bidi controls, BOM, soft hyphen),
+    and no `<`, `>`, backtick or backslash. It does not start or end with `.` `,` `:` `;` `"`
+    `'` `\` `<` or `>`: git trims most of these from both ends of a name
+    (`docs/target-facts.md` §11), so the declared name could never match what git reports.
+    An apostrophe inside a name is allowed;
+  - `email` is at most 254 ASCII characters, does not start with `-` and neither starts nor
+    ends with `.`, has no format character, and matches
+    `^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$`.
+- **Generated Commits rule.** With a declaration, the build appends this section as the last
+  section of `AGENTS.md`, with the winning values in place of `<name>` and `<email>` and the
+  winning layer's name in place of `<layer>`, and adds `<layer>@<rev>:layer.yaml` (winning
+  layer only) to the header's sources:
+
+  ```markdown
+  ## Commits
+
+  - Author and committer of every commit made in a local clone: `<name> <<email>>` (declared by layer `<layer>`). This repository's local git config sets it; never change `user.name` or `user.email`, and never commit locally under a CI, bot or shared identity.
+  - A commit made by an agent ends with a `Co-Authored-By:` trailer that names the agent. Use the trailer your tool adds; if it adds none, write one.
+  - If `git var GIT_AUTHOR_IDENT` shows another identity, do not commit; report it.
+  - Bots that commit on the hosting service, such as release or CI bots, are exempt from this rule.
+  ```
+
+  The section is derived from layer content only, so builds stay byte-identical. It counts
+  towards the instruction budgets (§5.2). It has no instruction filename, so no layer can
+  `mode: replace` or `mode: remove` it. Changing this text changes generated output and needs
+  a release note.
+- **Attribution is instruction-only.** alz sets no Claude Code or Codex attribution setting
+  and relies on no tool behaviour for the trailer (`docs/target-facts.md` §10). A layer may
+  still set a target's own attribution keys through `settings.yaml` (§7.9).
+- **Setting it up and checking it** is described in §9.4: `alz init` and `alz build --adopt`
+  set the repo-local git identity, `alz build` warns about a mismatch, `alz check` fails on one.
+- **Scope: people and agents committing in a local clone.** Bots that commit on the hosting
+  service (a release bot, a CI workflow) are exempt, and CI runs `alz check --skip-identity`
+  (§14). alz never configures a bot identity.
+- **Trust.** The repo manifest is repo content and chooses the stack, so a cloned repo could
+  name an external layer it controls as the first layer, or as a private `kind: client`
+  layer. The rule above stops the repository's own files from declaring an identity, but it
+  cannot tell your personal layer from someone else's. Three things limit the damage: only
+  the setup commands write (§9.4); they only add missing local keys and never replace one;
+  and every write and report names the declaring layer and its source.
+- The identity belongs to one person. In a repository that several people build, everyone
+  but the owner sees the `build` warning and fails `check`; they pass `--skip-identity` (§10).
+
 ---
 
 ## 8. Target adapters
@@ -530,9 +636,67 @@ For layers with `visibility: public`:
   private hostnames and emails.
 - A public layer that `extends` a private one is an error (§3.1).
 
+- A `commit_identity` (§7.12) in a public layer is public. Prefer a no-reply address (for
+  GitHub, `<id>+<user>@users.noreply.github.com`); any other address raises the usual
+  `leak-email` warning, and `forbid_patterns` apply to it like any other line.
+
 ### 9.3 Security floor
 Locked hooks (§7.5) and deny rules (§7.6) can't be removed by more specific layers. The
 build fails, with a message naming the layer that tried.
+
+### 9.4 Repository git identity
+With a declared `commit_identity` (§7.12):
+
+- **Effective identity** is what git would use for a commit in the repo root:
+  `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT`. Name and email are compared
+  exactly with the declaration. An error from `git var` (no identity and
+  `user.useConfigOnly`) counts as a mismatch.
+- **Source of a mismatch**, found in git's own order: the environment variables
+  `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`; then the
+  config keys `author.*` or `committer.*`, then `user.*`, each located with
+  `git config --show-scope --show-origin --get <key>`; then the `EMAIL` variable; otherwise
+  "not set, git guessed it from the host".
+- **Reports never echo the wrong value** (name or email). They name the layer that declared
+  the identity, the key, the scope
+  (`system`, `global`, `local`, `worktree`, `command`, or `environment`) and the source file,
+  with the home directory shown as `~` and control characters removed. They may show the
+  declared value, e.g. in the fix command `git config --local user.email '<email>'`, but only
+  when the value is made of Unicode letters, marks, digits, space and `. - _ @ +`, so that the
+  command means the same in POSIX shells, fish and PowerShell. For any other value (an
+  apostrophe, say) the report prints no command and says to set the key to the value declared
+  by the layer, which `alz build --adopt` adds when the key is unset. An identity that comes
+  from the command scope (`GIT_CONFIG_COUNT`, `GIT_CONFIG_PARAMETERS`) is fixed by unsetting
+  those variables, and one from an environment variable by unsetting that variable. Findings
+  are printed one line per distinct source key in a fixed order (name, then email; author,
+  then committer), so the output of a given setup is always the same.
+- **Writing.** Only `alz init` (repo kind) and `alz build --adopt`, the setup commands, write.
+  Plain `alz build` reports a mismatch as a warning and still succeeds; `alz check` reports it
+  as an error and fails unless `--skip-identity` is passed. Writes:
+  - use `git config --file <repo>/.git/config <key> <value>`, with the path checked by
+    `insideRoot`; never `--global` or `--system`, never `~/.gitconfig` or any file outside
+    the repo;
+  - happen only when the repo root is the top level of its work tree and `.git` is a real
+    directory (not a symlink, and not a gitfile as in linked worktrees and submodules).
+    Also `.git/config` must be absent or a regular file, not a symlink, whose real path is
+    inside the repository. Otherwise nothing is written and the report prints the commands to
+    run by hand, followed by the findings of the effective identity (layer, scope, file). When
+    the repo root is not the top level of its work tree, those commands would write to the
+    outer repository, so the report says to run `git init` here first, or to run alz from the
+    repository's top level, and prints findings without fix commands;
+  - add `user.name` or `user.email` only when `.git/config` has no value for that key. An
+    equal value is left alone. A different value is **never replaced**: it is reported as
+    above. `.git/config` is not a generated file, and adding a missing key overwrites nothing
+    (§4.3). A wrong global or system value needs no change, because the local key wins;
+  - are followed by a fresh read of the effective identity, since an `[include]` in the local
+    config or an environment variable can still override it; any remaining mismatch is
+    reported. Each key written is printed with the declared value and the declaring layer.
+- **Outside a git repository** (git itself says so) nothing is read or written, and init, build
+  and check print a note instead. If git is missing or fails for another reason (a broken
+  config file), the identity cannot be checked: `alz check` fails with an error, `build` and
+  `init` warn. A `git config --get` failure other than "not set" reports the source as unknown.
+- Identity subprocesses run through the existing git helper (no shell, `GIT_TERMINAL_PROMPT=0`)
+  without the inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR`, `GIT_CONFIG` and
+  `GIT_INDEX_FILE`, so the environment cannot point them at another repository or file.
 
 ---
 
@@ -540,9 +704,9 @@ build fails, with a message naming the layer that tried.
 
 | Command | Does |
 |---|---|
-| `alz init [--stack <source>]… [--hub <dir>]` | Scaffold a repo manifest with these layers, then `.layer/`. `--hub` also adds the hub's `layer/`, pinned to its newest `layer-v*` tag. `--kind layer` scaffolds a new layer. |
-| `alz build` | Resolve, merge, render, write, update the lock. |
-| `alz check` | Rebuild in memory and fail if the repo differs from it or from the lock (for CI and the Stop hook). |
+| `alz init [--stack <source>]… [--hub <dir>]` | Scaffold a repo manifest with these layers, then `.layer/`. `--hub` also adds the hub's `layer/`, pinned to its newest `layer-v*` tag. Then resolves the stack and, with a declared commit identity, sets the repo-local git identity (§9.4). A source that cannot be resolved yet only gets a note that `alz build --adopt` will do it. Any other problem with the stack or with a declaration (a schema error, a layer that may not declare) is printed as a warning, nothing is written, and `init` still exits 0 because the scaffold succeeded; `alz build` fails on the same problem. `--kind layer` scaffolds a new layer. |
+| `alz build [--adopt]` | Resolve, merge, render, write, update the lock. Warns when the effective git identity differs from the declared commit identity (§9.4). `--adopt` also adopts hand-written config (§4.3) and sets the repo-local git identity. |
+| `alz check [--skip-identity]` | Rebuild in memory and fail if the repo differs from it or from the lock (for CI and the Stop hook), or if the effective git identity differs from the declared commit identity (§9.4). `--skip-identity` skips the identity check, for CI runners and for people other than the owner. |
 | `alz update [<layer>]` | Re-resolve refs to the newest matching versions and rebuild. |
 | `alz ls [--live]` | List what the stack builds and the layer that decides each item. `--live` also asks Claude what it loaded (one short model call) and fails on any built item it did not load. |
 | `alz explain <type> <name>` | Show which layers contributed to an item, in order, with the merged result. |
@@ -636,6 +800,24 @@ The tool is done when all of these pass in CI (fixtures under `test/fixtures/`):
     doesn't change either repo's build. `doctor` warns about a `CLAUDE.md` at the client root.
 17. **Path-scoped rules:** a repo `rules/backend.md` overrides the personal one, and an
     `extend` rule combines `paths`.
+18. **Commit identity** (§7.12, §9.4): in a git repo whose global config holds a wrong
+    identity (reserved domains only, e.g. `ci@example.invalid`), `alz build --adopt` adds the
+    declared identity to `.git/config` and leaves the global file byte-identical; a second
+    build changes nothing and the output stays byte-identical. A private `kind: client`
+    layer outside the repo overrides the personal identity (e.g. with `owner@client.example`),
+    and the Commits section and reports name that layer. A declaration in the repo layer
+    (even with `kind: client`), a group layer, a public `client` layer, a `path:` symlink
+    inside the repo that points outside it, or a second client layer fails the build and
+    names the layer. `alz check` fails on a wrong global, local or environment identity,
+    naming only the layer, the scope and the source; no output contains the wrong value. A
+    local value that differs is never replaced. An identity with a newline, control character
+    or leading `-`, a name that git would trim (edge `.` `,` `;` and the like), a backslash or
+    an invisible format character fails before any git command. A `git:` local path or
+    `file://` layer, a case variant of an in-repo path and a link into the repo count as inside
+    it. A `.git/config` that is a symlink, a gitfile `.git`, or a repo root inside another work
+    tree gets no write; the report still names the source of a wrong value, and a name with an
+    apostrophe gets no shell command. Without a declaration, `AGENTS.md` has no Commits
+    section.
 
 ---
 
@@ -643,16 +825,19 @@ The tool is done when all of these pass in CI (fixtures under `test/fixtures/`):
 
 1. **Personal layer:** extract universal standards, generic agent personas (architect,
    designer, domain-expert, backend-engineer, frontend-engineer, reviewer, …), generic
-   skills, security-floor hooks and denies, and model aliases. Mark it `public` and run `lint`.
+   skills, security-floor hooks and denies, and model aliases. Declare your
+   `commit_identity` (§7.12). Mark it `public` and run `lint`.
 2. **Client hub + layer:** for each client, create the private hub repo at `<client-root>/hub/`
    (§4.4). Put the domain context, constraints, persona overlays and client-wide slot fills
-   in `hub/layer/` and tag it `layer-v0.1.0`. Put the docs, specs and Backlog.md board in the
+   in `hub/layer/` (`kind: client`, private), plus a `commit_identity` if the client issues
+   you an email, and tag it `layer-v0.1.0`. Put the docs, specs and Backlog.md board in the
    rest of the hub.
 3. **Repo layer:** in each repo, run `alz init`, add the stack-specific slot fills
    (`stack-conventions`, …), set the MCP allowlist and budgets, then `alz build`.
 4. **Clean the account dirs:** move agents and skills out of `~/.claude*` and `~/.codex*`
    into the right layer until `alz doctor` is clean.
-5. **CI:** add `alz check` to each repo's pipeline, and to the agent's Stop hook if wanted.
+5. **CI:** add `alz check --skip-identity` to each repo's pipeline (a CI runner has no owner
+   identity), and plain `alz check` to the agent's Stop hook if wanted.
 6. **Iterate:** each lesson learned (e.g. from a `/learn` command) goes into the narrowest
    layer it applies to, as a PR on that layer's repo, followed by `alz update` in consumers.
 

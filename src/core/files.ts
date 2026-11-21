@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdirSync, statSync } from "node:fs";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { FatalError } from "./diagnostics";
 
 /** A POSIX path that stays inside its base: relative, no `..` or `.` segments, no backslashes. */
@@ -18,6 +18,12 @@ export function insideRoot(root: string, path: string): string {
     throw new FatalError("unsafe-path", `refusing to touch '${path}': it is outside ${root}`);
   }
   return abs;
+}
+
+/** True when `path` is `root` or below it, compared lexically on already-resolved paths. */
+export function isWithin(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 const SKIPPED = new Set([".git", ".DS_Store", "node_modules"]);

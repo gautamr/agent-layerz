@@ -55,7 +55,7 @@ A layer is a directory, usually its own git repo. Every part is optional:
 
 ```text
 <layer>/
-├── layer.yaml            name, kind, visibility (public | private | confidential), version
+├── layer.yaml            name, kind, visibility (public | private | confidential), version, commit_identity
 ├── instructions/*.md     concatenated into AGENTS.md, in stack order then file order
 ├── agents/<name>.md      subagents; <name>.overlay.md extends an agent from a general layer
 ├── skills/<name>/        Agent Skills (SKILL.md plus files); the most specific layer wins
@@ -104,13 +104,39 @@ Hooks either ship a script inside the layer (`run: scripts/guard.sh`) or run a c
 written (`command: '"${PROJECT_DIR}"/scripts/check.sh'`). Events are neutral (`pre_tool`,
 `post_tool`, `stop`, …) or a tool's own (`claude:Notification`).
 
+## Commit identity
+
+A person who owns the stack can declare who every commit is made as, in the `layer.yaml` of the
+first layer (normally the personal one):
+
+```yaml
+commit_identity:
+  name: Your Name
+  email: you@example.com   # prefer a no-reply address in a public layer
+```
+
+- A private layer with `kind: client`, outside the repository (normally the hub's `layer/`), may
+  declare its own identity, for example a client-issued email. It replaces the first layer's
+  identity as a whole. The repo layer, group layers, public layers and a second client layer
+  cannot declare one; the build fails and names the layer.
+- With a declaration, `AGENTS.md` ends with a `Commits` section: author and committer are that
+  identity, agent-made commits end with a `Co-Authored-By:` trailer, and nobody commits under a
+  CI or shared identity. Bots that commit on the hosting service are exempt.
+- `alz init` and `alz build --adopt` add `user.name` and `user.email` to the repository's own
+  `.git/config` when they are missing. They never replace a value that is already there and
+  never write `~/.gitconfig`. Plain `alz build` only warns when git would use another identity.
+- Reports name where the wrong value comes from (layer, scope, file or variable), never the
+  value itself, and print the command that fixes it.
+- `alz check` fails on a mismatch. CI runners and people other than the owner run
+  `alz check --skip-identity`.
+
 ## Commands
 
 | Command | Does |
 |---|---|
-| `alz init [--stack <source>]… [--hub <dir>]` | Scaffold `layer.yaml` and `.layer/`. `--hub` adds the hub's client layer at its newest `layer-v*` tag. `--kind layer` scaffolds a new layer. |
-| `alz build [--adopt]` | Resolve, merge and write the generated files and `layer.lock`. `--adopt` first turns hand-written native config into repo-layer sources; if any part cannot be adopted safely, nothing changes. |
-| `alz check` | Rebuild in memory; fail if the repo or the lock differs. |
+| `alz init [--stack <source>]… [--hub <dir>]` | Scaffold `layer.yaml` and `.layer/`. `--hub` adds the hub's client layer at its newest `layer-v*` tag. `--kind layer` scaffolds a new layer. With a declared commit identity it also sets the repo-local git identity. |
+| `alz build [--adopt]` | Resolve, merge and write the generated files and `layer.lock`. `--adopt` first turns hand-written native config into repo-layer sources; if any part cannot be adopted safely, nothing changes. `--adopt` also sets the repo-local git identity; plain `build` warns when it differs from the declared one. |
+| `alz check [--skip-identity]` | Rebuild in memory; fail if the repo or the lock differs, or the effective git identity differs from the declared commit identity. `--skip-identity` skips that last check. |
 | `alz diff` | Show what the next build would change. |
 | `alz ls [--live]` | List built items and the layer that decides each. `--live` asks Claude Code what it loaded (one short model call) and fails on anything missing. |
 | `alz explain <type> <name>` | Every layer that contributed to an item, in order, and the merged result. |
@@ -121,10 +147,16 @@ written (`command: '"${PROJECT_DIR}"/scripts/check.sh'`). Events are neutral (`p
 
 - `alz` writes only inside the repository and its cache (`~/.cache/agent-layerz`). It never
   overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
+- The only git config it writes is the missing `user.name` and `user.email` in the repository's
+  own `.git/config`, by `init` and `build --adopt`; never a global or system file.
 - It never reads credentials or `.env` files, and never stores secret values: MCP servers name
   environment variables, not values.
 - Public layers are scanned for secrets and for the `forbid_patterns` they declare, so private
   names do not leak into a public layer.
+- Remote layers (`github:` and remote `git:` URLs) are cloned with the local and `file`
+  transports blocked, so a repository cannot make them read a folder inside itself. If your
+  `url.<base>.insteadOf` rewrites such a URL to a local mirror path, the clone now fails; name
+  the mirror as a local `git:` path instead.
 - Layers can ship hooks, which your agent runs as commands. Use layers you trust, and pin remote
   ones to a tag or commit.
 

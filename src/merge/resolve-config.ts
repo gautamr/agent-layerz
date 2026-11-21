@@ -3,6 +3,7 @@ import type { ResolvedConfig } from "../model/config";
 import type { Layer } from "../model/layer";
 import type { Manifest } from "../model/manifest";
 import { mergeAgents } from "./agents";
+import { mergeCommitIdentity } from "./commit-identity";
 import { mergeHooks } from "./hooks";
 import { mergeInstructions } from "./instructions";
 import { mergeMcp } from "./mcp";
@@ -17,6 +18,7 @@ import { fillSlots, mergeSkills } from "./skills";
 export function resolveConfig(
   manifest: Manifest,
   layers: Layer[],
+  repoRoot: string,
   diags: Diagnostics,
 ): ResolvedConfig {
   const agents = mergeAgents(layers, diags);
@@ -36,5 +38,6 @@ export function resolveConfig(
     settings: mergeSettings(layers, diags),
     passthrough: mergePassthrough(layers, diags),
     claudeExtras: claudeExtras(layers, diags),
+    commitIdentity: mergeCommitIdentity(layers, repoRoot, diags),
   };
 }

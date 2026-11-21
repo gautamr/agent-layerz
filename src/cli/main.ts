@@ -20,7 +20,9 @@ const USAGE = `usage: alz <command> [options]   (alz --version)
   build [--adopt]                     resolve, merge, render, write, update layer.lock
                                       --adopt turns hand-written .claude/, CLAUDE.md, AGENTS.md
                                       and .mcp.json into repo-layer sources first
-  check                               fail if the repo differs from a fresh build or the lock
+  check [--skip-identity]             fail if the repo differs from a fresh build or the lock,
+                                      or the git identity differs from the declared commit
+                                      identity (--skip-identity: CI runners, other people)
   ls [--live]                         what the stack builds, by layer; --live also asks Claude
                                       what it loaded (one short model call) and compares
   explain <type> <name>               which layers contributed to an item (agent, skill, command, rule, hook, mcp, instruction)
@@ -60,9 +62,13 @@ export async function run(argv: string[], io: Io): Promise<number> {
         });
         return buildCommand(io, { adopt: values.adopt });
       }
-      case "check":
-        parseArgs({ args: rest, options: {} });
-        return checkCommand(io);
+      case "check": {
+        const { values } = parseArgs({
+          args: rest,
+          options: { "skip-identity": { type: "boolean", default: false } },
+        });
+        return checkCommand(io, { skipIdentity: values["skip-identity"] });
+      }
       case "diff":
         parseArgs({ args: rest, options: {} });
         return diffCommand(io);

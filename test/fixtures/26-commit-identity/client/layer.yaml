@@ -1,0 +1,7 @@
+name: client
+kind: client
+visibility: private
+version: 0.1.0
+commit_identity:
+  name: Owner Example
+  email: owner@client.example

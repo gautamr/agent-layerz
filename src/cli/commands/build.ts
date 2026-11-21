@@ -1,4 +1,5 @@
 import { applyAdoption, planAdoption } from "../../adopt";
+import { ensureLocalIdentity, warnAboutIdentity } from "../../identity/setup";
 import { computeBuild } from "../../pipeline";
 import { planWorkspace } from "../../render/workspace";
 import { applyPlan, syncGitignore } from "../../render/writer";
@@ -59,9 +60,13 @@ export function buildCommand(io: Io, options: { adopt: boolean }): number {
     ctx.repoRoot,
     result.manifest.options.commitGenerated ? undefined : result.tree.paths(),
   );
+  const declared = result.config.commitIdentity;
   const count = (kind: string) => plan.changes.filter((change) => change.kind === kind).length;
   io.stdout(
     `built ${plural(result.tree.paths().length, "file")} for ${result.manifest.targets.join(", ")}: ${count("create")} created, ${count("update")} updated, ${count("delete")} deleted (output visibility: ${result.lock.visibility})\n`,
   );
+  // §9.4: --adopt (a setup command) adds the missing local identity; plain build only warns.
+  if (declared && options.adopt) ensureLocalIdentity(ctx.repoRoot, declared, io.env, io);
+  else if (declared) warnAboutIdentity(ctx.repoRoot, declared, io.env, io);
   return 0;
 }

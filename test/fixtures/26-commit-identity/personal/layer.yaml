@@ -1,0 +1,7 @@
+name: personal
+kind: personal
+visibility: public
+version: 1.0.0
+commit_identity:
+  name: Owner Example
+  email: owner@example.com

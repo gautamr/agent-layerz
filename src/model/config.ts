@@ -1,5 +1,6 @@
 import type { YamlMap } from "../core/yaml";
 import type { AgentSpec } from "../merge/agents";
+import type { DeclaredIdentity } from "../merge/commit-identity";
 import type { HookSpec } from "../merge/hooks";
 import type { InstructionBlock } from "../merge/instructions";
 import type { McpServer } from "../merge/mcp";
@@ -26,4 +27,6 @@ export interface ResolvedConfig {
   settings: Record<string, YamlMap>;
   passthrough: Map<string, Map<string, PassthroughFile>>;
   claudeExtras: ClaudeExtra[];
+  /** §7.12: the winning commit identity and its layer; undefined when no layer declares one. */
+  commitIdentity?: DeclaredIdentity;
 }

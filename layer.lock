@@ -11,7 +11,7 @@
     ".claude/rules/tests.md": "sha256:52edb9ed77eaf0d98fbac06d1c0805ff151bb778facbe580c2a9fd7e707edf79",
     ".claude/settings.json": "sha256:eb246210f9bac4c0551a372f1cb48abd9bc9cb6b943148b42f2de7b8d0a399d8",
     ".claude/skills/add-acceptance-test/SKILL.md": "sha256:b31d10ad5c8c90a519f34c6eae31a55bf71875f1d012047f2d343cd50cb6e8ee",
-    ".claude/skills/gr-typescript-domain/SKILL.md": "sha256:f2a8a6ad6d1131f56c5c6aeab6e6a5292257e86cb11929b857383a9672d62c5d",
+    ".claude/skills/gr-typescript-domain/SKILL.md": "sha256:b04f3ae6aec65ee4d56a8410a03927ea4d664c08642177e942f37713bd337913",
     ".claude/skills/gr-typescript-domain/references/async-and-api.md": "sha256:19069b1d6caaee1592fbece6523b604cd97f21abf4d5b62dbe1e7fe89f520302",
     ".claude/skills/gr-typescript-domain/references/persistence.md": "sha256:c28265a333960698ee79ad12333590a4a12a3d3853fd8ee7e31ebda6ba436205",
     ".claude/skills/gr-typescript-domain/references/testing.md": "sha256:4d8833057690c0517e3cb86822d276718ec4bd12aeae355a1360dcb46cb4c238",
@@ -20,19 +20,19 @@
     ".claude/skills/threat-model/SKILL.md": "sha256:61b5be380801a0c1f5d227ba15a145f23bf5163068c41ed4c2c82bb89142f436",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:6e26a3b22bc532f623448184a3c44e90b94e52e1d73c255392633f18c70b356e",
+    "AGENTS.md": "sha256:fc69be1dde75b8e4944ff7e187c50aa1fca1f6bba782dfcc345af3375efc8cee",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
     {
-      "contentHash": "sha256:4887847e8a93c3eda6e212617b51755dafcb7dd8d97d889fd4dd4e252e4a6e4f",
+      "contentHash": "sha256:c1a43810ef55c9a4ac6d928c79bfd6c572f88ee53217dac607ea7a603efa9dd0",
       "name": "personal",
-      "rev": "v0.1.1",
-      "sha": "4485276d6581036dde509c0497c2ee639d93e8ea",
+      "rev": "v0.2.0",
+      "sha": "83429dd2bbe260af0cd3be4e53cb3bc57dd41841",
       "source": "path:../agent-layer-personal"
     },
     {
-      "contentHash": "sha256:ed50e4e24a7dc536a66c8ba8c5aaed0e0a06d1cc91e7473428b057b1b8bd049d",
+      "contentHash": "sha256:252cf333d914d0e3e19a6d5af464dad14cc41a79872a262f9e82320804cacdfc",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

@@ -1,5 +1,6 @@
 import { InputError } from "../core/diagnostics";
 import { asOptionalString, asStringList, isMap, unknownKeys } from "../core/yaml";
+import { type CommitIdentity, parseCommitIdentity } from "./commit-identity";
 
 export const VISIBILITIES = ["public", "private", "confidential"] as const;
 export type Visibility = (typeof VISIBILITIES)[number];
@@ -18,6 +19,8 @@ export interface LayerMeta {
   providesSlots: string[];
   requiresSlots: string[];
   forbidPatterns: string[];
+  /** §7.12: declared by the first layer or one client layer only; the merge decides. */
+  commitIdentity?: CommitIdentity;
 }
 
 const FIELDS = [
@@ -29,6 +32,7 @@ const FIELDS = [
   "provides_slots",
   "requires_slots",
   "forbid_patterns",
+  "commit_identity",
 ] as const;
 
 export const NAME_PATTERN = /^[a-z0-9]+(?:[-.][a-z0-9]+)*$/;
@@ -61,5 +65,7 @@ export function parseLayerMeta(raw: unknown): LayerMeta {
     providesSlots: raw.provides_slots ? asStringList(raw.provides_slots, "provides_slots") : [],
     requiresSlots: raw.requires_slots ? asStringList(raw.requires_slots, "requires_slots") : [],
     forbidPatterns: raw.forbid_patterns ? asStringList(raw.forbid_patterns, "forbid_patterns") : [],
+    commitIdentity:
+      raw.commit_identity === undefined ? undefined : parseCommitIdentity(raw.commit_identity),
   };
 }

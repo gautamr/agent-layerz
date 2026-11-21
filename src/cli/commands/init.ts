@@ -1,9 +1,14 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, join, posix } from "node:path";
+import { type Diagnostic, Diagnostics, FatalError, formatDiagnostic } from "../../core/diagnostics";
+import { ensureLocalIdentity } from "../../identity/setup";
+import { mergeCommitIdentity } from "../../merge/commit-identity";
 import { NAME_PATTERN, VISIBILITIES, type Visibility } from "../../model/layer-meta";
 import type { StackEntry } from "../../model/manifest";
+import { readManifest } from "../../model/manifest";
 import { git } from "../../resolve/git";
-import type { Io } from "../io";
+import { loadStack } from "../../resolve/stack";
+import { buildContext, type Io } from "../io";
 
 export interface InitOptions {
   kind: string;
@@ -140,7 +145,40 @@ export function initCommand(io: Io, options: InitOptions): number {
       ? "next: run `alz build --adopt` to take over existing agent config, or `alz build`\n"
       : "next: run `alz lint`\n",
   );
+  if (options.kind === "repo") setUpIdentity(io);
   return 0;
+}
+
+/**
+ * §9.4: with a declared commit identity, sets the repo-local git identity. Problems with the
+ * stack or with a declaration are warnings here (init still succeeds; `alz build` fails on
+ * them), and nothing is written then. Only a source that cannot be resolved yet gets the note
+ * that `alz build --adopt` will set the identity.
+ */
+function setUpIdentity(io: Io): void {
+  const ctx = buildContext(io);
+  const diags = new Diagnostics();
+  const warn = (item: Diagnostic) =>
+    io.stderr(`${formatDiagnostic({ ...item, level: "warning" })}\n`);
+  try {
+    const layers = loadStack(
+      readManifest(io.cwd),
+      { repoRoot: io.cwd, home: ctx.home, env: io.env, locked: [] },
+      diags,
+    );
+    const declared = mergeCommitIdentity(layers, io.cwd, diags);
+    for (const item of diags.items) warn(item);
+    if (declared && !diags.hasErrors) ensureLocalIdentity(io.cwd, declared, io.env, io);
+  } catch (error) {
+    if (!(error instanceof FatalError)) throw error;
+    if (error.code === "source") {
+      io.stderr(
+        "note [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n",
+      );
+    } else {
+      warn({ level: "error", code: error.code, message: error.message, where: error.where });
+    }
+  }
 }
 
 function layerMeta(name: string, kind: string, visibility: Visibility): string {
