@@ -14,6 +14,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && esbuild src/cli/bin.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist/cli.js",
+    "build:standalone": "tsc --noEmit && esbuild src/cli/bin.ts --bundle --platform=node --format=esm --target=node22 --banner:js='import{createRequire}from\"node:module\";const require=createRequire(import.meta.url);' --log-level=warning --outfile=dist/alz-standalone.mjs",
     "test": "vitest run",
     "lint": "biome check . && tsc --noEmit",
     "prepack": "npm run build",

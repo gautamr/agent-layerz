@@ -35,6 +35,24 @@ npm install --global agent-layerz      # or: mise use --global npm:agent-layerz
 alz --version
 ```
 
+### From source
+
+To run unreleased changes, build alz from a clone. This needs Node.js 22.12 or newer, npm
+and a POSIX shell (macOS or Linux):
+
+```sh
+git clone https://github.com/gautamr/agent-layerz.git
+cd agent-layerz
+./scripts/install-local.sh             # or: mise run install:local
+```
+
+The script bundles alz and its dependencies into one file and installs it as a regular
+executable at `~/.local/bin/alz`. It creates no symlink and no `node_modules` at the
+destination. Set `PREFIX` (installs to `$PREFIX/bin`) or `BIN_DIR` to choose another place.
+It prints the version, the git revision and the SHA-256 of the installed file, and refuses
+to replace a symlink, such as one left by `npm install --global`; remove that first. Run it
+again after `git pull` to update.
+
 ## Quick start
 
 In an existing repository:

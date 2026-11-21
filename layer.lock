@@ -20,7 +20,7 @@
     ".claude/skills/threat-model/SKILL.md": "sha256:61b5be380801a0c1f5d227ba15a145f23bf5163068c41ed4c2c82bb89142f436",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:fc69be1dde75b8e4944ff7e187c50aa1fca1f6bba782dfcc345af3375efc8cee",
+    "AGENTS.md": "sha256:91be691ceb774c511a6d61868bfb0bb4e67c4baec3f0b40043a1b531ea1da86d",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
@@ -32,7 +32,7 @@
       "source": "path:../agent-layer-personal"
     },
     {
-      "contentHash": "sha256:252cf333d914d0e3e19a6d5af464dad14cc41a79872a262f9e82320804cacdfc",
+      "contentHash": "sha256:cb87267025327dbffe3be64352581b55eeb6e94eff45bf2217ed36a9209cdf8f",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

@@ -14,6 +14,7 @@ run `mise run alz:build`. Never edit generated files.
 | Tests | `mise run test` |
 | Lint and type check | `mise run lint` |
 | Bundle the CLI | `mise run build` |
+| Install this checkout as one file at `~/.local/bin/alz` | `mise run install:local` |
 | Rebuild this repo's agent config with the current code | `mise run alz:build` |
 | Check the generated agent config is current | `mise run alz:check` |
 
