@@ -1,11 +1,8 @@
 ---
-name: security-reviewer
+extends: security-reviewer
+mode: replace
 description: Read-only security reviewer for agent-layerz. Use on any change that reads repository or layer content, writes or deletes files, runs git or another subprocess, handles hooks, permissions or secrets, or touches the leak guard.
-role: review
-tools: [read, grep, glob]
-permission_mode: plan
-skills: [threat-model]
-memory: project
+skills: +[threat-model]
 claude:
   color: red
 ---

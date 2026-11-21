@@ -1,6 +1,39 @@
 {
   "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/notify.sh\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/guard-paths.sh\"",
+            "onFailure": "block",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/hub-guard.sh\"",
+            "onFailure": "block",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      },
       {
         "hooks": [
           {
@@ -113,6 +146,17 @@
           }
         ],
         "matcher": "Edit|Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/session-brief.sh\"",
+            "timeout": 20,
+            "type": "command"
+          }
+        ]
       }
     ],
     "Stop": [

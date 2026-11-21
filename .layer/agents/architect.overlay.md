@@ -1,10 +1,8 @@
 ---
-name: architect
+extends: architect
+mode: replace
 description: Plans work on agent-layerz. Use to turn a Backlog.md task into a plan, change docs/LAYERING-SPEC.md, record decisions, split large tasks, and design new adapters or commands before anyone writes code.
-role: planning
-tools: [read, grep, glob, write, edit, bash, web_fetch, web_search]
-skills: [verify-target-fact]
-memory: project
+skills: +[verify-target-fact]
 claude:
   color: blue
   maxTurns: 60
