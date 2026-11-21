@@ -1,0 +1,4 @@
+backlog:
+  transport: stdio
+  command: backlog
+  args: ["mcp", "start"]

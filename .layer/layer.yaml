@@ -1,0 +1,5 @@
+name: agent-layerz
+kind: repo
+visibility: public
+version: 0.1.0
+description: How agent-layerz itself is built - its maintainer agents, skills, rules and hooks

@@ -24,3 +24,15 @@ run = "mise x node@24 -- npm test"
 [tasks."install:local"]
 description = "Install this checkout as a real copy into ~/.local (command: ~/.local/bin/alz)"
 run = "npm install -g --prefix ~/.local \"$(npm pack --silent)\" && rm -f ./*.tgz"
+
+[tasks."alz:build"]
+description = "Rebuild this repo's agent config with the current code (dogfooding)"
+run = "npm run -s build && node dist/cli.js build"
+
+[tasks."alz:check"]
+description = "Fail if this repo's generated agent config is out of date"
+run = "npm run -s build && node dist/cli.js check"
+
+[tasks."alz:ls"]
+description = "List this repo's agents, skills, rules, hooks and MCP servers by layer"
+run = "npm run -s build && node dist/cli.js ls"

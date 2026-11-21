@@ -1,0 +1,42 @@
+{
+  "files": {
+    ".claude/agents/architect.md": "sha256:e874b4903db562c5dd0d3154a79f92cee48305418b82fd83107afd7d094a25af",
+    ".claude/agents/docs-writer.md": "sha256:abe34d743e7eae8486aeabdd2391eb4b4d819c15586faf3fa911245418c14f99",
+    ".claude/agents/implementer.md": "sha256:6a1078b339090187d8c3f709eb629dd8b76e73162c19422789c8c5a197aa94f8",
+    ".claude/agents/release-engineer.md": "sha256:e22f05431b4d01cb20c0b51954c503b149888a7998d066bc5ff44a41a7276851",
+    ".claude/agents/reviewer.md": "sha256:7e96f26f635c4f008e477516608740392974cb3ee74caf79e4f373d90a58cc04",
+    ".claude/agents/security-reviewer.md": "sha256:88dc6f9b60237f2cbe1ac260c3f0bf8aa2f256a1ef4888496ab421d4a952e347",
+    ".claude/rules/docs.md": "sha256:444e92ea2c4394addd7f1fe0e2e77ba0777953bc8581a9b4b2d391ddfd23de03",
+    ".claude/rules/src.md": "sha256:3853d45eee96d4126186a95f67c44970e45461b6a7a544df2a87e23346f7d2ce",
+    ".claude/rules/tests.md": "sha256:52edb9ed77eaf0d98fbac06d1c0805ff151bb778facbe580c2a9fd7e707edf79",
+    ".claude/settings.json": "sha256:eb246210f9bac4c0551a372f1cb48abd9bc9cb6b943148b42f2de7b8d0a399d8",
+    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:b31d10ad5c8c90a519f34c6eae31a55bf71875f1d012047f2d343cd50cb6e8ee",
+    ".claude/skills/gr-typescript-domain/SKILL.md": "sha256:45a3a7f297cf3a03d9ba2fcec61f9e117bc308b69c05eb7baf1bd312789bef38",
+    ".claude/skills/gr-typescript-domain/references/async-and-api.md": "sha256:19069b1d6caaee1592fbece6523b604cd97f21abf4d5b62dbe1e7fe89f520302",
+    ".claude/skills/gr-typescript-domain/references/persistence.md": "sha256:c28265a333960698ee79ad12333590a4a12a3d3853fd8ee7e31ebda6ba436205",
+    ".claude/skills/gr-typescript-domain/references/testing.md": "sha256:4d8833057690c0517e3cb86822d276718ec4bd12aeae355a1360dcb46cb4c238",
+    ".claude/skills/gr-typescript-domain/references/types.md": "sha256:b5c1991245126eef4f37b200e5d6429f10c8a566e8afa5907566412670f29666",
+    ".claude/skills/next-task/SKILL.md": "sha256:7d87ceeeb41ff5b58e6d0912e275b82e19f02ffb21b05db13076b105465521af",
+    ".claude/skills/threat-model/SKILL.md": "sha256:61b5be380801a0c1f5d227ba15a145f23bf5163068c41ed4c2c82bb89142f436",
+    ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
+    ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
+    "AGENTS.md": "sha256:f3a696c61e63c93fd47357999217121c7b0d4ab3a0debb9862e2000aa64e121e",
+    "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:06d6c560b16cc47ba724b5992ede501aeef56a79c2e76c0ff0336a42d5eafd02",
+      "name": "personal",
+      "rev": "v0.1.0",
+      "sha": "4532a920dc4bfad121fcf76cfbf4da9283280f43",
+      "source": "path:../agent-layer-personal"
+    },
+    {
+      "contentHash": "sha256:ed50e4e24a7dc536a66c8ba8c5aaed0e0a06d1cc91e7473428b057b1b8bd049d",
+      "name": "agent-layerz",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "public"
+}

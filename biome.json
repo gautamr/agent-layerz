@@ -7,7 +7,16 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!test/fixtures", "!docs", "!**/*.md"]
+    "includes": [
+      "**",
+      "!test/fixtures",
+      "!docs",
+      "!**/*.md",
+      "!.claude",
+      "!.mcp.json",
+      "!layer.lock",
+      "!backlog"
+    ]
   },
   "formatter": {
     "enabled": true,

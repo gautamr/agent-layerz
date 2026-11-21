@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "backlog": {
+      "args": [
+        "mcp",
+        "start"
+      ],
+      "command": "backlog"
+    }
+  }
+}

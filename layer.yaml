@@ -1,0 +1,13 @@
+# agent-layerz builds its own agent configuration with alz.
+stack:
+  - source: path:../agent-layer-personal # moves to github: once the personal layer is public (see backlog)
+    ref: v0.1.0
+  - source: path:./.layer # this repository's layer
+targets: [claude]
+mcp:
+  enable: [backlog]
+budgets:
+  instructions_max_lines: 200
+options:
+  commit_generated: true
+  strict_slots: true
