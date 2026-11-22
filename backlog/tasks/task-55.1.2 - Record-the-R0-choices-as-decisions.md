@@ -1,10 +1,10 @@
 ---
 id: TASK-55.1.2
 title: Record the R0 choices as decisions
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-22T15:52:00Z'
-updated_date: '2026-11-22T16:31:00Z'
+updated_date: '2026-11-22T16:39:00Z'
 labels:
   - area:rust
   - area:spec
@@ -17,6 +17,7 @@ references:
   - decision-25
   - decision-26
   - decision-27
+  - decision-28
 parent_task_id: TASK-55.1
 priority: high
 ordinal: 60390
@@ -30,8 +31,8 @@ The owner decides; the architect drafts each with options and a recommendation, 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Six accepted decisions exist, one per choice, each with Context, Decision and Consequences filled
-- [ ] #2 doc-5 and doc-6 are updated where a decision changes them
+- [x] #1 Six accepted decisions exist, one per choice, each with Context, Decision and Consequences filled
+- [x] #2 doc-5 and doc-6 are updated where a decision changes them
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -82,4 +83,38 @@ The owner decides; the architect drafts each with options and a recommendation, 
 - decision-26: the spec owns streams, diagnostics and exit codes; clap owns help, usage errors and --version, sanitised by alz (choice 5)
 - decision-27: rustix 1.1.6 or later only, behind alz-io capability types with an alz-owned no-follow walk (directory access)
 doc-5 updated through backlog doc update: "Choices to settle" became "Choices settled in R0", pointing to the decisions with YAML still open (TASK-55.1.1); the Rust standard bullets name decision-25, -26 and -27; the R7 row lists the four targets. doc-6 updated: decisions in the header; in the §2 tree, the alz binary's clippy.toml, the note that a crate's clippy.toml replaces the root one, xtask and fuzz marked as later, rustix and the git binary named, rust-toolchain.toml kept only if it matches the mise pin; the §2 bullet on the binary ban. The spec is not touched: the "Output and exit codes" section is a consequence of decision-26 for a later task. Still open for AC #1: the YAML decision (choice 2, TASK-55.1.1). No acceptance criteria checked.
+
+2026-11-22 architect, finalisation.
+- decision-28 (YAML, from TASK-55.1.1) was created as accepted, with its body filled by hand under the standing exception.
+- doc-5 updated: choice 2 is now settled with decision-28, the R2 row names it, and the intro points to both tasks' notes.
+- doc-6 updated: the header names decision-28; alz-core gets a src/yaml/ module (the serde-saphyr wrapper, the alz-owned tree, diagnostics); src/render/ names alz's own YAML emitter.
+
+Evidence:
+- AC #1: a script over backlog/decisions/decision-2[3-8] shows all six with status accepted and non-empty Context, Decision and Consequences: decision-23 8/17/8 lines, decision-24 20/13/9, decision-25 12/11/10, decision-26 16/12/11, decision-27 24/13/15, decision-28 22/23/29.
+- AC #2: doc-5 and doc-6 were changed through backlog doc update. The first five decisions' changes are in commit 2a06708. The YAML changes are uncommitted in this working tree; git diff --stat shows doc-5 +11/-6 and doc-6 +8/-3, and git diff --check passes.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Recorded the six R0 choices as accepted owner decisions, each with Context, Decision and Consequences:
+- decision-23: workspace layout per doc-6, with the binary also banned from fs, process and env; xtask and fuzz added when needed;
+- decision-24: the git binary with argument arrays and an explicit environment;
+- decision-25: Rust 1.100.0 pinned through mise, MSRV equal to the pin, four release targets including static musl Linux;
+- decision-26: the spec owns streams, diagnostics and exit codes; clap owns help, usage and --version, sanitised by alz;
+- decision-27: rustix 1.1.6 or later behind alz-io capability types;
+- decision-28: serde-saphyr =2.2.0 into an alz-owned tree, with an alz-owned emitter.
+
+doc-5 ("Choices settled in R0", Rust standard, R2 and R7 rows) and doc-6 (header, §2 tree and the binary-ban bullet) now point to the decisions.
+
+Verified that a crate's clippy.toml replaces the root one rather than merging (clippy 1.99) and that clap 4.6.9 echoes control characters. Both are recorded for TASK-55.1.3.
+
+Follow-ups carried by the decisions' consequences:
+- spec sections for output and exit codes, and for the YAML parse differences, with a minor bump at cutover;
+- mise/rustup agreement, checked in TASK-55.1.3;
+- the musl build tooling, in R7;
+- GIT_* inheritance, in R3;
+- writes through links in the repository, in R5.
+
+The spec is not changed. Board and docs only; no code or tests.
+<!-- SECTION:FINAL_SUMMARY:END -->

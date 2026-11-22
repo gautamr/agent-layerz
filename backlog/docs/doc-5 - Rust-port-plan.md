@@ -3,7 +3,7 @@ id: doc-5
 title: Rust port plan
 type: specification
 created_date: '2026-11-22T12:53:00Z'
-updated_date: '2026-11-22T16:30:00Z'
+updated_date: '2026-11-22T16:38:00Z'
 ---
 # Rust port plan
 
@@ -80,7 +80,7 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 | --- | --- | --- |
 | R0 | Foundation and choices | Repository layout, toolchain through mise, crate choices recorded as decisions, CI job skeleton |
 | R1 | Language-neutral suite | Every acceptance test drives a binary chosen by `ALZ_BIN`; the six source-importing files become CLI tests or move to TypeScript-only unit tests; TASK-54 temp-folder clean-up |
-| R2 | Core model | Manifest, layer meta, lock, account model, YAML with size and alias limits, diagnostics, sanitising |
+| R2 | Core model | Manifest, layer meta, lock, account model, YAML with size and alias limits (serde-saphyr into alz's own tree, and alz's own emitter, decision-28), diagnostics, sanitising |
 | R3 | Resolve | Sources (`path:`, `git:`, `github:` with the guarded clone), cache layout and integrity, safe file reads with `openat` |
 | R4 | Merge | Every merge rule, protected variables, who may declare |
 | R5 | Render, adapters and commands | Claude adapter, adoption, `init`, `build`, `check`, `diff`, `ls`, `explain`, `doctor`, `lint` |
@@ -90,16 +90,21 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 
 ## Choices settled in R0 (owner)
 
-The owner answered on 2026-11-22 (TASK-55.1.2). The options and trade-offs are in that task's notes.
+The owner answered on 2026-11-22. The options and trade-offs are in the notes of TASK-55.1.2, and
+for YAML in TASK-55.1.1.
 
 1. Repository layout and 6. crate layout, decision-23: a Cargo workspace at the root of this
    repository, next to the TypeScript code until cutover. The crates are those of doc-6 (alz-core,
    alz-io, alz, alz-test-support). The binary is also banned from `std::fs`, `std::process` and
    `std::env`, so only `alz-io` performs effects. `xtask` and `fuzz` are added when they are first
    needed.
-2. YAML library: not decided yet. `serde_yaml` is unmaintained; candidates must support alias
-   limits and give errors without quoting content. The spike is TASK-55.1.1, and its result is
-   recorded as a decision.
+2. YAML library, decision-28, from the TASK-55.1.1 spike: `serde-saphyr` pinned `=2.2.0`,
+   deserialisation only, with YAML 1.2 core options and limits (100 aliases, depth 64, 20000
+   nodes, 10000 replayed events) and a 1 MiB cap per file before parsing. alz reads into its own
+   YAML tree and converts that tree in its own code; diagnostics come from the error variant and
+   location only. Generated YAML comes from alz's own emitter, tested byte for byte against the
+   TypeScript output. The fallback is `yaml_serde`. The parse changes users will see go into the
+   spec later, and cutover needs a minor version bump.
 3. Git access, decision-24: the `git` binary with argument arrays and an explicit, guarded child
    environment; no git library.
 4. MSRV and targets, decision-25: Rust 1.100.0 pinned through mise, with the MSRV equal to the

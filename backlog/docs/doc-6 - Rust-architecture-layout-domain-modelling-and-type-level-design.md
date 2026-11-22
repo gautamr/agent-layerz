@@ -3,13 +3,14 @@ id: doc-6
 title: 'Rust architecture: layout, domain modelling and type-level design'
 type: specification
 created_date: '2026-11-22T14:38:00Z'
-updated_date: '2026-11-22T16:30:00Z'
+updated_date: '2026-11-22T16:38:00Z'
 ---
 # Rust architecture: layout, domain modelling and type-level design
 
 Companion to doc-5 (plan), decision-21 (Rust) and decision-22 (idiomatic Rust). The layout in §2
 was adopted with two changes in decision-23 (TASK-55.1.2). Git access is decision-24, the
-toolchain and targets decision-25, output text decision-26, and directory access decision-27.
+toolchain and targets decision-25, output text decision-26, directory access decision-27, and
+YAML decision-28.
 Nothing here mirrors `src/`; it starts from what alz is.
 
 ## 1. What alz is, for design purposes
@@ -52,7 +53,11 @@ agent-layerz/
 │   │   ├── src/item/          # Agent, Skill, Command, Rule, Hook, Permission, McpServer, Model
 │   │   ├── src/merge/         # one module per item type; the merge algebra (§4)
 │   │   ├── src/target/        # Target trait (sealed); claude/, later codex/: anti-corruption layer
-│   │   ├── src/render/        # FileTree (in memory), deterministic serialisation
+│   │   ├── src/yaml/          # serde-saphyr =2.2.0 wrapper (decision-28): options and limits, alz's own
+│   │   │                      # YAML tree via deserialize_any, conversion to domain types, diagnostics
+│   │   │                      # from the error variant and location only
+│   │   ├── src/render/        # FileTree (in memory), deterministic serialisation, and alz's own YAML
+│   │   │                      # emitter, tested byte for byte against the TypeScript output (decision-28)
 │   │   ├── src/lock/          # Lock, ObjectId, ContentHash
 │   │   ├── src/identity/      # CommitIdentity and its decision rules
 │   │   ├── src/account/       # AccountName, declarations, resolution decision (pure)

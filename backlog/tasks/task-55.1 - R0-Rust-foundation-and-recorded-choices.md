@@ -4,7 +4,7 @@ title: 'R0: Rust foundation and recorded choices'
 status: In Progress
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T16:31:00Z'
+updated_date: '2026-11-22T16:39:00Z'
 labels:
   - area:rust
   - area:spec
@@ -16,6 +16,7 @@ references:
   - decision-25
   - decision-26
   - decision-27
+  - decision-28
 parent_task_id: TASK-55
 priority: high
 ordinal: 33390
@@ -45,4 +46,6 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 2026-11-22: split into small subtasks (spike, decisions, skeleton, tooling, CI). The .layer Rust rule, Rust-aware agents, rust:check and the cargo stop hook were done in commit 23ca45e, which covers the rule half of AC #2; CI enforcement is the CI subtask.
 
 2026-11-22: R0 choices 1, 3, 4, 5 and the directory-access crate are recorded as decision-23 to decision-27 (TASK-55.1.2). The YAML library (TASK-55.1.1) is still open.
+
+2026-11-22: the YAML library (doc-5 choice 2) is recorded as decision-28 (TASK-55.1.1). All six R0 choices are now decisions: decision-23 to decision-28.
 <!-- SECTION:NOTES:END -->
