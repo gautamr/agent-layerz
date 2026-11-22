@@ -1,0 +1,18 @@
+[package]
+name = "alz"
+version = "0.1.0"
+description = "Compose layered coding-agent configuration into repositories"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+clap.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+
+[lints]
+workspace = true
