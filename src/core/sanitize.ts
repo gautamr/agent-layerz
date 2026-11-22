@@ -34,3 +34,21 @@ export function displayPath(path: string, home: string | undefined): string {
   }
   return text;
 }
+
+/**
+ * Text from an untrusted source for a prompt or a decision a person makes on it: quoted, with
+ * every character other than printable ASCII shown as `\u{XXXX}` instead of being removed, so a
+ * zero-width character, a bidirectional control or a look-alike letter is visible and two
+ * sources that differ only by such a character never print alike.
+ */
+export function quoteEscaped(text: string): string {
+  const body = [...text]
+    .map((char) => {
+      if (char === '"' || char === "\\") return `\\${char}`;
+      const code = char.codePointAt(0) ?? 0;
+      if (code >= 0x20 && code <= 0x7e) return char;
+      return `\\u{${code.toString(16).toUpperCase().padStart(4, "0")}}`;
+    })
+    .join("");
+  return `"${body}"`;
+}

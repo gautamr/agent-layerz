@@ -52,11 +52,11 @@
     ".claude/skills/sprint-planning/SKILL.md": "sha256:c6e70f4553d6b592f04f75d11dcbba6fcb0848088a62c683a652add989e3e274",
     ".claude/skills/standup/SKILL.md": "sha256:992f8973b8714318933548982bf47582cfb910f1c6a897217b182482d2a6a331",
     ".claude/skills/task-routing/SKILL.md": "sha256:d449d7f76f970c268c1a6fab450039aa45c45ecca5a10a6bfe9b0eb2160c1c55",
-    ".claude/skills/threat-model/SKILL.md": "sha256:61b5be380801a0c1f5d227ba15a145f23bf5163068c41ed4c2c82bb89142f436",
+    ".claude/skills/threat-model/SKILL.md": "sha256:1422b0fecfb43ea0a78ced3fb51dcf54db772e754ac444b5826fe47d94a1db1f",
     ".claude/skills/triage/SKILL.md": "sha256:0abed58db7d85f2bdc29c47822c140d20e03271b3de51578b6570e4872cd4a21",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:097386714c222f03dc7cf2bc06d9e8b191863c975494b4f38363a5f825b683f4",
+    "AGENTS.md": "sha256:84e494bda98092ae5ad77980621193eeb645639d92f4928947b4a2efe6f8eb6c",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
@@ -68,7 +68,7 @@
       "source": "path:../agent-layer-personal"
     },
     {
-      "contentHash": "sha256:b3178ef2abcb8b61063adc9dc5ba8937adaae917fe6aa0099c4a0af4e80cf418",
+      "contentHash": "sha256:3351dc3d03bd1381ab2c7f62cb2cbd7720fea0a593c99ff7ecc7e5c5c79a28fa",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

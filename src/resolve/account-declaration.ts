@@ -49,6 +49,8 @@ export type AccountDeclaration =
         /** The per-target map as declared. */
         account: AccountMap;
         layer: LayerRef;
+        /** The stack entry's `ref`, raw text exactly as written, for display: quote it. */
+        ref?: string;
         /** The lock's commit SHA, the revision of §5.3; an unpinned `path:` layer has none. */
         sha?: string;
         /**
@@ -124,6 +126,7 @@ export function readAccountDeclaration(input: CachedStackInput): AccountDeclarat
       declared: {
         account: winner.value,
         layer: ref(winner.layer),
+        ref: winner.layer.entry.ref,
         sha: winner.layer.sha,
         recordedSource: recorded,
       },

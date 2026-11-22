@@ -5,7 +5,9 @@ import type { DeclaredIdentity } from "../../merge/commit-identity";
 import { LOCK_FILE } from "../../model/lock";
 import { computeBuild } from "../../pipeline";
 import { planWorkspace } from "../../render/workspace";
+import { allowHint } from "../../resolve/account-allow-hint";
 import { buildContext, type Io, printDiagnostics } from "../io";
+import { personAtTerminal } from "../terminal";
 import { collisionMessage } from "./build";
 
 /** `alz check [--skip-identity]`: rebuild in memory and fail if the repo, the lock or the git identity differs (CI, Stop hook). */
@@ -27,6 +29,19 @@ export function checkCommand(io: Io, options: { skipIdentity: boolean }): number
     ...(plan.lockChanged ? [`error [check] ${LOCK_FILE}: out of date\n`] : []),
   ];
   for (const problem of problems) io.stderr(problem);
+  // §7.13 'Trust': only when this comparison passed, because `alz account allow` needs the
+  // lock a build writes; whatever the identity result.
+  if (problems.length === 0 && personAtTerminal(io)) {
+    const lines = allowHint({
+      repoRoot: ctx.repoRoot,
+      stack: result.manifest.stack,
+      home: ctx.home,
+      env: io.env,
+      uid: process.getuid?.(),
+      declares: result.config.account !== undefined,
+    });
+    for (const line of lines) io.stderr(`note [account-allow] ${line}\n`);
+  }
   const identityFailed =
     !options.skipIdentity && reportIdentity(io, ctx.repoRoot, result.config.commitIdentity);
   if (problems.length > 0) {

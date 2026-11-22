@@ -1,5 +1,5 @@
 import { lstatSync, realpathSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { type Env, envManagerActive } from "../core/env";
 import { isWithin, readRegularFileWithId } from "../core/files";
 import { displayPath } from "../core/sanitize";
@@ -75,7 +75,7 @@ function othersCanWrite(mode: number): boolean {
  * `dir` and each parent strictly below `$HOME`, or only `dir` when it lies outside `$HOME`.
  * Returns the first that breaks the rule, with the reason.
  */
-function weakDirectory(
+export function weakDirectory(
   dir: string,
   realHome: string,
   uid: number,
@@ -100,12 +100,98 @@ function weakDirectory(
   return undefined;
 }
 
-/** Is the path inside a git work tree? Only `lstat` of `.git`; no git runs. */
-function insideWorkTree(real: string): boolean {
-  for (let current = dirname(real); ; current = dirname(current)) {
-    if (lstatOrUndefined(join(current, ".git")) !== undefined) return true;
-    if (dirname(current) === current) return false;
+/**
+ * The `.git` (a folder or a file) that makes `path` part of a git work tree, or undefined. Only
+ * `lstat` of `.git` in each directory above the path, as written; no git runs. Only a git
+ * checkout is detected: an archive, a jj repository without git, Mercurial, Sapling and a bare
+ * repository used for dotfiles leave no `.git` and are not.
+ */
+function workTreeMarker(path: string): string | undefined {
+  for (let current = dirname(path); ; current = dirname(current)) {
+    const marker = join(current, ".git");
+    if (lstatOrUndefined(marker) !== undefined) return marker;
+    if (dirname(current) === current) return undefined;
   }
+}
+
+/** `$HOME` as written, or as its real path when the marker was found by real path. */
+function shownHome(path: string, home: string): string {
+  const real = realOrResolved(home);
+  return isWithin(real, path) ? real : home;
+}
+
+/**
+ * The refusal for an approval file inside a git work tree, checked for the real path and for the
+ * path as located, so a link placed inside a work tree is refused even when its target is not.
+ */
+function workTreeProblem(realFile: string, locatedFile: string, home: string): string | undefined {
+  const marker = workTreeMarker(realFile) ?? workTreeMarker(locatedFile);
+  return marker === undefined
+    ? undefined
+    : `it lies inside a git work tree (${displayPath(marker, shownHome(marker, home))})`;
+}
+
+/**
+ * The checks of §7.13 'Both files' that depend only on the text of the path and the
+ * environment, before the file is looked for: the path names an account folder, or an `XDG_*`
+ * variable that mise or direnv may have set points away from its default. A fixed phrase, or
+ * undefined. The reader and the writer of `allowed.yaml` both call it.
+ */
+export function unplacedReason(name: AccountFileName, home: string, env: Env): string | undefined {
+  const { path, variable } = locateAccountFile(name, home, env);
+  const homes = [...new Set([resolve(home), realOrResolved(home)])];
+  if (namesAccountFolder(path, homes, env)) return "it lies inside an account folder";
+  const base = xdgBase(env, variable, home, LOCATION[name].fallback);
+  // Before the existence check, so a folder that mise or direnv moved the lookup to is reported
+  // even when nothing is there yet.
+  if (envManagerActive(env) && base.fromVariable) {
+    const moved = realOrResolved(base.dir);
+    const normal = realOrResolved(join(home, LOCATION[name].fallback));
+    if (moved !== normal) {
+      return `${variable} points away from its default and mise or direnv is active here`;
+    }
+  }
+  return undefined;
+}
+
+/** The nearest directory at or above `dir` that exists, as written. */
+function nearestExisting(dir: string): string {
+  for (let current = dir; ; current = dirname(current)) {
+    if (lstatOrUndefined(current) !== undefined || dirname(current) === current) return current;
+  }
+}
+
+/**
+ * The checks of §7.13 'Both files' on the real path of `allowed.yaml`, as the reader makes them before
+ * it opens it: inside an account folder, inside the current repository, inside a git work tree, and a directory that
+ * group or others can write or that the user does not own, for the directory of the real path
+ * and for `locatedDir`, the directory of the path as located. The writer uses it for a file
+ * that is not there yet, so a directory that does not exist yet is checked through its nearest
+ * existing parent (never `$HOME` itself, which the reader does not check either). A fixed
+ * phrase, or undefined.
+ */
+export function placementProblem(
+  realFile: string,
+  locatedDir: string,
+  ctx: AccountFileContext & { uid: number },
+  /** The path as located, for the work tree check; default: the real file name in `locatedDir`. */
+  locatedFile = join(locatedDir, basename(realFile)),
+): string | undefined {
+  const { home, env, uid } = ctx;
+  if (touchesAccountFolder(realFile, home, env)) return "it lies inside an account folder";
+  if (ctx.root !== undefined && isWithin(ctx.root, realFile)) {
+    return "it lies inside the current repository";
+  }
+  const inTree = workTreeProblem(realFile, locatedFile, home);
+  if (inTree !== undefined) return inTree;
+  const realHome = realOrResolved(home);
+  for (const dir of new Set([dirname(realFile), locatedDir])) {
+    const existing = nearestExisting(dir);
+    if (existing !== dir && existing === realHome) continue;
+    const weak = weakDirectory(existing, realHome, uid, home);
+    if (weak !== undefined) return weak;
+  }
+  return undefined;
 }
 
 /**
@@ -135,18 +221,8 @@ export function readAccountFile(
 
   // No file system call before these three: they depend only on the text of the path.
   if (uid === undefined) return ignore("the owner of the file cannot be checked on this platform");
-  const homes = [...new Set([resolve(home), realOrResolved(home)])];
-  if (namesAccountFolder(path, homes, env)) return ignore("it lies inside an account folder");
-  const base = xdgBase(env, variable, home, LOCATION[name].fallback);
-  // Before the existence check, so a folder that mise or direnv moved the lookup to is reported
-  // even when nothing is there yet.
-  if (envManagerActive(env) && base.fromVariable) {
-    const moved = realOrResolved(base.dir);
-    const normal = realOrResolved(join(home, LOCATION[name].fallback));
-    if (moved !== normal) {
-      return ignore(`${variable} points away from its default and mise or direnv is active here`);
-    }
-  }
+  const unplaced = unplacedReason(name, home, env);
+  if (unplaced !== undefined) return ignore(unplaced);
   let real: string;
   try {
     real = realpathSync.native(path);
@@ -160,6 +236,9 @@ export function readAccountFile(
   if (ctx.root !== undefined && isWithin(ctx.root, real)) {
     return ignore("it lies inside the current repository");
   }
+  // An approval file inside any git work tree could be planted by a checkout: refuse it.
+  const inTree = name === "allowed.yaml" ? workTreeProblem(real, path, home) : undefined;
+  if (inTree !== undefined) return ignore(inTree);
   const read = readRegularFileWithId(real, MAX_FILE_BYTES);
   if (read === "missing") return { file: { path, status: "missing" } };
   if (read === "invalid")
@@ -176,7 +255,7 @@ export function readAccountFile(
   } catch {
     return ignore("it is not valid YAML");
   }
-  if (insideWorkTree(real)) {
+  if (name === "accounts.yaml" && workTreeMarker(real) !== undefined) {
     warnings.add(
       "file-in-work-tree",
       `${name} (${shown}) lies inside a git work tree; keep it outside every repository`,

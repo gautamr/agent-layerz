@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@claude'
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T08:20:00Z'
+updated_date: '2026-11-22T11:19:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -80,6 +80,8 @@ Fact recorded for TASK-50.8: docs/target-facts.md §12 item 15, new row 'Codex: 
 2026-11-22 owner: hold any release with the account field until TASK-50.11 is Done (releases are CI-only and the pipeline does not exist yet anyway).
 
 2026-11-22 coordinator: the release that ships the account field holds until every TASK-50 subtask is Done (not only TASK-50.11).
+
+2026-11-22 release gates before the TASK-50 minor release: owner checks O5 (Codex session markers observed in a real session) and O8 (whether Claude and Codex sandboxes block tmux, open/LaunchServices and osascript launchers), plus the manual alz account allow terminal check (accepts in a terminal window, refuses in an IDE terminal).
 <!-- SECTION:NOTES:END -->
 
 ## Comments

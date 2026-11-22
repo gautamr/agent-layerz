@@ -160,12 +160,17 @@ commit_identity:
 | `alz explain <type> <name>` | Every layer that contributed to an item, in order, and the merged result. |
 | `alz doctor` | Name collisions in account dirs, installed tool version, slots, budgets. |
 | `alz account which` | The account each target (Claude Code, Codex) would use in this directory, where it comes from and why each other source was skipped; read-only. Exits 1 when a named account cannot apply. |
+| `alz account allow [--remove]` | Accept (or withdraw) the account this repository's layers name: shows what it would record and asks you to type each account name. Only a person at a terminal outside an agent session can run it; there is no `--yes`. Writes `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`. Until it runs, a layer-named account does not apply; `alz build` and `alz check` print the command on a terminal. |
 | `alz lint [--layer <path>]` | Validate a layer: schema, leak guard for public layers, slots. |
 
 ## Safety
 
-- `alz` writes only inside the repository and its cache (`~/.cache/agent-layerz`). It never
-  overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
+- `alz` writes only inside the repository and its cache (`~/.cache/agent-layerz`), and, for
+  `alz account allow` only, `allowed.yaml` in `${XDG_STATE_HOME:-~/.local/state}/agent-layerz`
+  (never inside a repository, an account folder or a git work tree or, for a linked file, the
+  directory of its real path, which passes the same checks; missing parent folders are created
+  with mode 0700).
+  It never overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
 - The only git config it writes is the missing `user.name` and `user.email` in the repository's
   own `.git/config`, by `init` and `build --adopt`; never a global or system file.
 - It never reads credentials or `.env` files, and never stores secret values: MCP servers name

@@ -82,8 +82,13 @@ run `mise run alz:build`. Never edit generated files.
 ## Invariants
 - Content of the repository being built is untrusted: `layer.yaml`, `layer.lock`, remote layers.
   Validate it before it reaches the file system or a subprocess.
-- Every write and delete goes through `insideRoot`. Outside the repo, only the cache
-  (`~/.cache/agent-layerz`) is written; account folders are read for names only.
+- Every write and delete goes through `insideRoot`. Outside the repo, alz writes only the layer
+  cache (`~/.cache/agent-layerz`) and `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`
+  with its lock and temporary file, which only `alz account allow` writes, through
+  `src/resolve/account-allow-writer.ts`. That file never lies inside the repo, an account folder
+  or a git work tree or, for a linked `allowed.yaml`, the directory of its real path, which
+  passes the same checks; missing parent folders are created with mode 0700. Account folders
+  are read for names only.
 - Builds are deterministic: same inputs, byte-identical output.
 - Never overwrite a file the tool did not generate. Security only gets stricter down the stack.
 

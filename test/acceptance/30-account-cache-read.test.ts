@@ -286,6 +286,7 @@ describe("§13.20 cache index and cache misses: the pathref@ index (AC 1)", () =
     expect(result.declared).toEqual({
       account: { claude: "client-a", codex: "client-a-api" },
       layer: { index: 1, name: "client", source: "path:../hub/layer" },
+      ref: "v1",
       sha: s.v1,
       recordedSource: s.hubLayer,
     });

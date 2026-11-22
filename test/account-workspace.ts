@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import type { Terminal } from "../src/cli/terminal";
 import { stringifyYaml } from "../src/core/yaml";
 import { gitEntryName } from "../src/resolve/cache-paths";
 import { hashLayerDir } from "../src/resolve/layer-hash";
@@ -45,8 +46,8 @@ export interface Setup {
 }
 
 /** A copy of the fixture without git: enough for every case that never builds. */
-export function plain(): Setup {
-  const ws = fixture(FIXTURE);
+export function plain(name = FIXTURE): Setup {
+  const ws = fixture(name);
   const real = realpathSync.native(ws.root);
   return {
     ws,
@@ -60,8 +61,8 @@ export function plain(): Setup {
 }
 
 /** The hub is a git repository tagged `v1` and `v2`; the layer's content differs between them. */
-export function setup(): Setup {
-  const s = plain();
+export function setup(name = FIXTURE): Setup {
+  const s = plain(name);
   const { ws, hub } = s;
   sh(ws, hub, ["init", "--quiet", "--initial-branch=main"]);
   sh(ws, hub, ["add", "."]);
@@ -84,8 +85,14 @@ export function envFor(s: Setup, extra: Record<string, string> = {}): Record<str
   };
 }
 
-export function alz(s: Setup, args: string[], extra: Record<string, string> = {}, dir = "repo") {
-  return layers(s.ws, dir, args, envFor(s, extra));
+export function alz(
+  s: Setup,
+  args: string[],
+  extra: Record<string, string> = {},
+  dir = "repo",
+  terminal?: Terminal,
+) {
+  return layers(s.ws, dir, args, envFor(s, extra), terminal);
 }
 
 function stackYaml(...entries: [source: string, ref?: string][]): string {
@@ -103,8 +110,8 @@ export function useStack(s: Setup, ...entries: [source: string, ref?: string][])
 }
 
 /** Builds the standard stack: personal in place, the hub's layer pinned to `ref`, the repo layer. */
-export async function built(ref = "v1"): Promise<Setup> {
-  const s = setup();
+export async function built(ref = "v1", name = FIXTURE): Promise<Setup> {
+  const s = setup(name);
   useStack(s, PERSONAL, ["path:../hub/layer", ref], REPO_LAYER);
   const result = await alz(s, ["build"]);
   if (result.code !== 0) throw new Error(`build failed: ${result.stderr}`);

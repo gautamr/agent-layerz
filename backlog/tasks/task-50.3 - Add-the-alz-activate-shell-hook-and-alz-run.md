@@ -4,7 +4,7 @@ title: Add alz run <tool> [--account <name>]
 status: To Do
 assignee: []
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T03:35:00Z'
+updated_date: '2026-11-22T09:52:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -61,6 +61,15 @@ created: 2026-11-22T03:35:00Z
 ---
 
 TASK-50.2 was split on 2026-11-22 into TASK-50.8 to TASK-50.11. This task still depends on TASK-50.2, which is Done only when all four slices are. The resolver it calls is TASK-50.10. Its result also lists declarations ignored because their layer may not declare (LAYERING-SPEC §13 test 24: "alz run, the hook and alz account which ignore it with one warning"), so this task's tests should include one such case.
+
+---
+
+author: @architect
+created: 2026-11-22T09:52:00Z
+
+---
+
+From planning TASK-50.11 (owner question 5 there): LAYERING-SPEC §7.13 says 'The shell hook and alz run never print [the alz account allow command]', while §7.13 'fails closed' and §10 say alz run names alz account allow as the fix for a changed declaration or source. Proposed reading, applied to the spec in TASK-50.11's PR: alz run never prints the allow hint for a repository that is not allowed yet, and names alz account allow only as its fail-closed fix. Check TASK-50.11's comment for the owner's answer before planning this task.
 
 ---
 <!-- COMMENTS:END -->

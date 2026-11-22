@@ -9,6 +9,7 @@ import {
   isAccountName,
 } from "../model/account";
 import { accountWhichCommand } from "./commands/account";
+import { accountAllowCommand } from "./commands/account-allow";
 import { buildCommand } from "./commands/build";
 import { checkCommand } from "./commands/check";
 import { diffCommand } from "./commands/diff";
@@ -38,6 +39,8 @@ const USAGE = `usage: alz <command> [options]   (alz --version)
   doctor                              account-dir collisions, tool versions, slots, budgets
   lint [--layer <path>]               schema, leak guard and slots of a layer
   account which [--use <target>=<name>]...   the account each target would use here, and why
+  account allow [--remove]            accept (or withdraw) the account this repository's layers name;
+                                      a person at a terminal outside an agent session only
 `;
 
 /** `--use <target>=<name>`, as the alz shell function passes an `alz use` choice. */
@@ -119,6 +122,17 @@ export async function run(argv: string[], io: Io): Promise<number> {
       }
       case "account": {
         const [sub, ...args] = rest;
+        if (sub === "allow") {
+          // Strict: `--yes`, `-y`, any other option and any positional is a usage error. There
+          // is no way to answer for the person.
+          const { values } = parseArgs({
+            args,
+            options: { remove: { type: "boolean", default: false } },
+            strict: true,
+            allowPositionals: false,
+          });
+          return accountAllowCommand(io, { remove: values.remove });
+        }
         if (sub !== "which") {
           io.stderr(`unknown account command '${stripControl(sub ?? "")}'\n\n${USAGE}`);
           return 2;

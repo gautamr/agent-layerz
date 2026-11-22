@@ -1,4 +1,5 @@
 import { type Diagnostic, formatDiagnostic } from "../../core/diagnostics";
+import { displayPath, quote } from "../../core/sanitize";
 import type { AccountMap } from "../../model/account";
 import { describeTarget, fileLine, repositoryLine } from "../../resolve/account-messages";
 import { resolveAccounts } from "../../resolve/account-resolution";
@@ -27,6 +28,10 @@ export function accountWhichCommand(io: Io, options: AccountWhichOptions): numbe
   line(repositoryLine(result.repository, home));
   line(fileLine("accounts.yaml", result.accountsFile, home));
   line(fileLine("allowed.yaml", result.allowedFile, home, result.allowedFile.allowed));
+  // Approvals for a root that does not exist here match nothing, but stay in the file.
+  for (const root of result.staleApprovals) {
+    line(`  stale approval: ${quote(displayPath(root, home))} does not exist here`);
+  }
   for (const account of result.targets) {
     for (const text of describeTarget(account, result, home)) line(text);
   }

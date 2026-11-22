@@ -41,6 +41,7 @@ import {
 } from "../account-workspace";
 import { traced, tracedAsync } from "../fs-trace";
 import { readTree } from "../helpers";
+import { valueImports } from "../import-graph";
 
 vi.mock("node:fs", async (importOriginal) =>
   (await import("../fs-trace")).intercept(
@@ -507,7 +508,7 @@ describe("§13.19 paths: the repository root and the folders entries (AC 4)", ()
       expect(result.stdout).toContain(
         "layer step skipped (layer.yaml cannot be read); fails closed",
       );
-    }, 10_000);
+    });
 
     it("opens a regular file without waiting for a writer (O_NONBLOCK), so a swapped-in FIFO cannot hang it", () => {
       const s = plain();
@@ -842,6 +843,33 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
     expect(result.stdout).toContain(applied);
     expect(warningLines(result.stderr)).toHaveLength(1);
     expect(result.stderr).toContain("lies inside a git work tree");
+  });
+
+  it("ignores allowed.yaml inside a git work tree, which a checkout could have planted", async () => {
+    const s = await built();
+    accountFolder(s, CLIENT_A, CLIENT_A_API);
+    writeAllowed(s, [hubEntry(s)]);
+    mkdirSync(`${s.ws.home}/.local/state/.git`);
+    const result = await which(s);
+    expect(result.stdout).toContain("allowed.yaml: ~/.local/state/agent-layerz/allowed.yaml");
+    expect(result.stdout).toContain(
+      "(ignored: it lies inside a git work tree (~/.local/state/.git))",
+    );
+    expect(result.stdout).toContain("claude: default (source: default)");
+    expect(warningLines(result.stderr)).toHaveLength(1);
+  });
+
+  it("lists an approval for a root that does not exist here, quoted and with ~ for $HOME", async () => {
+    const s = plain();
+    writeAllowed(s, [
+      hubEntry(s, { root: `${s.ws.home}/gone` }),
+      hubEntry(s, { root: `${s.ws.home}/we\u001b[31mird` }),
+    ]);
+    const result = await which(s);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain('  stale approval: "~/gone" does not exist here');
+    expect(result.stdout).toContain('  stale approval: "~/we[31mird" does not exist here');
+    expect(result.stdout).not.toContain("\u001b");
   });
 
   it("ignores accounts.yaml entries that are not valid, one warning each, without echoing account names", async () => {
@@ -1212,35 +1240,6 @@ function listing(dir: string): Record<string, string> {
   return out;
 }
 
-const SRC = join(import.meta.dirname, "../../src");
-
-/** The modules `entry` imports as values, transitively: type-only imports are erased and do not count. */
-function valueImports(entry: string): Set<string> {
-  const seen = new Set<string>();
-  const found = new Set<string>();
-  const visit = (file: string) => {
-    if (seen.has(file)) return;
-    seen.add(file);
-    const text = readFileSync(file, "utf8");
-    const pattern =
-      /^(?:import|export)\s+(type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+))?\s+from\s+["']([^"']+)["']/gm;
-    for (const match of text.matchAll(pattern)) {
-      const [, typeOnly, specifier] = match;
-      if (typeOnly || !specifier) continue;
-      if (!specifier.startsWith(".")) {
-        found.add(specifier);
-        continue;
-      }
-      const base = join(file, "..", specifier);
-      const target = existsSync(`${base}.ts`) ? `${base}.ts` : join(base, "index.ts");
-      found.add(target.slice(SRC.length + 1));
-      visit(target);
-    }
-  };
-  visit(join(SRC, entry));
-  return found;
-}
-
 describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
   async function prepared() {
     const s = await built();
@@ -1410,6 +1409,15 @@ describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
         [...imported].filter((name) => forbidden.includes(name)),
         entry,
       ).toEqual([]);
+    }
+  });
+
+  it("does not import the writer of allowed.yaml, or the build and check hint (TASK-50.11)", () => {
+    for (const entry of ["resolve/account-resolution.ts", "cli/commands/account.ts"]) {
+      const imported = [...valueImports(entry)];
+      expect(imported, entry).not.toContain("resolve/account-allow-writer.ts");
+      expect(imported, entry).not.toContain("resolve/account-allow-hint.ts");
+      expect(imported, entry).not.toContain("cli/commands/account-allow.ts");
     }
   });
 });

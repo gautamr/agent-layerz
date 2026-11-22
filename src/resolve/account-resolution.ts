@@ -1,5 +1,6 @@
 import { isAbsolute, join, resolve } from "node:path";
 import { type Env, envManagerActive } from "../core/env";
+import { compareCodePoints } from "../core/files";
 import { displayPath, quote } from "../core/sanitize";
 import { xdgBase } from "../core/xdg";
 import {
@@ -124,6 +125,11 @@ export interface AccountResolution {
     | { status: "none"; reason: NoRoot };
   accountsFile: AccountFile;
   allowedFile: AccountFile & { allowed: boolean };
+  /**
+   * Roots of valid `allowed.yaml` entries that do not resolve on this machine: approvals that
+   * match nothing and that `alz account allow` keeps. Raw text; print through `displayPath` and `quote`.
+   */
+  staleApprovals: string[];
   /** What the default account is called on this machine, when accounts.yaml says so. */
   defaultName?: string;
   targets: TargetAccount[];
@@ -356,6 +362,7 @@ export function resolveAccounts(input: AccountInput): AccountResolution {
         : repository,
     accountsFile: accounts.file,
     allowedFile: { ...allowed.file, allowed: entry !== undefined },
+    staleApprovals: state.unresolved.map((item) => item.root).sort(compareCodePoints),
     defaultName: config.defaultName,
     targets: resolved,
     warnings: warnings.items,
@@ -441,25 +448,14 @@ function resolveLayerStep(input: LayerStepInput): LayerOutcome {
     );
   }
 
-  const cacheDir = cacheLocation(home, env);
-  const declaration: AccountDeclaration =
-    cacheDir === undefined
-      ? { status: "miss", reason: "unreadable" }
-      : readAccountDeclaration({
-          repoRoot: repository.root,
-          stack: repository.stack,
-          cacheDir,
-          home,
-          env,
-        });
-  const miss: MissReason | "cache-location" | undefined =
-    cacheDir === undefined
-      ? "cache-location"
-      : declaration.status === "miss"
-        ? declaration.reason
-        : undefined;
+  const { declaration, miss } = readRepositoryDeclaration(
+    repository.root,
+    repository.stack,
+    home,
+    env,
+  );
 
-  if (declaration.status !== "miss" && cacheDir !== undefined) {
+  if (declaration.status !== "miss" && miss === undefined) {
     for (const ignored of declaration.ignored) {
       warnings.add(
         "declaration-ignored",
@@ -528,6 +524,33 @@ function resolveLayerStep(input: LayerStepInput): LayerOutcome {
     "declaration-changed",
     affected,
   );
+}
+
+/**
+ * The stack of a repository read the way resolution reads it (§7.13 'No fetch on resolve'): the
+ * layer cache location, then `readAccountDeclaration`. Resolution, `alz account allow` and the
+ * build and check hints all call this one function, so `allow` accepts exactly what resolution
+ * applies. `miss` is set when something could not be verified, with `"cache-location"` for a
+ * cache that `XDG_CACHE_HOME` moved while mise or direnv is active. Reads only; no git.
+ */
+export function readRepositoryDeclaration(
+  root: string,
+  stack: StackEntry[],
+  home: string,
+  env: Env,
+): { declaration: AccountDeclaration; miss: MissReason | "cache-location" | undefined } {
+  const cacheDir = cacheLocation(home, env);
+  const declaration: AccountDeclaration =
+    cacheDir === undefined
+      ? { status: "miss", reason: "unreadable" }
+      : readAccountDeclaration({ repoRoot: root, stack, cacheDir, home, env });
+  const miss: MissReason | "cache-location" | undefined =
+    cacheDir === undefined
+      ? "cache-location"
+      : declaration.status === "miss"
+        ? declaration.reason
+        : undefined;
+  return { declaration, miss };
 }
 
 /**
