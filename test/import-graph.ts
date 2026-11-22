@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
 export const SRC = join(import.meta.dirname, "../src");
 
@@ -46,5 +46,58 @@ export function valueImports(entry: string): Set<string> {
     }
   };
   visit(join(SRC, entry));
+  return found;
+}
+
+/** Repository root: the directory above `test/` and `src/`. */
+export const REPO = join(import.meta.dirname, "..");
+
+/**
+ * Every specifier a source text refers to in any form, type-only imports included: `import` and
+ * `export ... from`, `export * from`, side-effect imports, `import()` (inside `vi.mock` factories
+ * too), `require`, and the `vi.mock`, `vi.doMock`, `vi.importActual` and `vi.importMock` literals.
+ */
+export function referencedSpecifiers(text: string): string[] {
+  const typeOnly =
+    /^(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+))?\s+from\s+["']([^"']+)["']/gm;
+  const exportStar = /^export\s+\*\s+from\s+["']([^"']+)["']/gm;
+  const mocks = /\bvi\.(?:mock|doMock|importActual|importMock)\(\s*["'`]([^"'`]+)["'`]/g;
+  const extra = [typeOnly, exportStar, mocks].flatMap((pattern) =>
+    [...text.matchAll(pattern)].flatMap(([, specifier]) => (specifier ? [specifier] : [])),
+  );
+  return [...importedSpecifiers(text), ...extra];
+}
+
+/** The file a relative specifier names from `file`: as written, `.ts`, or a directory `index.ts`. */
+function resolveRelative(file: string, specifier: string): string {
+  const base = join(file, "..", specifier);
+  const isFile = (path: string) => existsSync(path) && statSync(path).isFile();
+  return [base, `${base}.ts`, join(base, "index.ts")].find(isFile) ?? `${base}.ts`;
+}
+
+/**
+ * Every module `entry` reaches through any import form, transitively (see `referencedSpecifiers`).
+ * Paths are relative to `root`; a package (a specifier that does not start with `.`) is reported
+ * as written, and so is a specifier that cannot be followed (`<dynamic import>`). `entry` itself
+ * is not reported. Only `.ts` files are read.
+ */
+export function reachableModules(entry: string, root: string = REPO): Set<string> {
+  const seen = new Set<string>();
+  const found = new Set<string>();
+  const visit = (file: string) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    if (!file.endsWith(".ts") || !existsSync(file)) return;
+    for (const specifier of referencedSpecifiers(readFileSync(file, "utf8"))) {
+      if (!specifier.startsWith(".")) {
+        found.add(specifier);
+        continue;
+      }
+      const target = resolveRelative(file, specifier);
+      if (target !== entry) found.add(relative(root, target));
+      visit(target);
+    }
+  };
+  visit(entry);
   return found;
 }
