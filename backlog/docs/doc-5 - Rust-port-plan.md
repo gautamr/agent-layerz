@@ -3,7 +3,7 @@ id: doc-5
 title: Rust port plan
 type: specification
 created_date: '2026-11-22T12:53:00Z'
-updated_date: '2026-11-22T14:54:00Z'
+updated_date: '2026-11-22T16:30:00Z'
 ---
 # Rust port plan
 
@@ -30,7 +30,7 @@ work. This plan is the starting point; each phase is a task with its own plan an
    both must carry.
 3. Byte-identical generated files: for every fixture, the Rust binary writes the same generated
    files and `layer.lock` as the TypeScript one, because they are committed in users' repositories.
-   Messages follow the spec, not the TypeScript code (choice 5).
+   Messages follow the spec, not the TypeScript code (choice 5, decision-26).
 4. One slice at a time, in the order data flows, each slice passing its share of the suite. The
    phases split the behaviour to port, not the code: crate and module boundaries come from the
    Rust design in R0, not from `src/`.
@@ -44,12 +44,13 @@ work. This plan is the starting point; each phase is a task with its own plan an
 The full standard is the personal skill `gr-rust` (agent-layerz-personal), with type-level design, errors and effects, layout and tooling, testing and anti-patterns; the layout and domain modelling for alz are in doc-6. The summary:
 
 
-- Latest stable Rust, edition 2024, a stated MSRV. `rustfmt` with no custom style.
+- Rust 1.100.0 pinned through mise, edition 2024, MSRV equal to the pin and raised with it
+  (decision-25). `rustfmt` with no custom style.
 - `clippy` with `-D warnings` and the `pedantic` group, plus restriction lints chosen in R0
   (`unwrap_used`, `expect_used`, `panic` outside tests, `print_stdout` outside the output layer).
   Any `allow` names its reason.
 - `unsafe_code = "forbid"` in `[workspace.lints.rust]`, inherited by every crate. File-system safety (`openat`, `O_NOFOLLOW`) comes
-  from a safe crate chosen in R0, such as `rustix` or `cap-std`.
+  from `rustix` 1.1.6 or later, called only inside `alz-io` (decision-27).
 - Types carry the invariants: newtypes for validated values (account names, layer names, object
   ids, sources, safe relative paths) built only by parsing ("parse, don't validate"). Enums, not
   strings, for kinds and states; exhaustive `match`; no stringly typed maps where a struct fits.
@@ -62,7 +63,7 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 - Synchronous code. No async runtime unless a real need appears and is recorded as a decision.
 - CLI with `clap` derive. Exit codes and output stay as the spec defines them; where a Rust
   convention (clap's usage errors, help layout) changes user-visible text, the spec is updated
-  on purpose, not matched by bending the code.
+  on purpose, not matched by bending the code (decision-26).
 - Docs: `missing_docs` on public items through the workspace lints (CI runs with `-D warnings`), rustdoc examples that run as doc tests.
 - Tests: unit tests next to the code, integration tests in `tests/`, CLI tests with
   `assert_cmd`, and property tests (`proptest`) for parsers and merge rules. The TypeScript
@@ -84,25 +85,32 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 | R4 | Merge | Every merge rule, protected variables, who may declare |
 | R5 | Render, adapters and commands | Claude adapter, adoption, `init`, `build`, `check`, `diff`, `ls`, `explain`, `doctor`, `lint` |
 | R6 | Identity and accounts | Commit identity, `alz account which`, `alz account allow` |
-| R7 | Distribution | Prebuilt binaries (macOS and Linux), GitHub releases, Homebrew, an npm wrapper so `npm install -g agent-layerz` keeps working, local install as one regular file; replaces TASK-4, TASK-15, TASK-16 |
+| R7 | Distribution | Prebuilt binaries for macOS arm64 and x86_64 and static musl Linux x86_64 and arm64 (decision-25), GitHub releases, Homebrew, an npm wrapper so `npm install -g agent-layerz` keeps working, local install as one regular file; replaces TASK-4, TASK-15, TASK-16 |
 | R8 | Cutover | Whole suite green on Rust, parity run on every fixture, TypeScript removed, docs and `.layer/` updated |
 
-## Choices to settle in R0 (owner)
+## Choices settled in R0 (owner)
 
-1. Repository layout. Recommended: the same repository, a Cargo workspace at the root next to
-   the TypeScript code until cutover, so the spec, fixtures and suite are shared.
-2. YAML library. `serde_yaml` is unmaintained; candidates must support alias limits and give
-   errors without quoting content. Record the choice as a decision after a spike.
-3. Git access. Recommended: keep running the `git` binary with argument arrays and the same
-   guarded environment, rather than a git library, so behaviour and the threat model stay the
-   same.
-4. Minimum supported Rust version and target platforms (macOS arm64 and x86_64, Linux x86_64 and
-   arm64; Windows stays undecided as before).
-5. Error and output text: the spec defines it. Keep today's wording where the spec states it;
-   where Rust tooling (clap) has its own convention, update the spec rather than imitate the
-   TypeScript output.
-6. Crate layout: designed as Rust (for example a library crate with the domain and a thin binary
-   crate), recorded as a decision before any code.
+The owner answered on 2026-11-22 (TASK-55.1.2). The options and trade-offs are in that task's notes.
+
+1. Repository layout and 6. crate layout, decision-23: a Cargo workspace at the root of this
+   repository, next to the TypeScript code until cutover. The crates are those of doc-6 (alz-core,
+   alz-io, alz, alz-test-support). The binary is also banned from `std::fs`, `std::process` and
+   `std::env`, so only `alz-io` performs effects. `xtask` and `fuzz` are added when they are first
+   needed.
+2. YAML library: not decided yet. `serde_yaml` is unmaintained; candidates must support alias
+   limits and give errors without quoting content. The spike is TASK-55.1.1, and its result is
+   recorded as a decision.
+3. Git access, decision-24: the `git` binary with argument arrays and an explicit, guarded child
+   environment; no git library.
+4. MSRV and targets, decision-25: Rust 1.100.0 pinned through mise, with the MSRV equal to the
+   pin. Targets are macOS arm64 and x86_64, and Linux x86_64 and arm64 as static musl binaries.
+   Windows stays undecided.
+5. Error and output text, decision-26: the spec owns streams, the diagnostic format, exit codes
+   and the messages it quotes. clap's defaults own help, usage errors and `--version`, and alz
+   renders and sanitises clap's errors. The spec gains an "Output and exit codes" section in a
+   later task.
+6. Safe directory access, decision-27: `rustix` 1.1.6 or later only, inside `alz-io` capability
+   types, with alz's own walk that never follows a link.
 
 ## Paused TypeScript work
 

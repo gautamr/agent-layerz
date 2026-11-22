@@ -1,9 +1,10 @@
 ---
 id: TASK-55
 title: Port alz to Rust (decision-21)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
+updated_date: '2026-11-22T16:08:00Z'
 labels:
   - area:rust
 milestone: m-7
