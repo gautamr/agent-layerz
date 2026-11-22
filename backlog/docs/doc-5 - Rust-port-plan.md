@@ -3,7 +3,7 @@ id: doc-5
 title: Rust port plan
 type: specification
 created_date: '2026-11-22T12:53:00Z'
-updated_date: '2026-11-22T13:04:00Z'
+updated_date: '2026-11-22T14:38:00Z'
 ---
 # Rust port plan
 
@@ -41,11 +41,14 @@ work. This plan is the starting point; each phase is a task with its own plan an
 
 ## Rust standard (set in R0, enforced from the first commit)
 
+The full standard is the personal skill `gr-rust` (agent-layer-personal), with type-level design, errors and effects, layout and tooling, testing and anti-patterns; the layout and domain modelling for alz are in doc-6. The summary:
+
+
 - Latest stable Rust, edition 2024, a stated MSRV. `rustfmt` with no custom style.
 - `clippy` with `-D warnings` and the `pedantic` group, plus restriction lints chosen in R0
   (`unwrap_used`, `expect_used`, `panic` outside tests, `print_stdout` outside the output layer).
   Any `allow` names its reason.
-- `#![forbid(unsafe_code)]` in every crate. File-system safety (`openat`, `O_NOFOLLOW`) comes
+- `unsafe_code = "forbid"` in `[workspace.lints.rust]`, inherited by every crate. File-system safety (`openat`, `O_NOFOLLOW`) comes
   from a safe crate chosen in R0, such as `rustix` or `cap-std`.
 - Types carry the invariants: newtypes for validated values (account names, layer names, object
   ids, sources, safe relative paths) built only by parsing ("parse, don't validate"). Enums, not
@@ -60,7 +63,7 @@ work. This plan is the starting point; each phase is a task with its own plan an
 - CLI with `clap` derive. Exit codes and output stay as the spec defines them; where a Rust
   convention (clap's usage errors, help layout) changes user-visible text, the spec is updated
   on purpose, not matched by bending the code.
-- Docs: `#![deny(missing_docs)]` on public items, rustdoc examples that run as doc tests.
+- Docs: `missing_docs` on public items through the workspace lints (CI runs with `-D warnings`), rustdoc examples that run as doc tests.
 - Tests: unit tests next to the code, integration tests in `tests/`, CLI tests with
   `assert_cmd`, and property tests (`proptest`) for parsers and merge rules. The TypeScript
   acceptance suite is a temporary external oracle during the port; it is replaced by Rust tests
