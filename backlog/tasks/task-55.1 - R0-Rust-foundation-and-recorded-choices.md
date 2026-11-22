@@ -4,7 +4,7 @@ title: 'R0: Rust foundation and recorded choices'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T14:38:00Z'
+updated_date: '2026-11-22T14:54:00Z'
 labels:
   - area:rust
   - area:spec
@@ -32,4 +32,6 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-22: proposed layout, crate split and type-level design are in doc-6; the Rust standard is the personal skill gr-rust (agent-layer-personal, uncommitted until the owner releases it). R0 records the layout as a decision, adopting or changing doc-6.
+
+2026-11-22: the personal layer folder and repository are renamed agent-layerz-personal, and the planned starter is agent-layerz-starter; earlier notes keep the old names.
 <!-- SECTION:NOTES:END -->

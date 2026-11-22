@@ -126,7 +126,7 @@ Every directory is optional. A layer may contain only `instructions/`.
 
 ### 4.2 Where layers live
 
-- **Personal / public layers:** a git repo, e.g. `github.com/<you>/agent-layer-personal`.
+- **Personal / public layers:** a git repo, e.g. `github.com/<you>/agent-layerz-personal`.
   Cloned to a cache (`~/.cache/agent-layerz/git-<hash>@<sha>`, §6) or used from a local
   checkout during development.
 - **Client layers:** live in the client's **hub** repo at `<client-root>/hub/layer/`
@@ -256,7 +256,7 @@ adds it (its release note names the version).
 
 ```yaml
 stack:
-  - source: github:<you>/agent-layer-personal@v1.4.0
+  - source: github:<you>/agent-layerz-personal@v1.4.0
   - source: path:../hub/layer                  # client layer inside the client hub (§4.4)
     ref: layer-v0.3.0                          # optional pin for path sources inside a git repo
   - source: path:./.layer                      # repo layer — always last

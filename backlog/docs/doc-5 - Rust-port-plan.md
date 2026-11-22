@@ -3,7 +3,7 @@ id: doc-5
 title: Rust port plan
 type: specification
 created_date: '2026-11-22T12:53:00Z'
-updated_date: '2026-11-22T14:38:00Z'
+updated_date: '2026-11-22T14:54:00Z'
 ---
 # Rust port plan
 
@@ -41,7 +41,7 @@ work. This plan is the starting point; each phase is a task with its own plan an
 
 ## Rust standard (set in R0, enforced from the first commit)
 
-The full standard is the personal skill `gr-rust` (agent-layer-personal), with type-level design, errors and effects, layout and tooling, testing and anti-patterns; the layout and domain modelling for alz are in doc-6. The summary:
+The full standard is the personal skill `gr-rust` (agent-layerz-personal), with type-level design, errors and effects, layout and tooling, testing and anti-patterns; the layout and domain modelling for alz are in doc-6. The summary:
 
 
 - Latest stable Rust, edition 2024, a stated MSRV. `rustfmt` with no custom style.

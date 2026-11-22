@@ -42,7 +42,7 @@ function repoManifest(stack: StackEntry[], hub: string | undefined): string {
   const example =
     stack.length > 0
       ? ""
-      : "  # Most general first, for example:\n  # - source: github:<you>/agent-layer-personal@v1.0.0\n";
+      : "  # Most general first, for example:\n  # - source: github:<you>/agent-layerz-personal@v1.0.0\n";
   const workspace = hub
     ? `workspace:\n  hub: ${hub}             # granted to agents as an additional directory\n`
     : "# workspace:\n#   hub: ../hub             # granted to agents as an additional directory\n";

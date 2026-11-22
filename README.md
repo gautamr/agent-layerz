@@ -58,7 +58,7 @@ again after `git pull` to update.
 In an existing repository:
 
 ```sh
-alz init --stack github:<you>/agent-layer-personal@v1.0.0   # optional: --hub ../client-hub
+alz init --stack github:<you>/agent-layerz-personal@v1.0.0   # optional: --hub ../client-hub
 alz build --adopt     # moves hand-written agent config into .layer/, then builds
 alz ls                # every agent, skill, rule, hook and MCP server, and the layer it comes from
 alz check             # in CI: fails when the generated files or the lock are out of date
@@ -91,7 +91,7 @@ The repository lists its stack, most general first, in `layer.yaml`:
 
 ```yaml
 stack:
-  - source: github:<you>/agent-layer-personal@v1.0.0
+  - source: github:<you>/agent-layerz-personal@v1.0.0
   - source: path:../client-hub/layer
     ref: layer-v0.3.0          # read from this git tag, not the working tree
   - source: path:./.layer      # the repo layer, always last

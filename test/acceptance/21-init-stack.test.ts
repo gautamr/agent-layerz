@@ -61,8 +61,8 @@ describe("§10 alz init --stack --hub", () => {
       source: "path:../hub/layer",
       ref: "layer-v1.0.0",
     });
-    expect(parseStackOption("github:me/agent-layer-personal@v1.2.0")).toEqual({
-      source: "github:me/agent-layer-personal@v1.2.0",
+    expect(parseStackOption("github:me/agent-layerz-personal@v1.2.0")).toEqual({
+      source: "github:me/agent-layerz-personal@v1.2.0",
     });
   });
 });

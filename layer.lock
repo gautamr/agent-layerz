@@ -65,7 +65,7 @@
       "name": "personal",
       "rev": "v0.3.0",
       "sha": "3c987c29303d20239f146a43e3c661dc1bdc3eb1",
-      "source": "path:../agent-layer-personal"
+      "source": "path:../agent-layerz-personal"
     },
     {
       "contentHash": "sha256:56630ae6e2eff097c849f0eb246205c731f7c6a94716851ae36c0a975ab866f7",

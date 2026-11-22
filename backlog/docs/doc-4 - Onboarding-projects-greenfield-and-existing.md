@@ -3,7 +3,7 @@ id: doc-4
 title: 'Onboarding projects: greenfield and existing'
 type: guide
 created_date: '2026-11-20T16:57:00Z'
-updated_date: '2026-11-20T16:58:00Z'
+updated_date: '2026-11-22T14:54:00Z'
 tags:
   - guide
   - onboarding
@@ -22,7 +22,7 @@ tags:
 | ownership | — | decided whether generated agent config may be committed to the repositories (client-owned repositories may not allow it) |
 
 ## Greenfield
-1. Personal layer: reuse it (`github:<you>/agent-layer-personal@<tag>` or a local path pinned to a tag).
+1. Personal layer: reuse it (`github:<you>/agent-layerz-personal@<tag>` or a local path pinned to a tag).
 2. Multi-repository client: create the hub first, so every repository picks up its layer.
    `mkdir -p <root>/hub/layer && cd <root>/hub && git init`, then `cd layer && alz init --kind layer --name <client> --visibility private`,
    then commit and tag `layer-v0.1.0`. Single repository: skip the hub and use `.layer/` only.
