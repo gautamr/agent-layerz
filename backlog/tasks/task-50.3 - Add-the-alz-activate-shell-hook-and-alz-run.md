@@ -4,7 +4,7 @@ title: Add alz run <tool> [--account <name>]
 status: To Do
 assignee: []
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-21T18:04:00Z'
+updated_date: '2026-11-22T01:36:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -26,6 +26,17 @@ The first way to switch accounts, needing no shell hook: alz run starts one tool
 <!-- AC:BEGIN -->
 - [ ] #1 alz run <tool> [args] starts the tool with the resolved account and passes the arguments and exit code through unchanged
 - [ ] #2 alz run <tool> --account <name> [args] uses that account for this run only, whatever the layers say; --account default uses the default account
-- [ ] #3 An unknown account name or tool fails before starting anything, lists the account folders that exist by name only, and exits non-zero
+- [ ] #3 alz run fails closed before starting anything, exits non-zero and never uses the default account or a newly declared one instead when the tool or account is unknown, when the account's folder does not exist whether named with --account or resolved from the user config or a layer (it lists the account folders that exist by name only), or when in an allowed repository a cache miss (it says to run alz build), a changed declaration or a recorded source no longer in the stack (it says to run alz account allow) skips the layer step
 - [ ] #4 Tests cover claude and codex, with and without --account
+- [ ] #5 An account variable whose value differs from its ALZ_SET_ marker (set outside alz) is passed to the tool unchanged with one warning that it was set outside alz, unless --account is given; an alz use choice arrives only as --account from the alz shell function, and an exported ALZ_USE_<TARGET> is never read (test: a forged ALZ_USE_CLAUDE changes nothing)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-22 (@architect): criterion 3 now fails closed for resolved accounts too (owner decision in TASK-50.1, amending decision-15's fallback); criterion 5 added for values set outside alz (LAYERING-SPEC §7.13 'Values set outside alz', §13 test 21).
+
+2026-11-22 (@architect, second review): criterion 3 fails closed in every case where a named account cannot apply (decision-16); criterion 5 drops the exported ALZ_USE_ variable (LAYERING-SPEC §7.13 'alz use stays in the shell', §13 test 21).
+
+2026-11-22 (@architect, final pass): criterion 3 also covers a recorded source that left the stack (owner decision 7 in TASK-50.1).
+<!-- SECTION:NOTES:END -->

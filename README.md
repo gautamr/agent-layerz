@@ -182,6 +182,9 @@ commit_identity:
 
 Early (0.x). The Claude Code adapter is complete; Codex and other targets are planned. The full
 design, merge rules and acceptance tests are in [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md).
+Also planned: optional account switching, where alz chooses each repository's Claude Code or
+Codex account folder and never reads logins. The design is in
+[LAYERING-SPEC §7.13](docs/LAYERING-SPEC.md#713-account-selection) (decision-15).
 
 ## License
 
