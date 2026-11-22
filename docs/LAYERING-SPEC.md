@@ -1,7 +1,8 @@
 # LAYERING-SPEC.md — Layered agent configuration for any client and project
 
 **Status:** Draft v1 · 2026-11-22 (§7.12 commit identity added; needs agent-layerz 0.2.0.
-§7.13 account selection specified, planned in TASK-50 and not built yet)
+§7.13 account selection specified, planned in TASK-50 and not built yet, and aligned with
+the tool facts in `docs/target-facts.md` §12)
 **Audience:** a coding agent (Claude Code / Codex) implementing the tool, and humans who use it
 **Name:** `agent-layerz`, with the CLI command `alz`
 
@@ -565,8 +566,11 @@ there is only one way to set each thing.
 *Planned (TASK-50.2):* no layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`,
 `XDG_CONFIG_HOME`, `XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or
 locate alz's own files and the layer cache (§7.13). That covers environment settings in
-`settings.yaml` (such as Claude's `env` or Codex's `shell_environment_policy`), an MCP
-server's environment, and a passthrough settings or config file (§7.11). Each one is a build
+`settings.yaml` (such as Claude's `env`), an MCP server's environment, and a passthrough
+settings or config file (§7.11). For Codex it covers `shell_environment_policy` by name: it
+builds the environment of Codex's shell commands and, unlike Claude's project `env`, is
+honoured in a trusted project's `.codex/config.toml` (§12 item 15). A `set` entry for one of
+these variables, or an `exclude` pattern that matches one, is refused. Each one is a build
 error that names the layer. Account resolution reads layers from the cache and relies on its
 integrity: cache reads are checked against the lock's content hash and git cache keys are
 unambiguous (§5.3, §6).
@@ -686,7 +690,9 @@ commit_identity:
 
 ### 7.13 Account selection
 *Planned: TASK-50, decision-15 as amended by decision-16 (the owner's decisions recorded in
-TASK-50.1). Nothing in this section is built yet; each part names the task that builds it.*
+TASK-50.1) and decision-17 (recorded in TASK-50.7). Nothing in this section is built yet; each
+part names the task that builds it. The tool facts it relies on are recorded in
+`docs/target-facts.md` §12 (§12 items 10 to 21 here).*
 
 Claude Code and Codex keep logins, workspace trust and per-user state in an account folder
 that an environment variable chooses. alz can choose that folder per repository, so a
@@ -721,11 +727,15 @@ account:                       # per target; a target left out is not decided by
 
   | Target | Variable | Default account | Named account `<name>` |
   |---|---|---|---|
-  | `claude` | `CLAUDE_CONFIG_DIR` | variable unset: `~/.claude` plus `~/.claude.json` | `~/.claude-<name>` |
+  | `claude` | `CLAUDE_CONFIG_DIR` | variable unset: `~/.claude` plus `~/.claude.json` | `~/.claude-<name>`, with its own `.claude.json` inside |
   | `codex` | `CODEX_HOME` | variable unset: `~/.codex` | `~/.codex-<name>` |
 
   The default account is always the variable unset, and it never fails, even when its
-  folder does not exist yet.
+  folder does not exist yet. alz unsets the variable for it and never exports the default
+  folder's path: Claude treats `CLAUDE_CONFIG_DIR=~/.claude` as a different account, with
+  `.claude.json` and the login keyed to that folder, while Codex treats an empty `CODEX_HOME`
+  as unset and resolves a set one to its real path (§12 items 10 and 11). Neither tool falls
+  back to the default folder when the variable is set (§12 item 13).
 - **Who may declare it** (TASK-50.2). The same two layers as `commit_identity`, with the same
   test for "outside the repository" and the same build errors (§7.12): the first stack entry,
   or one private or confidential `kind: client` layer outside the repository. The client
@@ -774,8 +784,12 @@ account:                       # per target; a target left out is not decided by
 - **Both files** (TASK-50.2). alz ignores `accounts.yaml` or `allowed.yaml`, with a warning,
   when its real path is inside the current repository, when the user does not own it, when
   group or others can write it or its directory or any parent directory below `$HOME`, or
-  when the `XDG_*` variable that locates it was set by mise or direnv (where §12 item 20 shows
-  how to detect that). It warns when the file lies inside a git work tree.
+  when the `XDG_*` variable that locates it points somewhere other than its default
+  (`~/.config` or `~/.local/state`, compared as real paths) while `__MISE_DIFF` or
+  `DIRENV_DIFF` exists. alz cannot tell whether mise or direnv set that variable for a
+  repository, because it only checks that their variables exist and never reads them
+  (decision-17, "Values set outside alz" below). The warning names the `XDG_*` variable and
+  says that mise or direnv is active here. It warns when the file lies inside a git work tree.
   `alz account which` prints the paths of both files. `alz account allow` holds an exclusive
   lock file next to `allowed.yaml` while it reads and writes it, replaces any entry for the
   same root, and writes the file at its real path through a temporary file in the same
@@ -791,7 +805,7 @@ account:                       # per target; a target left out is not decided by
   - It prints the account per target, the declaring layer, its source and its revision, then
     asks the person to confirm by typing the account name (not `y` or `n`). It refuses and
     changes nothing when standard input is not a terminal or when it runs inside an agent
-    session (the session markers are §12 item 19). There is no `--yes`.
+    session (any agent-session marker below is set). There is no `--yes`.
   - It records the repository's real root, the accepted per-target map (with the targets it
     leaves out) and the declaring layer's source: the remote URL without its ref, or the real
     path of a local layer. Step 4 of the resolution applies only while the resolved map and
@@ -809,13 +823,31 @@ account:                       # per target; a target left out is not decided by
     allowed yet, it reports only that step 4 was skipped. The shell hook and `alz run` never
     print it.
   - Accounts set in the user config need no approval, because the owner wrote them.
+  - **Agent-session markers** (§12 item 19). A process counts as inside an agent session when
+    any of `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `AI_AGENT`, `CODEX_THREAD_ID`,
+    `CODEX_SESSION_ID` or `CODEX_CI` is set, even to an empty value. Claude sets the first
+    three in its shell commands and hooks, and `CLAUDECODE` in its stdio MCP servers. Codex
+    sets `CODEX_THREAD_ID` and `CODEX_SESSION_ID` in its shell commands and `CODEX_CI` in
+    unified-exec ones; those are read from its source and not yet observed (owner check O5 in
+    `docs/target-facts.md` §12.2). Claude also sets `CLAUDECODE` in an IDE's integrated
+    terminal, so `alz account allow` refuses there too: the person runs it in a terminal
+    window outside the IDE. Codex sets no marker in its stdio MCP servers, so there only the
+    terminal check applies. A marker proves a session, but its absence proves nothing,
+    because any process can unset these variables (Limit, below).
   - **Limit.** alz runs as the user, so an agent that can write outside the repository can
-    edit `accounts.yaml` or `allowed.yaml` itself; the terminal and session checks only stop
-    it from running `alz account allow`. The real protection is a sandbox that limits the
-    agent's writes to the working directory. The personal layer should also hold deny rules,
-    which no more specific layer can remove (§7.6), for `read:`, `write:` and `edit:` on
-    `~/.config/agent-layerz/**` and `~/.local/state/agent-layerz/**`, and for
-    `bash:alz account allow*`. Whether the tools enforce such rules is §12 item 21.
+    edit `accounts.yaml` or `allowed.yaml` itself, and a process it starts can unset the
+    session markers; the terminal and session checks only stop it from running
+    `alz account allow` directly. The real protection is a sandbox that limits the agent's
+    writes to the working directory, with `allowed.yaml` kept outside every repository. The
+    personal layer should also hold deny rules, which no more specific layer can remove
+    (§7.6), for `read:`, `write:` and `edit:` on `~/.config/agent-layerz/**` and
+    `~/.local/state/agent-layerz/**`, and for `bash:alz account allow*`. These rules only slow
+    an agent down; they are not a guard (§12 item 21). Claude's documentation says a Bash rule
+    is not a security boundary, and `sh -c '…'`, a full path or a script runs the same
+    command past it. Its Read and Edit denies stop the file tools and simple shell reads and
+    writes, but reach every shell command only together with the sandbox's
+    `filesystem.denyRead` and `denyWrite`. Codex accepts `~/` paths in its deny-read patterns;
+    how far its rules reach is owner check O6.
 - **Resolution** (TASK-50.2), for each target, first match wins:
   1. `alz run <tool> --account <name>`, for that run only;
   2. `alz use <tool> --account <name>`, for the current terminal until
@@ -880,22 +912,53 @@ account:                       # per target; a target left out is not decided by
       declaration changed or the recorded source is no longer in the stack.
 
     alz never creates the blocked folders, and `alz account init` refuses the name
-    `alz-blocked`. `alz doctor` does not count them as accounts, but warns when one exists,
-    because a tool may create it at a blocked start and a login there would make it usable.
-    The tool then starts logged out or refuses to start, and both count as failing closed
-    (§12 item 18 records which).
+    `alz-blocked`. A tool whose variable names a folder that does not exist behaves as
+    follows (§12 item 18), and both count as failing closed (owner decision 8 in TASK-50.1):
+    - Claude creates the folder with mode `0755` (the umask default, not the `0700` that
+      `alz account init` uses) and starts logged out; an interactive start offers to log in.
+      So `~/.claude-alz-blocked`, or a missing named folder, comes into existence at the
+      first such Claude start, and a login there would make it usable.
+    - Codex refuses to start (`CODEX_HOME points to … but that path does not exist`) and
+      creates nothing.
+
+    `alz doctor` does not count the blocked folders as accounts, but warns when one exists
+    (TASK-50.4), so the person can delete it; given the behaviour above, only
+    `~/.claude-alz-blocked` is expected to appear.
   - `alz account which` reports `layer step skipped (<reason>); fails closed`, what the hook
     applies (the missing folder, the recorded account or the blocked folder), and the fix
     command.
 
   This amends decision-15's "falls back to the default account" (decision-16).
-- **Values set outside alz** (TASK-50.2, TASK-50.3, TASK-50.6). The shell hook exports, next to
-  each variable it sets, a marker that holds the exact value it set:
+- **Values set outside alz** (TASK-50.2, TASK-50.3, TASK-50.6; decision-17). The shell hook
+  exports, next to each variable it sets, a marker that holds the exact value it set:
   `ALZ_SET_CLAUDE_CONFIG_DIR` and `ALZ_SET_CODEX_HOME`. A current value that differs from its
-  marker, or that has none, is foreign: alz leaves it alone and warns once that it was set
-  outside alz, and it takes the place of steps 3 to 5. An explicit `--account` (steps 1 and
-  2) replaces it. The warning names mise or direnv only where §12 item 20 confirms how to
-  detect them. The marker also gives `alz account which` its `environment` source.
+  marker, or that has none, is foreign: alz leaves it alone and warns once that it was
+  `set outside alz`, and it takes the place of steps 3 to 5. An explicit `--account` (steps 1
+  and 2) replaces it. The marker also gives `alz account which` its `environment` source.
+  - When `__MISE_DIFF` or `DIRENV_DIFF` exists, the warning adds `mise or direnv is active
+    here`. alz checks only that these variables exist. It never reads, decodes, prints or
+    logs their values: each holds every variable mise or direnv set, with its value, secrets
+    included, and neither encoding is a stable interface (§12 item 20).
+  - **Limit.** Claude applies `env.CLAUDE_CONFIG_DIR` from user settings (the chosen
+    folder's own `settings.json`), from `--settings` and from managed settings over the value
+    alz set, at least for the session's subprocesses (§12 items 10 and 15). alz never reads
+    those files, so it can neither see this nor warn about it. Project and local settings
+    cannot set the variable, because Claude drops it there, so for Claude the rule that
+    layers cannot set it (§7.9) is defence in depth.
+  - **Limit.** A Codex `shell_environment_policy` that alz did not generate, in a hand-written
+    project `.codex/config.toml` or in the account's own `config.toml`, can change or drop the
+    variables for Codex's shell commands (§12 item 15). alz never reads those files, so this
+    is outside its control.
+- **What a session passes on** (tool facts, no alz behaviour; §12 item 15). Claude's hooks,
+  its Bash tool and its stdio MCP servers inherit `CLAUDE_CONFIG_DIR`, unless
+  `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` removes it from all three or
+  `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1` gives MCP servers only a baseline environment. Codex's
+  hooks inherit `CODEX_HOME` from the environment the session started with, and its shell
+  commands get it through `shell_environment_policy` (by default the whole environment).
+  Codex's stdio MCP servers do not inherit `CODEX_HOME` or `CLAUDE_CONFIG_DIR` unless the
+  server's `env_vars` lists them, so an MCP server that runs `codex` or `claude` uses the
+  default account. The same holds for a Codex shell command whose policy leaves the
+  variables out (`include_only`, or an `inherit` other than `all`).
 - **`alz use` stays in the shell** (TASK-50.6). `alz use` keeps its choice in unexported shell
   variables held by the `alz` shell function, which passes the choice to `alz run` as
   `--account`, and to the hook's resolution and to `alz account which` as an argument; that
@@ -915,39 +978,86 @@ account:                       # per target; a target left out is not decided by
   - every message goes to standard error, sanitised as in §9.4 (home shown as `~`, control
     characters removed);
   - the activate script quotes every expansion.
-- **Shared and per-account items** (TASK-50.5 links them, TASK-50.4 reports missing links;
-  decision-16). `alz account init <name>` creates the named account folders and links shared
-  items to the default account folder's copy, so instructions, agents and skills are the same
-  in every account (§8.4). By default it shares configuration only. Settings and history stay
-  per account unless the user opts in with `--share <item>`, which prints a warning.
-  `--share` accepts only `settings.json`, `projects`, `sessions` and `memories`; anything else
-  is rejected before planning:
+- **Shared and per-account items** (TASK-50.5; decision-17, which amends decision-16's
+  "init shares config only"). `alz account init <name>` shares nothing by default: it creates
+  the named account folders with mode `0700` and makes no link, so each account starts with
+  its own user-level configuration. Personal agents and skills still reach every alz
+  repository through `alz build` at project scope, the same in every account (§8.4). The user
+  can share an item on purpose with `--share <item>`, which links the account's item to the
+  default account folder's copy and prints a warning that names the item's limits (below).
+  `--share` accepts only the items in the table's middle column, written without the slash
+  (`agents`, `commands`, `CLAUDE.md`, `skills`, `plugins`, `settings.json`, `projects`,
+  `AGENTS.md`, `sessions`, `memories`; `skills` applies to both targets), and rejects anything
+  else before planning. Both tools read linked items and write through the links
+  (§12 item 14):
 
-  | Target | Shared by default | Per account; shared only with `--share` | Always per account, never linked |
-  |---|---|---|---|
-  | `claude` | `agents/`, `commands/`, `skills/`, `plugins/`, `CLAUDE.md` | `settings.json`, `projects/` | logins; `.claude.json` (workspace trust, per-project state, MCP logins); prompt history; file checkpoints |
-  | `codex` | `AGENTS.md`, `skills/` | `sessions/`, `memories/` | logins; `config.toml` |
+  | Target | Per account; shared only with `--share` | Always per account, never linked |
+  |---|---|---|
+  | `claude` | `agents/`, `commands/`, `CLAUDE.md`, `skills/` and `plugins/` (entry by entry, below), `settings.json`, `projects/` | logins and MCP OAuth logins (the Keychain entry keyed to the folder, or `.credentials.json`); `.claude.json` (workspace trust, per-project state, user MCP servers); `synced/` and `.trash/` inside `skills/` and `plugins/`; prompt history; file checkpoints |
+  | `codex` | `AGENTS.md`, `skills/`, `sessions/`, `memories/` | logins (`auth.json`, or a keyring entry keyed to the folder); `config.toml` |
+
+  Limits of opting in (`docs/target-facts.md` §12.1):
+  - Claude `skills/` and `plugins/` are linked entry by entry. `--share skills` or
+    `--share plugins` creates a real `skills/` or `plugins/` folder (mode `0700`) in the
+    account and links each entry of the default copy except `synced` and `.trash`, where
+    claude.ai's sync writes each account's organisation items. A whole-folder link would put
+    every account's synced items in one folder, where the other accounts load them and each
+    sync removes the others' (change C4). An entry that already exists in the account is left
+    alone and listed, never moved aside, because a backup inside `skills/` would load as a
+    skill. Entries added to the default copy later are linked by running the command again.
+    Per-entry links load for skills (SMOKE). For `plugins/`, whose entries are files that
+    Claude rewrites (`installed_plugins.json`, `known_marketplaces.json`), they are not
+    verified yet; TASK-50.5 records that fact before it builds `--share plugins`.
+  - With `plugins` shared, Claude records each plugin's install path under the folder of the
+    account that installed it (change C10), so deleting that account folder can break the
+    plugin for the other accounts. Install plugins from the default account.
+  - Codex rewrites `skills/.system/` at start with the skills of its own version. With
+    `skills` shared it writes through the link into the shared folder, so accounts started
+    with different Codex versions rewrite it at each switch (change C5).
+  - `settings.json` carries the keys that carry or pin a login (`apiKeyHelper`, `env` tokens,
+    `forceLoginMethod`, `forceLoginOrgUUID` and others; §12 item 16), so sharing it shares
+    them.
+  - Whether Codex keeps a linked `sessions/` or `memories/` or replaces it needs a login to
+    observe (owner check O7). Claude's `projects/` was not tested as a link; TASK-50.5
+    records that fact before it builds `--share projects`.
 
 - **`alz account init` safety** (TASK-50.5).
   - It refuses the names `default` and `alz-blocked` (the blocked folders, above) and the
     configured `default_name`.
   - It uses `lstat` throughout. It refuses when an account folder, or the parent of a shared
-    item, is a symbolic link, or when an account folder's real path is the default folder.
+    item (the account folder, or the account's `skills/` or `plugins/` for an entry), is a
+    symbolic link, or when an account folder's real path is the default folder.
   - It plans every step before it acts, and changes nothing when the plan has any problem.
     `--dry-run` prints the plan and stops.
-  - It creates folders with mode `0700`, and links only items that exist in the default
-    folder.
-  - It moves an existing item aside only by renaming it in the same folder to
-    `<item>.alz-backup-<UTC timestamp>` (for example `skills.alz-backup-20261122T101500Z`),
+  - It creates folders with mode `0700`. It links only items named with `--share`, and only
+    those that exist in the default folder.
+  - It moves an existing whole item aside only by renaming it in the same folder to
+    `<item>.alz-backup-<UTC timestamp>` (for example `agents.alz-backup-20261122T101500Z`),
     never by copying and never over an existing backup. A backup name never matches
     `.claude-*` or `.codex-*`, so account discovery (§8.4) never takes a backup for an
-    account folder.
-  - Running it again changes nothing.
-- **Trust is per account** (TASK-50.4). Workspace trust lives in per-account state
-  (`.claude.json`, Codex `config.toml`; to verify, §12 items 10 and 11), which alz never
-  opens, so alz never determines whether a repository is trusted. `alz doctor` prints a
+    account folder. Entries of Claude's `skills/` and `plugins/` are never moved aside
+    (above).
+  - Running it again with the same arguments changes nothing, unless the default copy of a
+    shared `skills/` or `plugins/` gained an entry, which it then links.
+- **Trust is per account** (TASK-50.4). Workspace trust lives in per-account state, which alz
+  never opens, so alz never determines whether a repository is trusted. Claude keeps it in the
+  folder's `.claude.json`, keyed on the repository root (the main checkout for a worktree);
+  Codex keeps it in the folder's `config.toml` (§12 items 10 and 11). `alz doctor` prints a
   static notice that trust is per account, so a repository trusted on one account needs
   accepting again on another.
+- **Logins kept outside the account folder** (tool facts; §12 items 12 and 17).
+  - **Limit.** For Claude, account selection separates only the logins Claude keeps per
+    folder: `/login` credentials and MCP OAuth logins, in the Keychain entry keyed to the
+    folder or in `.credentials.json`. Anthropic profiles in `~/.config/anthropic` (with
+    `ANTHROPIC_PROFILE`), Console sign-ins without an API key, credentials in environment
+    variables (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`) and
+    cloud-provider credentials are shared by every folder, and several of them take
+    precedence over `/login` (change C3).
+  - **Known limit: Codex MCP logins** (the owner has deferred this decision). In Codex's
+    default credential mode, MCP OAuth logins are stored in the OS keyring, when one is
+    available, under the server's name, URL and headers, not under the account folder, so
+    every `CODEX_HOME` on the machine shares one login per server. Account selection does not separate them
+    (`docs/target-facts.md` §12 item 17, change C2; read from source, owner check O3).
 - **No generated output** (TASK-50.2). The build writes no account value into any generated
   file or the lock and sets no variable, so the output stays byte-identical whatever account
   is chosen.
@@ -1002,9 +1112,11 @@ changes agent behaviour.
 
 Account selection (§7.13, planned) builds on this rule: because the build output does not
 depend on the account, alz can choose each repository's account folder without changing what
-its agents see. `alz account init` links the shared user-level configuration (instructions,
-agents, commands, skills, plugins) so it is the same in every account folder; settings and
-history stay per account unless the user shares them on purpose.
+its agents see. So `alz account init` shares nothing by default (decision-17): personal
+agents and skills reach each repository through the build, at project scope, whichever
+account is active, and every account folder keeps its own user-level configuration. A user
+who wants a user-level item to be the same in several account folders links it on purpose
+with `--share <item>` (§7.13 "Shared and per-account items").
 
 ---
 
@@ -1018,8 +1130,9 @@ repo and the layer cache.
 every `~/.claude-*` and `~/.codex-*` are read by `alz doctor` and, once built, by account
 selection (§7.13). The only read operations allowed there are:
 - listing `$HOME` for names that start with `.claude-` or `.codex-`;
-- `lstat` and `readlink` of the fixed shared-item names (§7.13);
-- listing `agents/`, `commands/` and `skills/` for the names they hold.
+- `lstat` and `readlink` of the fixed shared-item names (§7.13) and of the entries of
+  `skills/` and `plugins/`;
+- listing `agents/`, `commands/`, `skills/` and `plugins/` for the names they hold.
 
 alz never opens or reads any other file there, so it never learns a login or whether a
 repository is trusted (§7.13 "Trust is per account"). The only writes there are the planned
@@ -1030,9 +1143,11 @@ command, never by `build`, `check`, `alz run` or the shell hook:
 - `alz account allow` writes `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`
   (TASK-50.2) under an exclusive lock file next to it, through a temporary file in the same
   directory and a rename, with mode `0600` in a directory with mode `0700`.
-- `alz account init <name>` creates the account folders for `<name>` with mode `0700`, links
-  the shared items, and moves an item it replaces aside by renaming it in the same folder
-  (TASK-50.5). It has a `--dry-run` that changes nothing, and it never copies a file.
+- `alz account init <name>` creates the account folders for `<name>` with mode `0700`
+  (TASK-50.5). Only for the items named with `--share` does it create a link, create the
+  real `skills/` or `plugins/` folder that holds per-entry links, or move a whole item it
+  replaces aside by renaming it in the same folder. It has a `--dry-run` that changes
+  nothing, and it never copies a file.
 
 alz also reads the hand-written user config
 `${XDG_CONFIG_HOME:-~/.config}/agent-layerz/accounts.yaml`, which it never writes. Neither
@@ -1130,7 +1245,7 @@ With a declared `commit_identity` (§7.12):
 | `alz ls [--live]` | List what the stack builds and the layer that decides each item. `--live` also asks Claude what it loaded (one short model call) and fails on any built item it did not load. |
 | `alz explain <type> <name>` | Show which layers contributed to an item, in order, with the merged result. |
 | `alz diff` | Show the effective change a pending build would make. |
-| `alz doctor` | Check account dirs for collisions, target versions vs. adapter expectations, unfilled slots, budgets. *Planned (TASK-50.4):* per repository, a named account folder that does not exist, an account variable set outside alz, and shared-by-default items not linked in an account folder, by name only; items kept per account on purpose (`settings.json`, `projects/`, `sessions/`, `memories/`) are not flagged, and the blocked folders (`~/.claude-alz-blocked`, `~/.codex-alz-blocked`) are ignored. Prints a static notice that workspace trust is per account (§7.13, §9.1). |
+| `alz doctor` | Check account dirs for collisions, target versions vs. adapter expectations, unfilled slots, budgets. *Planned (TASK-50.4):* per repository, by name only, a named account folder that does not exist and an account variable `set outside alz`, adding `mise or direnv is active here` when `__MISE_DIFF` or `DIRENV_DIFF` exists (never reading their values). Nothing is shared by default (decision-17), so no item is reported as not linked; at most one informational line per account folder names the items that are links. The blocked folders (`~/.claude-alz-blocked`, `~/.codex-alz-blocked`) are not counted as accounts, and one that exists gets a warning, since Claude creates a missing folder at a blocked start. Prints a static notice that workspace trust is per account (§7.13, §9.1). |
 | `alz lint [--layer <path>]` | Validate a layer: schema, leak guard, slot declarations. |
 | `alz publish` | Lint, then tag `v<version>` on a layer repo (no push without `--push`). |
 | `alz run <tool> [--account <name>] [args…]` | *Planned (TASK-50.3).* Start `claude` or `codex` on the account resolved for the working directory (§7.13), or with `--account <name>` for this run only; `--account default` uses the default account, and the `alz` shell function passes an `alz use` choice as `--account`. Arguments and exit code pass through unchanged. It fails closed before anything starts, exits non-zero and never uses the default account or a newly declared one when the tool or account is unknown, when the account's folder does not exist (it lists the folders that exist by name only), or when in an allowed repository a cache miss (it says to run `alz build`) or a changed declaration or source (it says to run `alz account allow`) skips the layer step. An account variable set outside alz is kept with a warning unless `--account` is given. Needs no shell hook and never fetches. |
@@ -1138,7 +1253,7 @@ With a declared `commit_identity` (§7.12):
 | `alz activate zsh\|bash` | *Planned (TASK-50.6).* Print the shell hook for `eval "$(alz activate zsh)"`. It defines the `alz` shell function that `alz use` needs and, when loaded and at each prompt where the working directory changed, sets or unsets each target's account variable and its `ALZ_SET_*` marker (§7.13). When a named account cannot apply it warns and always sets the variable to the missing named folder, the recorded account (cache miss, same source) or the blocked folder, never to a newly declared account or the default account. Its evaluated output holds only `export NAME='value'` and `unset NAME` lines; messages go to standard error. |
 | `alz account which` | *Planned (TASK-50.2).* Print the resolved account per target and its source (`use`, `environment`, `user config`, `layer`, `default`), the reason for each skipped step, and the paths of `accounts.yaml` and `allowed.yaml` (§7.13). When a named account fails closed it prints `layer step skipped (<reason>); fails closed`, what the hook applies (the missing folder, the recorded account or the blocked folder) and the fix command. Prints the `alz account allow` command only when an allowed entry has changed. Never fetches and writes nothing. |
 | `alz account allow [--remove]` | *Planned (TASK-50.2).* Show the account this repository's layers name per target, the declaring layer, its source and its revision, and ask the person to confirm by typing the account name; then, under a lock file, record the repository's real root, the per-target map and the source in `allowed.yaml`, replacing any entry for that root (§7.13, §9.1). `--remove` removes this root's entry under the same lock file. Both refuse and change nothing without a terminal or inside an agent session; there is no `--yes`. On a cache miss it changes nothing and says to run `alz build`. Until it runs, and after the map or the source changes, a layer-named account does not apply. |
-| `alz account init <name> [--share <item>]… [--dry-run]` | *Planned (TASK-50.5).* Create the account folders for `<name>` and link the shared-by-default items that exist in the default folder; `--share` also links `settings.json`, `projects`, `sessions` or `memories`, with a warning, and rejects any other item before planning (§7.13). Refuses the names `default`, `alz-blocked` and the configured `default_name`. `--dry-run` lists every folder it would create, every item it would link and every existing item it would move aside (rename in the same folder to `<item>.alz-backup-<UTC timestamp>`), and changes nothing. Otherwise it plans everything first, stops on any problem, and prints each backup's path. Rerunning it changes nothing. |
+| `alz account init <name> [--share <item>]… [--dry-run]` | *Planned (TASK-50.5).* Create the account folders for `<name>` with mode `0700`; by default nothing else (decision-17). Each `--share <item>` links that item to the default folder's copy, if it exists there, with a warning that names its limits; it accepts only the items listed in §7.13 (`agents`, `commands`, `CLAUDE.md`, `skills`, `plugins`, `settings.json`, `projects`, `AGENTS.md`, `sessions`, `memories`) and rejects any other before planning. Claude's `skills/` and `plugins/` are linked entry by entry, keeping `synced/` and `.trash/` per account. Refuses the names `default`, `alz-blocked` and the configured `default_name`. `--dry-run` lists every folder it would create, every item it would link and every existing item it would move aside (rename in the same folder to `<item>.alz-backup-<UTC timestamp>`), and changes nothing. Otherwise it plans everything first, stops on any problem, and prints each backup's path. Rerunning it with the same arguments changes nothing, except to link entries added since to a shared `skills/` or `plugins/`. |
 
 Expose these as mise tasks in each repo: `mise run alz:build`, `alz:check`, etc.
 
@@ -1184,41 +1299,86 @@ findings in `docs/target-facts.md` with the version and date:
    must not contain `.claude/` content that conflicts with the code repos.
 9. Claude Code: the path-scoped rules format (`.claude/rules/*.md`, `paths:` frontmatter)
    and the subagent `memory` field / memory dir location (to protect it, §4.5).
-Items 10 to 21 are for account selection (§7.13) and must be recorded before TASK-50.2.
+Items 10 to 21 are for account selection (§7.13). They are recorded in
+`docs/target-facts.md` §12, checked 2026-11-22 on macOS with Claude Code 2.1.323, Codex
+0.169.0 (and its source at that tag) and mise 2026.9.1 (TASK-50.7). Its §12.1 lists what
+they changed here (C1 to C13), and its §12.2 the checks only the owner can run, because they
+need a real login, a second account or Linux (O1 to O7). The summary after each item says
+what was found and what is still open.
 Account resolution also relies on the integrity of the layer cache, which is not a tool fact:
 `alz build` checks cache reads against the lock and git cache keys are unambiguous (§5.3, §6).
 
 10. Claude Code: `CLAUDE_CONFIG_DIR`. That it is read only at start, so a running session
     keeps its account; where logins, workspace trust and per-project state live with it unset
-    (`~/.claude`, `~/.claude.json`) and set (expected: `.claude.json` inside the folder); and
-    that trust is per account folder. `docs/target-facts.md` §0.1 already shows that logins
-    follow the variable (an empty folder answers `Not logged in`).
+    and set; and that trust is per account folder. *Recorded:* with it set, every `~/.claude`
+    path and `.claude.json` live in the folder; trust is in that `.claude.json`, so it is per
+    folder; `CLAUDE_CONFIG_DIR=~/.claude` is a different account from the variable unset.
+    *Open:* whether a running session changes folder when a settings `env` sets the variable
+    (O4; §7.13 "Values set outside alz"), and a second account asking for trust again (O1).
 11. Codex: `CODEX_HOME`. That it is read only at start, and where logins, project trust and
-    `config.toml` live.
+    `config.toml` live. *Recorded:* a set value must be an existing directory and is resolved
+    to its real path, and an empty one counts as unset; logins (`auth.json` by default, or a
+    keyring entry keyed to the folder), `config.toml` and project trust are per folder; no
+    config key sets the variable (source, not checked exhaustively).
 12. Both, on macOS and on Linux separately: whether a login kept in the macOS Keychain or a
     Linux keyring is stored under an item keyed by the variable, so two account folders
-    never share one login.
+    never share one login. *Recorded:* yes for both tools' own logins on macOS: Claude's
+    docs key the Keychain entry to the folder (or use `.credentials.json` in it), and Codex's
+    source keeps `auth.json` in the folder by default, or a keyring entry keyed to it.
+    Claude logins kept outside the folder are shared by every folder (C3; §7.13 "Logins kept
+    outside the account folder"). *Open:* Linux (O2).
 13. Both: whether a tool started with the variable set still reads the default folder
-    (`~/.claude`, `~/.claude.json`, `~/.codex`) as a fallback.
+    (`~/.claude`, `~/.claude.json`, `~/.codex`) as a fallback. *Recorded:* neither does
+    (smoke test); Claude's profiles in `~/.config/anthropic` are shared (C3).
 14. Both: which shared items (§7.13) work as symbolic links, and whether the tools write
-    through a linked item or replace the link with a file or folder.
+    through a linked item or replace the link with a file or folder. *Recorded:* Claude's
+    `agents/`, `commands/`, `skills/`, `plugins/`, `CLAUDE.md` and `settings.json` and Codex's
+    `AGENTS.md` and `skills/` work as links, and both tools write through them (smoke test);
+    per-entry skill links load in both. A whole-folder link also shares claude.ai's synced
+    folders (C4), Codex's `skills/.system/` (C5) and plugin install paths (C10). *Open:*
+    Codex `sessions/` and `memories/` (O7); Claude `projects/` as a link and per-entry links
+    in Claude's `plugins/`, which were not tested (TASK-50.5 records both).
 15. Both: whether project settings (Claude `env`, Codex `shell_environment_policy`) can
     change the variable, and whether hooks, the shell tool and MCP servers inherit it.
+    *Recorded:* Claude drops the variable from project and local `env`, but user,
+    `--settings` and managed settings can set it (C6); its hooks, Bash tool and stdio MCP
+    servers inherit it. Codex finds its folder before it reads any config, but
+    `shell_environment_policy`, from a trusted project config too, changes or drops the
+    variables for its shell commands (C12; §7.9); its hooks inherit them and its stdio MCP
+    servers do not (C12; §7.13 "What a session passes on"). *Open:* observing Codex (O5).
 16. Both: which settings or config keys carry credentials or pin the login, so they stay per
-    account.
-17. Both: where MCP OAuth tokens live.
+    account. *Recorded* (not exhaustive): Claude `apiKeyHelper`, `env` tokens,
+    `forceLoginMethod`, `forceLoginOrgUUID`, `otelHeadersHelper`, `sandbox.credentials.*`;
+    Codex `forced_login_method`, the two credential-store keys and MCP server headers and
+    token variables. `--share settings.json` shares the Claude keys (§7.13).
+17. Both: where MCP OAuth tokens live. *Recorded:* Claude keeps them in its per-folder
+    credential store, not in `.claude.json` (C1). Codex keeps them in the OS keyring by
+    default, keyed by server and not by folder, so every `CODEX_HOME` shares them (C2, from
+    source; O3). The owner has deferred C2; §7.13 records it as a known limit.
 18. Both: what each tool does when its variable points at a folder that does not exist
     (creates it, starts logged out, or refuses to start), and which file modes it creates
     there. This records the behaviour; it does not change §7.13, which sets the variable
-    either way. If a tool creates the folder, a blocked folder (§7.13) can come to exist.
+    either way. *Recorded:* Claude creates the folder (mode `0755`) and starts logged out;
+    Codex refuses to start and creates nothing (C8). So `~/.claude-alz-blocked` can come to
+    exist, and `alz doctor` warns about it (§7.13).
 19. Both: which environment variables mark an agent session (in the tool's shell commands,
     hooks and MCP servers), so `alz account allow` can refuse to run inside one.
-20. mise and direnv: whether each leaves a variable that shows which variables it set, so a
-    warning about a value set outside alz can name it and alz can tell when one of them set
-    an `XDG_*` variable.
+    *Recorded:* the markers §7.13 "Agent-session markers" names (C7). Claude also sets
+    `CLAUDECODE` in IDE terminals; Codex sets no marker in stdio MCP servers. *Open:* the
+    Codex names come from source only (O5).
+20. mise and direnv: whether each leaves a variable that shows which variables it set.
+    *Recorded:* mise leaves `__MISE_DIFF` (also in the children of `mise exec` and
+    `mise run`) and direnv `DIRENV_DIFF`; each encodes every variable the tool set with its
+    value, secrets included, in a format that is not a stable interface (C11). *Decided*
+    (decision-17): alz checks only that these variables exist, never reads or decodes them,
+    and its warnings say only that mise or direnv is active (§7.13 "Values set outside alz",
+    "Both files").
 21. Both: whether Claude Code and Codex permission or sandbox rules can deny reads and writes
     to `~`-relative paths (such as `~/.config/agent-layerz/**`), and whether a Bash deny rule
     such as `bash:alz account allow*` can be bypassed through `sh -c` or another wrapper.
+    *Recorded:* Claude rules accept `~/` paths, and a Bash deny rule is not a boundary:
+    `sh -c`, a full path or a script bypasses it (C13; §7.13 "Limit"). Codex deny-read
+    patterns accept `~/`. *Open:* how far Codex rules reach (O6).
 
 Each adapter declares the version range it was verified against, and `alz doctor` warns
 when the installed tool is outside that range.
@@ -1283,6 +1443,8 @@ Tests 19 to 24 are planned with account selection (§7.13); each names its task.
 in this list are not file numbers: 19 to 23 become new test files with the next free `NN`,
 and 24 adds cases to the existing `test/acceptance/24-untrusted-repo.test.ts`. All use a fake
 `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`, never a real account folder.
+They remove `__MISE_DIFF`, `DIRENV_DIFF` and the agent-session markers (§7.13) from the
+environment unless a case sets them, because `mise run test` and an agent session pass them on.
 
 19. **Account resolution** (TASK-50.2): `alz account which` reports each source per target
     (`use`, `environment`, `user config`, `layer`, `default`) and the paths of both files. A
@@ -1292,12 +1454,15 @@ and 24 adds cases to the existing `test/acceptance/24-untrusted-repo.test.ts`. A
     folder fails closed; a missing default folder never fails. A user config inside the
     repository, writable by group or others, or under a parent directory below `$HOME` that
     group or others can write is ignored with a warning, and so is an `allowed.yaml` entry
-    with a relative root or an account name that breaks the rule. Build output is
-    byte-identical with and without account settings.
+    with a relative root or an account name that breaks the rule. With `__MISE_DIFF` or
+    `DIRENV_DIFF` set, a user config located by an `XDG_CONFIG_HOME` other than the default is
+    ignored with a warning that says mise or direnv is active, and one at the default location
+    is read. Build output is byte-identical with and without account settings.
 20. **Account allow** (TASK-50.2): in a fresh clone whose stack names an account, tools start
     on the default account; `alz build` on a terminal prints the allow command, and prints
     nothing about it with an agent-session marker set. `alz account allow` without a
-    terminal, or with an agent-session marker set, refuses and writes nothing; on a terminal
+    terminal, or with any one of the six agent-session markers set (each tested, an empty
+    value included), refuses and writes nothing; on a terminal
     it accepts only the typed account name. After `allow` the named account applies, and a
     ref bump of the declaring layer keeps it. A changed per-target map (a target added or
     removed included) or declaring source skips step 4 for every target, and
@@ -1315,31 +1480,40 @@ and 24 adds cases to the existing `test/acceptance/24-untrusted-repo.test.ts`. A
     folder whether named or resolved, and a cache miss, a changed declaration or a recorded
     source no longer in the stack in an allowed repository each fail before anything starts,
     never on the default account, and name the fix. A variable set outside alz is kept with a
-    warning unless `--account` is given. A forged `ALZ_USE_CLAUDE` in the environment changes
-    nothing.
+    `set outside alz` warning unless `--account` is given; with `__MISE_DIFF` or `DIRENV_DIFF`
+    set, the warning adds `mise or direnv is active here`, and no output contains the marker
+    string the test puts in their values. A forged `ALZ_USE_CLAUDE` in the environment
+    changes nothing.
 22. **Shell hook** (TASK-50.6): in zsh and bash, the hook sets the variables and markers after
     a `cd` into a configured repository and unsets them on leaving; `alz use` survives a `cd`
     until `--reset` and exports no variable; a forged `ALZ_USE_CLAUDE` changes nothing; a
-    foreign value is kept with one warning. When a named account cannot apply, the hook warns
+    foreign value is kept with one warning, which adds `mise or direnv is active here` when
+    `__MISE_DIFF` or `DIRENV_DIFF` is set and never shows their values. When a named account
+    cannot apply, the hook warns
     and sets the missing named folder, the recorded account (cache miss, same source) or the
     blocked folder; a newly declared account or the default account is never set. The
     evaluated output holds only `export NAME='…'` and `unset NAME` lines. A directory named
     `$(touch pwned)` and a layer name containing ESC create no file and put no control
     character on the terminal.
 23. **Account folders by name only** (TASK-50.4, TASK-50.5): a dry run of
-    `alz account init <name>` changes nothing. A real run creates `0700` folders, links only
-    shared-by-default items that exist in the default folder, and backs up by renaming. It
-    refuses `default`, `alz-blocked`, the configured `default_name`, a symlinked account
-    folder or parent, and a `--share` item other than `settings.json`, `projects`, `sessions`
-    or `memories` (before planning), and a rerun changes nothing. `alz doctor` reports
-    missing links but not items kept per account, and ignores the blocked folders. A
-    file-access trace shows that neither command opens a file inside an account folder.
+    `alz account init <name>` changes nothing. A real run without `--share` creates only the
+    `0700` account folders and makes no link. Each `--share` item that exists in the default
+    folder is linked, with a warning, and a whole item it replaces is backed up by renaming;
+    `--share skills` gives Claude a real `skills/` folder with one link per entry, without
+    `synced` or `.trash`, and leaves an entry that already exists alone. It refuses `default`,
+    `alz-blocked`, the configured `default_name`, a symlinked account folder or parent, and a
+    `--share` item that §7.13 does not list (before planning), and a rerun with the same
+    arguments changes nothing. `alz doctor` reports no item as not linked, does not count the
+    blocked folders as accounts and warns when one exists. A file-access trace shows that
+    neither command opens a file inside an account folder.
 24. **Untrusted repository**, account cases (TASK-50.2): a repo layer, a group layer or a
     public `client` layer that declares `account` fails the build, and `alz run`, the hook
     and `alz account which` ignore it with one warning. A layer that sets `CLAUDE_CONFIG_DIR`,
     `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` or `XDG_CACHE_HOME` through
-    `settings.yaml`, an MCP environment or a passthrough file fails the build and names the
-    layer. A stack that names an account does not apply before `alz account allow`.
+    `settings.yaml` (Claude `env`, or a Codex `shell_environment_policy` whose `set` names one
+    or whose `exclude` matches one), an MCP environment or a passthrough file fails the build
+    and names the layer. A stack that names an account does not apply before
+    `alz account allow`.
 
 ---
 
