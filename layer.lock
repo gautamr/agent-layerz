@@ -66,7 +66,7 @@
     ".claude/skills/triage/SKILL.md": "sha256:1eb144a6c119fcb7a90e07f6d0efbad4b2bc65194c84fb68c52c0675558e1cb1",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:d8ef034a4ee4d31d1ffe3d8b0b97a50df6417a540512d65b294e5d9cf200103f",
+    "AGENTS.md": "sha256:374cd95f6ddd986c5cae722204733e46d289f554775c2cf1e42ae53322668bd0",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
@@ -78,7 +78,7 @@
       "source": "path:../agent-layerz-personal"
     },
     {
-      "contentHash": "sha256:0f255e2df60e112d4ff550b26387219d92dd11c1b7076e00a926be63bd75065c",
+      "contentHash": "sha256:1e2d63733cc68b394896a9e27e6d55c8aa94a3496e808a7870edfbb3b0e27877",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }
