@@ -3,7 +3,7 @@ id: doc-5
 title: Rust port plan
 type: specification
 created_date: '2026-11-22T12:53:00Z'
-updated_date: '2026-11-22T12:53:00Z'
+updated_date: '2026-11-22T13:04:00Z'
 ---
 # Rust port plan
 
@@ -21,16 +21,54 @@ work. This plan is the starting point; each phase is a task with its own plan an
 
 ## Principles
 
+0. Idiomatic Rust, no compromise (decision-22). The TypeScript code is a reference for
+   behaviour only, never for structure: no module layout, type shape, error style, naming or
+   pattern is carried over because the TypeScript code had it. The Rust code is designed from
+   the spec as Rust, to the standard below.
 1. The spec is the contract; the suite is the oracle. Behaviour changes only through the spec.
 2. Parity before features: no new behaviour in either implementation until cutover, except fixes
    both must carry.
-3. Byte-identical output: for every fixture, the Rust binary writes the same generated files and
-   `layer.lock` as the TypeScript one. Error and warning text matches what the tests assert.
-4. One slice at a time, in the order data flows, each slice passing its share of the suite.
+3. Byte-identical generated files: for every fixture, the Rust binary writes the same generated
+   files and `layer.lock` as the TypeScript one, because they are committed in users' repositories.
+   Messages follow the spec, not the TypeScript code (choice 5).
+4. One slice at a time, in the order data flows, each slice passing its share of the suite. The
+   phases split the behaviour to port, not the code: crate and module boundaries come from the
+   Rust design in R0, not from `src/`.
 5. Same security rules: untrusted repository content, every write through a guarded root, no git
    or network in account resolution, nothing read inside account folders.
 6. Where Rust can close an accepted Node limit (`openat`-relative access, component-by-component
    symlink walks), it does, and the spec Limit text is narrowed in the same change.
+
+## Rust standard (set in R0, enforced from the first commit)
+
+- Latest stable Rust, edition 2024, a stated MSRV. `rustfmt` with no custom style.
+- `clippy` with `-D warnings` and the `pedantic` group, plus restriction lints chosen in R0
+  (`unwrap_used`, `expect_used`, `panic` outside tests, `print_stdout` outside the output layer).
+  Any `allow` names its reason.
+- `#![forbid(unsafe_code)]` in every crate. File-system safety (`openat`, `O_NOFOLLOW`) comes
+  from a safe crate chosen in R0, such as `rustix` or `cap-std`.
+- Types carry the invariants: newtypes for validated values (account names, layer names, object
+  ids, sources, safe relative paths) built only by parsing ("parse, don't validate"). Enums, not
+  strings, for kinds and states; exhaustive `match`; no stringly typed maps where a struct fits.
+- Errors are typed: `thiserror` enums in library code, one error type per boundary, conversion
+  with `From`, context at the edges. No `anyhow` in library crates. User-facing diagnostics are
+  rendered in one place.
+- Ownership-first APIs: borrow by default, no needless `clone`, no `Rc<RefCell<_>>` designs,
+  iterators over index loops. Pure functions for merge and resolution; I/O at the edges behind
+  small traits only where tests need a seam.
+- Synchronous code. No async runtime unless a real need appears and is recorded as a decision.
+- CLI with `clap` derive. Exit codes and output stay as the spec defines them; where a Rust
+  convention (clap's usage errors, help layout) changes user-visible text, the spec is updated
+  on purpose, not matched by bending the code.
+- Docs: `#![deny(missing_docs)]` on public items, rustdoc examples that run as doc tests.
+- Tests: unit tests next to the code, integration tests in `tests/`, CLI tests with
+  `assert_cmd`, and property tests (`proptest`) for parsers and merge rules. The TypeScript
+  acceptance suite is a temporary external oracle during the port; it is replaced by Rust tests
+  before cutover (R8).
+- Supply chain: `cargo deny` (licences, advisories, duplicate versions) and `cargo audit` in CI;
+  every new dependency is a recorded decision.
+- The repository rules in `.layer/` get a Rust section in R0, and the TypeScript rules stop
+  applying to new code.
 
 ## Phases
 
@@ -57,7 +95,11 @@ work. This plan is the starting point; each phase is a task with its own plan an
    same.
 4. Minimum supported Rust version and target platforms (macOS arm64 and x86_64, Linux x86_64 and
    arm64; Windows stays undecided as before).
-5. Error and output text: identical to the TypeScript wording (recommended, so tests carry over).
+5. Error and output text: the spec defines it. Keep today's wording where the spec states it;
+   where Rust tooling (clap) has its own convention, update the spec rather than imitate the
+   TypeScript output.
+6. Crate layout: designed as Rust (for example a library crate with the domain and a thin binary
+   crate), recorded as a decision before any code.
 
 ## Paused TypeScript work
 

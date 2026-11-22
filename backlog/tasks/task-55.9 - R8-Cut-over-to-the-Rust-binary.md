@@ -4,7 +4,7 @@ title: 'R8: Cut over to the Rust binary'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T12:54:00Z'
+updated_date: '2026-11-22T13:04:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -25,4 +25,5 @@ doc-5 phase R8: a parity run on every fixture, the TypeScript implementation rem
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The suite passes only against the Rust binary, src/ and the Node build are gone, and alz:check passes with the Rust binary
+- [ ] #2 The TypeScript acceptance suite is replaced by Rust tests (unit, integration, assert_cmd, proptest) that cover the same spec sections
 <!-- AC:END -->
