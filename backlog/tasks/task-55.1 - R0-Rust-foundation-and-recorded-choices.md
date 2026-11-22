@@ -4,7 +4,7 @@ title: 'R0: Rust foundation and recorded choices'
 status: In Progress
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T17:17:00Z'
+updated_date: '2026-11-22T17:19:00Z'
 labels:
   - area:rust
   - area:spec
@@ -30,9 +30,9 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A Cargo workspace builds an alz binary that prints its version and help; the five choices in doc-5 are recorded as decisions
+- [x] #1 A Cargo workspace builds an alz binary that prints its version and help; the five choices in doc-5 are recorded as decisions
 - [ ] #2 The Rust standard in doc-5 is written as a .layer rule for Rust code and enforced in CI from the first commit: rustfmt, clippy -D warnings with pedantic and the chosen restriction lints, forbid(unsafe_code), cargo deny and cargo audit
-- [ ] #3 The crate layout is designed from the spec as Rust and recorded as a decision before any domain code; no module mirrors src/ because src/ had it
+- [x] #3 The crate layout is designed from the spec as Rust and recorded as a decision before any domain code; no module mirrors src/ because src/ had it
 - [ ] #4 Every R0 subtask is Done
 <!-- AC:END -->
 
@@ -55,4 +55,6 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 - decision-27: every trust check uses fstat on the handle that is read; files opened O_NONBLOCK (O_NOFOLLOW where links are forbidden), S_ISREG required, the 1 MiB cap enforced by reading at most cap + 1 bytes; the R5 default refuses writes through links inside the repository.
 - decision-28: tags outside the YAML 1.2 core set are errors with their own code; several documents are an error; decoded strings are checked for control characters; key names in errors are stripped per decision-26 class 1; caps and budgets cover every YAML file, accounts.yaml and allowed.yaml included. The '!!binary decoding unverified' consequence is removed. Found: serde-saphyr 2.2.0 drops tags in deserialize_any for untyped visitors, so R2 must choose how tags reach alz (reject_unsupported_tags, Tagged<T> or a granit_parser pre-pass; UNVERIFIED).
 - doc-5 and doc-6 now match Cargo.toml (lints, no expect_used, lints through [workspace.lints]), decision-27's wording, the mise-only toolchain (no rust-toolchain.toml), the move of sanitising into alz-core in R2, and the amendments.
+
+2026-11-22 review: reviewer and security-reviewer ran on 5ff9c97..fc4f1e5; no blockers or high findings. Fixes in 8132f5b (binary, tooling), 37e37ec (CI), dfaaa11 (owner-approved amendments to decisions 24/26/27/28, doc-5/doc-6). Discovered: TASK-59 to TASK-63. Open: AC #2 and #4 wait on TASK-55.1.5 AC #1, which needs a GitHub run; the owner chose not to push yet. Orchestrator verified after fixes: mise run rust:ci exit 0, workflows:lint clean, alz:check pass.
 <!-- SECTION:NOTES:END -->
