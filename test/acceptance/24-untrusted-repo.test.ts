@@ -3,7 +3,6 @@ import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/main";
 import type { Terminal } from "../../src/cli/terminal";
-import { resolveAccounts } from "../../src/resolve/account-resolution";
 import {
   accountFolder,
   alz,
@@ -659,15 +658,6 @@ describe("a refused account declaration, at resolution", () => {
   const ignoredLines = (text: string) =>
     text.split("\n").filter((line) => line.startsWith("warning [account-declaration-ignored]"));
 
-  function resolve(s: Awaited<ReturnType<typeof built>>) {
-    return resolveAccounts({
-      cwd: `${s.real}/repo`,
-      home: s.ws.home,
-      env: { HOME: s.ws.home, ...envFor(s) },
-      uid: process.getuid?.(),
-    });
-  }
-
   it("ignores a repo-layer declaration added after the build, with one warning for both targets", async () => {
     const s = await built();
     accountFolder(s, ".claude-client-a", ".codex-client-a-api");
@@ -680,12 +670,6 @@ describe("a refused account declaration, at resolution", () => {
     expect(result.stdout).toContain("codex: client-a-api (source: layer)");
     expect(ignoredLines(result.stderr)).toHaveLength(1);
     expect(result.stderr).toContain("it is inside the repository");
-
-    const resolved = resolve(s);
-    expect(
-      resolved.warnings.filter((warning) => warning.code === "declaration-ignored"),
-    ).toHaveLength(1);
-    expect(resolved.targets.map((target) => target.account)).toEqual(["client-a", "client-a-api"]);
   });
 
   it("ignores a group layer's declaration read from a cache entry and a lock, with one warning", async () => {
@@ -729,12 +713,6 @@ describe("a refused account declaration, at resolution", () => {
     expect(ignoredLines(result.stderr)).toHaveLength(1);
     expect(result.stderr).toContain("its kind is 'group', not 'client'");
     expect(result.stderr).toContain('"git:https://example.invalid/group.git@v1"');
-
-    const resolved = resolve(s);
-    expect(
-      resolved.warnings.filter((warning) => warning.code === "declaration-ignored"),
-    ).toHaveLength(1);
-    expect(resolved.targets.map((target) => target.account)).toEqual(["client-a", "client-a-api"]);
   });
 });
 

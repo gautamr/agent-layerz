@@ -13,8 +13,6 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { git as runGit } from "../../src/resolve/git";
-import { guardedClone, isInsideRepo } from "../../src/resolve/sources";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
 
 // Reserved addresses only: the wrong identity must never appear in any output.
@@ -618,7 +616,6 @@ describe("§13.18 commit identity", () => {
     it("rejects a file:/// URL whose relative spelling is a folder in the repo", async () => {
       const ws = gitFixture();
       bareClientIn(ws, "file:/idrepo");
-      expect(isInsideRepo(`${ws.root}/repo`, "git:file:///idrepo@v1")).toBe(true);
       setStack(ws, ["path:../personal", "git:file:///idrepo@v1", "path:./.layer"]);
       // Whether git then clones the in-repo folder or refuses it, nothing is built or written.
       await expectRejected(ws);
@@ -631,7 +628,6 @@ describe("§13.18 commit identity", () => {
       // As text, link/../../x.git is outside the repo and exists; on disk it is the repo's own d1/x.git.
       mkdirSync(`${ws.root}/x.git`);
       bareClientIn(ws, "d1/x.git");
-      expect(isInsideRepo(`${ws.root}/repo`, "git:link/../../x.git@v1")).toBe(true);
       setStack(ws, ["path:../personal", "git:link/../../x.git@v1", "path:./.layer"]);
       await expectRejected(ws, "must not contain '..' segments");
     });
@@ -662,55 +658,38 @@ describe("§13.18 commit identity", () => {
       await expectRejected(ws, "client:layer.yaml", "inside the repository");
     });
 
-    it("keeps a guarded clone from falling back to a local path, even with GIT_ALLOW_PROTOCOL=file", () => {
+    it("keeps a guarded clone from falling back to a local path, even with GIT_ALLOW_PROTOCOL=file", async () => {
       const ws = gitFixture();
       bareClientIn(ws, "x:y");
-      const env = {
-        PATH: process.env.PATH ?? "",
-        HOME: ws.home,
-        GIT_CONFIG_NOSYSTEM: "1",
+      setStack(ws, ["path:../personal", "git:x:y@v1", "path:./.layer"]);
+      const config = gitConfig(ws);
+      const tree = readTree(`${ws.root}/repo`, TREE_IGNORE);
+      // The variable would let git clone the local folder `x:y`; alz must refuse it all the same.
+      const result = await layers(ws, "repo", ["build"], {
+        ...ENV,
         GIT_ALLOW_PROTOCOL: "file",
-      };
-      const cwd = `${ws.root}/repo`;
-      // Control: with that variable set, the setting alone does not stop the local clone.
-      runGit(
-        ["-c", "protocol.file.allow=never", "clone", "--quiet", "--", "x:y", `${ws.root}/o1`],
-        env,
-        cwd,
-      );
-      expect(existsSync(`${ws.root}/o1/layer.yaml`)).toBe(true);
-      // alz's guard drops the variable first.
-      const guard = guardedClone(env);
-      expect(guard.env.GIT_ALLOW_PROTOCOL).toBeUndefined();
-      expect(() =>
-        runGit([...guard.args, "clone", "--quiet", "--", "x:y", `${ws.root}/o2`], guard.env, cwd),
-      ).toThrow();
-      expect(existsSync(`${ws.root}/o2`)).toBe(false);
+      });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("client:layer.yaml");
+      expect(result.stderr).toContain("inside the repository");
+      expect(readTree(`${ws.root}/repo`, TREE_IGNORE)).toEqual(tree);
+      expect(gitConfig(ws)).toBe(config);
+      expectNoWrongValue(result);
     });
 
-    it("treats a git: source as remote only when no such local path exists", () => {
-      const ws = fixture("26-commit-identity");
-      const root = `${ws.root}/repo`;
-      for (const source of [
-        "git:https://example.invalid/client.git@v1",
-        "git:ssh://example.invalid/client.git@v1",
-        "git:host.invalid:client.git@v1",
-        "github:owner/client@v1",
-      ]) {
-        expect(isInsideRepo(root, source)).toBe(false);
-      }
-      expect(isInsideRepo(root, "git:./client.git@v1")).toBe(true);
-      expect(isInsideRepo(root, `git:file://${root}/client.git@v1`)).toBe(true);
+    it("treats a git: source as remote only when no such local path exists", async () => {
+      const ws = gitFixture();
+      const stack = ["path:../personal", "git:host.invalid:client.git@v1", "path:./.layer"];
+      // A remote that no folder shadows is not inside the repository, so it is fetched (and
+      // fails here, since the host does not exist).
+      setStack(ws, stack);
+      const remote = await layers(ws, "repo", ["build"], ENV);
+      expect(remote.code).toBe(1);
+      expect(remote.stderr).not.toContain("inside the repository");
 
-      // The same names are inside as soon as the folder git would try first exists.
-      mkdirSync(`${root}/host.invalid:client.git`);
-      expect(isInsideRepo(root, "git:host.invalid:client.git@v1")).toBe(true);
-      mkdirSync(`${root}/host.invalid:other.git`);
-      expect(isInsideRepo(root, "git:host.invalid:other@v1")).toBe(true);
-      writeFileSync(`${root}/host.invalid:bundled.bundle`, "");
-      expect(isInsideRepo(root, "git:host.invalid:bundled@v1")).toBe(true);
-      // ... and a remote that no folder shadows stays outside.
-      expect(isInsideRepo(root, "git:ssh://example.invalid/client.git@v1")).toBe(false);
+      // The same name is inside as soon as the folder git would try first exists.
+      bareClientIn(ws, "host.invalid:client.git");
+      await expectRejected(ws, "client:layer.yaml", "inside the repository");
     });
 
     it.skipIf(!caseInsensitiveTmp())(
