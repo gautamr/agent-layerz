@@ -90,7 +90,10 @@ run `mise run alz:build`. Never edit generated files.
 ## Work
 - Work is tracked in Backlog.md in `backlog/`. At the start of a session run
   `backlog instructions overview`, and read the matching guide before creating, executing or
-  finishing a task. Use the `backlog` CLI; never edit its files by hand.
+  finishing a task. Use the `backlog` CLI; never edit its files by hand. One exception, which
+  the owner approved: the CLI sets only a decision's title, so fill the Context, Decision and
+  Consequences of a decision created here by hand, in the same commit as its task. Never
+  change a decision's title or status, or any other backlog file, by hand.
 - One task, one pull request. Conventional Commits with the task ID, e.g. `feat(adopt): ... (task-12)`.
 - Releases are published only by CI. Never run `npm publish` or change dist-tags locally.
 
