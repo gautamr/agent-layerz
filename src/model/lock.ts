@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { FatalError } from "../core/diagnostics";
 import { isSafeRelativePath } from "../core/files";
 import { stableJson } from "../core/stable-json";
+import { isObjectId } from "../resolve/cache-paths";
 import { NAME_PATTERN, type Visibility } from "./layer-meta";
 
 export const LOCK_FILE = "layer.lock";
-const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 export interface LockedLayer {
   name: string;
@@ -43,12 +43,11 @@ function isLockedLayer(layer: unknown): boolean {
   );
 }
 
-export function readLock(repoRoot: string): Lock | undefined {
-  const path = join(repoRoot, LOCK_FILE);
-  if (!existsSync(path)) return undefined;
+/** Validates the text of a lock; it is repository content, so every field is checked. */
+export function parseLock(text: string): Lock {
   let unsafe: string | undefined;
   try {
-    const lock = JSON.parse(readFileSync(path, "utf8")) as Lock;
+    const lock = JSON.parse(text) as Lock;
     if (lock.lockVersion !== 1 || typeof lock.files !== "object") throw new Error("bad shape");
     if (!Array.isArray(lock.layers)) throw new Error("bad shape");
     unsafe = Object.keys(lock.files).find((file) => !isSafeRelativePath(file));
@@ -56,7 +55,7 @@ export function readLock(repoRoot: string): Lock | undefined {
     if (lock.layers.some((layer) => !isLockedLayer(layer))) throw new Error("bad shape");
     unsafe ??= lock.layers
       .map((layer) => layer.sha)
-      .find((sha) => sha !== undefined && !SHA.test(sha));
+      .find((sha) => sha !== undefined && !isObjectId(sha));
     if (unsafe === undefined) return lock;
   } catch {
     // reported below
@@ -69,6 +68,22 @@ export function readLock(repoRoot: string): Lock | undefined {
       : `${LOCK_FILE} lists an unsafe entry '${unsafe}'; delete the lock and rebuild`,
     LOCK_FILE,
   );
+}
+
+export function readLock(repoRoot: string): Lock | undefined {
+  const path = join(repoRoot, LOCK_FILE);
+  if (!existsSync(path)) return undefined;
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    throw new FatalError(
+      "lock",
+      `${LOCK_FILE} is not a valid lock file; delete it and rebuild`,
+      LOCK_FILE,
+    );
+  }
+  return parseLock(text);
 }
 
 export function serializeLock(lock: Lock): string {

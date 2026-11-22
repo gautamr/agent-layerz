@@ -10,6 +10,18 @@ export function parseYaml(text: string): unknown {
   }
 }
 
+/** The YAML alias limit for text read without trust (§7.13 'Paths'). */
+const MAX_ALIASES = 100;
+
+/** Like `parseYaml`, with an explicit limit on aliases, for files read while resolving an account. */
+export function parseYamlLimited(text: string): unknown {
+  try {
+    return YAML.parse(text, { maxAliasCount: MAX_ALIASES });
+  } catch (error) {
+    throw new InputError(`invalid YAML: ${(error as Error).message.split("\n")[0]}`);
+  }
+}
+
 export function readYamlFile(path: string, where: string): unknown {
   try {
     return parseYaml(readFileSync(path, "utf8"));

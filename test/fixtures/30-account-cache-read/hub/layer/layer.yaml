@@ -1,0 +1,7 @@
+name: client
+kind: client
+visibility: private
+version: 0.1.0
+account:
+  claude: client-a
+  codex: client-a-api

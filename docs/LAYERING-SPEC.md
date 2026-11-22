@@ -302,11 +302,12 @@ cache directory and says to delete that directory: `build`, `check`, `diff`, `do
 is set. The message never contains file content. Nothing is compared when the lock has no entry
 for the source, or its `sha` differs (the ref moved, so new content is expected), or the layer
 was just fetched or written rather than read from the cache. These commands treat "no entry" as
-new content; account resolution (§7.13) will not, since it must treat anything it cannot verify
-as a cache miss. An unpinned `path:` layer is a working tree, not a cache read, and is not
-checked. For every layer, `layer.yaml` must be a regular file, never a link or a folder. The
-check is `verifyCachedLayer`, which returns `ok` or `miss`; account resolution will use it
-(TASK-50.2) and treat a `miss` as a cache miss.
+new content; account resolution (§7.13) does not (TASK-50.9), since it must treat anything it
+cannot verify as a cache miss. An unpinned `path:` layer is a working tree, not a cache read,
+and these commands do not check it; account resolution does check one outside the repository
+against the lock (§7.13). For every layer, `layer.yaml` must be a regular file, never a link or a folder. The
+check is `verifyCachedLayer`, which returns `ok` or `miss`; the account reader (§7.13,
+TASK-50.9) uses it and treats a `miss` as a cache miss.
 
 Two cache reads are also checked without the lock (§6): a `tree2@` entry against its git tree,
 and an existing git entry against a fresh clone of the same commit.
@@ -356,6 +357,14 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - A tree with two paths that are equal after Unicode NFC normalisation and case folding, or a
      file and a folder with such names, is refused before anything is written, because one file
      system would merge them.
+
+   Next to each `tree2@` entry the commands that resolve a pinned `path:` layer keep an index
+   entry, `pathref@<sha256 of the layer directory's real path>-<commit sha>`, that names the
+   tree, so account resolution can find the entry without git (§7.13 "No fetch on resolve").
+   It is only a pointer: whatever it names is still checked against the lock. A directory at
+   its name is the cache error ("delete it and rebuild"); any other failure to write it, such as
+   a read-only cache, is the warning `cache-index` and does not stop the build, and account
+   resolution reports a miss until the entry exists.
 
    The entry is written from the tree's own blobs (`git cat-file`), each checked against its id,
    not by `git checkout-index`, so no attributes file of the working repository
@@ -738,10 +747,10 @@ commit_identity:
 
 ### 7.13 Account selection
 *Planned: TASK-50, decision-15 as amended by decision-16 (the owner's decisions recorded in
-TASK-50.1) and decision-17 (recorded in TASK-50.7). Built so far (TASK-50.8): the `account`
-field and its name rule, who may declare it, and the refusal of layers that set the account
-variables (§7.9). Each other part is not built yet and names the task that builds it. The
-tool facts it relies on are recorded in `docs/target-facts.md` §12 (§12 items 10 to 21
+TASK-50.1) and decision-17 (recorded in TASK-50.7). Built so far (TASK-50.8, TASK-50.9): the
+`account` field and its name rule, who may declare it, the refusal of layers that set the
+account variables (§7.9), and the cache reader and the cache index. Each other part is not
+built yet and names the task that builds it. The tool facts it relies on are recorded in `docs/target-facts.md` §12 (§12 items 10 to 21
 here).*
 
 Claude Code and Codex keep logins, workspace trust and per-user state in an account folder
@@ -786,13 +795,19 @@ account:                       # per target; a target left out is not decided by
   `.claude.json` and the login keyed to that folder, while Codex treats an empty `CODEX_HOME`
   as unset and resolves a set one to its real path (§12 items 10 and 11). Neither tool falls
   back to the default folder when the variable is set (§12 item 13).
-- **Who may declare it** (built, TASK-50.8; the run-time handling is planned, TASK-50.10). The same two layers as `commit_identity`, with the same
+- **Who may declare it** (built, TASK-50.8; the run-time handling is planned, TASK-50.10).
+  The same two layers as `commit_identity`, with the same
   test for "outside the repository" and the same build errors (§7.12): the first stack entry,
   or one private or confidential `kind: client` layer outside the repository. The client
   layer's value replaces the first layer's whole value, a per-target map included; the two
-  are never mixed. A declaration by any other layer, or by a second client layer, is a build
+  are never mixed. A declaration by any other layer is a build
   error that names the layers (and `alz init` prints it as a warning, §10), and, once built,
-  `alz run`, the shell hook and `alz account which` ignore it and print one warning.
+  `alz run`, the shell hook and `alz account which` ignore it and print one warning. When
+  two client layers declare, neither applies: the build fails, and resolution reports a
+  conflict (the cache reader's `conflict` status, TASK-50.9) and applies no declaration. A
+  declaration by a layer inside the repository, the first layer included, fails the build
+  but never decides anything in resolution: it is only reported as ignored, so it can neither
+  win nor create a conflict, and editing `.layer/` never blocks the account (decision-18).
   `alz lint` of a single layer checks the shape only. In the hub repo itself (§4.4)
   `layer/` is inside the repository and cannot declare, so hub sessions get their account
   from the user config's `folders`.
@@ -922,29 +937,56 @@ account:                       # per target; a target left out is not decided by
   An `allowed` entry matches only the exact real root of the repository whose manifest is
   being resolved, so a nested repository needs its own entry. An entry whose path does not
   resolve matches nothing.
-- **No fetch on resolve** (TASK-50.2). Resolution (the shell hook, `alz run`,
-  `alz account which`) never fetches, clones or runs git, and writes nothing. If the
-  repository root is not in `allowed`, step 4 is skipped without reading the stack. If it is,
-  resolution reads each layer's `layer.yaml` with the same validation as `build`, from:
-  - a `github:` or `git:` layer: its cache entry for the commit the lock pins;
-  - a `path:` layer with a `ref`: the cache entry named by the cache index. Next to each
-    `tree2@<tree>` entry (§6), `build` writes an index entry keyed by the layer directory's real path
-    and the commit SHA, for example `pathref@<sha256 of the real path>-<sha>`, that names its
-    tree. `build` and resolution compute the real path with the same function, and
-    resolution computes it from the manifest without git and reads only the index entry for
-    that path, so a repository cannot select another source's entry. `build` writes an index
-    entry only for a tree that git lists as a directory at that path (§6), never for a link or
-    submodule entry, so the index never names a tree that the layer's own repository does not
-    hold at that path. The entry is used only
-    when `lstat` shows a regular file whose whole content is 40 or 64 hexadecimal
-    characters;
-  - a `path:` layer without a `ref`: the layer in place, using only its `layer.yaml`, with the
-    inside/outside test of §7.12. Such a layer is never missing from the cache, but its
-    content hash is still checked (below), so an edit since the last `alz build` is a miss.
+- **No fetch on resolve** (the reader is built, TASK-50.9; the commands that call it are
+  TASK-50.2 and TASK-50.10). Resolution (the shell hook, `alz run`, `alz account which`) never
+  fetches, clones or runs git, and writes nothing. If the repository root is not in `allowed`,
+  step 4 is skipped without reading the stack. If it is, resolution reads each layer's
+  `layer.yaml` with the same validation as `build`. A layer under the repository root as
+  written is inside. For any other `path:` layer or local `git:` source, whether it is inside is
+  decided from its real path, and one that does not resolve is a cache miss
+  (`layer-directory-missing`), never a layer to skip. It reads from:
+  - a `github:` or `git:` layer outside the repository: its cache entry for the commit the
+    lock pins;
+  - a `path:` layer outside the repository with a `ref`: the cache entry named by the cache
+    index. Next to each `tree2@<tree>` entry (§6), every command that resolves a pinned
+    `path:` layer (`build` and the other commands in §5.3) writes an index entry keyed by the
+    layer directory's real path and the commit SHA, for example
+    `pathref@<sha256 of the real path>-<sha>`, whose whole content is the tree id (lowercase,
+    no newline). It is written through a temporary file and a rename, rewritten when it
+    differs, and never removed. `build` and resolution compute the real path with the same
+    function, and resolution computes it from the manifest without git and reads only the
+    index entry for that path, so a repository cannot select another source's entry. The
+    lock entry must record the manifest's ref (its `rev`), otherwise the lock is for another
+    ref and the layer is a miss until `alz build` runs (`lock-ref-mismatch`). An
+    index entry is written only for a tree that git lists as a directory at that path (§6),
+    never for a link or submodule entry, so the index never names a tree that the layer's own
+    repository does not hold at that path. The entry is used only when `lstat` shows a regular
+    file whose whole content is 40 or 64 hexadecimal characters, as long as the commit's id;
+  - a `path:` layer without a `ref` outside the repository: the layer in place. Its content
+    hash is checked (below), so an edit since the last `alz build` is a miss;
+  - a layer inside the repository (§7.12), whatever its source, is read only to warn when it
+    declares an account, which it may not. Only its `layer.yaml` is read, in place, as a
+    regular file of at most 1 MiB with the YAML alias limit. It is never checked against the
+    lock, and a `layer.yaml` that cannot be read or parsed is skipped, so editing `.layer/`
+    never changes or blocks the account. A `git:` layer inside the repository is not read.
 
-  A lock `sha` is used only when it is 40 or 64 hexadecimal characters. Resolution checks each
-  layer it reads against the lock's content hash (§5.3), which covers every file of the
-  layer, with `verifyCachedLayer`, and a mismatch counts as a cache miss. Anything else above
+  A lock `sha` is used only when it is 40 or 64 lowercase hexadecimal characters and the lock
+  has exactly one entry for the source. Resolution checks each layer outside the repository
+  against the lock's content hash (§5.3), which covers every file of the layer, with
+  `verifyCachedLayer`, before `layer.yaml` is parsed, and a mismatch counts as a cache miss.
+  Each file is read once, never through a link, and the bytes hashed are the bytes parsed. A
+  layer with more than 2000 files and folders, or more than 16 MiB in all, is a cache miss
+  (`unreadable`); `alz build` has no such limit. The stack validation (§6 step 2) covers only
+  the layers outside the repository, so editing `.layer/` cannot make it fail.
+  A repository root, cache or layer directory that lies inside an account folder, or contains
+  one (`$HOME` or above it, or the folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names), is a
+  cache miss, and nothing in it is opened (§9.1). A source path that names one as written
+  (`~/.claude-x`, a case variant, a `file://` URL) is a miss before any file system call on it,
+  and the canonical clone path of a local `git:` source is checked too. A `git:` source with a
+  `..` segment in its URL is a miss (`source-invalid`), because the operating system could resolve
+  it through a link. A cache directory inside the repository is a miss (`cache-in-repo`).
+  The reader reports `conflict` as a status of its own, so that no caller can read it as "no
+  declaration". Anything else above that cannot be verified
   is a cache miss too, and a cache miss skips step 4 and fails closed (below). The lock does
   not change. The cache keys of git sources are unambiguous (§6), so a repository cannot make
   resolution read another source's entry by naming a similar URL.
@@ -1205,8 +1247,10 @@ command, never by `build`, `check`, `alz run` or the shell hook:
 alz also reads the hand-written user config
 `${XDG_CONFIG_HOME:-~/.config}/agent-layerz/accounts.yaml`, which it never writes. Neither
 command opens a file inside an account folder or touches a login. The cache index that
-`alz build` writes for pinned `path:` layers (§7.13 "No fetch on resolve") lives in the layer
-cache, so it is no exception.
+the commands resolving the stack write for pinned `path:` layers (§7.13 "No fetch on
+resolve") lives in the layer cache, so it is no exception. Account resolution treats a
+repository root, cache or layer directory that lies inside an account folder, or contains
+one, as a cache miss and opens nothing in it.
 
 ### 9.2 Leak guard
 For layers with `visibility: public`:
@@ -1492,7 +1536,8 @@ The tool is done when all of these pass in CI (fixtures under `test/fixtures/`):
     apostrophe gets no shell command. Without a declaration, `AGENTS.md` has no Commits
     section.
 
-Tests 19 to 24 are planned with account selection (§7.13); each names its task. The numbers
+Tests 19 to 24 are planned with account selection (§7.13); each names its task, and the
+parts that are built say so. The numbers
 in this list are not file numbers: 19 to 23 become new test files with the next free `NN`,
 and 24 adds cases to the existing `test/acceptance/24-untrusted-repo.test.ts`. All use a fake
 `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`, never a real account folder.
@@ -1524,7 +1569,12 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     the hook applies and the fix command. A pinned `path:` layer resolves through the cache
     index; a lock `sha` that is not 40 or 64 hex characters, an index entry for another path,
     a malformed index entry, a symlinked index entry, and a layer whose content hash differs
-    from the lock are each a cache miss, and the hint says only to run `alz build`. In a
+    from the lock are each a cache miss, and the hint says only to run `alz build`. The cache
+    index and the cache misses are built at the reader level (TASK-50.9,
+    `test/acceptance/30-account-cache-read.test.ts`); a cache entry that is missing or a link,
+    a lock that is missing, unreadable or has a missing or duplicate entry, a layer directory
+    or repository root inside an account folder, and a layer inside the repository that is
+    edited, oversize or unparsable (read only to warn, never a miss) are covered there too. In a
     repository that is not allowed, resolution reads no file of its stack. No resolution
     command runs git. Two concurrent `allow` runs leave one sorted entry per root, and
     `alz account allow --remove` removes only this root's entry.

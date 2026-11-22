@@ -2,10 +2,13 @@ import type { Diagnostics } from "../core/diagnostics";
 import type { Layer } from "../model/layer";
 import { where } from "../model/layer";
 import { privacyRank } from "../model/layer-meta";
-import { isInsideRepo } from "../resolve/sources";
+import { isInsideRepo } from "../resolve/source-location";
+
+/** What the who-may-declare rule looks at: a layer's source and metadata, not its files. */
+export type Declarer = Pick<Layer, "source" | "meta">;
 
 /** Why `layer` may not make a first-layer-or-one-client-layer declaration; empty when it may (§7.12, §7.13). */
-export function declarerProblems(layer: Layer, index: number, repoRoot: string): string[] {
+export function declarerProblems(layer: Declarer, index: number, repoRoot: string): string[] {
   const found: string[] = [];
   if (isInsideRepo(repoRoot, layer.source)) found.push("it is inside the repository");
   if (index > 0 && layer.meta.kind !== "client") {
@@ -17,18 +20,20 @@ export function declarerProblems(layer: Layer, index: number, repoRoot: string):
   return found;
 }
 
-export interface Evaluation<T> {
+export interface Evaluation<T, L extends Declarer = Layer> {
   /**
    * The client layer's value if one is eligible, otherwise the first layer's. Undefined when
    * there is no declaration, and also when the declarations conflict (see `conflict`).
    */
-  winner?: { layer: Layer; value: T };
+  winner?: { layer: L; value: T };
   /** True when several client layers declare, or the first layer's declaration was refused: no winner is chosen. */
   conflict: boolean;
+  /** True when the first layer declared and may not: part of why `conflict` is set. */
+  firstRefused: boolean;
   /** Layers that declare but may not, with the reasons. */
-  refused: { layer: Layer; reasons: string[] }[];
+  refused: { layer: L; reasons: string[] }[];
   /** Eligible declarers after the first layer; more than one is an error. */
-  clients: Layer[];
+  clients: L[];
 }
 
 /**
@@ -38,13 +43,13 @@ export interface Evaluation<T> {
  * (`conflict`), so resolution never picks between layers that disagree about who may declare.
  * Pure: writes no diagnostics and runs no git (`isInsideRepo` only reads the file system).
  */
-export function evaluateDeclarations<T>(
-  layers: Layer[],
+export function evaluateDeclarations<T, L extends Declarer = Layer>(
+  layers: L[],
   repoRoot: string,
-  pick: (layer: Layer) => T | undefined,
-): Evaluation<T> {
-  const refused: Evaluation<T>["refused"] = [];
-  const eligible: { layer: Layer; index: number; value: T }[] = [];
+  pick: (layer: L) => T | undefined,
+): Evaluation<T, L> {
+  const refused: Evaluation<T, L>["refused"] = [];
+  const eligible: { layer: L; index: number; value: T }[] = [];
   let firstRefused = false;
   layers.forEach((layer, index) => {
     const value = pick(layer);
@@ -61,14 +66,15 @@ export function evaluateDeclarations<T>(
   return {
     winner: winner && { layer: winner.layer, value: winner.value },
     conflict,
+    firstRefused,
     refused,
     clients: clients.map((entry) => entry.layer),
   };
 }
 
 /** Turns an evaluation into build errors: one per refused layer, one for several clients. */
-export function reportDeclarations<T>(
-  evaluation: Evaluation<T>,
+export function reportDeclarations<T, L extends Declarer>(
+  evaluation: Evaluation<T, L>,
   field: string,
   code: string,
   diags: Diagnostics,

@@ -4,7 +4,7 @@ title: Resolve the account per target and add alz account which
 status: To Do
 assignee: []
 created_date: '2026-11-22T03:33:00Z'
-updated_date: '2026-11-22T03:38:00Z'
+updated_date: '2026-11-22T07:26:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -46,6 +46,8 @@ Spec: LAYERING-SPEC §7.13 'User config', 'Allow state', 'Both files', 'Resoluti
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-22 owner: when a layer.yaml on the root walk cannot be read (permission, over 1 MiB, invalid YAML), the walk stops there, treats that folder as the root, warns, and fails closed if that root is allowed; otherwise the default account applies. It never skips past an unreadable manifest.
+
+2026-11-22 coordinator: include the rule that a non-default XDG_CACHE_HOME while mise or direnv is active is a cache miss (fails closed in an allowed repository), consistent with the owner's XDG decision.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -57,6 +59,15 @@ created: 2026-11-22T03:35:00Z
 ---
 
 Owner question (affects criterion #4, the root walk; blocks the plan of this task only). The spec does not say what the walk does when a layer.yaml on the way cannot be read: over 1 MiB, past the alias limit, invalid YAML, or not a regular file. Options: (a) stop there and treat that directory as a root whose stack cannot be read: step 4 is skipped, and if that root is in allowed.yaml it fails closed like a cache miss (recommended); (b) skip it and walk on. Then a nested checkout with a broken manifest inside an allowed repository would get the outer repository's account.
+
+---
+
+author: @architect
+created: 2026-11-22T07:25:00Z
+
+---
+
+decision-18 (owner, from TASK-50.9): layers inside the repository are read only to warn and never checked against the lock. Criterion #3 says 'checks each against the lock's content hash'; that now means each layer outside the repository (owner to reword if wanted). Step 4 calls readAccountDeclaration from TASK-50.9 (plan section 4): pass the real root, the parsed stack and cacheDir; map its miss codes to the 'layer step skipped (<reason>)' text; use recordedSource() for the 'recorded source still in the stack' check on a miss.
 
 ---
 <!-- COMMENTS:END -->

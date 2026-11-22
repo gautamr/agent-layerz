@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
+import type { Env } from "../core/env";
 
-export type Env = Record<string, string | undefined>;
+export type { Env };
 
 export function git(args: string[], env: Env, cwd?: string): string {
   return execFileSync("git", args, {

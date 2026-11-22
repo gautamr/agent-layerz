@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { readdirSync, statSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readdirSync,
+  readSync,
+  statSync,
+} from "node:fs";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { FatalError } from "./diagnostics";
 
@@ -33,12 +42,19 @@ export function isSkippedName(name: string): boolean {
   return SKIPPED.has(name);
 }
 
-/** Every file under `dir` as a POSIX relative path, sorted by code point for determinism. */
-export function listFiles(dir: string): string[] {
+/**
+ * Every file under `dir` as a POSIX relative path, sorted by code point for determinism. With
+ * `maxEntries`, it throws once more than that many files and folders have been seen, so a
+ * caller that reads an untrusted layer is not made to walk an unbounded tree.
+ */
+export function listFiles(dir: string, maxEntries?: number): string[] {
   const files: string[] = [];
+  let seen = 0;
   const walk = (current: string, prefix: string) => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       if (SKIPPED.has(entry.name)) continue;
+      seen += 1;
+      if (maxEntries !== undefined && seen > maxEntries) throw new Error("too many entries");
       const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) walk(join(current, entry.name), rel);
       else if (entry.isFile()) files.push(rel);
@@ -68,4 +84,60 @@ export function isEnvFile(path: string): boolean {
 /** True when the buffer looks binary (contains a NUL byte in the first 8 KiB). */
 export function isBinary(data: Uint8Array): boolean {
   return data.subarray(0, 8192).includes(0);
+}
+
+/** A regular file read in full, with the identity of the file that was opened. */
+export interface RegularFile {
+  bytes: Buffer;
+  dev: number;
+  ino: number;
+}
+
+/**
+ * Reads a regular file of at most `maxBytes` that is not a link. `lstat` must show a file, the
+ * open refuses a link (`O_NOFOLLOW`), and the open file must be the same regular file, so a link
+ * swapped in between is not followed. `missing` is no such file; anything else wrong, such as a
+ * link, a folder, a larger file or an unreadable one, is `invalid`. Never throws.
+ */
+export function readRegularFileWithId(
+  path: string,
+  maxBytes: number,
+): RegularFile | "missing" | "invalid" {
+  let before: ReturnType<typeof lstatSync>;
+  try {
+    before = lstatSync(path);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    return code === "ENOENT" || code === "ENOTDIR" ? "missing" : "invalid";
+  }
+  if (!before.isFile() || before.size > maxBytes) return "invalid";
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    return "invalid";
+  }
+  try {
+    const open = fstatSync(fd);
+    if (!open.isFile() || open.size > maxBytes) return "invalid";
+    if (open.ino !== before.ino || open.dev !== before.dev) return "invalid";
+    const bytes = Buffer.alloc(open.size);
+    let at = 0;
+    while (at < bytes.length) {
+      const count = readSync(fd, bytes, at, bytes.length - at, at);
+      if (count === 0) break;
+      at += count;
+    }
+    return at === bytes.length ? { bytes, dev: open.dev, ino: open.ino } : "invalid";
+  } catch {
+    return "invalid";
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Like `readRegularFileWithId`, for callers that only need the bytes. */
+export function readRegularFile(path: string, maxBytes: number): Buffer | "missing" | "invalid" {
+  const found = readRegularFileWithId(path, maxBytes);
+  return typeof found === "string" ? found : found.bytes;
 }

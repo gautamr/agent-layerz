@@ -1,7 +1,12 @@
 import type { Diagnostics } from "../core/diagnostics";
 import type { AccountMap } from "../model/account";
 import type { Layer } from "../model/layer";
-import { evaluateDeclarations, reportDeclarations } from "./declarers";
+import {
+  type Declarer,
+  type Evaluation,
+  evaluateDeclarations,
+  reportDeclarations,
+} from "./declarers";
 
 export interface DeclaredAccount {
   account: AccountMap;
@@ -18,8 +23,20 @@ export function mergeAccount(
   repoRoot: string,
   diags: Diagnostics,
 ): DeclaredAccount | undefined {
-  const evaluation = evaluateDeclarations(layers, repoRoot, (layer) => layer.meta.account);
+  const evaluation = evaluateAccount(layers, repoRoot);
   reportDeclarations(evaluation, "account", "account", diags);
   const { winner } = evaluation;
   return winner && { account: winner.value, layer: winner.layer };
+}
+
+/**
+ * The rule of `mergeAccount` without its diagnostics: who may declare, which declaration wins and
+ * which are refused. Pure: it runs no git and writes nothing, so account resolution (§7.13) can
+ * apply it to layers it read from the cache.
+ */
+export function evaluateAccount<L extends Declarer>(
+  layers: L[],
+  repoRoot: string,
+): Evaluation<AccountMap, L> {
+  return evaluateDeclarations(layers, repoRoot, (layer) => layer.meta.account);
 }

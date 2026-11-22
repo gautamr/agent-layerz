@@ -28,7 +28,7 @@ export function sourceRef(layer: Layer, path: string): string {
 }
 
 /** Location used in diagnostics: `personal:agents/architect.md`. */
-export function where(layer: Layer, path: string): string {
+export function where(layer: Pick<Layer, "meta">, path: string): string {
   return `${layer.meta.name}:${path}`;
 }
 
