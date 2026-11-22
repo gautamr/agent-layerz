@@ -19,8 +19,13 @@ Work on Backlog.md task $ARGUMENTS, or the next one if none is given.
    - `area:ci`, `area:release` → release-engineer
    - `area:docs` → docs-writer
    - otherwise → implementer
-5. After implementation, run the reviewer, and the security-reviewer when the task has
-   `area:security` or touches files, subprocesses, hooks, permissions or secrets.
-6. Fix or record every finding, then finish the task with `backlog instructions task-finalization`.
+5. Review once per unit of work: a task without subtasks, or a parent task once all its
+   subtasks are implemented. A subtask gets its checks (tests, lint, `alz:check`) but no review
+   of its own; subtasks of one parent share one branch, which is merged only after the parent's
+   review. At the end of the unit, run the reviewer on the whole unit's diff, and the
+   security-reviewer when any task in it has `area:security` or touches files, subprocesses,
+   hooks, permissions or secrets. (TASK-56 makes this cadence a layer setting.)
+6. Fix or record every finding, then finish the unit's tasks with
+   `backlog instructions task-finalization`.
 
 Report: the task, who did what, the checks run, and anything waiting for the owner.

@@ -42,7 +42,7 @@
     ".claude/skills/gr-typescript-domain/references/testing.md": "sha256:4d8833057690c0517e3cb86822d276718ec4bd12aeae355a1360dcb46cb4c238",
     ".claude/skills/gr-typescript-domain/references/types.md": "sha256:b5c1991245126eef4f37b200e5d6429f10c8a566e8afa5907566412670f29666",
     ".claude/skills/new-slice/SKILL.md": "sha256:26e109bd831319f12bd9eeeaceb9b12c75c9d6973e9bbe4c7fbada8e0fd51939",
-    ".claude/skills/next-task/SKILL.md": "sha256:7d87ceeeb41ff5b58e6d0912e275b82e19f02ffb21b05db13076b105465521af",
+    ".claude/skills/next-task/SKILL.md": "sha256:1020a38be201f2ead0bf550d14853c83a351a31a817d74b87ce6b8a41ee5e5f6",
     ".claude/skills/plan-sprint/SKILL.md": "sha256:03e9c6cdfdbe3be6f255c818b8dd02fe44e139006f779ae7d6d6c3366340fad4",
     ".claude/skills/record-decision/SKILL.md": "sha256:ad77eec2c22d077150a256f0ad26c92741dcd691d39abf123e03ed0a35222270",
     ".claude/skills/retro/SKILL.md": "sha256:b7abe56642dc8a530547a0fee4c8b7ea38d8f08828e07f2264f5fe55ca0649ad",
@@ -68,7 +68,7 @@
       "source": "path:../agent-layer-personal"
     },
     {
-      "contentHash": "sha256:3351dc3d03bd1381ab2c7f62cb2cbd7720fea0a593c99ff7ecc7e5c5c79a28fa",
+      "contentHash": "sha256:56630ae6e2eff097c849f0eb246205c731f7c6a94716851ae36c0a975ab866f7",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }
