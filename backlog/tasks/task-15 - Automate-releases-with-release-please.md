@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@release-engineer'
 created_date: '2026-11-19T17:13:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - area:release
 milestone: m-2
@@ -26,3 +27,9 @@ ordinal: 270
 - [ ] #2 Merging the release pull request creates a tag and a GitHub Release
 - [ ] #3 package.json and CHANGELOG.md versions stay in sync
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-22: paused by decision-21 (Rust port, doc-5). Replaced by TASK-55.8 (Rust distribution).
+<!-- SECTION:NOTES:END -->

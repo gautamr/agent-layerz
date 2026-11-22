@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@release-engineer'
 created_date: '2026-11-19T17:13:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - area:release
   - area:security
@@ -28,3 +29,9 @@ Publishing from a laptop with a long-lived login is the weakest link of the supp
 - [ ] #3 CI stages each release; it goes live only after the owner approves it with 2FA
 - [ ] #4 CONTRIBUTING.md documents the release flow
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-22: paused by decision-21 (Rust port, doc-5). Replaced by TASK-55.8 (Rust distribution).
+<!-- SECTION:NOTES:END -->

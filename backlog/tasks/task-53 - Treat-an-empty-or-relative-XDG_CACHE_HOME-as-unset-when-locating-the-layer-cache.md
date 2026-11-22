@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T08:16:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - discovered
   - area:resolve
@@ -32,3 +33,9 @@ Found while planning TASK-50.10. cacheRoot (src/resolve/cache-paths.ts) uses XDG
 - [ ] #2 With XDG_CACHE_HOME set to a relative path, alz build ignores it the same way and uses ~/.cache/agent-layerz (acceptance test)
 - [ ] #3 cacheRoot and account resolution compute the cache location with the same helper (unit or acceptance test showing both give the same path for unset, empty, relative and absolute values)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust in TASK-55.4, where openat-relative access closes it properly.
+<!-- SECTION:NOTES:END -->

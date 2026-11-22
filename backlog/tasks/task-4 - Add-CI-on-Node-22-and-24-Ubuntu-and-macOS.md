@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@release-engineer'
 created_date: '2026-11-19T17:13:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - area:ci
 milestone: m-1
@@ -29,3 +30,9 @@ Nothing checks pull requests today, and the release pipeline in Phase 2 builds o
 - [ ] #5 Actions are pinned to commit SHAs and the workflow has least-privilege permissions
 - [ ] #6 README shows the CI status badge
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-22: paused by decision-21 (Rust port, doc-5). Replaced by TASK-55.8 (Rust distribution).
+<!-- SECTION:NOTES:END -->

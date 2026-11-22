@@ -4,7 +4,7 @@ title: Add alz run <tool> [--account <name>]
 status: To Do
 assignee: []
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T09:52:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -41,6 +41,8 @@ The first way to switch accounts, needing no shell hook: alz run starts one tool
 2026-11-22 (@architect, final pass): criterion 3 also covers a recorded source that left the stack (owner decision 7 in TASK-50.1).
 
 2026-11-22 (@architect, from TASK-50.7 facts and decision-17): criterion 5 gives the warning text and the presence-only mise/direnv check (target-facts §12.1 C11). Facts for the missing-folder case: Claude creates the folder (0755) and starts logged out, Codex refuses to start (LAYERING-SPEC §7.13, §12 item 18); alz run fails before either. Spec: §7.13 'Values set outside alz', §13 test 21.
+
+2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust after cutover (TASK-55.9) against the same spec; the hook is built as a fast path from the start.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

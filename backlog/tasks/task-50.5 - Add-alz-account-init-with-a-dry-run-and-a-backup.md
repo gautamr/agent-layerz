@@ -4,7 +4,7 @@ title: Add alz account init with a dry run and a backup
 status: To Do
 assignee: []
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T03:10:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -45,6 +45,8 @@ Creates ~/.claude-<name> and ~/.codex-<name> with mode 0700. By default it share
 2026-11-22 (@architect, from TASK-50.7 facts and decision-17): description and criteria 2, 3 and 4 revised to 'nothing shared by default'; criterion 6 added for per-entry links in Claude skills/ and plugins/ (C4); criterion 7 added because per-entry links in plugins/ and a linked projects/ were not tested in TASK-50.7 (target-facts §12 item 14). Backups: whole items only; entries inside skills/ or plugins/ are left alone, since a backup inside skills/ would load as a skill. --share skills applies to both targets (Codex: whole-folder link, C5).
 
 2026-11-22 coordinator: recording per-entry plugins/ links and a linked projects/ in target-facts is criterion 7 of this task (accepted). --share takes the item name and applies to every target that has it; a per-target form is not planned.
+
+2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust after cutover (TASK-55.9) against the same spec; the hook is built as a fast path from the start.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

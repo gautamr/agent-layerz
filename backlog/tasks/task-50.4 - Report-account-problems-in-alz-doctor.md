@@ -4,7 +4,7 @@ title: Report account problems in alz doctor
 status: To Do
 assignee: []
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T03:10:00Z'
+updated_date: '2026-11-22T12:55:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -41,6 +41,8 @@ Covers the account folder checks. Workspace trust lives in per-account state (.c
 2026-11-22 (@architect, final pass): criterion 1 ignores the blocked folders (owner decision 7 in TASK-50.1).
 
 2026-11-22 (@architect, from TASK-50.7 facts and decision-17): criterion 2 no longer reports shared items that are not linked, since nothing is shared by default; an informational line is the most it prints. Criterion 1 gives the presence-only mise/direnv wording (C11). Criterion 5 cites the item 18 fact (Claude creates the folder; Codex refuses to start and creates nothing). No doctor notice for C2 or C3 (C2 deferred by the owner; C3 is a spec limit only). Spec: LAYERING-SPEC §7.13, §10 doctor row, §13 test 23.
+
+2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust after cutover (TASK-55.9) against the same spec; the hook is built as a fast path from the start.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
