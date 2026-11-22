@@ -1,6 +1,7 @@
 name: rust
 
-# Rust workspace checks (decision-25: Rust 1.100.0 pinned in mise.toml, MSRV equal to the pin).
+# Rust workspace checks (decision-25: Rust 1.100.0 pinned in mise.toml, MSRV equal to the pin,
+# so there is no separate MSRV job: the equality check is a step of the rust job).
 # Every job runs the same `mise run` tasks a developer runs locally, so mise.toml is the single
 # source of the toolchain version and of the commands. Nothing here needs a secret.
 #
@@ -12,12 +13,17 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Weekly run of the supply-chain job only, so a new advisory surfaces without a pull request.
+  # Scheduled runs use the default branch and the workflow's read-only permissions.
+  schedule:
+    - cron: "17 5 * * 1"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The schedule has its own group so a scheduled run never replaces a pending push run on main.
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
   # Supersede earlier runs of a pull request; never cancel a run on main.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -27,12 +33,24 @@ env:
   # workflow linters into each job. Each job installs only what it needs (install_args below), and
   # a missing tool then fails the job instead of being fetched silently.
   MISE_AUTO_INSTALL: "false"
+  # Locked mode: mise install fails unless mise.lock has an entry with a checksum for every tool
+  # (verified locally: a missing lockfile or entry is an error). The lockfile must hold the
+  # linux-x64 and macos-arm64 platforms: `mise lock --platform linux-x64,macos-arm64`.
+  MISE_LOCKED: "1"
+  # The mise binary itself is pinned, because its version also decides the aqua registry snapshot
+  # that resolves the tool names. The sha256 is that of the extracted binary (mise-action checks
+  # it instead of the signed release checksums), taken from the official v2026.9.1 release
+  # archives. Change the version and both hashes together.
+  PINNED_MISE_VERSION: "2026.9.1"
+  PINNED_MISE_SHA256_LINUX_X64: c98423c8470d6dc416d9f7036d0646d8ef5ae92ad9186907f8fcc84cbe7db4ea
+  PINNED_MISE_SHA256_MACOS_ARM64: 3cfbe3295dba1a7e43bd02653517a8cc21135ba91f0635b45c98f1ebecc5513f
 
 jobs:
   # rust:check is format check, clippy with -D warnings, and the tests (doc tests included).
   # rust:doc builds the API docs with rustdoc warnings as errors.
   rust:
     name: rust (${{ matrix.os }})
+    if: github.event_name != 'schedule'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -48,11 +66,17 @@ jobs:
       # Only the Rust toolchain: mise.toml also lists Node and the workflow linters.
       # cache is off: mise's Rust is a symlink into rustup's directory, which the mise cache
       # does not hold, so a restored cache could hold a dangling toolchain.
+      # persist_github_token is false (also the default at v5.3.0): the action uses the workflow
+      # token only for its own downloads and does not export it, so cargo build scripts and proc
+      # macros in the later steps never see it.
       - name: Install the pinned Rust toolchain through mise
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
+          version: ${{ env.PINNED_MISE_VERSION }}
+          sha256: ${{ matrix.os == 'macos-latest' && env.PINNED_MISE_SHA256_MACOS_ARM64 || env.PINNED_MISE_SHA256_LINUX_X64 }}
           install_args: rust
           cache: false
+          persist_github_token: "false"
 
       # Cache dependency builds. Pull requests restore the cache saved by main and do not save.
       - name: Cache cargo dependencies
@@ -67,37 +91,18 @@ jobs:
       - name: Docs
         run: mise run rust:doc
 
-  # rust:msrv fails when rust-version in Cargo.toml differs from the mise toolchain, then builds
-  # the workspace on it with the lockfile. While they are equal (decision-25) it is a cheap guard
-  # that the two are raised together.
-  msrv:
-    name: msrv
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install the pinned Rust toolchain through mise
-        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
-        with:
-          install_args: rust
-          cache: false
-
-      - name: Cache cargo dependencies
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-          cache-bin: "false"
-
-      - name: MSRV
+      # decision-25: the MSRV equals the pinned toolchain, so this is the guard that rust-version
+      # in Cargo.toml and the mise pin are raised together. Linux only: it does not depend on the
+      # OS. The task also runs cargo check, a cheap repeat on the warm cache (a separate
+      # equality-only task in mise.toml would avoid it).
+      - name: MSRV equals the pinned toolchain
+        if: matrix.os == 'ubuntu-latest'
         run: mise run rust:msrv
 
   # Supply chain: cargo-deny (advisories, licences, bans, sources) and cargo-audit. Linux only:
   # both read Cargo.lock and the advisory databases, not the compiled code, and the cargo-audit
-  # release in mise is built for Intel macOS only.
+  # release in mise is built for Intel macOS only. This is the only job that also runs on the
+  # weekly schedule.
   supply-chain:
     name: supply chain
     runs-on: ubuntu-latest
@@ -111,11 +116,39 @@ jobs:
       - name: Install the pinned Rust toolchain, cargo-deny and cargo-audit through mise
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
+          version: ${{ env.PINNED_MISE_VERSION }}
+          sha256: ${{ env.PINNED_MISE_SHA256_LINUX_X64 }}
           install_args: rust aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit
           cache: false
+          persist_github_token: "false"
 
       - name: cargo-deny
         run: mise run rust:deny
 
       - name: cargo-audit
         run: mise run rust:audit
+
+  # actionlint (syntax and types) and zizmor --pedantic (security, including unpinned `uses:`),
+  # offline, through the same task a developer runs. Gates every change to .github/workflows.
+  workflows:
+    name: workflows
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint and zizmor through mise
+        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: ${{ env.PINNED_MISE_VERSION }}
+          sha256: ${{ env.PINNED_MISE_SHA256_LINUX_X64 }}
+          install_args: aqua:rhysd/actionlint aqua:zizmorcore/zizmor
+          cache: false
+          persist_github_token: "false"
+
+      - name: Lint the workflows
+        run: mise run workflows:lint
