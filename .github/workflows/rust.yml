@@ -1,0 +1,121 @@
+name: rust
+
+# Rust workspace checks (decision-25: Rust 1.100.0 pinned in mise.toml, MSRV equal to the pin).
+# Every job runs the same `mise run` tasks a developer runs locally, so mise.toml is the single
+# source of the toolchain version and of the commands. Nothing here needs a secret.
+#
+# There is deliberately no `paths:` filter. A workflow skipped by a path filter leaves its required
+# checks "Pending" and blocks the merge of every pull request that does not touch Rust. The
+# workspace is small, so the jobs run on every pull request instead.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Supersede earlier runs of a pull request; never cancel a run on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  # `mise run` installs every missing tool in mise.toml by default, which would pull Node and the
+  # workflow linters into each job. Each job installs only what it needs (install_args below), and
+  # a missing tool then fails the job instead of being fetched silently.
+  MISE_AUTO_INSTALL: "false"
+
+jobs:
+  # rust:check is format check, clippy with -D warnings, and the tests (doc tests included).
+  # rust:doc builds the API docs with rustdoc warnings as errors.
+  rust:
+    name: rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Only the Rust toolchain: mise.toml also lists Node and the workflow linters.
+      # cache is off: mise's Rust is a symlink into rustup's directory, which the mise cache
+      # does not hold, so a restored cache could hold a dangling toolchain.
+      - name: Install the pinned Rust toolchain through mise
+        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          install_args: rust
+          cache: false
+
+      # Cache dependency builds. Pull requests restore the cache saved by main and do not save.
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-bin: "false"
+
+      - name: Format, clippy and tests
+        run: mise run rust:check
+
+      - name: Docs
+        run: mise run rust:doc
+
+  # rust:msrv fails when rust-version in Cargo.toml differs from the mise toolchain, then builds
+  # the workspace on it with the lockfile. While they are equal (decision-25) it is a cheap guard
+  # that the two are raised together.
+  msrv:
+    name: msrv
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain through mise
+        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          install_args: rust
+          cache: false
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-bin: "false"
+
+      - name: MSRV
+        run: mise run rust:msrv
+
+  # Supply chain: cargo-deny (advisories, licences, bans, sources) and cargo-audit. Linux only:
+  # both read Cargo.lock and the advisory databases, not the compiled code, and the cargo-audit
+  # release in mise is built for Intel macOS only.
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain, cargo-deny and cargo-audit through mise
+        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          install_args: rust aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit
+          cache: false
+
+      - name: cargo-deny
+        run: mise run rust:deny
+
+      - name: cargo-audit
+        run: mise run rust:audit
