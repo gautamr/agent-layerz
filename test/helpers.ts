@@ -1,4 +1,13 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { run } from "../src/cli/main";
@@ -78,4 +87,29 @@ export function exists(ws: Workspace, path: string): boolean {
 
 export function expected(fixtureName: string, path: string): string {
   return readFileSync(join(fixturesDir, fixtureName, "expected", path), "utf8");
+}
+
+/**
+ * Everything under `dir`, without following links: path (relative to `dir`) → kind, mode and
+ * content or link target. A folder that is missing or unreadable gives an empty snapshot. Two
+ * equal snapshots taken before and after a command prove it wrote nothing there.
+ */
+export function snapshot(dir: string): Record<string, string> {
+  const entry = (full: string): [string, string][] => {
+    const stat = lstatSync(full);
+    const mode = (stat.mode & 0o7777).toString(8);
+    const rel = full.slice(dir.length);
+    if (stat.isSymbolicLink()) return [[rel, `link:${readlinkSync(full)}`]];
+    if (stat.isDirectory()) return [[rel, `dir:${mode}`], ...walk(full)];
+    if (stat.isFile()) return [[rel, `file:${mode}:${readFileSync(full, "utf8")}`]];
+    return [[rel, `other:${mode}`]];
+  };
+  const walk = (current: string): [string, string][] => {
+    try {
+      return readdirSync(current).flatMap((name) => entry(join(current, name)));
+    } catch {
+      return [];
+    }
+  };
+  return Object.fromEntries(walk(dir));
 }
