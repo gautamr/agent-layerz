@@ -1,10 +1,10 @@
 ---
 id: TASK-55.1
 title: 'R0: Rust foundation and recorded choices'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T17:19:00Z'
+updated_date: '2026-11-22T17:41:00Z'
 labels:
   - area:rust
   - area:spec
@@ -31,9 +31,9 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A Cargo workspace builds an alz binary that prints its version and help; the five choices in doc-5 are recorded as decisions
-- [ ] #2 The Rust standard in doc-5 is written as a .layer rule for Rust code and enforced in CI from the first commit: rustfmt, clippy -D warnings with pedantic and the chosen restriction lints, forbid(unsafe_code), cargo deny and cargo audit
+- [x] #2 The Rust standard in doc-5 is written as a .layer rule for Rust code and enforced in CI from the first commit: rustfmt, clippy -D warnings with pedantic and the chosen restriction lints, forbid(unsafe_code), cargo deny and cargo audit
 - [x] #3 The crate layout is designed from the spec as Rust and recorded as a decision before any domain code; no module mirrors src/ because src/ had it
-- [ ] #4 Every R0 subtask is Done
+- [x] #4 Every R0 subtask is Done
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -58,3 +58,9 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 
 2026-11-22 review: reviewer and security-reviewer ran on 5ff9c97..fc4f1e5; no blockers or high findings. Fixes in 8132f5b (binary, tooling), 37e37ec (CI), dfaaa11 (owner-approved amendments to decisions 24/26/27/28, doc-5/doc-6). Discovered: TASK-59 to TASK-63. Open: AC #2 and #4 wait on TASK-55.1.5 AC #1, which needs a GitHub run; the owner chose not to push yet. Orchestrator verified after fixes: mise run rust:ci exit 0, workflows:lint clean, alz:check pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+R0 is complete. Decisions 23 to 29 record layout, YAML, git, toolchain and targets, output ownership, directory access and the first dependencies; 24, 26, 27 and 28 were tightened after the security review with owner approval. The Cargo workspace (four crates, Rust 1.100.0 through mise) builds alz with --version and --help; the Rust standard is enforced locally (rust:ci) and in CI, which passed on PR #1 and failed on throwaway rustfmt and clippy PRs. install:local:rust installs the binary as alz-rs for local use. Reviewed once as a unit by the reviewer and security-reviewer; all findings fixed or recorded. Discovered: TASK-59 to TASK-63. Next: R1 (TASK-55.2).
+<!-- SECTION:FINAL_SUMMARY:END -->

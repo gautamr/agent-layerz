@@ -1,11 +1,11 @@
 ---
 id: TASK-55.1.5
 title: CI job for the Rust workspace
-status: In Progress
+status: Done
 assignee:
   - '@release-engineer'
 created_date: '2026-11-22T15:53:00Z'
-updated_date: '2026-11-22T17:08:00Z'
+updated_date: '2026-11-22T17:41:00Z'
 labels:
   - area:ci
   - area:rust
@@ -25,7 +25,7 @@ A GitHub Actions workflow for the Rust workspace on Linux and macOS: fmt check, 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The workflow passes on a pull request that only touches crates/, and fails when clippy or rustfmt would fail
+- [x] #1 The workflow passes on a pull request that only touches crates/, and fails when clippy or rustfmt would fail
 - [x] #2 Every third-party action is pinned to a full commit SHA
 <!-- AC:END -->
 
@@ -78,4 +78,12 @@ Review fixes (rust.yml only; not pushed, not committed):
 - msrv job removed: per decision-25 the equality check is now a step of the rust job, Ubuntu only ('MSRV equals the pinned toolchain', mise run rust:msrv). The task still runs cargo check --locked, a cheap repeat on a warm cache; an equality-only task in mise.toml would avoid it (not changed: not my file).
 - Added schedule (Mondays 05:17 UTC) that runs only the supply-chain job (rust and workflows have if: github.event_name != 'schedule'); contents: read, default branch only. The schedule has its own concurrency group so it never replaces a pending push run on main. GitHub disables scheduled workflows after 60 days without repository activity on public repositories, and failure mail goes to the person who last changed the cron line.
 - Required check names to configure: 'rust (ubuntu-latest)', 'rust (macos-latest)', 'supply chain', 'workflows' ('msrv' no longer exists). Not provable locally: the sha256 and version inputs on a hosted runner, locked install on ubuntu-latest/macos-latest once mise.lock exists, shellcheck findings from actionlint on the runner, the schedule trigger.
+
+AC #1 evidence on GitHub: PR #1 run 45050539192 (head 268b5b7) all four checks green: rust (ubuntu-latest), rust (macos-latest), supply chain, workflows. Throwaway PR #2 run 45050719866: both rust jobs failed on the cargo fmt diff at crates/alz-core/src/lib.rs:4, supply chain and workflows passed. Throwaway PR #3 run 45050729466: both rust jobs failed on clippy::clone_on_copy (plus allow_attributes from a stray attribute), others passed. #2 and #3 closed unmerged, branches deleted. This also confirms on hosted runners: mise 2026.9.1 with checksum, locked installs, Rust 1.100.0 with rustfmt and clippy, cargo-audit on Linux.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Rust CI workflow (.github/workflows/rust.yml) on ubuntu-latest and macos-latest: rust:check (fmt, clippy -D warnings, tests and doc tests, --locked), rust:doc, an MSRV equality step, a supply-chain job (cargo-deny, cargo-audit) that also runs weekly, and a workflows job (actionlint, zizmor). Every action pinned to a commit SHA; mise pinned by version and sha256 with MISE_LOCKED and the committed mise.lock; contents: read, no secrets, persist-credentials false, token not persisted. Verified on GitHub: green on PR #1, red on throwaway rustfmt (#2) and clippy (#3) PRs. Required checks once branch protection exists (TASK-5): rust (ubuntu-latest), rust (macos-latest), supply chain, workflows. Follow-up: the TypeScript reference still has no CI (TASK-4).
+<!-- SECTION:FINAL_SUMMARY:END -->
