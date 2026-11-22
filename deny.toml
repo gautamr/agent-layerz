@@ -1,0 +1,52 @@
+# cargo-deny policy for the Rust workspace (supply chain: advisories, licences, bans, sources).
+# Run with `mise run rust:deny`. cargo-deny is a pinned tool in mise.toml, not a Cargo dependency.
+
+[graph]
+# Check every target and every feature: the shipped binaries cover macOS and Linux (decision-25),
+# and a dependency that only appears on one target is still shipped.
+all-features = true
+
+[advisories]
+version = 2
+# Fail on advisories of any kind, unmaintained and unsound crates included, and on yanked crates.
+yanked = "deny"
+unmaintained = "all"
+unsound = "all"
+# Each entry needs an id and a reason. None are accepted today.
+ignore = []
+
+[licenses]
+version = 2
+# This project is MIT; everything it ships must be compatible with distribution under MIT.
+# Add a licence only after reading it, with the crate that needs it in a comment.
+allow = [
+    "MIT",
+    "Apache-2.0",       # clap and its helper crates, alongside MIT
+    "Unicode-3.0",      # unicode-ident data tables
+]
+confidence-threshold = 0.93
+
+[bans]
+# One version of each crate in the graph. A duplicate doubles compile time and binary size and
+# often hides a stale transitive dependency. When an unavoidable duplicate appears, record it in
+# `skip` with the reason and the crate that forces it.
+multiple-versions = "deny"
+wildcards = "deny"
+highlight = "all"
+skip = []
+
+# Version rules recorded in decisions. They apply from the day a crate enters the graph.
+deny = [
+    # decision-27: earlier rustix releases lack the fixes alz relies on for no-follow directory walks.
+    { name = "rustix", version = "<1.1.6", reason = "decision-27 requires rustix 1.1.6 or later" },
+    # decision-28: serde-saphyr is pinned exactly. Raise the pin in Cargo.toml and both lines here together.
+    { name = "serde-saphyr", version = "<2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
+    { name = "serde-saphyr", version = ">2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
+]
+
+[sources]
+# crates.io only: no git dependencies, no other registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
