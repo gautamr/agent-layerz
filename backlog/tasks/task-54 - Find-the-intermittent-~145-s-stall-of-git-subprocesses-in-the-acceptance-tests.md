@@ -4,7 +4,7 @@ title: Find the intermittent ~145 s stall of git subprocesses in the acceptance 
 status: To Do
 assignee: []
 created_date: '2026-11-22T09:02:00Z'
-updated_date: '2026-11-22T17:57:00Z'
+updated_date: '2026-11-22T18:07:00Z'
 labels:
   - area:test
   - discovered
@@ -38,4 +38,6 @@ Hypotheses (no experiments run):
 - H2, the xcrun git shim. git here is Apple's /usr/bin/git, an xcrun shim with a shared cache at $TMPDIR/xcrun_db. Every git call, from the tests and from alz, goes through it, and the children get an explicit env without TMPDIR. A shim that waits on its cache lock or on the developer-tools lookup would stall every concurrent git call together. If R1.7's listing shows xcrun or xcode-select under a stuck git, the follow-up is to resolve `xcrun --find git` once in setup and put that directory first on the children's PATH.
 - H3, a network wait. About 146 s is close to two 75 s TCP connect timeouts. A case that lets alz or git reach a real host (a github: or https source that misses the cache) would wait on the network. The spawn timeout and listing would show git-remote-https or ssh.
 - Unlikely: fsmonitor and maintenance or gc --auto, because the HOME is isolated, GIT_CONFIG_NOSYSTEM is set for the tests' own git, and the repositories are tiny. Note that alz's own git children do not get GIT_CONFIG_NOSYSTEM from the test env, so they read the system gitconfig, which includes the CommandLineTools credential helper.
+
+2026-11-22: deleted 33102 leftover alz-* folders from $TMPDIR (owner approved), so the folder-size hypothesis (H1) can be checked: if the stall stops while R1.7 prevents new leaks, H1 is likely.
 <!-- SECTION:NOTES:END -->

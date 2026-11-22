@@ -6,10 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T17:56:00Z'
+updated_date: '2026-11-22T18:02:00Z'
 labels:
   - area:test
   - area:rust
-  - needs:owner-approval
 milestone: m-7
 dependencies:
   - TASK-55.2.7
@@ -41,3 +41,9 @@ Once chosen:
 - [ ] #2 Every fake-terminal case R1.6 marked pending R1.8 runs in test/acceptance against ALZ_BIN through the driver and passes on the TypeScript bundle; the notes list each case with its reference copy, kept or removed
 - [ ] #3 A positive control shows the driver's stdin is a terminal and a plain spawn's is not: allow asks under the driver and refuses without it
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-22): no PTY driver until R6; choose it when R6 ports accounts (Rust driver in alz-test-support, node-pty or python3). The account allow cases stay in the reference project until then. R1 (TASK-55.2) may finish without this task; it blocks R6 (TASK-55.7) instead.
+<!-- SECTION:NOTES:END -->

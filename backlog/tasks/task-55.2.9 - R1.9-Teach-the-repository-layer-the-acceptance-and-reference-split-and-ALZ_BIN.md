@@ -6,10 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T17:57:00Z'
+updated_date: '2026-11-22T18:02:00Z'
 labels:
   - area:agents
   - area:test
-  - needs:owner-approval
 milestone: m-7
 dependencies:
   - TASK-55.2.7
@@ -46,3 +46,9 @@ Then `mise run alz:build` and `mise run alz:check`. Generated files are never ed
 - [ ] #1 The owner approved the text in a comment on this task before it was applied
 - [ ] #2 `mise run alz:build` ran and `mise run alz:check` passes; the generated AGENTS.md and the add-acceptance-test skill describe ALZ_BIN, test/reference and the import guard
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-22): layer text change approved.
+<!-- SECTION:NOTES:END -->

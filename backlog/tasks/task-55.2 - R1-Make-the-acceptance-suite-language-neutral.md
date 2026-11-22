@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T17:58:00Z'
+updated_date: '2026-11-22T18:02:00Z'
 labels:
   - area:rust
   - area:test
@@ -117,6 +117,8 @@ Other findings:
 - 32 already has the convention "written out, not imported, so a change to the list in src fails here" (AGENT_SESSION_MARKERS). Test-side spec formulas follow it.
 - The temp folder holds 33,102 alz-* entries again, after 64,000 were removed earlier on 2026-11-22. That is about 1,000 per run.
 - git here is Apple's /usr/bin/git, an xcrun shim with its cache at $TMPDIR/xcrun_db. Children get an explicit env without TMPDIR.
+
+Owner answers (2026-11-22): PTY driver deferred to R6 (TASK-55.2.8 now blocks TASK-55.7, and R1 can finish without it); leftover temp folders deleted; TASK-55.2.9 layer text approved.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
