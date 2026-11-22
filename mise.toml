@@ -24,16 +24,42 @@ run = "npm run build"
 
 [tasks."rust:check"]
 description = "Rust workspace: format check, clippy with -D warnings, and tests"
-run = "cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace"
+run = "cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features --locked -- -D warnings && cargo test --workspace --locked"
 
 [tasks."rust:deny"]
 description = "Rust supply chain: advisories, licences, bans (including duplicate versions) and sources (deny.toml)"
-# Run the pinned binary directly: `cargo deny` would pick up a global install from ~/.cargo/bin first.
-run = "cargo-deny check"
+# Inside a task, ~/.cargo/bin comes first on PATH and `mise exec` does not change that, so a global
+# `cargo install` there would run instead of the pin (seen locally: 0.21.0 shadowed 0.22.0). The task
+# runs the binary from the pinned install by its path, and fails if that binary is not the pinned version.
+# --locked: the lockfile is never rewritten.
+# -A unused-wrapper: deny.toml names `tempfile` as a wrapper of rustix before either is in the graph,
+# and cargo-deny would warn on every run; every other lint, unmatched-wrapper included, stays on.
+run = '''
+tool="aqua:EmbarkStudios/cargo-deny"
+pinned=$(mise current "$tool")
+binary=$(find "$(mise where "$tool")" -type f -name cargo-deny | head -n 1)
+actual=$("$binary" --version)
+if [ "$actual" != "cargo-deny $pinned" ]; then
+  echo "cargo-deny runs as '$actual' but mise.toml pins $pinned" >&2
+  exit 1
+fi
+"$binary" --locked check -A unused-wrapper
+'''
 
 [tasks."rust:audit"]
 description = "Rust supply chain: audit Cargo.lock against the RustSec advisory database, warnings fail"
-run = "cargo-audit audit --deny warnings"
+# The same pinned-binary handling as rust:deny.
+run = '''
+tool="aqua:rustsec/rustsec/cargo-audit"
+pinned=$(mise current "$tool")
+binary=$(find "$(mise where "$tool")" -type f -name cargo-audit | head -n 1)
+actual=$("$binary" --version)
+if [ "$actual" != "cargo-audit $pinned" ]; then
+  echo "cargo-audit runs as '$actual' but mise.toml pins $pinned" >&2
+  exit 1
+fi
+"$binary" audit --deny warnings
+'''
 
 [tasks."rust:doc"]
 description = "Build the Rust API docs with rustdoc warnings as errors"
@@ -45,16 +71,15 @@ description = "Run only the Rust doc tests (rust:check already runs them through
 run = "cargo test --workspace --all-features --doc --locked"
 
 [tasks."rust:msrv"]
-description = "MSRV: the pinned toolchain equals rust-version, and the workspace builds on it with the lockfile"
-run = """
-declared=$(sed -n 's/^rust-version = "\\(.*\\)"$/\\1/p' Cargo.toml)
+description = "MSRV: the pinned toolchain equals rust-version (decision-25), so rust:check already builds on the MSRV"
+run = '''
+declared=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
 pinned=$(rustc --version | cut -d' ' -f2)
 if [ "$declared" != "$pinned" ]; then
   echo "rust-version in Cargo.toml is '$declared' but the mise toolchain is '$pinned' (decision-25: they rise together)" >&2
   exit 1
 fi
-cargo check --workspace --all-targets --all-features --locked
-"""
+'''
 
 [tasks."rust:ci"]
 description = "Rust workspace, the full local set: rust:check, rust:doc, rust:msrv, rust:deny, rust:audit"

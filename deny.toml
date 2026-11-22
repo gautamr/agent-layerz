@@ -36,12 +36,28 @@ highlight = "all"
 skip = []
 
 # Version rules recorded in decisions. They apply from the day a crate enters the graph.
+#
+# A requirement such as `<1.1.6` never matches a pre-release (semver: a pre-release matches only a
+# requirement that names a pre-release of the same major.minor.patch). cargo-deny 0.22 confirmed
+# this on a scratch graph (TASK-55.1.4 notes): `rustix 1.1.5-rc.1`, `serde-saphyr 2.2.0-rc.1` and
+# `serde-saphyr 2.2.1-rc.1` passed the plain bounds. Each bound therefore has a twin that opts in to
+# pre-releases of the boundary version, written `>=X.Y.Z-0, <X.Y.Z` or `>=X.Y.Z-0`. cargo-deny
+# cannot say "any pre-release", so pre-releases of other versions stay out of reach here; Cargo.toml
+# keeps them out, because cargo selects a pre-release only for a requirement that names one.
 deny = [
     # decision-27: earlier rustix releases lack the fixes alz relies on for no-follow directory walks.
     { name = "rustix", version = "<1.1.6", reason = "decision-27 requires rustix 1.1.6 or later" },
-    # decision-28: serde-saphyr is pinned exactly. Raise the pin in Cargo.toml and both lines here together.
+    { name = "rustix", version = ">=1.1.6-0, <1.1.6", reason = "decision-27 requires rustix 1.1.6 or later; this catches its pre-releases" },
+    # decision-27: only alz-io calls rustix. `wrappers` lets named crates depend on it directly and
+    # fails any other direct dependent. Add a crate here only when it appears in the graph, with the
+    # reason. cargo-deny prints a warning for a wrapper it does not meet; that is expected until
+    # tempfile joins the graph.
+    { name = "rustix", wrappers = ["alz-io", "tempfile"], reason = "decision-27: only alz-io depends on rustix; tempfile is the named third-party exception" },
+    # decision-28: serde-saphyr is pinned exactly. Raise the pin in Cargo.toml and every line here together.
     { name = "serde-saphyr", version = "<2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
+    { name = "serde-saphyr", version = ">=2.2.0-0, <2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0; this catches the pre-releases of 2.2.0" },
     { name = "serde-saphyr", version = ">2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
+    { name = "serde-saphyr", version = ">=2.2.1-0", reason = "decision-28 pins serde-saphyr to =2.2.0; this catches the pre-releases of 2.2.1" },
 ]
 
 [sources]
