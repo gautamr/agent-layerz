@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@release-engineer'
 created_date: '2026-11-22T15:53:00Z'
-updated_date: '2026-11-22T16:56:00Z'
+updated_date: '2026-11-22T17:08:00Z'
 labels:
   - area:ci
   - area:rust
@@ -69,4 +69,13 @@ Verify AC #1 (needs the owner):
 4. Drop the throwaway commits; the PR passes again. AC #2 can be checked by reading the uses: lines (all are 40-hex SHAs with a version comment; zizmor's unpinned-uses audit passes).
 
 Orchestrator: all eight uses: lines are 40-hex SHAs with version comments; mise run workflows:lint (actionlint 1.7.12, zizmor 1.32.0 pedantic) exit 0. AC #1 waits for a real GitHub run (needs the owner's go-ahead to push).
+
+Review fixes (rust.yml only; not pushed, not committed):
+- Correction of the earlier note: at jdx/mise-action v5.3.0 (924e7c58) the github_token is NOT persisted to later steps. action.yml has persist_github_token (default false); src/github-token.ts exports MISE_GITHUB_TOKEN to later steps only when it is true or a token value. What the action does export: MISE_TRUSTED_CONFIG_PATHS, MISE_YES, MISE_LOG_LEVEL, the shims PATH and the output of mise env --json (mise.toml has no [env]). Every mise-action step now sets persist_github_token: "false" explicitly, so cargo build scripts and proc macros never see the token and no env blanking is needed.
+- mise pinned: version 2026.9.1 (the version installed locally) and sha256 of the extracted binary per platform, using the action's version and sha256 inputs (sha256 is checked against the installed binary, so it differs per OS and replaces the signed-checksum check). linux-x64 c98423c8470d6dc416d9f7036d0646d8ef5ae92ad9186907f8fcc84cbe7db4ea; macos-arm64 3cfbe3295dba1a7e43bd02653517a8cc21135ba91f0635b45c98f1ebecc5513f. Both were computed from the official v2026.9.1 release archives and equal the release's raw-binary asset digests. They sit in workflow env (PINNED_MISE_*); raise version and hashes together.
+- Locked mode: MISE_LOCKED=1 at workflow level. Verified locally in a scratch project with mise 2026.9.1: install of an aqua tool succeeds with a lock entry, fails with 'is not in the lockfile' without one, mise run works. mise-action also adds --locked itself when a lockfile is present, but only then; MISE_LOCKED makes a missing lockfile an error instead of a silent unlocked install. Needs the implementer's mise.lock to hold the linux-x64 and macos-arm64 platforms (mise lock --platform linux-x64,macos-arm64); until mise.lock is committed every CI install fails by design. Rust gets no per-platform checksum in the lockfile (only version and options); aqua tools get sha256 and attestation provenance.
+- Added job 'workflows' running mise run workflows:lint (actionlint, zizmor --pedantic --offline); a negative copy with an unpinned mise-action is rejected (zizmor unpinned-uses, exit 14).
+- msrv job removed: per decision-25 the equality check is now a step of the rust job, Ubuntu only ('MSRV equals the pinned toolchain', mise run rust:msrv). The task still runs cargo check --locked, a cheap repeat on a warm cache; an equality-only task in mise.toml would avoid it (not changed: not my file).
+- Added schedule (Mondays 05:17 UTC) that runs only the supply-chain job (rust and workflows have if: github.event_name != 'schedule'); contents: read, default branch only. The schedule has its own concurrency group so it never replaces a pending push run on main. GitHub disables scheduled workflows after 60 days without repository activity on public repositories, and failure mail goes to the person who last changed the cron line.
+- Required check names to configure: 'rust (ubuntu-latest)', 'rust (macos-latest)', 'supply chain', 'workflows' ('msrv' no longer exists). Not provable locally: the sha256 and version inputs on a hosted runner, locked install on ubuntu-latest/macos-latest once mise.lock exists, shellcheck findings from actionlint on the runner, the schedule trigger.
 <!-- SECTION:NOTES:END -->
