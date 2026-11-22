@@ -72,6 +72,8 @@ run `mise run alz:build`. Never edit generated files.
 | Lint and type check | `mise run lint` |
 | Bundle the CLI | `mise run build` |
 | Install this checkout as one file at `~/.local/bin/alz` | `mise run install:local` |
+| Build the Rust alz release binary | `mise run rust:build` |
+| Install or update the Rust alz as one file at `~/.local/bin/alz-rs` (`ALZ_NAME=alz` replaces the Node one) | `mise run install:local:rust` |
 | Rust workspace: fmt, clippy `-D warnings`, tests | `mise run rust:check` |
 | Rust workspace, the full local set (check, doc, MSRV, deny, audit) | `mise run rust:ci` |
 | Lint GitHub Actions workflows (actionlint, zizmor) | `mise run workflows:lint` |
