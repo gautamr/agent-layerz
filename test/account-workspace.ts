@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import YAML from "yaml";
 import type { Terminal } from "../src/cli/terminal";
-import { stringifyYaml } from "../src/core/yaml";
-import { gitEntryName } from "../src/resolve/cache-paths";
-import { hashLayerDir } from "../src/resolve/layer-hash";
 import { fixture, layers, type Workspace } from "./helpers";
+import { gitEntryName } from "./spec/cache";
+import { contentHash } from "./spec/content-hash";
 
 /**
  * Shared set-up of the account tests (31 and the account cases of 24): the fixture
@@ -153,7 +153,8 @@ export interface AllowedFixture {
 
 /** Writes allowed.yaml the way `alz account allow` would. */
 export function writeAllowed(s: Setup, entries: AllowedFixture[], raw?: string): string {
-  const text = raw ?? `# written by alz account allow\n${stringifyYaml(entries)}`;
+  const text =
+    raw ?? `# written by alz account allow\n${YAML.stringify(entries, { lineWidth: 0 })}`;
   writeSafe(stateDir(s), "allowed.yaml", text, s.ws.home);
   return `${stateDir(s)}/allowed.yaml`;
 }
@@ -195,7 +196,7 @@ export function lockEntry(cache: string, remote: RemoteLayer, url: string) {
       source: remote.source,
       rev: "v1",
       sha: remote.sha,
-      contentHash: `sha256:${hashLayerDir(folder).contentHash}`,
+      contentHash: `sha256:${contentHash(folder)}`,
     },
   };
 }

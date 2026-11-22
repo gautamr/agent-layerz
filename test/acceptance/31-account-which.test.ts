@@ -14,13 +14,9 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { readRegularFileWithId, sha256 } from "../../src/core/files";
-import { parseYamlLimited } from "../../src/core/yaml";
-import {
-  type AccountResolution,
-  ENV_NAMES,
-  resolveAccounts,
-} from "../../src/resolve/account-resolution";
+import YAML from "yaml";
+import { readRegularFileWithId } from "../../src/core/files";
+import { type AccountResolution, resolveAccounts } from "../../src/resolve/account-resolution";
 import {
   accountFolder,
   alz,
@@ -42,6 +38,8 @@ import {
 import { traced, tracedAsync } from "../fs-trace";
 import { readTree } from "../helpers";
 import { valueImports } from "../import-graph";
+import { sha256Hex } from "../spec/cache";
+import { ENV_NAMES, YAML_ALIAS_LIMIT } from "../spec/limits";
 
 vi.mock("node:fs", async (importOriginal) =>
   (await import("../fs-trace")).intercept(
@@ -449,8 +447,9 @@ describe("§13.19 paths: the repository root and the folders entries (AC 4)", ()
 
     it("proves the alias payload parses within the limit and is refused only past it", () => {
       const ok = `a: &a [x]\nstack:\n  - source: path:x\nrefs: [${Array.from({ length: 50 }, () => "*a").join(", ")}]\n`;
-      expect(() => parseYamlLimited(ok)).not.toThrow();
-      expect(() => parseYamlLimited(`a: &a [x]\nrefs: [${aliasList}]\n`)).toThrow();
+      const parse = (text: string) => YAML.parse(text, { maxAliasCount: YAML_ALIAS_LIMIT });
+      expect(() => parse(ok)).not.toThrow();
+      expect(() => parse(`a: &a [x]\nrefs: [${aliasList}]\n`)).toThrow();
     });
 
     it.each(broken)(
@@ -782,7 +781,7 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
     expect(JSON.stringify(result)).not.toContain(MARKER);
     expect(gets.length).toBeGreaterThan(0);
     expect(gets.filter((name) => /MISE|DIRENV|ALZ_USE/.test(name))).toEqual([]);
-    const known: readonly string[] = ENV_NAMES;
+    const known = ENV_NAMES;
     expect(gets.filter((name) => !known.includes(name))).toEqual([]);
     // The value of a manager variable is never read: its getter never runs, no `get` names it,
     // and nothing enumerates the environment. Existence is the only thing asked.
@@ -1230,7 +1229,7 @@ function listing(dir: string): Record<string, string> {
     for (const item of readdirSync(current, { withFileTypes: true })) {
       const full = join(current, item.name);
       const stat = lstatSync(full);
-      const body = stat.isFile() ? sha256(readFileSync(full)) : "";
+      const body = stat.isFile() ? sha256Hex(readFileSync(full)) : "";
       out[full] =
         `${item.isDirectory() ? "dir" : item.isSymbolicLink() ? "link" : "file"}:${stat.size}:${stat.mtimeMs}:${body}`;
       if (item.isDirectory()) walk(full);
