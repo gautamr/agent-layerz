@@ -3,6 +3,8 @@ node = "22"
 rust = { version = "1.100.0", profile = "minimal", components = "rustfmt,clippy" }
 "aqua:EmbarkStudios/cargo-deny" = "0.22.0"
 "aqua:rustsec/rustsec/cargo-audit" = "0.23.0"
+"aqua:rhysd/actionlint" = "1.7.12"
+"aqua:zizmorcore/zizmor" = "1.32.0"
 
 [tasks.install]
 description = "Install npm dependencies"
@@ -63,6 +65,13 @@ run = [
   { task = "rust:deny" },
   { task = "rust:audit" },
 ]
+
+[tasks."workflows:lint"]
+description = "Lint GitHub Actions workflows: actionlint for syntax and types, zizmor for security (pedantic persona)"
+run = """
+actionlint
+zizmor --pedantic --offline .github/workflows
+"""
 
 [tasks."test:node24"]
 description = "Run the tests on the newest supported Node line too"
