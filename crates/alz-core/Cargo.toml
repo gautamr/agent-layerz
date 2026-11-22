@@ -1,0 +1,12 @@
+[package]
+name = "alz-core"
+version = "0.1.0"
+description = "The pure domain of agent-layerz: no file system, process or environment access"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

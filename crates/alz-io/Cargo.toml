@@ -1,0 +1,12 @@
+[package]
+name = "alz-io"
+version = "0.1.0"
+description = "Every effect of agent-layerz, behind capability types"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

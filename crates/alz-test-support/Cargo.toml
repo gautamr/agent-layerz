@@ -1,0 +1,12 @@
+[package]
+name = "alz-test-support"
+version = "0.1.0"
+description = "Test helpers for agent-layerz: isolated home, fixture copies, git helpers"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

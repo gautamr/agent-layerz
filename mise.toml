@@ -1,5 +1,6 @@
 [tools]
 node = "22"
+rust = { version = "1.100.0", profile = "minimal", components = "rustfmt,clippy" }
 
 [tasks.install]
 description = "Install npm dependencies"
