@@ -3,7 +3,7 @@ id: doc-5
 title: Rust port plan
 type: specification
 created_date: '2026-11-22T12:53:00Z'
-updated_date: '2026-11-22T16:38:00Z'
+updated_date: '2026-11-22T17:16:00Z'
 ---
 # Rust port plan
 
@@ -45,10 +45,18 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 
 
 - Rust 1.100.0 pinned through mise, edition 2024, MSRV equal to the pin and raised with it
-  (decision-25). `rustfmt` with no custom style.
-- `clippy` with `-D warnings` and the `pedantic` group, plus restriction lints chosen in R0
-  (`unwrap_used`, `expect_used`, `panic` outside tests, `print_stdout` outside the output layer).
-  Any `allow` names its reason.
+  (decision-25). `mise.toml` is the only source of the version; there is no
+  `rust-toolchain.toml` (TASK-55.1.3). `rustfmt` with no custom style.
+- `clippy` with `-D warnings` and the `pedantic` group, plus the restriction lints listed in
+  `[workspace.lints.clippy]` of the root `Cargo.toml`, which every crate inherits. Among them:
+  `unwrap_used`, `indexing_slicing`, `string_slice`, `panic_in_result_fn`, `unwrap_in_result`,
+  `todo`, `unimplemented`, `dbg_macro`, `exit`, `as_conversions`, `print_stdout` and
+  `print_stderr` (output goes through `std::io::Write` in the one place that renders it). The
+  root `clippy.toml` allows unwrap, expect, printing and indexing in tests. `expect` with a
+  message that says why the value is there is allowed (gr-rust), so `expect_used` and `panic`
+  are not enabled. An outer `#[allow]` warns (`allow_attributes`), so a lint is silenced with
+  `#[expect(..., reason = "...")]`, and every allow names its reason
+  (`allow_attributes_without_reason`).
 - `unsafe_code = "forbid"` in `[workspace.lints.rust]`, inherited by every crate. File-system safety (`openat`, `O_NOFOLLOW`) comes
   from `rustix` 1.1.6 or later, called only inside `alz-io` (decision-27).
 - Types carry the invariants: newtypes for validated values (account names, layer names, object
@@ -80,8 +88,8 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 | --- | --- | --- |
 | R0 | Foundation and choices | Repository layout, toolchain through mise, crate choices recorded as decisions, CI job skeleton |
 | R1 | Language-neutral suite | Every acceptance test drives a binary chosen by `ALZ_BIN`; the six source-importing files become CLI tests or move to TypeScript-only unit tests; TASK-54 temp-folder clean-up |
-| R2 | Core model | Manifest, layer meta, lock, account model, YAML with size and alias limits (serde-saphyr into alz's own tree, and alz's own emitter, decision-28), diagnostics, sanitising |
-| R3 | Resolve | Sources (`path:`, `git:`, `github:` with the guarded clone), cache layout and integrity, safe file reads with `openat` |
+| R2 | Core model | Manifest, layer meta, lock, account model, YAML with size and alias limits (serde-saphyr into alz's own tree, and alz's own emitter, decision-28), diagnostics, sanitising (decision-26's text classes, moved from the binary into `alz-core`) |
+| R3 | Resolve | Sources (`path:`, `git:`, `github:` with the guarded clone and the explicit child environment, decision-24), cache layout and integrity, safe file reads with `openat` and trust checks by `fstat` on the handle that is read (decision-27) |
 | R4 | Merge | Every merge rule, protected variables, who may declare |
 | R5 | Render, adapters and commands | Claude adapter, adoption, `init`, `build`, `check`, `diff`, `ls`, `explain`, `doctor`, `lint` |
 | R6 | Identity and accounts | Commit identity, `alz account which`, `alz account allow` |
@@ -91,7 +99,9 @@ The full standard is the personal skill `gr-rust` (agent-layerz-personal), with 
 ## Choices settled in R0 (owner)
 
 The owner answered on 2026-11-22. The options and trade-offs are in the notes of TASK-55.1.2, and
-for YAML in TASK-55.1.1.
+for YAML in TASK-55.1.1. On 2026-11-22 the owner also amended decision-24, decision-26,
+decision-27 and decision-28 with tightenings from the R0 security review; the summaries below
+include them.
 
 1. Repository layout and 6. crate layout, decision-23: a Cargo workspace at the root of this
    repository, next to the TypeScript code until cutover. The crates are those of doc-6 (alz-core,
@@ -100,22 +110,44 @@ for YAML in TASK-55.1.1.
    needed.
 2. YAML library, decision-28, from the TASK-55.1.1 spike: `serde-saphyr` pinned `=2.2.0`,
    deserialisation only, with YAML 1.2 core options and limits (100 aliases, depth 64, 20000
-   nodes, 10000 replayed events) and a 1 MiB cap per file before parsing. alz reads into its own
-   YAML tree and converts that tree in its own code; diagnostics come from the error variant and
-   location only. Generated YAML comes from alz's own emitter, tested byte for byte against the
-   TypeScript output. The fallback is `yaml_serde`. The parse changes users will see go into the
-   spec later, and cutover needs a minor version bump.
+   nodes, 10000 replayed events) and a 1 MiB cap per file before parsing. The cap and the limits
+   apply to every YAML file alz reads, `accounts.yaml` and `allowed.yaml` included. alz reads
+   into its own YAML tree and converts that tree in its own code. The conversion rejects every
+   explicit tag outside the YAML 1.2 core set (`!!binary` and custom tags included) with its own
+   error code, a stream of several documents, and control characters in strings after their
+   escapes are decoded. Diagnostics come from the error variant and location only; the one piece
+   of input they may hold is a key name, quoted and stripped as decision-26 class 1 says.
+   Generated YAML comes from alz's own emitter, tested byte for byte against the TypeScript
+   output. The fallback is `yaml_serde`. The parse changes users will see go into the spec
+   later, and cutover needs a minor version bump. How a tag reaches alz through serde-saphyr is
+   settled in R2.
 3. Git access, decision-24: the `git` binary with argument arrays and an explicit, guarded child
-   environment; no git library.
+   environment; no git library. For cache and clone operations the child environment drops
+   `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+   `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, `GIT_NAMESPACE` and
+   `GIT_CEILING_DIRECTORIES`, so `alz check` run as a pre-commit hook cannot reach the user's
+   index or repository. Revisions follow `--end-of-options`; `--` comes only before paths.
 4. MSRV and targets, decision-25: Rust 1.100.0 pinned through mise, with the MSRV equal to the
    pin. Targets are macOS arm64 and x86_64, and Linux x86_64 and arm64 as static musl binaries.
    Windows stays undecided.
 5. Error and output text, decision-26: the spec owns streams, the diagnostic format, exit codes
    and the messages it quotes. clap's defaults own help, usage errors and `--version`, and alz
-   renders and sanitises clap's errors. The spec gains an "Output and exit codes" section in a
-   later task.
+   renders and sanitises clap's errors. Untrusted text is printed in one of three classes:
+   stripped of control and format characters, line feed included, in diagnostics; escaped as
+   printable ASCII with `\u{XXXX}` where a person decides on it, as in `alz account allow`; and
+   inside clap's output, the only text that keeps its own line feeds, with the argument
+   fragments stripped. Format characters are the whole Unicode category Cf. A panic prints a
+   fixed message and exits 70. The spec gains an "Output and exit codes" section in a later
+   task.
 6. Safe directory access, decision-27: `rustix` 1.1.6 or later only, inside `alz-io` capability
-   types, with alz's own walk that never follows a link.
+   types. Their methods take validated relative paths (`SafeRelPath`) and walk them one
+   component at a time relative to a directory handle, each component opened with `O_NOFOLLOW`,
+   `O_DIRECTORY` and `O_CLOEXEC`. A link is followed only where the spec allows it, explicitly,
+   with `readlinkat`, and each resolved prefix is checked (account folders). Every trust check
+   (owner, mode, type, size) uses `fstat` on the handle that is then read; files are opened
+   with `O_NONBLOCK` and must be regular files, and the 1 MiB cap is enforced by reading at most
+   one byte more than the cap. Writes through links inside the repository are refused by
+   default unless the spec decides otherwise in R5.
 
 ## Paused TypeScript work
 

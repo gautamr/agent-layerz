@@ -57,6 +57,38 @@ Every untrusted file is read as strict UTF-8 and capped at 1 MiB before parsing.
 **Diagnostics.** Text comes from the error variant and its location only, never from the
 library's `Display` text or a serde value.
 
+**Amended 2026-11-22 (owner, R0 review).** Five tightenings:
+- **Tags.** The tree conversion rejects every explicit tag outside the YAML 1.2 core set (`!!str`,
+  `!!int`, `!!float`, `!!bool`, `!!null`, `!!map`, `!!seq`). `!!binary`, `!!timestamp`, `!!set`,
+  `!!omap`, `!!merge`, `!!value`, local tags such as `!foo` and other global tags such as
+  `!!python/object` are errors with their own diagnostic code. Nothing is decoded or dropped
+  silently.
+- **Documents.** A stream with more than one document is an error wherever one document is
+  expected, which is every file alz reads today.
+- **Decoded text.** Every string the conversion produces, keys and values, is checked for control
+  characters after YAML has decoded its escapes, not only as raw bytes, so `"\x07"` or `"\e"` in
+  a double-quoted scalar cannot bring in what the raw-byte check refuses. Both checks use one
+  set, which R2 proposes for the spec. The default: tab and line feed are allowed; every other
+  character of U+0000 to U+001F, U+007F to U+009F, U+2028 and U+2029 is an error. Format
+  characters stay a rule of the individual field, as in spec §7.12, because emoji sequences use
+  U+200D.
+- **Key names in errors** are quoted and stripped per decision-26 class 1. They are the only
+  input text a YAML diagnostic may hold.
+- **Every YAML file alz reads** gets the 1 MiB cap, strict UTF-8 and the whole budget above:
+  `layer.yaml`, frontmatter (the cap applies to the whole file), settings, `accounts.yaml` and
+  `allowed.yaml`.
+
+How the tag reaches alz is not settled: serde-saphyr 2.2.0 drops tags when an untyped visitor
+reads through `deserialize_any` (`src/de/deserializer.rs`), so the tree as first described never
+sees them. Its source shows three ways in, none of them run yet (UNVERIFIED):
+- `reject_unsupported_tags: true` rejects local and application tags, but accepts the tags it
+  recognises, `!!binary` and `!!timestamp` among them;
+- the public `serde_saphyr::Tagged<T>` wrapper exposes a value's tag;
+- `serde_saphyr::granit_parser` re-exports the event parser, so a pre-pass over its events can
+  see every tag without a new dependency.
+
+R2 (TASK-55.3) picks one, or combines them, and a test per tag above proves it.
+
 **Generated YAML.** A small emitter in `alz-core` writes it, for the subset alz writes (string
 maps, lists, booleans, integers, block strings). It is tested byte for byte against the
 TypeScript output samples. No serialiser dependency.
@@ -77,17 +109,33 @@ count, duplicate-key and size checks, and a new decision.
     - NUL and other control bytes;
     - invalid UTF-8, where the reference substituted U+FFFD;
     - files over the node budget;
-    - a number in a text field.
+    - a number in a text field;
+    - an explicit tag outside the core set (amended);
+    - a control character that an escape in a quoted string produces (amended).
   - Silent changes:
     - a `%YAML 1.1` directive is ignored;
     - `017` is no longer the integer 17 (alz's conversion decides);
     - `0b101` is the integer 5 instead of a string;
-    - `!!binary` text is decoded, unless `ignore_binary_tag_for_string` prevents it, which is
-      unverified;
     - integers above 2^53 stay exact.
   - Error text becomes alz's own, with line and column, no input snippet and no alias name.
 - Cutover needs a minor 0.x version bump because of these changes.
-- A property test or fuzz target checks that no YAML diagnostic contains input bytes.
+- A property test or fuzz target checks that no YAML diagnostic contains input bytes outside a
+  quoted, stripped key name (amended).
+- **Amended 2026-11-22 (owner, R0 review):**
+  - The silent change "`!!binary` text is decoded, unless `ignore_binary_tag_for_string` prevents
+    it, which is unverified" is removed: such a tag is now an error.
+  - What the TypeScript reference does instead (SMOKE, Node 22 with `yaml` 2.9.1, `YAML.parse`):
+    `!!binary` becomes bytes, which then fail the type checks where text is expected;
+    `!!timestamp`, `!!set` and `!!omap` become a date, a set and a map; `!foo` and
+    `!!python/object` become plain strings, with a Node warning on standard error that quotes the
+    input line; `"x\x07y"` and `"x‮y"` are accepted as decoded. So a file that used a
+    custom tag, or an escape that decodes to a control character, built with the reference and
+    fails with the Rust binary. The spec task lists both.
+  - Multiple documents are an error in the reference too (`MULTIPLE_DOCS`), so that rule changes
+    nothing users see. serde-saphyr's single-document functions return
+    `Error::MultipleDocuments` (read in its source, not run).
+  - For `accounts.yaml` and `allowed.yaml`, spec §7.13 already states the 1 MiB cap and the
+    alias limit. The depth, node and replay budgets are new for them.
 - `cargo deny` (TASK-55.1.4) keeps serde-saphyr at `=2.2.0`. Moving to 3.x is a new decision
   after a rerun of the spike's comparison.
 - Adopt's comment-preserving edit of `layer.yaml` (`YAML.parseDocument` in the reference) has no

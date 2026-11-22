@@ -44,13 +44,30 @@ called only inside `alz-io`, wrapped in capability types (`ReadOnlyDir`, `RepoRo
 Their methods take validated relative paths (`SafeRelPath`) and walk them one component at a time
 relative to a directory handle:
 - each component is opened with `O_NOFOLLOW`, `O_DIRECTORY` and `O_CLOEXEC`;
-- metadata comes from `statat` with `AT_SYMLINK_NOFOLLOW`, or from `fstat` on the open handle;
+- metadata comes from `statat` with `AT_SYMLINK_NOFOLLOW`, or from `fstat` on the open handle
+  (amended below: every trust check uses `fstat`);
 - a link is followed only where the spec allows it, explicitly, with `readlinkat`, and each
   resolved prefix is checked (account folders).
 
 Files are created with `O_CREAT|O_EXCL|O_NOFOLLOW` and an explicit mode. A file is replaced through
 a temporary file in the same directory, `fsync` and `renameat`. Neither cap-std nor nix is a
 dependency. If `std::fs::Dir` becomes stable, replacing rustix calls with it is a new decision.
+
+**Amended 2026-11-22 (owner, R0 review).** Checks are made on the handle that is used, never on a
+name that is opened afterwards:
+- Every trust check (owner, mode, file type, size) uses `fstat` on the handle that is then read,
+  or, for a folder, on the handle the next step opens relative to. A `statat` followed by an
+  `openat` of the same name is never a trust check, because the name can change in between.
+  `statat` with `AT_SYMLINK_NOFOLLOW` may explain a refusal, for example name the link after an
+  `O_NOFOLLOW` open failed, but never decides one.
+- A file is opened with `O_RDONLY`, `O_NONBLOCK` and `O_CLOEXEC`, and with `O_NOFOLLOW` wherever
+  the spec forbids a link, so a FIFO or a device cannot block the open. `fstat` must then show
+  `S_ISREG`; anything else is refused.
+- The 1 MiB cap is enforced by reading at most the cap plus one byte and refusing the file if
+  that last byte arrives. `st_size` is not trusted. Budgets over many files, such as a layer's
+  16 MiB, count the bytes actually read.
+- A link is still followed only where the spec allows it, with `readlinkat` and a check of each
+  resolved prefix.
 
 ## Consequences
 
@@ -69,3 +86,11 @@ dependency. If `std::fs::Dir` becomes stable, replacing rustix calls with it is 
   relied on.
 - Open for R5 (TASK-55.6), and a spec change if adopted: whether writes through links inside the
   repository, which the TypeScript writer follows today, are refused.
+- **Amended 2026-11-22 (owner, R0 review):**
+  - The default for that R5 question is to refuse writes through links inside the repository,
+    unless the spec decides otherwise. Refusing changes what users see, for example a generated
+    file the user replaced with a link, so R5 puts it in the spec and in the cutover's version
+    note.
+  - The walk's tests also cover a FIFO, a folder and a device in place of a file, which must be
+    refused without blocking; a file that grows past the cap between `fstat` and the read; and a
+    name swapped for a link between two calls, which must not change what was checked.

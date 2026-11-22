@@ -3,14 +3,15 @@ id: doc-6
 title: 'Rust architecture: layout, domain modelling and type-level design'
 type: specification
 created_date: '2026-11-22T14:38:00Z'
-updated_date: '2026-11-22T16:38:00Z'
+updated_date: '2026-11-22T17:16:00Z'
 ---
 # Rust architecture: layout, domain modelling and type-level design
 
 Companion to doc-5 (plan), decision-21 (Rust) and decision-22 (idiomatic Rust). The layout in §2
 was adopted with two changes in decision-23 (TASK-55.1.2). Git access is decision-24, the
 toolchain and targets decision-25, output text decision-26, directory access decision-27, and
-YAML decision-28.
+YAML decision-28. On 2026-11-22 the owner amended decision-24, decision-26, decision-27 and
+decision-28 after the R0 security review; this document follows the amended text.
 Nothing here mirrors `src/`; it starts from what alz is.
 
 ## 1. What alz is, for design purposes
@@ -37,44 +38,59 @@ agent-layerz/
 ├── Cargo.toml                 # [workspace]: members = ["crates/*"] (+ "xtask" once it exists), resolver = "3"
 │                              # [workspace.package]: edition = "2024", rust-version = the pin, license
 │                              # [workspace.lints]: rust + clippy levels, inherited by every crate
+│                              # through [lints] workspace = true (unsafe_code forbid, missing_docs,
+│                              # pedantic and the restriction lints; CI runs clippy with -D warnings)
 │                              # [workspace.dependencies]: one version per dependency
 ├── Cargo.lock                 # committed: alz ships a binary
-├── rust-toolchain.toml        # if kept: the same version as the mise pin (1.100.0, decision-25),
-│                              # components rustfmt and clippy; TASK-55.1.3 checks mise and rustup agree
+├── mise.toml                  # [tools] rust = "1.100.0" with rustfmt and clippy: the only source of the
+│                              # toolchain version (decision-25). No rust-toolchain.toml (TASK-55.1.3):
+│                              # mise exports RUSTUP_TOOLCHAIN, which overrides that file, so it could only drift
 ├── deny.toml                  # cargo-deny: licences, advisories, bans, duplicate versions
 ├── clippy.toml                # thresholds and test allowances; MSRV comes from Cargo.toml. A crate's
 │                              # own clippy.toml replaces this file (not merged): repeat the allowances
 ├── crates/
 │   ├── alz-core/              # library, no I/O: the domain and its algebra
 │   │   ├── clippy.toml        # disallowed-methods: std::fs, std::process, std::env
-│   │   ├── src/lib.rs         # #![forbid(unsafe_code)] #![deny(missing_docs)]
+│   │   ├── src/lib.rs         # crate docs and re-exports; lints come from [workspace.lints]
 │   │   ├── src/layer/         # LayerName, LayerKind, Visibility, LayerMeta, Layer
 │   │   ├── src/stack/         # Source, Ref, Stack, ResolvedStack (typestate)
 │   │   ├── src/item/          # Agent, Skill, Command, Rule, Hook, Permission, McpServer, Model
-│   │   ├── src/merge/         # one module per item type; the merge algebra (§4)
+│   │   ├── src/merge/         # one module per item type; the merge algebra (§3.5)
 │   │   ├── src/target/        # Target trait (sealed); claude/, later codex/: anti-corruption layer
-│   │   ├── src/yaml/          # serde-saphyr =2.2.0 wrapper (decision-28): options and limits, alz's own
-│   │   │                      # YAML tree via deserialize_any, conversion to domain types, diagnostics
-│   │   │                      # from the error variant and location only
+│   │   ├── src/yaml/          # serde-saphyr =2.2.0 wrapper (decision-28): options and limits for every
+│   │   │                      # YAML file alz reads, alz's own YAML tree, conversion to domain types that
+│   │   │                      # rejects tags outside the YAML 1.2 core set, several documents and control
+│   │   │                      # characters in decoded strings; diagnostics from the error variant and
+│   │   │                      # location only, plus key names stripped as class 1 (decision-26)
 │   │   ├── src/render/        # FileTree (in memory), deterministic serialisation, and alz's own YAML
 │   │   │                      # emitter, tested byte for byte against the TypeScript output (decision-28)
 │   │   ├── src/lock/          # Lock, ObjectId, ContentHash
 │   │   ├── src/identity/      # CommitIdentity and its decision rules
 │   │   ├── src/account/       # AccountName, declarations, resolution decision (pure)
+│   │   ├── src/untrusted_text.rs # decision-26 text classes: stripped (diagnostics) and escaped (text a
+│   │   │                      # person decides on); added in R2, names settled by its plan
 │   │   └── src/diagnostic.rs  # Diagnostic { code, message, at }, no printing
 │   ├── alz-io/                # library: every effect, behind capability types
 │   │   ├── src/fs/            # ReadOnlyDir, RepoRoot (write), CacheDir, StateDir, safe walks (openat via
-│   │   │                      # rustix >= 1.1.6, decision-27), O_NOFOLLOW reads, atomic write + rename, locks
-│   │   ├── src/git.rs         # GitRunner: the git binary, argument arrays, explicit environment,
-│   │   │                      # no shell, no git library (decision-24)
+│   │   │                      # rustix >= 1.1.6, decision-27), O_NOFOLLOW reads, atomic write + rename, locks;
+│   │   │                      # trust checks by fstat on the handle that is read, O_NONBLOCK and S_ISREG,
+│   │   │                      # caps enforced by reading at most cap + 1 bytes
+│   │   ├── src/git.rs         # GitRunner: the git binary, argument arrays, an environment built explicitly
+│   │   │                      # (cache and clone calls drop GIT_DIR, GIT_INDEX_FILE and the other repository
+│   │   │                      # variables), --end-of-options before revisions, no shell, no git library
+│   │   │                      # (decision-24)
 │   │   ├── src/cache.rs       # cache layout and integrity, on top of fs
 │   │   ├── src/terminal.rs    # PersonAtTerminal proof value (only constructible from a real TTY
 │   │   │                      # with no agent marker)
 │   │   └── src/env.rs         # Env snapshot taken once at start; presence-only queries
 │   ├── alz/                   # binary: clap CLI, wiring, rendering diagnostics, exit codes
 │   │   ├── clippy.toml        # disallowed-methods: std::fs, std::process, std::env (decision-23)
-│   │   ├── src/main.rs        # a few lines: try_parse, run, map Result to ExitCode
+│   │   ├── src/main.rs        # a few lines: panic hook (fixed message, exit 70), try_parse, run, map
+│   │   │                      # Result to ExitCode (decision-26)
 │   │   ├── src/cli.rs         # clap derive types; clap errors rendered and sanitised by alz (decision-26)
+│   │   ├── src/terminal_text.rs # R0 skeleton's sanitiser for clap's output (class 3: clap's own line
+│   │   │                      # feeds kept, argument fragments stripped); its stripping moves into
+│   │   │                      # alz-core's untrusted_text in R2, and the binary keeps only clap's rendering
 │   │   ├── src/command/       # one module per command; each is a thin use case
 │   │   └── tests/             # assert_cmd + snapshot tests; files set up through alz-test-support
 │   └── alz-test-support/      # publish = false; isolated HOME, fixture copies, git helpers
@@ -87,6 +103,14 @@ agent-layerz/
 Conventions inside the tree (from `gr-rust`): folders such as `layer/` sit beside a `layer.rs`
 that declares them (no `mod.rs`); every crate inherits `[workspace.lints]`; items are re-exported
 one by one, with no glob and no prelude.
+
+Sanitising moves into the core in R2. The R0 skeleton sanitises clap's output inside the binary
+(`crates/alz/src/terminal_text.rs`), because that is the only untrusted text it prints yet. YAML
+errors, source and path diagnostics and the `alz account allow` prompt need the same functions,
+and `alz-core` builds diagnostics without printing them, so R2 moves decision-26's class 1
+(stripped) and class 2 (escaped) into `alz-core`, and the binary calls the core for the argument
+fragments in clap's output. The aim is that a diagnostic accepts untrusted text only through
+those types, so a message holding raw input does not compile; R2's plan names the types.
 
 Why three crates (core, io, binary) and not one, and not ten. The usual advice for a small CLI is
 to start with one crate and split only for a reason; alz has one reason that the compiler can
@@ -163,8 +187,18 @@ of unions, monotonicity of the security floor, and "build(x) == build(x)" byte f
 
 ### 3.6 Totality and panics
 
-Library functions are total: every input yields `Ok` or a typed `Err`. No `unwrap`, `expect`,
-indexing that can panic, or `unreachable!` outside tests, enforced by clippy restriction lints.
+Library functions are total: every input yields `Ok` or a typed `Err`. The restriction lints in
+`[workspace.lints.clippy]` enforce part of that outside tests:
+- no `unwrap` (`unwrap_used`), and no indexing or string slicing that can panic
+  (`indexing_slicing`, `string_slice`);
+- no `panic!` or assertion inside a function that returns `Result`, and no `unwrap` or `expect`
+  there either (`panic_in_result_fn`, `unwrap_in_result`);
+- no `todo!`, `unimplemented!` or `dbg!` anywhere.
+
+`expect` with a message that says why the value is present is allowed, as gr-rust says, so
+`expect_used`, `panic` and `unreachable` are not enabled. Such a call outside a `Result` function,
+and `unreachable!` anywhere, is an invariant the review checks, not a lint. A panic that happens anyway prints a fixed
+message and exits 70 through the binary's panic hook (decision-26).
 
 ## 4. Is DDD applicable? A critical assessment
 
