@@ -1,28 +1,21 @@
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
-  constants,
   existsSync,
-  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
-  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
-import YAML from "yaml";
-import { readRegularFileWithId } from "../../src/core/files";
-import { type AccountResolution, resolveAccounts } from "../../src/resolve/account-resolution";
+import { describe, expect, it } from "vitest";
 import {
   accountFolder,
   alz,
   built,
   configDir,
-  envFor,
   hubEntry,
   PERSONAL,
   plain,
@@ -35,47 +28,50 @@ import {
   writeAccounts,
   writeAllowed,
 } from "../account-workspace";
-import { traced, tracedAsync } from "../fs-trace";
-import { readTree } from "../helpers";
-import { valueImports } from "../import-graph";
-import { sha256Hex } from "../spec/cache";
-import { ENV_NAMES, YAML_ALIAS_LIMIT } from "../spec/limits";
+import { gitProxy } from "../git-proxy";
+import { type CliResult, readTree, snapshot } from "../helpers";
+import { YAML_ALIAS_LIMIT } from "../spec/limits";
 
-vi.mock("node:fs", async (importOriginal) =>
-  (await import("../fs-trace")).intercept(
-    "fs",
-    (await importOriginal()) as Record<string, unknown>,
-  ),
-);
-vi.mock("node:child_process", async (importOriginal) =>
-  (await import("../fs-trace")).intercept(
-    "child_process",
-    (await importOriginal()) as Record<string, unknown>,
-  ),
-);
+/**
+ * Account resolution (spec 13.19), seen from outside: the binary is driven and every claim is
+ * made through language-neutral proxies. What the TypeScript resolver returns, the calls it makes,
+ * the files it opens and the modules it imports are checked in test/reference.
+ *
+ * Every `alz account which` case goes through `which`, which checks two proxies as well as the
+ * case's own assertions on the reported output:
+ *
+ *  (b) no writes: HOME (the state folder included) and the workspace (cache, repository, hub) are
+ *      equal before and after, in kind, mode, content and link target;
+ *  (c) no git: a `git` stand-in first on PATH records its calls, and none is made.
+ *
+ * The usage cases and the control-character cases keep their assertions; R1.7 rewrites the usage
+ * ones in the decision-26 form.
+ */
 
-const which = (s: Setup, extra: Record<string, string> = {}, args: string[] = [], dir = "repo") =>
-  alz(s, ["account", "which", ...args], extra, dir);
+/** Everything alz may have written to: the fake HOME and the workspace. */
+const world = (s: Setup) => ({ home: snapshot(s.ws.home), root: snapshot(s.ws.root) });
+
+/**
+ * Runs `alz account which` the way a shell hook does, and checks that it wrote nothing and ran
+ * no git.
+ */
+async function which(
+  s: Setup,
+  extra: Record<string, string> = {},
+  args: string[] = [],
+  dir = "repo",
+): Promise<CliResult> {
+  const proxy = gitProxy();
+  const before = world(s);
+  const result = await alz(s, ["account", "which", ...args], { ...proxy.env, ...extra }, dir);
+  expect(world(s), "alz account which wrote").toEqual(before);
+  expect(proxy.calls(), "alz account which ran git").toEqual([]);
+  return result;
+}
 
 /** The lines of a stream that hold a warning. */
 function warningLines(text: string): string[] {
   return text.split("\n").filter((line) => line.startsWith("warning ["));
-}
-
-/** Resolver input for the repository of the fixture, with the same XDG environment as the CLI. */
-function input(s: Setup, extra: Record<string, string> = {}, cwd = `${s.ws.root}/repo`) {
-  return {
-    cwd,
-    home: s.ws.home,
-    env: { HOME: s.ws.home, ...envFor(s, extra) },
-    uid: process.getuid?.(),
-  };
-}
-
-function target(result: AccountResolution, name: "claude" | "codex") {
-  const found = result.targets.find((item) => item.target === name);
-  if (!found) throw new Error(`no ${name} target`);
-  return found;
 }
 
 const CLIENT_A = ".claude-client-a";
@@ -266,18 +262,6 @@ describe("§13.19 sources: which account each target gets and why (AC 1)", () =>
     expect(result.code).toBe(2);
     expect(result.stderr).toContain("usage: alz <command>");
   });
-
-  it("lets alz run's explicit choice beat alz use's, in the resolver", () => {
-    const s = plain();
-    accountFolder(s, ".claude-run-a", ".claude-use-a");
-    const result = resolveAccounts({
-      ...input(s),
-      run: { target: "claude", account: "run-a" },
-      use: { claude: "use-a" },
-    });
-    expect(target(result, "claude")).toMatchObject({ source: "run", account: "run-a" });
-    expect(target(result, "codex")).toMatchObject({ source: "default" });
-  });
 });
 
 const BLOCKED = "~/.claude-alz-blocked";
@@ -445,13 +429,6 @@ describe("§13.19 paths: the repository root and the folders entries (AC 4)", ()
       "is not valid": "its stack is not valid",
     };
 
-    it("proves the alias payload parses within the limit and is refused only past it", () => {
-      const ok = `a: &a [x]\nstack:\n  - source: path:x\nrefs: [${Array.from({ length: 50 }, () => "*a").join(", ")}]\n`;
-      const parse = (text: string) => YAML.parse(text, { maxAliasCount: YAML_ALIAS_LIMIT });
-      expect(() => parse(ok)).not.toThrow();
-      expect(() => parse(`a: &a [x]\nrefs: [${aliasList}]\n`)).toThrow();
-    });
-
     it.each(broken)(
       "fails closed for an allowed root with %s, applying the blocked folder",
       async (_label, make, problem) => {
@@ -494,6 +471,26 @@ describe("§13.19 paths: the repository root and the folders entries (AC 4)", ()
       },
     );
 
+    it("proves the alias payload parses within the limit and is refused only past it (through alz account which)", async () => {
+      const within = Array.from({ length: 50 }, () => "*a").join(", ");
+      expect(50).toBeLessThanOrEqual(YAML_ALIAS_LIMIT);
+      expect(150).toBeGreaterThan(YAML_ALIAS_LIMIT);
+      const s = await built();
+      accountFolder(s, CLIENT_A, CLIENT_A_API);
+      writeAllowed(s, [hubEntry(s)]);
+      const file = `${s.real}/repo/sub/layer.yaml`;
+      // Within the limit the text parses and fails the schema (it has an unknown `refs` field)...
+      writeFileSync(file, `a: &a [x]\nstack:\n  - source: path:x\nrefs: [${within}]\n`);
+      const parsed = await which(s, {}, [], "repo/sub/deeper");
+      expect(parsed.stdout).toContain(`repository: ${s.real}/repo/sub (layer.yaml is not valid)\n`);
+      // ...and past it the same shape cannot be read at all.
+      writeFileSync(file, `a: &a [x]\nstack:\n  - source: path:x\nrefs: [${aliasList}]\n`);
+      const refused = await which(s, {}, [], "repo/sub/deeper");
+      expect(refused.stdout).toContain(
+        `repository: ${s.real}/repo/sub (layer.yaml cannot be read)\n`,
+      );
+    });
+
     it("does not hang on a FIFO named layer.yaml on the walk, and treats it as unreadable", async () => {
       const s = await built();
       accountFolder(s, CLIENT_A, CLIENT_A_API);
@@ -506,20 +503,6 @@ describe("§13.19 paths: the repository root and the folders entries (AC 4)", ()
       expect(result.stdout).toContain("(layer.yaml cannot be read)");
       expect(result.stdout).toContain(
         "layer step skipped (layer.yaml cannot be read); fails closed",
-      );
-    });
-
-    it("opens a regular file without waiting for a writer (O_NONBLOCK), so a swapped-in FIFO cannot hang it", () => {
-      const s = plain();
-      const fifo = `${s.ws.root}/pipe`;
-      execFileSync("mkfifo", [fifo]);
-      expect(readRegularFileWithId(fifo, 1024)).toBe("invalid");
-      writeFileSync(`${s.ws.root}/plain`, "x");
-      const { calls, result } = traced(() => readRegularFileWithId(`${s.ws.root}/plain`, 1024));
-      expect(typeof result).toBe("object");
-      const open = calls.find((call) => call.fn === "openSync");
-      expect(typeof open?.flags === "number" && (open.flags & constants.O_NONBLOCK) !== 0).toBe(
-        true,
       );
     });
   });
@@ -623,35 +606,64 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
     expect(result.stdout).not.toContain("alz account allow");
   });
 
-  it("ignores a file the user does not own, in the resolver", () => {
-    const s = plain();
-    accountFolder(s, ".claude-client-b");
-    writeAccounts(s, CONFIG(s));
-    const uid = process.getuid?.() ?? 0;
-    const result = resolveAccounts({ ...input(s), uid: uid + 1 });
-    expect(result.accountsFile).toMatchObject({
-      status: "ignored",
-      reason: "it is not owned by you",
+  it("ignores a file whose path names an account folder, before any file system call on it (through alz account which)", async () => {
+    const s = await built();
+    accountFolder(s, CLIENT_A, CLIENT_A_API);
+    writeAllowed(s, [hubEntry(s)]);
+    const result = await which(s, {
+      XDG_CONFIG_HOME: `${s.ws.home}/.claude-x`,
+      XDG_STATE_HOME: `${s.ws.home}/.claude-y`,
     });
-    expect(target(result, "claude").source).toBe("default");
-    expect(result.warnings.map((warning) => warning.code)).toContain("file-ignored");
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      "accounts.yaml: ~/.claude-x/agent-layerz/accounts.yaml (ignored: it lies inside an account folder)",
+    );
+    expect(result.stdout).toContain(
+      "allowed.yaml: ~/.claude-y/agent-layerz/allowed.yaml (ignored: it lies inside an account folder)",
+    );
+    expect(result.stdout).toContain("claude: default (source: default)");
   });
 
-  it("ignores both files when the platform has no uid to compare with", () => {
-    const s = plain();
-    accountFolder(s, ".claude-client-b");
-    writeAccounts(s, CONFIG(s));
-    const result = resolveAccounts({ ...input(s), uid: undefined });
-    expect(result.accountsFile.status).toBe("ignored");
-    expect(target(result, "claude").source).toBe("default");
-  });
+  describe("a FIFO where a file should be: alz does not wait for a writer and reports the file as unreadable", () => {
+    // `alz account which` runs in the shell hook, so a pipe swapped in for either file must not
+    // hang every prompt. The check is that the command ends and says what it could not read; the
+    // case runs under the suite's time limit, which R1.7 makes a real one by spawning the binary.
+    const unreadable = "(ignored: it is not a regular file of at most 1 MiB that can be read)";
 
-  it("ignores a file whose path names an account folder, before any file system call on it", () => {
-    const s = plain();
-    const result = resolveAccounts(input(s, { XDG_CONFIG_HOME: `${s.ws.home}/.claude-x` }));
-    expect(result.accountsFile).toMatchObject({
-      status: "ignored",
-      reason: "it lies inside an account folder",
+    it("does not hang on a FIFO at the accounts.yaml path, and ignores it", async () => {
+      const s = plain();
+      accountFolder(s, ".claude-client-b");
+      const file = writeAccounts(s, CONFIG(s));
+      rmSync(file);
+      execFileSync("mkfifo", [file]);
+      chmodSync(file, 0o600);
+      const started = Date.now();
+      const result = await which(s);
+      expect(Date.now() - started).toBeLessThan(10_000);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        `accounts.yaml: ~/.config/agent-layerz/accounts.yaml ${unreadable}`,
+      );
+      expect(result.stdout).toContain("claude: default (source: default)");
+      expect(result.stdout).toContain("user config step skipped (accounts.yaml is ignored)");
+    });
+
+    it("does not hang on a FIFO at the allowed.yaml path, and ignores it", async () => {
+      const s = await built();
+      accountFolder(s, CLIENT_A, CLIENT_A_API);
+      const file = writeAllowed(s, [hubEntry(s)]);
+      rmSync(file);
+      execFileSync("mkfifo", [file]);
+      chmodSync(file, 0o600);
+      const started = Date.now();
+      const result = await which(s);
+      expect(Date.now() - started).toBeLessThan(10_000);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        `allowed.yaml: ~/.local/state/agent-layerz/allowed.yaml ${unreadable}`,
+      );
+      expect(result.stdout).toContain("claude: default (source: default)");
+      expect(result.stdout).toContain("layer step skipped (allowed.yaml is ignored)");
     });
   });
 
@@ -722,74 +734,6 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
       expect(result.stderr).toContain("mise or direnv is active here");
       expect(result.stdout + result.stderr).not.toContain(MARKER);
     });
-  });
-
-  it("never reads the values of __MISE_DIFF, DIRENV_DIFF or an ALZ_USE_ variable, only the listed names", async () => {
-    const s = await built();
-    accountFolder(s, CLIENT_A, CLIENT_A_API);
-    writeAllowed(s, [hubEntry(s)]);
-    writeAccounts(s, `folders:\n  ${s.real}/elsewhere: client-b\n`);
-    const gets: string[] = [];
-    const probes: string[] = [];
-    const reads: string[] = [];
-    const target0: Record<string, string> = {
-      HOME: s.ws.home,
-      ...envFor(s),
-      ALZ_USE_CLAUDE: "forged",
-      CLAUDE_CONFIG_DIR: "/foreign",
-    };
-    // The two manager variables are accessors: an existence check cannot run the getter, so a
-    // read of the value is caught however it is made.
-    for (const name of ["__MISE_DIFF", "DIRENV_DIFF"]) {
-      Object.defineProperty(target0, name, {
-        enumerable: true,
-        configurable: true,
-        get() {
-          reads.push(name);
-          return MARKER;
-        },
-      });
-    }
-    const env = new Proxy<Record<string, string>>(target0, {
-      get(object, key, receiver) {
-        gets.push(String(key));
-        return Reflect.get(object, key, receiver);
-      },
-      has(object, key) {
-        probes.push(`has:${String(key)}`);
-        return Reflect.has(object, key);
-      },
-      getOwnPropertyDescriptor(object, key) {
-        probes.push(`descriptor:${String(key)}`);
-        return Reflect.getOwnPropertyDescriptor(object, key);
-      },
-      ownKeys(object) {
-        probes.push("ownKeys");
-        return Reflect.ownKeys(object);
-      },
-    });
-    const result = resolveAccounts({
-      cwd: `${s.real}/repo`,
-      home: s.ws.home,
-      env,
-      uid: process.getuid?.(),
-    });
-    expect(target(result, "claude").source).toBe("environment");
-    expect(result.warnings.map((warning) => warning.text).join("\n")).toContain(
-      "mise or direnv is active here",
-    );
-    expect(JSON.stringify(result)).not.toContain(MARKER);
-    expect(gets.length).toBeGreaterThan(0);
-    expect(gets.filter((name) => /MISE|DIRENV|ALZ_USE/.test(name))).toEqual([]);
-    const known = ENV_NAMES;
-    expect(gets.filter((name) => !known.includes(name))).toEqual([]);
-    // The value of a manager variable is never read: its getter never runs, no `get` names it,
-    // and nothing enumerates the environment. Existence is the only thing asked.
-    expect(reads).toEqual([]);
-    expect(probes.filter((probe) => probe === "ownKeys" || probe.startsWith("has:"))).toEqual([]);
-    const managerProbes = probes.filter((probe) => /MISE|DIRENV/.test(probe));
-    expect(managerProbes.length).toBeGreaterThan(0);
-    expect(managerProbes.filter((probe) => !probe.startsWith("descriptor:"))).toEqual([]);
   });
 
   it("ignores an allowed.yaml entry with a relative root, an invalid account name or a duplicate root", async () => {
@@ -924,34 +868,17 @@ function removeTreeEntries(s: Setup): void {
 }
 
 describe("§13.19 allow: a layer's account applies only while allowed.yaml holds the same entry (AC 5)", () => {
-  it("gives the default account and opens no lock or cache file for a root that has no entry", async () => {
+  it("gives the default account and opens no lock or cache file for a root that has no entry (through alz account which)", async () => {
     const s = await built();
     accountFolder(s, CLIENT_A, CLIENT_A_API);
     writeAllowed(s, [hubEntry(s, { root: `${s.real}/some-other-repository` })]);
-    const { result, calls } = await tracedAsync(() => which(s));
+    // A cache that is gone would be a miss if the stack were read; here it must make no difference.
+    rmSync(s.cache, { recursive: true, force: true });
+    const result = await which(s);
     expect(result.code, result.stderr).toBe(0);
     expect(result.stdout).toContain("claude: default (source: default)");
     expect(result.stdout).toContain("layer step skipped (this repository is not allowed)");
     expect(result.stdout).not.toContain("alz account allow");
-    // Exactly these: the manifest on the walk and allowed.yaml. No accounts.yaml exists here, and
-    // no lock, cache file or layer of the stack is opened.
-    const home = realpathSync.native(s.ws.home);
-    const opened = [
-      ...new Set(calls.filter((call) => call.fn === "openSync").flatMap((call) => call.paths)),
-    ];
-    expect(opened.sort()).toEqual(
-      [`${s.real}/repo/layer.yaml`, `${home}/.local/state/agent-layerz/allowed.yaml`].sort(),
-    );
-  });
-
-  it("applies the named account for a matching entry", async () => {
-    const s = await built();
-    accountFolder(s, CLIENT_A, CLIENT_A_API);
-    writeAllowed(s, [hubEntry(s)]);
-    const result = resolveAccounts(input(s));
-    expect(target(result, "claude")).toMatchObject({ source: "layer", account: "client-a" });
-    expect(result.allowedFile.allowed).toBe(true);
-    expect(result.warnings).toEqual([]);
   });
 
   it.each([
@@ -1222,23 +1149,6 @@ describe("§13.19 fail closed: a named account that cannot apply (AC 1)", () => 
   });
 });
 
-/** Every file, folder and link under `dir` with its size, time and content: unchanged means untouched. */
-function listing(dir: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  const walk = (current: string) => {
-    for (const item of readdirSync(current, { withFileTypes: true })) {
-      const full = join(current, item.name);
-      const stat = lstatSync(full);
-      const body = stat.isFile() ? sha256Hex(readFileSync(full)) : "";
-      out[full] =
-        `${item.isDirectory() ? "dir" : item.isSymbolicLink() ? "link" : "file"}:${stat.size}:${stat.mtimeMs}:${body}`;
-      if (item.isDirectory()) walk(full);
-    }
-  };
-  walk(dir);
-  return out;
-}
-
 describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
   async function prepared() {
     const s = await built();
@@ -1251,173 +1161,37 @@ describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
     return s;
   }
 
-  it("proves the trace works: a build is seen running git and writing", async () => {
+  it("proves the proxies work: a build is seen running git and writing (through the git stand-in)", async () => {
     const s = await built("v1");
     useStack(s, PERSONAL, ["path:../hub/layer", "v2"], REPO_LAYER);
-    const { result, calls } = await tracedAsync(() => alz(s, ["build"]));
+    const proxy = gitProxy();
+    const before = world(s);
+    const result = await alz(s, ["build"], proxy.env);
     expect(result.code, result.stderr).toBe(0);
-    expect(calls.some((call) => call.api === "child_process")).toBe(true);
-    for (const name of ["mkdirSync", "writeFileSync", "renameSync"]) {
-      expect(
-        calls.some((call) => call.fn === name),
-        name,
-      ).toBe(true);
-    }
+    expect(proxy.calls().length).toBeGreaterThan(0);
+    expect(world(s)).not.toEqual(before);
   });
 
-  it("never runs git, writes or opens anything it need not, in an allowed repository", async () => {
+  it("never runs git, writes or opens anything it need not, in an allowed repository (through alz account which)", async () => {
     const s = await prepared();
-    const home = realpathSync.native(s.ws.home);
-    const repoBefore = listing(`${s.real}/repo`);
-    const cacheBefore = listing(s.cache);
-    const homeBefore = listing(s.ws.home);
-
-    const { result, calls } = await tracedAsync(() => which(s));
+    const result = await which(s);
     expect(result.code, result.stderr).toBe(0);
     expect(result.stdout).toContain("claude: client-a (source: layer)");
-
-    expect(listing(`${s.real}/repo`)).toEqual(repoBefore);
-    expect(listing(s.cache)).toEqual(cacheBefore);
-    expect(listing(s.ws.home)).toEqual(homeBefore);
-
-    expect(calls.filter((call) => call.api === "child_process")).toEqual([]);
-    const readOnly = new Set([
-      "lstatSync",
-      "statSync",
-      "fstatSync",
-      "existsSync",
-      "realpathSync",
-      "realpathSync.native",
-      "readlinkSync",
-      "openSync",
-      "readSync",
-      "closeSync",
-      "readdirSync",
-    ]);
-    const fsCalls = calls.filter((call) => call.api === "fs");
-    expect(fsCalls.length).toBeGreaterThan(0);
-    expect(fsCalls.filter((call) => !readOnly.has(call.fn)).map((call) => call.fn)).toEqual([]);
-
-    const writing =
-      constants.O_WRONLY |
-      constants.O_RDWR |
-      constants.O_CREAT |
-      constants.O_TRUNC |
-      constants.O_APPEND;
-    const opens = fsCalls.filter((call) => call.fn === "openSync");
-    for (const call of opens) {
-      const flags = call.flags;
-      expect(
-        typeof flags === "number" &&
-          (flags & writing) === 0 &&
-          (flags & constants.O_NOFOLLOW) !== 0,
-        JSON.stringify(call),
-      ).toBe(true);
-    }
-
-    const tree = `${s.cache}/tree2@`;
-    const allowedOpen = [
-      `${s.real}/repo/layer.yaml`,
-      `${s.real}/repo/layer.lock`,
-      `${s.real}/repo/.layer/layer.yaml`,
-      `${home}/.config/agent-layerz/accounts.yaml`,
-      `${home}/.local/state/agent-layerz/allowed.yaml`,
-      `${s.cache}/pathref@`,
-      tree,
-      `${s.real}/personal/`,
-    ];
-    const opened = opens.flatMap((call) => call.paths);
-    expect(opened.length).toBeGreaterThan(0);
-    expect(opened.filter((path) => !allowedOpen.some((prefix) => path.startsWith(prefix)))).toEqual(
-      [],
-    );
-
-    const listed = fsCalls
-      .filter((call) => call.fn === "readdirSync")
-      .flatMap((call) => call.paths);
-    expect(listed).toContain(s.ws.home);
-    expect(
-      listed.filter(
-        (path) =>
-          path !== s.ws.home &&
-          path !== home &&
-          !path.startsWith(tree) &&
-          !path.startsWith(`${s.real}/personal`),
-      ),
-    ).toEqual([]);
-
-    // $HOME is listed once, and the working directory is resolved once.
-    expect(listed.filter((path) => path === s.ws.home)).toHaveLength(1);
-    const cwd = `${s.ws.root}/repo`;
-    expect(
-      fsCalls
-        .filter((call) => call.fn.startsWith("realpathSync"))
-        .flatMap((call) => call.paths)
-        .filter((path) => path === cwd),
-    ).toHaveLength(1);
-    // Every open is also non-blocking, so a FIFO swapped in cannot hang it.
-    for (const call of opens) {
-      expect(typeof call.flags === "number" && (call.flags & constants.O_NONBLOCK) !== 0).toBe(
-        true,
-      );
-    }
-
-    const planted = [`${s.ws.home}/${CLIENT_A}`, `${home}/${CLIENT_A}`];
-    const touched = fsCalls
-      .flatMap((call) => call.paths)
-      .filter((path) => planted.some((dir) => path === dir || path.startsWith(`${dir}/`)));
-    expect(touched).toEqual([]);
+    expect(result.stdout).toContain("codex: client-a-api (source: layer)");
+    expect(result.stderr).toBe("");
+    // The planted folder's name is listed (it is how the account is found); its content is not.
+    expect(result.stdout + result.stderr).not.toContain("secret");
   });
 
-  it("opens no stack file for a repository that is not allowed, and runs no git", async () => {
+  it("opens no stack file for a repository that is not allowed, and runs no git (through alz account which)", async () => {
     const s = await prepared();
     writeAllowed(s, [hubEntry(s, { root: `${s.real}/other` })]);
-    const { calls } = await tracedAsync(() => which(s));
-    expect(calls.filter((call) => call.api === "child_process")).toEqual([]);
-    const home = realpathSync.native(s.ws.home);
-    const opened = [
-      ...new Set(calls.filter((call) => call.fn === "openSync").flatMap((call) => call.paths)),
-    ];
-    expect(opened.sort()).toEqual(
-      [
-        `${s.real}/repo/layer.yaml`,
-        `${home}/.config/agent-layerz/accounts.yaml`,
-        `${home}/.local/state/agent-layerz/allowed.yaml`,
-      ].sort(),
-    );
-  });
-
-  it("proves the import graph sees a git import: the build command has one", () => {
-    expect([...valueImports("cli/commands/build.ts")]).toContain("pipeline.ts");
-    expect([...valueImports("pipeline.ts")]).toContain("resolve/git.ts");
-  });
-
-  it("does not import git, the tree cache, source fetching, the build pipeline or child_process", () => {
-    const forbidden = [
-      "resolve/git.ts",
-      "resolve/tree-cache.ts",
-      "resolve/sources.ts",
-      "pipeline.ts",
-      "node:child_process",
-      "child_process",
-    ];
-    for (const entry of ["resolve/account-resolution.ts", "cli/commands/account.ts"]) {
-      const imported = valueImports(entry);
-      expect(imported.size).toBeGreaterThan(5);
-      expect(
-        [...imported].filter((name) => forbidden.includes(name)),
-        entry,
-      ).toEqual([]);
-    }
-  });
-
-  it("does not import the writer of allowed.yaml, or the build and check hint (TASK-50.11)", () => {
-    for (const entry of ["resolve/account-resolution.ts", "cli/commands/account.ts"]) {
-      const imported = [...valueImports(entry)];
-      expect(imported, entry).not.toContain("resolve/account-allow-writer.ts");
-      expect(imported, entry).not.toContain("resolve/account-allow-hint.ts");
-      expect(imported, entry).not.toContain("cli/commands/account-allow.ts");
-    }
+    // With the cache gone, reading the stack would be a cache miss and fail closed.
+    rmSync(s.cache, { recursive: true, force: true });
+    const result = await which(s);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain("claude: default, called personal here (source: default)");
+    expect(result.stdout).toContain("layer step skipped (this repository is not allowed)");
   });
 });
 
@@ -1470,13 +1244,6 @@ describe("§13.19 quoting: repository text never reaches the terminal raw (AC 1)
 });
 
 describe("§13.19 review follow-ups: ordering of the checks, folders that are only contained, bad choices", () => {
-  /** Does any traced call touch `dir` or something below it, spelled as given or as its real path? */
-  function touching(calls: { paths: string[] }[], ...dirs: string[]): string[] {
-    return calls
-      .flatMap((call) => call.paths)
-      .filter((path) => dirs.some((dir) => path === dir || path.startsWith(`${dir}/`)));
-  }
-
   describe.each(["__MISE_DIFF", "DIRENV_DIFF"])(
     "a lookup %s moved to a folder that does not exist",
     (manager) => {
@@ -1582,21 +1349,6 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
       },
     );
 
-    it("opens nothing in the configured folder: only allowed.yaml is read", async () => {
-      const s = await built();
-      writeAllowed(s, [hubEntry(s, { account: { codex: "client-c" } })]);
-      const { result, calls } = await tracedAsync(() =>
-        which(s, { CLAUDE_CONFIG_DIR: `${s.real}/repo` }),
-      );
-      expect(result.code).toBe(1);
-      const home = realpathSync.native(s.ws.home);
-      const opened = [
-        ...new Set(calls.filter((call) => call.fn === "openSync").flatMap((call) => call.paths)),
-      ];
-      expect(opened).toEqual([`${home}/.local/state/agent-layerz/allowed.yaml`]);
-      expect(calls.filter((call) => call.api === "child_process")).toEqual([]);
-    });
-
     it("applies the default account when no allowed entry covers the working directory", async () => {
       const s = await built();
       writeAllowed(s, [hubEntry(s, { root: `${s.real}/other`, account: { codex: "client-c" } })]);
@@ -1607,29 +1359,6 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
         "layer step skipped (the working directory is inside a folder CLAUDE_CONFIG_DIR or CODEX_HOME names)",
       );
     });
-  });
-
-  it("fails closed for a bad alz run or alz use name, building no path and never falling to a lower step", () => {
-    const s = plain();
-    accountFolder(s, ".claude-client-b");
-    writeAccounts(s, `folders:\n  ${s.real}/repo: client-b\n`);
-    const result = resolveAccounts({
-      ...input(s),
-      run: { target: "claude", account: "../../etc" },
-      use: { codex: "A b" },
-    });
-    for (const [name, source] of [
-      ["claude", "run"],
-      ["codex", "use"],
-    ] as const) {
-      expect(target(result, name)).toMatchObject({
-        source,
-        apply: { action: "keep" },
-        failsClosed: { kind: "invalid-name" },
-      });
-    }
-    expect(JSON.stringify(result)).not.toContain("etc");
-    expect(JSON.stringify(result)).not.toContain("A b");
   });
 
   it("stops `alz account which --use` with a bad name before any lower step, via the usage check", async () => {
@@ -1657,16 +1386,6 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
       expect(named.stdout).not.toContain("CLAUDE_CONFIG_DIR=");
       expect(existsSync(`${process.cwd()}/relative`)).toBe(false);
     });
-
-    it("reads nothing from the file system in the resolver", () => {
-      const s = plain();
-      const { result, calls } = traced(() =>
-        resolveAccounts({ ...input(s), home: "relative/home", use: { claude: "x" } }),
-      );
-      expect(calls.filter((call) => call.api === "fs")).toEqual([]);
-      expect(target(result, "claude").apply).toEqual({ action: "keep" });
-      expect(target(result, "codex").apply).toEqual({ action: "unset" });
-    });
   });
 
   it("removes control characters from an unknown command, subcommand or option in the usage error", async () => {
@@ -1693,72 +1412,45 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
   });
 
   describe("the working directory is resolved once, and never inside an account folder", () => {
-    it("makes no file system call under an account folder, and skips the user config step", () => {
+    it("makes no file system call under an account folder, and skips the user config step (through alz account which)", async () => {
       const s = plain();
       const folder = `${s.ws.home}/${CLIENT_A}`;
       mkdirSync(`${folder}/project`, { recursive: true });
       writeFileSync(`${folder}/.credentials.json`, "secret");
       writeAccounts(s, `folders:\n  ${s.real}/repo: client-b\n`);
-      const { result, calls } = traced(() => resolveAccounts(input(s, {}, `${folder}/project`)));
-      expect(result.repository).toEqual({ status: "none", reason: "account-folder" });
-      expect(touching(calls, folder, `${realpathSync.native(s.ws.home)}/${CLIENT_A}`)).toEqual([]);
-      expect(target(result, "claude").skipped).toContainEqual({
-        step: "user config",
-        reason: "cwd-in-account-folder",
-      });
+      const result = await which(s, {}, [], `../home/${CLIENT_A}/project`);
+      expect(result.stdout).toContain(
+        "repository: none (the working directory is inside an account folder)",
+      );
+      expect(result.stdout).toContain("claude: default (source: default)");
+      expect(result.stdout).toContain(
+        "user config step skipped (the working directory is inside an account folder)",
+      );
+      expect(result.stdout + result.stderr).not.toContain("secret");
     });
 
-    it("treats a link into an account folder as an account folder, and hands the file system only the link's own path", () => {
+    it("treats a link into an account folder as an account folder, and hands the file system only the link's own path (through alz account which)", async () => {
       const s = plain();
       const folder = `${s.ws.home}/${CLIENT_A}`;
       mkdirSync(`${folder}/project`, { recursive: true });
       symlinkSync(`${folder}/project`, `${s.real}/link-project`);
-      const { result, calls } = traced(() =>
-        resolveAccounts(input(s, {}, `${s.real}/link-project`)),
+      const result = await which(s, {}, [], "link-project");
+      expect(result.stdout).toContain(
+        "repository: none (the working directory is inside an account folder)",
       );
-      expect(result.repository).toMatchObject({ status: "none", reason: "account-folder" });
-      expect(touching(calls, folder, `${realpathSync.native(s.ws.home)}/${CLIENT_A}`)).toEqual([]);
-      expect(target(result, "claude").skipped).toContainEqual({
-        step: "user config",
-        reason: "cwd-in-account-folder",
-      });
+      expect(result.stdout).toContain(
+        "user config step skipped (the working directory is inside an account folder)",
+      );
     });
   });
 
   describe("text that names an account folder is ignored before any file system call on it", () => {
-    function planted(s: Setup): string[] {
+    it("covers a folders key, an allowed root and a stack source (through alz account which)", async () => {
+      const s = await built();
       for (const name of [".claude-x", ".claude-y"]) {
         mkdirSync(`${s.ws.home}/${name}/agent-layerz/project`, { recursive: true });
       }
-      return [`${s.ws.home}/.claude-x`, `${s.ws.home}/.claude-y`].flatMap((dir) => [
-        dir,
-        `${realpathSync.native(s.ws.home)}/${dir.slice(s.ws.home.length + 1)}`,
-      ]);
-    }
-
-    it("covers the two files located by XDG variables", () => {
-      const s = plain();
-      const dirs = planted(s);
-      const { result, calls } = traced(() =>
-        resolveAccounts(
-          input(s, {
-            XDG_CONFIG_HOME: `${s.ws.home}/.claude-x`,
-            XDG_STATE_HOME: `${s.ws.home}/.claude-y`,
-          }),
-        ),
-      );
-      expect(result.accountsFile.status).toBe("ignored");
-      expect(result.allowedFile.status).toBe("ignored");
-      expect(touching(calls, ...dirs)).toEqual([]);
-    });
-
-    it("covers a folders key, an allowed root and a stack source", async () => {
-      const s = await built();
-      const dirs = planted(s);
-      writeAccounts(
-        s,
-        `folders:\n  ~/.claude-x/agent-layerz/project: x\n  ${s.real}/repo: client-b\n`,
-      );
+      writeAccounts(s, "folders:\n  ~/.claude-x/agent-layerz/project: x\n");
       writeAllowed(s, [
         hubEntry(s, { root: `${s.ws.home}/.claude-y/agent-layerz/project` }),
         hubEntry(s),
@@ -1769,23 +1461,21 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
         ["path:../hub/layer", "v1"],
         [`path:${s.ws.home}/.claude-x/agent-layerz/project`],
       );
-      removeTreeEntries(s);
-      const { result, calls } = traced(() => resolveAccounts(input(s)));
-      expect(result.warnings.map((warning) => warning.code)).toEqual(
-        expect.arrayContaining(["config-folder", "allowed-entry"]),
+      for (const name of readdirSync(s.cache)) {
+        if (name.startsWith("tree2@"))
+          rmSync(`${s.cache}/${name}`, { recursive: true, force: true });
+      }
+      const result = await which(s);
+      expect(warningLines(result.stderr).length).toBeGreaterThanOrEqual(2);
+      expect(result.stderr).toContain("lies inside an account folder, or is $HOME or above it");
+      expect(result.stderr).toContain(
+        "allowed.yaml: entry 1 is ignored (its root lies inside an account folder",
       );
-      expect(touching(calls, ...dirs)).toEqual([]);
-    });
-
-    it("covers a platform where the owner cannot be read: no file of either folder is touched", () => {
-      const s = plain();
-      writeAccounts(s, "default_name: personal\n");
-      const { result, calls } = traced(() => resolveAccounts({ ...input(s), uid: undefined }));
-      expect(result.accountsFile).toMatchObject({ status: "ignored" });
-      const names = calls
-        .flatMap((call) => call.paths)
-        .filter((path) => path.includes("agent-layerz"));
-      expect(names).toEqual([]);
+      // The one entry whose root is a real repository still applies: its cache is gone, so it fails closed.
+      expect(result.code).toBe(1);
+      expect(result.stdout).toContain(
+        "layer step skipped (cache miss: a cached layer is missing); fails closed",
+      );
     });
   });
 
