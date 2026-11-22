@@ -4,7 +4,7 @@ title: Find the intermittent ~145 s stall of git subprocesses in the acceptance 
 status: To Do
 assignee: []
 created_date: '2026-11-22T09:02:00Z'
-updated_date: '2026-11-22T18:07:00Z'
+updated_date: '2026-11-22T18:13:00Z'
 labels:
   - area:test
   - discovered
@@ -40,4 +40,6 @@ Hypotheses (no experiments run):
 - Unlikely: fsmonitor and maintenance or gc --auto, because the HOME is isolated, GIT_CONFIG_NOSYSTEM is set for the tests' own git, and the repositories are tiny. Note that alz's own git children do not get GIT_CONFIG_NOSYSTEM from the test env, so they read the system gitconfig, which includes the CommandLineTools credential helper.
 
 2026-11-22: deleted 33102 leftover alz-* folders from $TMPDIR (owner approved), so the folder-size hypothesis (H1) can be checked: if the stall stops while R1.7 prevents new leaks, H1 is likely.
+
+2026-11-22: after the cleanup, three full suite runs left 3,203 new alz-* folders in $TMPDIR (~1,070 per run). R1.7 (one temp root per run, removed at the end) is what stops this.
 <!-- SECTION:NOTES:END -->
