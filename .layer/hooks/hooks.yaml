@@ -20,5 +20,5 @@
 # An agent is not done while lint or tests fail.
 - id: verify-on-stop
   event: stop
-  command: 'cd "${PROJECT_DIR}" && { npm run -s lint >&2 && npx vitest run >&2; } || exit 2'
-  timeout: 300
+  command: 'cd "${PROJECT_DIR}" && { npm run -s lint >&2 && npx vitest run >&2 && { [ ! -f Cargo.toml ] || { cargo fmt --all --check >&2 && cargo clippy --workspace --all-targets --all-features -- -D warnings >&2 && cargo test --workspace >&2; }; }; } || exit 2'
+  timeout: 600

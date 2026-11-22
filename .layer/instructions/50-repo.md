@@ -1,8 +1,9 @@
 # agent-layerz
 
 agent-layerz (CLI `alz`) composes layered coding-agent configuration into repositories.
-TypeScript on Node 22+, ESM, bundled to one file with esbuild. Runtime dependencies: `yaml`
-and `diff` only.
+It is being ported to idiomatic Rust under `crates/` (decision-21, decision-22, plan doc-5,
+architecture doc-6, milestone m-7). The TypeScript implementation (Node 22+, `src/`, `test/`)
+is the frozen behavioural reference until cutover: fixes only, no new features.
 
 This repository is managed by `alz` itself. `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`
 and `layer.lock` are generated from `.layer/` and the personal layer: change `.layer/`, then
@@ -15,6 +16,7 @@ run `mise run alz:build`. Never edit generated files.
 | Lint and type check | `mise run lint` |
 | Bundle the CLI | `mise run build` |
 | Install this checkout as one file at `~/.local/bin/alz` | `mise run install:local` |
+| Rust workspace: fmt, clippy `-D warnings`, tests | `mise run rust:check` |
 | Rebuild this repo's agent config with the current code | `mise run alz:build` |
 | Check the generated agent config is current | `mise run alz:check` |
 

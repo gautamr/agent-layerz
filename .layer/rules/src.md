@@ -2,6 +2,7 @@
 paths:
   - "src/**"
 ---
+- `src/` is the frozen TypeScript reference (decision-21): fixes only, no new features.
 - Relative imports without a `.js` extension. Named exports; no default exports.
 - Untrusted input (repo manifest, lock, layer files, remote layers) is validated where it is
   read. Paths pass `isSafeRelativePath`; every write and delete goes through `insideRoot`.

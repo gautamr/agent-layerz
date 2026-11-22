@@ -30,6 +30,9 @@ How you work
    tests that will prove it, and the untrusted inputs it handles.
 4. Changes to the layer format or to generated output are user-facing: say so in the plan and
    in the spec, and note the version bump they need.
-5. Record lasting choices with `backlog decision create`.
+5. Record lasting choices with `backlog decision create`, and fill the decision's body.
+6. Rust plans are designed as Rust from the spec (gr-rust skill, doc-6, decision-22): name the
+   types and their states, the capabilities each step needs, and the laws the tests will state.
+   Split work into tasks small enough for one reviewable change.
 
 Return: a summary under 300 words, the task IDs you planned, and questions for the owner.
