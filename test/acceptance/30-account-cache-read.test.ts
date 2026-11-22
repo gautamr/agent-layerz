@@ -17,7 +17,6 @@ import {
 import { dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { Diagnostics } from "../../src/core/diagnostics";
-import { sha256 } from "../../src/core/files";
 import { evaluateAccount, mergeAccount } from "../../src/merge/account";
 import type { Layer } from "../../src/model/layer";
 import type { LayerMeta } from "../../src/model/layer-meta";
@@ -25,15 +24,14 @@ import { readManifest } from "../../src/model/manifest";
 import {
   type AccountDeclaration,
   type AccountDeclarationInput,
-  cacheRoot,
   readAccountDeclaration,
   recordedSource,
 } from "../../src/resolve/account-declaration";
-import { gitEntryName, pathIndexName, treeEntryName } from "../../src/resolve/cache-paths";
-import { hashLayerDir } from "../../src/resolve/layer-hash";
-import { MAX_LAYER_BYTES, MAX_LAYER_ENTRIES } from "../../src/resolve/reader-load";
 import { trace, traced } from "../fs-trace";
 import { fixture, layers, readTree, type Workspace } from "../helpers";
+import { cacheRoot, gitEntryName, pathIndexName, sha256Hex, treeEntryName } from "../spec/cache";
+import { contentHash } from "../spec/content-hash";
+import { MAX_LAYER_BYTES, MAX_LAYER_ENTRIES } from "../spec/limits";
 
 vi.mock("node:fs", async (importOriginal) =>
   (await import("../fs-trace")).intercept(
@@ -231,7 +229,7 @@ function lockEntry(cache: string, remote: RemoteLayer, url: string) {
       source: remote.source,
       rev: "v1",
       sha: remote.sha,
-      contentHash: `sha256:${hashLayerDir(dir).contentHash}`,
+      contentHash: `sha256:${contentHash(dir)}`,
     },
   };
 }
@@ -269,7 +267,7 @@ function listing(dir: string): Record<string, string> {
     for (const item of readdirSync(current, { withFileTypes: true })) {
       const full = join(current, item.name);
       const stat = lstatSync(full);
-      const body = stat.isFile() ? sha256(readFileSync(full)) : "";
+      const body = stat.isFile() ? sha256Hex(readFileSync(full)) : "";
       out[full] =
         `${item.isDirectory() ? "dir" : item.isSymbolicLink() ? "link" : "file"}:${stat.size}:${stat.mtimeMs}:${body}`;
       if (item.isDirectory()) walk(full);

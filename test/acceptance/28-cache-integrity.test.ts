@@ -13,8 +13,8 @@ import {
 } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { lockedEntryFor, verifyCachedLayer } from "../../src/resolve/cache-integrity";
-import { gitCacheKey, githubCloneUrl } from "../../src/resolve/sources";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
+import { gitCacheKey, githubCloneUrl } from "../spec/cache";
 
 const FIXTURE = "28-cache-integrity";
 const GIT_ENV = {

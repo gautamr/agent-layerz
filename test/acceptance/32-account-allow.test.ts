@@ -22,8 +22,8 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { buildSync } from "esbuild";
 import { describe, expect, it, vi } from "vitest";
+import YAML from "yaml";
 import { createTerminal, type Terminal } from "../../src/cli/terminal";
-import { parseYamlLimited } from "../../src/core/yaml";
 import { updateAllowed } from "../../src/resolve/account-allow-writer";
 import {
   accountFolder,
@@ -320,7 +320,7 @@ describe("§13.20 the prompt and what is written (AC 1, AC 2)", () => {
     const old = hubEntry(s, { account: { claude: "old-name" }, source: "/old/source" });
     writeAllowed(s, [gone, old, other]);
     const result = await allowed(s);
-    const entries = parseYamlLimited(readAllowed(s)) as { root: string }[];
+    const entries = YAML.parse(readAllowed(s)) as { root: string }[];
     expect(entries.map((entry) => entry.root)).toEqual(
       [`${s.real}/repo`, `${s.real}/repo-b`, "/zzz/does/not/exist"].sort(),
     );
@@ -736,7 +736,7 @@ describe("§13.20 alz account allow --remove (AC 1)", () => {
     expect(result.stdout).toContain(
       "removing it sends this repository back to the default account",
     );
-    expect(parseYamlLimited(readAllowed(s))).toEqual([other]);
+    expect(YAML.parse(readAllowed(s))).toEqual([other]);
     expect(readAllowed(s).startsWith(HEADER)).toBe(true);
     expect(modeOf(allowedPath(s))).toBe("600");
     expectNoLeftovers(s);
@@ -745,7 +745,7 @@ describe("§13.20 alz account allow --remove (AC 1)", () => {
     const again = await remove(s, terminal().term);
     expect(again.code).toBe(0);
     expect(again.stdout).toContain("nothing to remove");
-    expect(parseYamlLimited(readAllowed(s))).toEqual([other]);
+    expect(YAML.parse(readAllowed(s))).toEqual([other]);
 
     writeAllowed(s, [hubEntry(s)]);
     const last = await remove(s, terminal(...NAMES).term);
@@ -901,7 +901,7 @@ describe("§13.20 the lock file (AC 1)", () => {
       results.filter((result) => JSON.parse(result.stdout).waited === true).length,
     ).toBeGreaterThan(0);
 
-    const entries = parseYamlLimited(readAllowed(s)) as { root: string; source: string }[];
+    const entries = YAML.parse(readAllowed(s)) as { root: string; source: string }[];
     expect(entries).toHaveLength(9);
     const sorted = [...entries.map((entry) => entry.root)].sort();
     expect(entries.map((entry) => entry.root)).toEqual(sorted);
