@@ -1,0 +1,5 @@
+name: group
+kind: group
+visibility: private
+version: 0.1.0
+account: group-a

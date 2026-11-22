@@ -32,80 +32,21 @@ import {
 import { gitEntryName, pathIndexName, treeEntryName } from "../../src/resolve/cache-paths";
 import { hashLayerDir } from "../../src/resolve/layer-hash";
 import { MAX_LAYER_BYTES, MAX_LAYER_ENTRIES } from "../../src/resolve/reader-load";
+import { trace, traced } from "../fs-trace";
 import { fixture, layers, readTree, type Workspace } from "../helpers";
 
-// The trace: every function of `node:fs` and `node:child_process` records its name and the paths
-// it was given while `trace.on` is set. The tests below prove it works (the positive control)
-// before they rely on it to show that account resolution only reads.
-const trace = vi.hoisted(() => ({
-  on: false,
-  calls: [] as { api: string; fn: string; paths: string[]; flags?: unknown }[],
-  fds: new Map<number, string>(),
-}));
-
-function intercept(api: string, actual: Record<string, unknown>): Record<string, unknown> {
-  const wrapped: Record<string, unknown> = {};
-  const wrap = (name: string, original: (...args: unknown[]) => unknown) =>
-    function (this: unknown, ...args: unknown[]) {
-      if (trace.on) {
-        const two = ["renameSync", "copyFileSync", "cpSync", "linkSync", "symlinkSync"];
-        const paths = args
-          .slice(0, two.includes(name) ? 2 : 1)
-          .filter((arg) => typeof arg === "string" || Buffer.isBuffer(arg))
-          .map(String);
-        if (typeof args[0] === "number") {
-          const known = trace.fds.get(args[0]);
-          if (known !== undefined) paths.unshift(known);
-        }
-        const options = args[1] as { flag?: unknown } | string | number | undefined;
-        const flags =
-          name === "openSync"
-            ? args[1]
-            : typeof options === "object" && options !== null
-              ? options.flag
-              : undefined;
-        trace.calls.push({ api, fn: name, paths, flags });
-      }
-      const result = original.apply(this, args);
-      if (trace.on && name === "openSync" && typeof result === "number") {
-        trace.fds.set(result, String(args[0]));
-      }
-      return result;
-    };
-  for (const [name, value] of Object.entries(actual)) {
-    // Functions only: classes (`Stats`, `Dirent`, …) and constants pass through.
-    if (typeof value !== "function" || !/^[a-z]/.test(name)) {
-      wrapped[name] = value;
-      continue;
-    }
-    const fn = wrap(name, value as (...args: unknown[]) => unknown);
-    if (name === "realpathSync") {
-      const native = (value as unknown as { native: (...args: unknown[]) => unknown }).native;
-      (fn as unknown as { native: unknown }).native = wrap("realpathSync.native", native);
-    }
-    wrapped[name] = fn;
-  }
-  wrapped.default = wrapped;
-  return wrapped;
-}
-
 vi.mock("node:fs", async (importOriginal) =>
-  intercept("fs", (await importOriginal()) as Record<string, unknown>),
+  (await import("../fs-trace")).intercept(
+    "fs",
+    (await importOriginal()) as Record<string, unknown>,
+  ),
 );
 vi.mock("node:child_process", async (importOriginal) =>
-  intercept("child_process", (await importOriginal()) as Record<string, unknown>),
+  (await import("../fs-trace")).intercept(
+    "child_process",
+    (await importOriginal()) as Record<string, unknown>,
+  ),
 );
-
-function traced<T>(action: () => T): { result: T; calls: typeof trace.calls } {
-  trace.calls = [];
-  trace.fds.clear();
-  trace.on = true;
-  try {
-    return { result: action(), calls: [...trace.calls] };
-  } finally {
-    trace.on = false;
-  }
-}
 
 const FIXTURE = "30-account-cache-read";
 const GIT_ENV = {

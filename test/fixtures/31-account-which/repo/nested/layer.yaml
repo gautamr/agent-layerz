@@ -1,0 +1,4 @@
+stack:
+  - source: path:../../personal
+  - source: path:./.layer
+targets: [claude]

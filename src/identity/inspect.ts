@@ -1,4 +1,4 @@
-import { stripControl } from "../core/sanitize";
+import { displayPath, stripControl } from "../core/sanitize";
 import type { CommitIdentity } from "../model/commit-identity";
 import { type Env, git } from "../resolve/git";
 
@@ -47,11 +47,7 @@ export function identityEnv(env: Env): Env {
 
 /** The origin git prints, as a report may show it: no control characters, HOME as `~`. */
 export function sanitizeOrigin(origin: string, home: string | undefined): string {
-  let text = stripControl(origin).replace(/^file:/, "");
-  if (home && home !== "/" && (text === home || text.startsWith(`${home}/`))) {
-    text = `~${text.slice(home.length)}`;
-  }
-  return text;
+  return displayPath(stripControl(origin).replace(/^file:/, ""), home);
 }
 
 function exitStatus(error: unknown): number | null | undefined {

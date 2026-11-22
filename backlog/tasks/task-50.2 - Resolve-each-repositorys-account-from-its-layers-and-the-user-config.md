@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@claude'
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T03:38:00Z'
+updated_date: '2026-11-22T08:20:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -78,6 +78,8 @@ Done when: every slice is Done, LAYERING-SPEC no longer marks the TASK-50.2 part
 Fact recorded for TASK-50.8: docs/target-facts.md §12 item 15, new row 'Codex: policy patterns' (SOURCE, tag rust-v0.169.0): exclude, include_only and the newer keyed filters table are case-insensitive wildmatch patterns (* and ?); a filters entry set to exclude drops a variable like exclude does; set keys are exact on Unix and compared ignoring ASCII case on Windows.
 
 2026-11-22 owner: hold any release with the account field until TASK-50.11 is Done (releases are CI-only and the pipeline does not exist yet anyway).
+
+2026-11-22 coordinator: the release that ships the account field holds until every TASK-50 subtask is Done (not only TASK-50.11).
 <!-- SECTION:NOTES:END -->
 
 ## Comments

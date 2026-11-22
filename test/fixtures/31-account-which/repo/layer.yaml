@@ -1,0 +1,6 @@
+stack:
+  - source: path:../personal
+  - source: path:../hub/layer
+    ref: v1
+  - source: path:./.layer
+targets: [claude]

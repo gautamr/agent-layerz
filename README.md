@@ -159,6 +159,7 @@ commit_identity:
 | `alz ls [--live]` | List built items and the layer that decides each. `--live` asks Claude Code what it loaded (one short model call) and fails on anything missing. |
 | `alz explain <type> <name>` | Every layer that contributed to an item, in order, and the merged result. |
 | `alz doctor` | Name collisions in account dirs, installed tool version, slots, budgets. |
+| `alz account which` | The account each target (Claude Code, Codex) would use in this directory, where it comes from and why each other source was skipped; read-only. Exits 1 when a named account cannot apply. |
 | `alz lint [--layer <path>]` | Validate a layer: schema, leak guard for public layers, slots. |
 
 ## Safety

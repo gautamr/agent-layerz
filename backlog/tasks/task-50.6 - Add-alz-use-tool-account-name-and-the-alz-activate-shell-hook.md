@@ -4,7 +4,7 @@ title: Add alz use <tool> --account <name> and the alz activate shell hook
 status: To Do
 assignee: []
 created_date: '2026-11-21T18:04:00Z'
-updated_date: '2026-11-22T03:35:00Z'
+updated_date: '2026-11-22T09:08:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -42,6 +42,10 @@ The second way to switch: alz use overrides the account for the current terminal
 2026-11-22 (@architect, final pass): criterion 5 follows owner decisions 7 and 8 (blocked folder; the hook always sets the variable, no unset fallback). LAYERING-SPEC §7.13, §13 test 22.
 
 2026-11-22 (@architect, from TASK-50.7 facts and decision-17): criterion 4 gives the warning text and the presence-only mise/direnv check (C11). For criterion 5, the item 18 fact is now recorded: Claude creates a missing folder (0755) and starts logged out, so ~/.claude-alz-blocked can come to exist (alz doctor warns, TASK-50.4); Codex refuses to start and creates nothing. Both count as failing closed (owner decision 8 in TASK-50.1). Spec: LAYERING-SPEC §7.13, §13 test 22.
+
+2026-11-22 from the TASK-50.10 reviews: the hook must always re-apply the resolved value at every prompt where the working directory changed (not only when a variable differs), because mise or direnv can change the variable between prompts; and it must order itself against direnv's prompt hook (and mise's), so that alz sets the variable after them and not before. A value set by either manager is foreign (decision-17) and is kept, so the order only decides which of the two writes the marker.
+
+2026-11-22 from the TASK-50.10 final review: when HOME is not an absolute path, the resolver ignores both files, keeps the current variable value (apply 'keep') and fails closed for a named account (failsClosed kind 'home'); alz run and alz use refuse. Decide here what the hook applies in that case (it cannot build a folder from a relative HOME); the resolver result gives it apply 'keep' for the named account and 'unset' for the default account.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

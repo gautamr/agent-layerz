@@ -1,6 +1,14 @@
 import { parseArgs } from "node:util";
 import { version } from "../../package.json";
 import { FatalError, formatDiagnostic } from "../core/diagnostics";
+import { stripControl } from "../core/sanitize";
+import {
+  ACCOUNT_TARGETS,
+  type AccountMap,
+  type AccountTarget,
+  isAccountName,
+} from "../model/account";
+import { accountWhichCommand } from "./commands/account";
 import { buildCommand } from "./commands/build";
 import { checkCommand } from "./commands/check";
 import { diffCommand } from "./commands/diff";
@@ -29,7 +37,26 @@ const USAGE = `usage: alz <command> [options]   (alz --version)
   diff                                the change a pending build would make
   doctor                              account-dir collisions, tool versions, slots, budgets
   lint [--layer <path>]               schema, leak guard and slots of a layer
+  account which [--use <target>=<name>]...   the account each target would use here, and why
 `;
+
+/** `--use <target>=<name>`, as the alz shell function passes an `alz use` choice. */
+function parseUse(items: string[]): AccountMap | string {
+  const map: AccountMap = {};
+  for (const item of items) {
+    const at = item.indexOf("=");
+    const target = item.slice(0, at);
+    const name = item.slice(at + 1);
+    if (at < 0 || !Object.hasOwn(ACCOUNT_TARGETS, target)) {
+      return "--use needs <target>=<name>, with claude or codex as the target";
+    }
+    if (!isAccountName(name))
+      return "--use needs an account name (lower-case letters, digits and '-')";
+    if (map[target as AccountTarget] !== undefined) return `--use names ${target} twice`;
+    map[target as AccountTarget] = name;
+  }
+  return map;
+}
 
 /** Runs one CLI invocation and returns the exit code: 0 ok, 1 failed, 2 usage error. */
 export async function run(argv: string[], io: Io): Promise<number> {
@@ -90,6 +117,23 @@ export async function run(argv: string[], io: Io): Promise<number> {
         const { values } = parseArgs({ args: rest, options: { layer: { type: "string" } } });
         return lintCommand(io, values.layer);
       }
+      case "account": {
+        const [sub, ...args] = rest;
+        if (sub !== "which") {
+          io.stderr(`unknown account command '${stripControl(sub ?? "")}'\n\n${USAGE}`);
+          return 2;
+        }
+        const { values } = parseArgs({
+          args,
+          options: { use: { type: "string", multiple: true, default: [] } },
+        });
+        const use = parseUse(values.use);
+        if (typeof use === "string") {
+          io.stderr(`${use}\n\n${USAGE}`);
+          return 2;
+        }
+        return accountWhichCommand(io, { use });
+      }
       case "--version":
       case "-v":
         io.stdout(`${version}\n`);
@@ -101,7 +145,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
         io.stdout(USAGE);
         return command === undefined ? 2 : 0;
       default:
-        io.stderr(`unknown command '${command}'\n\n${USAGE}`);
+        io.stderr(`unknown command '${stripControl(command)}'\n\n${USAGE}`);
         return 2;
     }
   } catch (error) {
@@ -112,7 +156,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return 1;
     }
     if ((error as { code?: string }).code?.startsWith("ERR_PARSE_ARGS")) {
-      io.stderr(`${(error as Error).message}\n\n${USAGE}`);
+      io.stderr(`${stripControl((error as Error).message)}\n\n${USAGE}`);
       return 2;
     }
     throw error;

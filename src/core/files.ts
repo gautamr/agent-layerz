@@ -91,6 +91,9 @@ export interface RegularFile {
   bytes: Buffer;
   dev: number;
   ino: number;
+  /** The owner and permission bits of the open file, from the same `fstat` as the checks. */
+  uid: number;
+  mode: number;
 }
 
 /**
@@ -113,7 +116,9 @@ export function readRegularFileWithId(
   if (!before.isFile() || before.size > maxBytes) return "invalid";
   let fd: number;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    // O_NONBLOCK: a FIFO swapped in after the `lstat` must not make the open wait for a writer;
+    // the `isFile` check on the open file then rejects it.
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch {
     return "invalid";
   }
@@ -128,7 +133,9 @@ export function readRegularFileWithId(
       if (count === 0) break;
       at += count;
     }
-    return at === bytes.length ? { bytes, dev: open.dev, ino: open.ino } : "invalid";
+    return at === bytes.length
+      ? { bytes, dev: open.dev, ino: open.ino, uid: open.uid, mode: open.mode }
+      : "invalid";
   } catch {
     return "invalid";
   } finally {

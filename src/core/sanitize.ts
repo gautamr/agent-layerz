@@ -21,3 +21,16 @@ export function stripControl(text: string): string {
 export function quote(text: string): string {
   return JSON.stringify(stripControl(text));
 }
+
+/**
+ * A path from the environment or the file system, as a report may show it: control and format
+ * characters removed, and `home` written as `~`.
+ */
+export function displayPath(path: string, home: string | undefined): string {
+  const text = stripControl(path);
+  const base = home === undefined ? "" : stripControl(home);
+  if (base && base !== "/" && (text === base || text.startsWith(`${base}/`))) {
+    return `~${text.slice(base.length)}`;
+  }
+  return text;
+}
