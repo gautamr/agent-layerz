@@ -1,1 +1,1 @@
-FROM-LAYER .claude/settings.local.json
+{"marker": "FROM-LAYER .claude/settings.local.json"}

@@ -175,6 +175,12 @@ commit_identity:
   transports blocked, so a repository cannot make them read a folder inside itself. If your
   `url.<base>.insteadOf` rewrites such a URL to a local mirror path, the clone now fails; name
   the mirror as a local `git:` path instead.
+- No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
+  `XDG_STATE_HOME` or `XDG_CACHE_HOME` through its settings, an MCP server's `env_from`, an
+  agent's native MCP servers or a passthrough settings, `.mcp.json`, agent or `.toml` file
+  (under any target), and passthrough paths must be ASCII. The
+  build fails and names the layer, never the value. This covers declarative configuration
+  only; hooks and MCP commands run code and are not checked.
 - Layers can ship hooks, which your agent runs as commands. Use layers you trust, and pin remote
   ones to a tag or commit.
 

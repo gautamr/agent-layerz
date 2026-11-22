@@ -4,6 +4,7 @@ import { isMap, unknownKeys, type YamlMap } from "../core/yaml";
 import { type Layer, sourceRef, where } from "../model/layer";
 import type { Contribution } from "./agents";
 import { readLayerYaml } from "./layer-files";
+import { checkEnvName } from "./protected-variables";
 
 export interface McpServer {
   id: string;
@@ -26,6 +27,8 @@ export function mergeMcp(
   diags: Diagnostics,
 ): { all: Map<string, McpServer>; enabled: McpServer[] } {
   const all = new Map<string, McpServer>();
+  /** Ids refused for a protected variable; `mcp.enable` must not add "no layer defines it" for them. */
+  const refused = new Set<string>();
   for (const layer of layers) {
     const raw = readLayerYaml(layer, FILE, diags);
     if (raw === undefined || raw === null) continue;
@@ -35,7 +38,7 @@ export function mergeMcp(
       continue;
     }
     for (const [id, definition] of Object.entries(raw)) {
-      const server = readServer(id, definition, layer, loc, diags);
+      const server = readServer(id, definition, layer, loc, diags, refused);
       if (!server) continue;
       const previous = all.get(id);
       if (previous) {
@@ -54,7 +57,8 @@ export function mergeMcp(
   for (const id of enable) {
     const server = all.get(id);
     if (server) enabled.push(server);
-    else diags.error("mcp", `mcp.enable lists '${id}', but no layer defines it`, "layer.yaml");
+    else if (!refused.has(id))
+      diags.error("mcp", `mcp.enable lists '${id}', but no layer defines it`, "layer.yaml");
   }
   return { all, enabled };
 }
@@ -65,6 +69,7 @@ function readServer(
   layer: Layer,
   loc: string,
   diags: Diagnostics,
+  refused: Set<string>,
 ): McpServer | undefined {
   const fail = (message: string) => {
     diags.error("mcp", `server '${id}': ${message}`, loc);
@@ -89,6 +94,14 @@ function readServer(
   if (args !== undefined && !isStrings(args)) return fail("'args' must be a list of strings");
   if (envFrom !== undefined && !isStrings(envFrom))
     return fail("'env_from' must be a list of names");
+  const before = diags.errors.length;
+  for (const name of isStrings(envFrom) ? envFrom : []) {
+    checkEnvName(name, `mcp.yaml server '${id}' env_from`, "an entry", loc, diags);
+  }
+  if (diags.errors.length > before) {
+    refused.add(id);
+    return undefined;
+  }
   if (transport !== "stdio" && isStrings(envFrom) && envFrom.length > 0) {
     return fail("'env_from' only applies to stdio servers");
   }

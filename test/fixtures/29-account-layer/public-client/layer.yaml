@@ -1,0 +1,4 @@
+name: public-client
+kind: client
+visibility: public
+version: 0.1.0

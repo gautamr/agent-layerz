@@ -2,6 +2,7 @@ import type { Diagnostics } from "../core/diagnostics";
 import { isMap, type YamlMap } from "../core/yaml";
 import { type Layer, where } from "../model/layer";
 import { readLayerYaml } from "./layer-files";
+import { checkCodexPolicies, checkEnvKeys } from "./protected-variables";
 
 const FILE = "settings.yaml";
 
@@ -42,13 +43,15 @@ export function mergeSettings(layers: Layer[], diags: Diagnostics): Record<strin
         diags.error("settings", `'${target}' must be a mapping`, loc);
         continue;
       }
-      const reserved = RESERVED[target] ?? {};
+      const reserved = Object.hasOwn(RESERVED, target) ? (RESERVED[target] ?? {}) : {};
       const clean: YamlMap = {};
       for (const [key, value] of Object.entries(settings)) {
-        const owner = reserved[key];
+        const owner = Object.hasOwn(reserved, key) ? reserved[key] : undefined;
         if (owner) diags.error("settings", `'${target}.${key}' is set through ${owner}`, loc);
         else clean[key] = value;
       }
+      if (target === "claude") checkEnvKeys(settings.env, "claude.env", loc, diags);
+      if (target === "codex") checkCodexPolicies(settings, loc, diags);
       merged[target] = deepMerge(merged[target] ?? {}, clean);
     }
   }

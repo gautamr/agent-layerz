@@ -2,6 +2,7 @@ import type { Diagnostics } from "../core/diagnostics";
 import type { ResolvedConfig } from "../model/config";
 import type { Layer } from "../model/layer";
 import type { Manifest } from "../model/manifest";
+import { mergeAccount } from "./account";
 import { mergeAgents } from "./agents";
 import { mergeCommitIdentity } from "./commit-identity";
 import { mergeHooks } from "./hooks";
@@ -39,5 +40,6 @@ export function resolveConfig(
     passthrough: mergePassthrough(layers, diags),
     claudeExtras: claudeExtras(layers, diags),
     commitIdentity: mergeCommitIdentity(layers, repoRoot, diags),
+    account: mergeAccount(layers, repoRoot, diags),
   };
 }

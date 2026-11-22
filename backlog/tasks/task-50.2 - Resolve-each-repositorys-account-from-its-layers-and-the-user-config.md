@@ -2,17 +2,22 @@
 id: TASK-50.2
 title: Resolve each repository's account from its layers and the user config
 status: To Do
-assignee: []
+assignee:
+  - '@claude'
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T03:10:00Z'
+updated_date: '2026-11-22T03:38:00Z'
 labels:
   - area:accounts
   - area:cli
 milestone: m-3
 dependencies:
   - TASK-50.1
-  - TASK-51
   - TASK-50.7
+  - TASK-51
+  - TASK-50.8
+  - TASK-50.9
+  - TASK-50.10
+  - TASK-50.11
 parent_task_id: TASK-50
 priority: high
 ordinal: 18390
@@ -22,21 +27,26 @@ ordinal: 18390
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 The client layer names the expected account; a machine-local user config can override it per folder; nothing is committed. Same pattern as commit_identity (decision-13).
+
+Split on 2026-11-22 into four slices, one pull request each, in this order: TASK-50.8 (the account layer field, who may declare it, layers that set account variables), TASK-50.9 (reading a stack's declaration from the layer cache without git, and the pathref@ cache index), TASK-50.10 (the resolver and alz account which), TASK-50.11 (alz account allow and --remove, the allow hints, the repository invariant and the threat model). This task is now the parent that points to them: it holds the owner decisions in its notes and is done when all four are. LAYERING-SPEC parts tagged '(TASK-50.2)' mean these four slices. TASK-50.3, TASK-50.4 and TASK-50.5 depend on this task, so they wait for all four.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A layer can declare an account name, and alz lint rejects anything in that field other than a name of at most 64 characters (no paths, no secrets)
-- [ ] #2 alz account which prints the resolved account per target, its source (use, environment, user config, layer or default; use comes from the alz shell function, environment from comparing the variable with its ALZ_SET_ marker), the reason for each skipped step and the paths of accounts.yaml and allowed.yaml; when a named account fails closed it prints 'layer step skipped (<reason>); fails closed', what the hook applies (the missing folder, the recorded account or the blocked folder) and the fix command; tests cover each source, each fail-closed case and a missing default folder (never fails)
-- [ ] #3 The user config (accounts.yaml, hand-written, never written by alz) and the allow state (allowed.yaml) live outside every repository; alz ignores either with a warning when its real path is inside the current repository, the user does not own it, group or others can write it, its directory or a parent directory below $HOME, or the XDG_ variable that locates it points somewhere other than its default (~/.config or ~/.local/state, compared as real paths) while __MISE_DIFF or DIRENV_DIFF exists, the warning then naming the variable and saying that mise or direnv is active here; alz checks only that those two variables exist and never reads, decodes, prints or logs their values (decision-17; test: a marker string put in them appears in no output); an allowed.yaml entry with a relative root or an invalid account name is ignored with a warning; and alz build never writes an account value into a generated file
-- [ ] #4 An account named by a layer takes effect only after alz account allow in that repository, which records the repository's real root, the whole per-target map and the declaring layer's source (a remote URL without its ref, or a local layer's real path) in allowed.yaml; until then, or after the map or the source changes (any difference skips the layer step for every target), it does not apply, while a ref bump needs no new allow; alz build and alz check print the allow command only on a terminal with no agent-session marker set, alz account which prints it only for a changed entry and otherwise reports only that the layer step was skipped, and the hook and alz run never print it; accounts set in the user config need no approval (tests: a fresh clone starts on the default account; after allow it uses the named one; a changed map or source skips it again; a ref bump keeps it)
-- [ ] #5 Resolution (shell hook, alz run, alz account which) never fetches, clones or runs git and writes nothing: for a root not in allowed.yaml it reads no file of the stack, and otherwise it reads only layers it can locate without git (see the cache index criterion), with build's validation, and checks each against the lock's content hash (TASK-51), a mismatch counting as a cache miss; a cache miss skips the layer step, and in an allowed repository that fails closed as in TASK-50.3 and TASK-50.6 (tests trace git calls and file reads)
-- [ ] #6 alz account allow shows the account per target, the declaring layer, its source and its revision, and asks the person to type the account name to confirm; it refuses and changes nothing when stdin is not a TTY or inside an agent session (any of the six markers in LAYERING-SPEC §7.13 'Agent-session markers' set, even to an empty value), and it has no --yes; it holds an exclusive lock file next to allowed.yaml while reading and writing, keeps entries sorted by root and replaces the entry for the same root; alz account allow --remove removes this root's entry under the same lock file, with the same terminal and agent-session checks; on a cache miss allow changes nothing and says only to run alz build (a test for each refusal and each marker, for --remove and for two concurrent runs)
-- [ ] #7 Paths resolve with the file system's spelling: a folders entry matches whole path segments and the longest wins, an allowed entry matches only the exact real root, the root is the nearest layer.yaml with a stack key at or above the working directory (one without it is skipped), each layer.yaml read is parsed up to 1 MiB with a YAML alias limit, and an entry that does not resolve matches nothing (tests: symlink, case variant, nested manifest, a layer manifest on the way)
-- [ ] #8 A layer that sets CLAUDE_CONFIG_DIR, CODEX_HOME, HOME, XDG_CONFIG_HOME, XDG_STATE_HOME or XDG_CACHE_HOME through settings.yaml (Claude env, or a Codex shell_environment_policy whose set names one or whose exclude pattern matches one), an MCP environment or a passthrough file fails the build naming the layer, and a declaration by a layer that may not declare is ignored with one warning by alz run, the hook and alz account which (LAYERING-SPEC §7.9 and §13 test 24, in test/acceptance/24-untrusted-repo.test.ts)
-- [ ] #9 The repository invariant 'outside the repo, only the cache is written' in .layer/instructions/50-repo.md names allowed.yaml as the one other file alz writes, the threat-model skill's trust table gains rows for accounts.yaml and allowed.yaml, and mise run alz:build then mise run alz:check pass
-- [ ] #10 A pinned path: layer is found through a cache index entry that alz build writes next to each tree@<tree> entry, keyed by the layer directory's real path and the commit SHA (for example pathref@<sha256 of the real path>-<sha>) and naming its tree; build and resolution compute the real path with the same function, resolution computes it from the manifest without git, uses the lock sha only when it is 40 or 64 hex characters, reads only the index entry for that path, and uses it only when lstat shows a regular file whose whole content is 40 or 64 hex characters; a path: layer without a ref is read in place (only its layer.yaml is used, with the LAYERING-SPEC §7.12 inside/outside test); anything else is a cache miss, and layer.lock does not change (tests: index hit, a malformed sha, another path's index entry, a malformed index entry, a symlinked index entry)
+- [ ] #1 TASK-50.8, TASK-50.9, TASK-50.10 and TASK-50.11 are Done; together they carry this task's former criteria #1 to #10 (mapping in the notes)
+- [ ] #2 LAYERING-SPEC §7.13, §9.1 and §10 no longer mark the parts tagged TASK-50.2 as planned, and LAYERING-SPEC §13 tests 19, 20 and 24 (account cases) pass in mise run test
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Parent of four slices; no code is written under this task. Work them in order, one pull request each:
+1. TASK-50.8: the account field in layer.yaml, who may declare it (build errors, init warnings), and the build error for layers that set CLAUDE_CONFIG_DIR, CODEX_HOME, HOME or an XDG_ cache/config/state variable. Planned in that task.
+2. TASK-50.9: the no-git cache reader (git cache entries, pathref@ index for pinned path: layers, unpinned path: layers in place), its content-hash check, and the declaration it yields. Plan when picked up.
+3. TASK-50.10: accounts.yaml and allowed.yaml reading and safety, root walk and path matching, resolution order, fail closed, alz account which. Plan when picked up.
+4. TASK-50.11: alz account allow and --remove, build and check hints, 50-repo.md invariant, threat-model rows. Plan when picked up.
+Done when: every slice is Done, LAYERING-SPEC no longer marks the TASK-50.2 parts as planned, and §13 tests 19, 20 and 24 (account cases) pass.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
@@ -52,6 +62,22 @@ The client layer names the expected account; a machine-local user config can ove
 2026-11-22 (@architect, from TASK-50.7 facts and decision-17): criterion 3 replaces 'mise or direnv set the XDG_ variable' (which needed decoding their records) with a presence check: the XDG_ variable points away from its default while __MISE_DIFF or DIRENV_DIFF exists; their values are never read (open question to the owner in TASK-50.7: ignore, as written, or only warn). Criterion 6 names the six agent-session markers (target-facts §12.1 C7). Criterion 8 names Codex shell_environment_policy set/exclude (C12). Spec: LAYERING-SPEC §7.9, §7.13 'Both files', 'Agent-session markers', 'Values set outside alz', 'What a session passes on', §13 tests 19, 20 and 24. Tests must remove __MISE_DIFF, DIRENV_DIFF and the markers from the environment unless a case sets them, because mise run test passes __MISE_DIFF on (§13 intro).
 
 2026-11-22 owner approved the XDG rule as written: when an XDG_ variable that locates accounts.yaml or allowed.yaml points away from its default while mise or direnv is active, alz ignores that file and warns.
+
+2026-11-22 (@architect): split into TASK-50.8 to TASK-50.11. Why: one pull request would have held build-time validation, a no-git cache reader with a new cache index, a new user-config area with file-safety checks, the resolver and two new commands (estimated at more than 900 lines of source and as much test), each with its own security review. Where the former criteria went:
+- #1 -> TASK-50.8 #1 (verbatim).
+- #2 -> TASK-50.10 #1 (verbatim).
+- #3 -> TASK-50.10 #2 (verbatim).
+- #4 -> split: what resolution applies (allowed entry, changed map or source, ref bump, user config needs no approval, which prints the command only for a changed entry) -> TASK-50.10 #5, tested with an allowed.yaml the test writes; the allow command recording the entry, the build and check hints, and the end-to-end tests -> TASK-50.11 #2.
+- #5 -> TASK-50.10 #3 (verbatim); the reader's own part restated as TASK-50.9 #2.
+- #6 -> TASK-50.11 #1 (verbatim).
+- #7 -> TASK-50.10 #4 (verbatim).
+- #8 -> split: the build error -> TASK-50.8 #3 (wording unchanged); 'ignored with one warning' -> TASK-50.10 #6 (alz run and the hook get it from the same resolver in TASK-50.3 and TASK-50.6).
+- #9 -> TASK-50.11 #3 (verbatim).
+- #10 -> TASK-50.9 #1, verbatim except 'tree@<tree>' -> 'tree2@<tree>': TASK-51 renamed pinned cache entries, and LAYERING-SPEC §6 and §7.13 already say tree2@ (editorial).
+- Added: TASK-50.8 #2 (who may declare, its build errors and the init warning: LAYERING-SPEC §7.13 'Who may declare it' and §13 test 24, which #8 cites but no criterion stated) and TASK-50.9 #3 (the reader's result, which TASK-50.10 and TASK-50.11 build on).
+Fact recorded for TASK-50.8: docs/target-facts.md §12 item 15, new row 'Codex: policy patterns' (SOURCE, tag rust-v0.169.0): exclude, include_only and the newer keyed filters table are case-insensitive wildmatch patterns (* and ?); a filters entry set to exclude drops a variable like exclude does; set keys are exact on Unix and compared ignoring ASCII case on Windows.
+
+2026-11-22 owner: hold any release with the account field until TASK-50.11 is Done (releases are CI-only and the pipeline does not exist yet anyway).
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -72,6 +98,15 @@ created: 2026-11-22T02:58:00Z
 ---
 
 Owner question (blocks AC 3 only). decision-17 forbids decoding __MISE_DIFF/DIRENV_DIFF, so the old rule 'ignore accounts.yaml/allowed.yaml when mise or direnv set the XDG_ variable that locates it' can no longer be evaluated. Options: (a) as now written in LAYERING-SPEC §7.13 'Both files': ignore the file with a warning when its XDG_ variable points away from its default (~/.config, ~/.local/state) while either variable exists; keeps the old strictness, cost: a person with a custom XDG_CONFIG_HOME who uses mise loses the user config while mise is active. (b) Read the file and only warn; the other checks (inside the repo, owner, modes) remain. (c) Drop the condition. Recommendation: (a). Remove this label once decided.
+
+---
+
+author: @architect
+created: 2026-11-22T03:35:00Z
+
+---
+
+Owner question (release timing; blocks no slice). TASK-50.8 ships the `account` field and the new build error, but a declared account has no effect until TASK-50.11. Options: (a) cut no release between TASK-50.8 and TASK-50.11, so the minor release ships the whole feature (recommended); (b) allow a release in between, with a release note saying the field is validated but not used yet. The new build error is breaking either way and needs a release note.
 
 ---
 <!-- COMMENTS:END -->

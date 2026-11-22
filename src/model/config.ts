@@ -1,4 +1,5 @@
 import type { YamlMap } from "../core/yaml";
+import type { DeclaredAccount } from "../merge/account";
 import type { AgentSpec } from "../merge/agents";
 import type { DeclaredIdentity } from "../merge/commit-identity";
 import type { HookSpec } from "../merge/hooks";
@@ -29,4 +30,6 @@ export interface ResolvedConfig {
   claudeExtras: ClaudeExtra[];
   /** §7.12: the winning commit identity and its layer; undefined when no layer declares one. */
   commitIdentity?: DeclaredIdentity;
+  /** §7.13: the winning account declaration and its layer; no adapter reads it yet. */
+  account?: DeclaredAccount;
 }

@@ -4,6 +4,7 @@ import { asOptionalString, asStringList, isMap, unknownKeys, type YamlMap } from
 import { kindTitle, type Layer, sourceRef, where } from "../model/layer";
 import { isKnownTool, PERMISSION_MODES, SKILL_NAME } from "../model/vocabulary";
 import { filesIn, readLayerMarkdown, stem } from "./layer-files";
+import { checkCodexPolicies, checkMcpServerEnvs } from "./protected-variables";
 import { deepMerge } from "./settings";
 import { parseTool, widenedTools } from "./tools";
 
@@ -119,7 +120,7 @@ function readBase(layer: Layer, path: string, diags: Diagnostics): AgentSpec | u
       sources: [{ ref: sourceRef(layer, path), action: "base" }],
     };
     applyScalars(spec, data);
-    applyNative(spec, data);
+    applyNative(spec, data, loc, diags);
     validateSpec(spec, loc, diags);
     return spec;
   } catch (error) {
@@ -175,7 +176,7 @@ function applyOverlay(
       if (data[field] !== undefined && data[field] !== null) changes.push(field);
     }
     applyScalars(spec, data);
-    for (const target of applyNative(spec, data)) changes.push(`${target} fields`);
+    for (const target of applyNative(spec, data, loc, diags)) changes.push(`${target} fields`);
 
     const skillOps = parseListOps(data.skills, "skills");
     if (skillOps) {
@@ -259,7 +260,7 @@ function applyScalars(spec: AgentSpec, data: YamlMap): void {
 }
 
 /** Deep-merges each `<target>:` map into the spec; returns the targets it touched. */
-function applyNative(spec: AgentSpec, data: YamlMap): string[] {
+function applyNative(spec: AgentSpec, data: YamlMap, loc: string, diags: Diagnostics): string[] {
   const touched: string[] = [];
   for (const target of NATIVE_TARGETS) {
     const value = data[target];
@@ -271,10 +272,25 @@ function applyNative(spec: AgentSpec, data: YamlMap): string[] {
         `'${target}.${reserved[0]}' has a neutral field; set it outside '${target}:' so every target gets it`,
       );
     }
+    checkNativeEnvironment(target, value, loc, diags);
     spec.native[target] = deepMerge(spec.native[target] ?? {}, value);
     touched.push(target);
   }
   return touched;
+}
+
+/** §7.9: a native `mcpServers` / `mcp_servers` or Codex policy in agent frontmatter must not set the protected variables. */
+function checkNativeEnvironment(
+  target: string,
+  native: YamlMap,
+  loc: string,
+  diags: Diagnostics,
+): void {
+  if (target === "claude") checkMcpServerEnvs(native.mcpServers, "claude.mcpServers", loc, diags);
+  if (target === "codex") {
+    checkMcpServerEnvs(native.mcp_servers, "codex.mcp_servers", loc, diags);
+    checkCodexPolicies(native, loc, diags);
+  }
 }
 
 function validateSpec(spec: AgentSpec, loc: string, diags: Diagnostics): void {

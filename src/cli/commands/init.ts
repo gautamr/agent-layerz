@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, join, posix } from "node:path";
 import { type Diagnostic, Diagnostics, FatalError, formatDiagnostic } from "../../core/diagnostics";
 import { ensureLocalIdentity } from "../../identity/setup";
+import { mergeAccount } from "../../merge/account";
 import { mergeCommitIdentity } from "../../merge/commit-identity";
 import { NAME_PATTERN, VISIBILITIES, type Visibility } from "../../model/layer-meta";
 import { readLock } from "../../model/lock";
@@ -173,6 +174,7 @@ function setUpIdentity(io: Io): void {
       diags,
     );
     const declared = mergeCommitIdentity(layers, io.cwd, diags);
+    mergeAccount(layers, io.cwd, diags);
     for (const item of diags.items) warn(item);
     if (declared && !diags.hasErrors) ensureLocalIdentity(io.cwd, declared, io.env, io);
   } catch (error) {

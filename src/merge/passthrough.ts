@@ -1,6 +1,7 @@
 import type { Diagnostics } from "../core/diagnostics";
 import { type Layer, sourceRef, where } from "../model/layer";
 import { readLayerMarkdown } from "./layer-files";
+import { checkPassthroughFile } from "./protected-variables";
 
 export interface PassthroughFile {
   layer: Layer;
@@ -26,6 +27,7 @@ export function mergePassthrough(
       const match = /^targets\/([^/]+)\/(.+)$/.exec(file);
       if (!match || file === CLAUDE_EXTRA) continue;
       const [, target = "", path = ""] = match;
+      checkPassthroughFile(layer, file, path, diags);
       const files = byTarget.get(target) ?? new Map<string, PassthroughFile>();
       files.set(path, { layer, source: file });
       byTarget.set(target, files);

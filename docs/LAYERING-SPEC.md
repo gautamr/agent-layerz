@@ -1,8 +1,10 @@
 # LAYERING-SPEC.md — Layered agent configuration for any client and project
 
 **Status:** Draft v1 · 2026-11-22 (§7.12 commit identity added; needs agent-layerz 0.2.0.
-§7.13 account selection specified, planned in TASK-50 and not built yet, and aligned with
-the tool facts in `docs/target-facts.md` §12)
+§7.13 account selection specified and planned in TASK-50, aligned with the tool facts in
+`docs/target-facts.md` §12; built so far (TASK-50.8): the `account` layer field, who may
+declare it, and the refusal of layers that set the account variables, none of which changes
+generated output yet)
 **Audience:** a coding agent (Claude Code / Codex) implementing the tool, and humans who use it
 **Name:** `agent-layerz`, with the CLI command `alz`
 
@@ -243,10 +245,12 @@ forbid_patterns:               # leak guard for public layers (§9.2), regex
 commit_identity:               # optional; first layer or one client layer only (§7.12)
   name: Your Name
   email: you@example.com
+account: client-a              # optional; first layer or one client layer only (§7.13)
 ```
 
 Unknown fields are a schema error, so a layer that declares `commit_identity` needs
-agent-layerz 0.2.0 or later.
+agent-layerz 0.2.0 or later, and a layer that declares `account` needs the minor release that
+adds it (its release note names the version).
 
 ### 5.2 `layer.yaml` (repo stack manifest)
 
@@ -563,17 +567,61 @@ passed through to the target **without validation** beyond a schema check where 
 Keys that duplicate a first-class item (permissions, hooks, MCP, model) are rejected, so
 there is only one way to set each thing.
 
-*Planned (TASK-50.2):* no layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`,
-`XDG_CONFIG_HOME`, `XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or
-locate alz's own files and the layer cache (§7.13). That covers environment settings in
-`settings.yaml` (such as Claude's `env`), an MCP server's environment, and a passthrough
-settings or config file (§7.11). For Codex it covers `shell_environment_policy` by name: it
-builds the environment of Codex's shell commands and, unlike Claude's project `env`, is
-honoured in a trusted project's `.codex/config.toml` (§12 item 15). A `set` entry for one of
-these variables, or an `exclude` pattern that matches one, is refused. Each one is a build
-error that names the layer. Account resolution reads layers from the cache and relies on its
+No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
+`XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or locate alz's own
+files and the layer cache (§7.13). Each of these is a build error (code `protected-variable`)
+that names the layer, the file, a key path chosen by alz and, for a protected name, the
+variable, and never the text the layer wrote. A variable name here is a plain name,
+`^[A-Za-z_][A-Za-z0-9_]*$`; a key or entry that is anything else (`NAME=x`, a NUL, a space) is
+refused, because a spawn would read `CODEX_HOME=/x` as the name `CODEX_HOME` with a value.
+Names compare ignoring ASCII case. An `env`, `set` or pattern list of another type cannot be
+checked and is refused.
+
+- `settings.yaml`, Claude: the keys of `claude.env`.
+- `settings.yaml`, Codex: `shell_environment_policy` wherever it appears under `codex`
+  (profiles included). It builds the environment of Codex's shell commands and, unlike
+  Claude's project `env`, is honoured in a trusted project's `.codex/config.toml` (§12 item
+  15). A `set` key that names one of the variables is refused. So is any `exclude` entry, and
+  any `filters` entry that is not set to `include`, whose pattern matches one of them as Codex
+  matches patterns: `*` for any run of characters, `?` for one, and characters equal when
+  their lower-case forms are equal (§12 item 15, 'policy patterns'). `include_only` and
+  `inherit` are allowed (a known limit, below).
+- `mcp.yaml`: an `env_from` entry that names one of them (`env` values are never accepted
+  there). A server refused for this does not also get a "no layer defines it" error from
+  `mcp.enable`.
+- Native agent frontmatter: the `env` of each server under `claude.mcpServers` (a map of
+  name to definition, or a list of names and one-entry maps), under `codex.mcp_servers`, and
+  a `shell_environment_policy` under `codex`.
+- Passthrough files (§7.11), with the path after `targets/<target>/` compared with ASCII
+  case folding. Covered: every path ending in `.claude/settings.json` or
+  `.claude/settings.local.json`, every `.mcp.json`, and every `.claude-plugin/*.json`, at any
+  depth. Each is parsed as JSON, and one that does not parse is refused. The root `env`, the
+  `env` of each `mcpServers` entry and any nested `env` mapping are checked. Also covered:
+  every `.claude/agents/**/*.md` frontmatter (`mcpServers`; unparsable frontmatter is
+  refused) and every `*.toml` file. These checks apply to every target, because an adapter
+  writes whatever path a layer ships under its own target (`targets/claude/.codex/config.toml`
+  reaches the repository like `targets/codex/.codex/config.toml`). alz has no TOML parser, so
+  a `.toml` file is refused when its text mentions `shell_environment_policy`, or one of the variables as a
+  whole name (not preceded or followed by a letter, digit, `_` or `-`; so `/home/user` is a
+  mention and `homepage` is not), ignoring ASCII case, or has a `\u`, `\U` or `\x` escape or a
+  backslash at the end of a line, which can spell or join a name that a text search cannot
+  see. This is stricter than the rules above; a TOML parser may relax it later. A passthrough
+  path with a non-ASCII character anywhere is refused, for every target, because a file
+  system may fold it into a checked name: on macOS APFS `.mcp.jſon` (a long `ſ`) opens as
+  `.mcp.json` and `Settings.json` as `settings.json` (`docs/target-facts.md` §12, 'File names,
+  macOS'). Not checked: a plugin's `plugin.json` can name another file for `mcpServers`, and
+  that file is not read.
+
+`alz lint` reports these too. Account resolution reads layers from the cache and relies on its
 integrity: cache reads are checked against the lock's content hash and git cache keys are
 unambiguous (§5.3, §6).
+
+**Limit.** This rule covers declarative configuration only. Hooks, MCP `command` and `args`,
+and any other item that runs code can set any variable, so the build cannot promise that no
+layer changes the account folder. The real control is that a layer-named account does not apply
+until the person allows it (`alz account allow`, §7.13, TASK-50.11). Among Codex's policy keys,
+only `set` is a firm guarantee: `include_only` and `inherit` can drop the variables from a
+shell command's environment, and that stays allowed.
 
 ### 7.10 Path-scoped rules
 `rules/<name>.md` holds Markdown with frontmatter `paths: [<globs>]`. It's loaded only when
@@ -690,9 +738,11 @@ commit_identity:
 
 ### 7.13 Account selection
 *Planned: TASK-50, decision-15 as amended by decision-16 (the owner's decisions recorded in
-TASK-50.1) and decision-17 (recorded in TASK-50.7). Nothing in this section is built yet; each
-part names the task that builds it. The tool facts it relies on are recorded in
-`docs/target-facts.md` §12 (§12 items 10 to 21 here).*
+TASK-50.1) and decision-17 (recorded in TASK-50.7). Built so far (TASK-50.8): the `account`
+field and its name rule, who may declare it, and the refusal of layers that set the account
+variables (§7.9). Each other part is not built yet and names the task that builds it. The
+tool facts it relies on are recorded in `docs/target-facts.md` §12 (§12 items 10 to 21
+here).*
 
 Claude Code and Codex keep logins, workspace trust and per-user state in an account folder
 that an environment variable chooses. alz can choose that folder per repository, so a
@@ -714,12 +764,12 @@ account:                       # per target; a target left out is not decided by
   codex: client-a-api
 ```
 
-- **Account names** (TASK-50.2). A name matches `^[a-z0-9][a-z0-9-]*$` and has at most 64
-  characters, and the map's keys are target names (§8). `default` always means the default
-  account. Anything else in the field, such as a path or a secret, is a schema error from
+- **Account names** (built, TASK-50.8). A name matches `^[a-z0-9][a-z0-9-]*$` and has at most 64
+  characters, and the map's keys are target names (§8). Anything else in the field, such as a path or a secret, is a schema error from
   `layer.yaml` parsing and `alz lint`, because the name becomes part of a folder path and of
-  the shell hook's output. An account name that alz reads from the environment or from
-  `allowed.yaml` must match the same rule, or it is ignored with a warning.
+  the shell hook's output. *Planned (TASK-50.10):* `default` always means the default
+  account, and an account name that alz reads from the environment or from `allowed.yaml`
+  must match the same rule, or it is ignored with a warning.
 - **Folders per target** (TASK-50.2, TASK-50.3). Each target adapter (§8) defines its variable
   and its folders, and alz sets only these variables. Account selection for Codex only sets
   `CODEX_HOME`, so it needs none of the rest of the Codex adapter (§8.2). The facts behind
@@ -736,18 +786,21 @@ account:                       # per target; a target left out is not decided by
   `.claude.json` and the login keyed to that folder, while Codex treats an empty `CODEX_HOME`
   as unset and resolves a set one to its real path (§12 items 10 and 11). Neither tool falls
   back to the default folder when the variable is set (§12 item 13).
-- **Who may declare it** (TASK-50.2). The same two layers as `commit_identity`, with the same
+- **Who may declare it** (built, TASK-50.8; the run-time handling is planned, TASK-50.10). The same two layers as `commit_identity`, with the same
   test for "outside the repository" and the same build errors (§7.12): the first stack entry,
   or one private or confidential `kind: client` layer outside the repository. The client
   layer's value replaces the first layer's whole value, a per-target map included; the two
   are never mixed. A declaration by any other layer, or by a second client layer, is a build
-  error that names the layers, and `alz run`, the shell hook and `alz account which` ignore it
-  and print one warning. `alz lint` of a single layer checks the shape only. In the hub repo
-  itself (§4.4) `layer/` is inside the repository and cannot declare, so hub sessions get
-  their account from the user config's `folders`.
-- **Layers cannot set the variables** (TASK-50.2). No layer may set an account variable, or
+  error that names the layers (and `alz init` prints it as a warning, §10), and, once built,
+  `alz run`, the shell hook and `alz account which` ignore it and print one warning.
+  `alz lint` of a single layer checks the shape only. In the hub repo itself (§4.4)
+  `layer/` is inside the repository and cannot declare, so hub sessions get their account
+  from the user config's `folders`.
+- **Layers cannot set the variables** (built, TASK-50.8). No layer may set an account variable, or
   the variables that locate the account folders, alz's own files and the layer cache, through
-  any other item (§7.9).
+  declarative configuration: environment settings, MCP environments, agent frontmatter and
+  passthrough files (§7.9 lists every form). Items that run code, such as hooks and MCP
+  commands, are outside this rule; the allow step is the control for those (§7.9 'Limit').
 - **User config** (TASK-50.2). The owner's override lives in
   `${XDG_CONFIG_HOME:-~/.config}/agent-layerz/accounts.yaml`. It is written by hand: alz reads
   it and never writes or rewrites it. It is machine-local, outside every repository, never
@@ -1238,7 +1291,7 @@ With a declared `commit_identity` (§7.12):
 
 | Command | Does |
 |---|---|
-| `alz init [--stack <source>]… [--hub <dir>]` | Scaffold a repo manifest with these layers, then `.layer/`. `--hub` also adds the hub's `layer/`, pinned to its newest `layer-v*` tag. Then resolves the stack and, with a declared commit identity, sets the repo-local git identity (§9.4). A source that cannot be resolved yet only gets a note that `alz build --adopt` will do it. Any other problem with the stack or with a declaration (a schema error, a layer that may not declare) is printed as a warning, nothing is written, and `init` still exits 0 because the scaffold succeeded; `alz build` fails on the same problem. `--kind layer` scaffolds a new layer. |
+| `alz init [--stack <source>]… [--hub <dir>]` | Scaffold a repo manifest with these layers, then `.layer/`. `--hub` also adds the hub's `layer/`, pinned to its newest `layer-v*` tag. Then resolves the stack and, with a declared commit identity, sets the repo-local git identity (§9.4). A source that cannot be resolved yet only gets a note that `alz build --adopt` will do it. Any other problem with the stack or with a declaration (a schema error, a layer that may not declare `commit_identity` or `account`) is printed as a warning, nothing is written (a refused `account` declaration also stops `init` from setting the commit identity), and `init` still exits 0 because the scaffold succeeded; `alz build` fails on the same problem. `--kind layer` scaffolds a new layer. |
 | `alz build [--adopt]` | Resolve, merge, render, write, update the lock. Warns when the effective git identity differs from the declared commit identity (§9.4). `--adopt` also adopts hand-written config (§4.3) and sets the repo-local git identity. |
 | `alz check [--skip-identity]` | Rebuild in memory and fail if the repo differs from it or from the lock (for CI and the Stop hook), or if the effective git identity differs from the declared commit identity (§9.4). `--skip-identity` skips the identity check, for CI runners and for people other than the owner. |
 | `alz update [<layer>]` | Re-resolve refs to the newest matching versions and rebuild. |
@@ -1506,13 +1559,23 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     arguments changes nothing. `alz doctor` reports no item as not linked, does not count the
     blocked folders as accounts and warns when one exists. A file-access trace shows that
     neither command opens a file inside an account folder.
-24. **Untrusted repository**, account cases (TASK-50.2): a repo layer, a group layer or a
-    public `client` layer that declares `account` fails the build, and `alz run`, the hook
-    and `alz account which` ignore it with one warning. A layer that sets `CLAUDE_CONFIG_DIR`,
+24. **Untrusted repository**, account cases. Built (TASK-50.8, in
+    `test/acceptance/24-untrusted-repo.test.ts`): a repo layer (whatever its `kind`), a group
+    layer, a public `client` layer, a second `client` layer, or a `client` layer reached
+    through a link inside the repository that declares `account` fails the build and names
+    the layers, and `alz init` prints it as a warning (the init case is in
+    `test/acceptance/29-account-layer.test.ts`, which also covers the field's schema and
+    which layer wins). A layer that sets `CLAUDE_CONFIG_DIR`,
     `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` or `XDG_CACHE_HOME` through
-    `settings.yaml` (Claude `env`, or a Codex `shell_environment_policy` whose `set` names one
-    or whose `exclude` matches one), an MCP environment or a passthrough file fails the build
-    and names the layer. A stack that names an account does not apply before
+    `settings.yaml` (Claude `env`, or a Codex `shell_environment_policy` whose `set` names one,
+    whose `exclude` matches one or whose `filters` entry not set to `include` matches one,
+    also under a profile; or a key such as `NAME=x` that is not a plain variable name), an MCP `env_from`, an agent's native `mcpServers`, or a passthrough
+    settings, `.mcp.json`, plugin manifest, agent or `.toml` file (at any depth, whatever its
+    target) fails
+    the build and names the layer, as does a passthrough path with a non-ASCII character; a Codex policy that only changes
+    `include_only` or `inherit`, or excludes other names, still builds. Planned (TASK-50.2,
+    TASK-50.10): `alz run`, the hook and `alz account which` ignore a refused declaration with
+    one warning, and a stack that names an account does not apply before
     `alz account allow`.
 
 ---

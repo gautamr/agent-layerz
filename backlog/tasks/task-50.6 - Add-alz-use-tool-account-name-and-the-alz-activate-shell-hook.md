@@ -4,7 +4,7 @@ title: Add alz use <tool> --account <name> and the alz activate shell hook
 status: To Do
 assignee: []
 created_date: '2026-11-21T18:04:00Z'
-updated_date: '2026-11-22T02:56:00Z'
+updated_date: '2026-11-22T03:35:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -53,6 +53,15 @@ created: 2026-11-22T02:56:00Z
 ---
 
 decision-17 (accepted 2026-11-22, amends decision-16): alz account init shares nothing by default and every shared item is opt-in with --share; warnings about values set outside alz say only that mise or direnv is active, from the presence of __MISE_DIFF or DIRENV_DIFF, never decoding them. Owner decisions recorded in TASK-50.7.
+
+---
+
+author: @architect
+created: 2026-11-22T03:35:00Z
+
+---
+
+TASK-50.2 was split on 2026-11-22 into TASK-50.8 to TASK-50.11. This task still depends on TASK-50.2, which is Done only when all four slices are. The resolver it calls is TASK-50.10. Its result also lists declarations ignored because their layer may not declare (LAYERING-SPEC §13 test 24: "alz run, the hook and alz account which ignore it with one warning"), so this task's tests should include one such case.
 
 ---
 <!-- COMMENTS:END -->
