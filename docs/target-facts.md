@@ -30,7 +30,7 @@ Each row says what the spec **requires/assumes**, what the tool **does now**, an
 - **Codex model-driven tests were impossible.** I used `codex debug prompt-input` (renders the model-visible input, no model call, no login) and `codex mcp list` / `codex doctor --json`.
 - **Codex project trust could not be granted.** `-c 'projects."<path>".trust_level="trusted"'` does **not** enable the project layer: `codex exec` still prints `Untrusted project-local configuration is disabled`. The only supported grant is `codex exec --trust`, which writes to `~/.codex`, so I did not run it. Result: every Codex test of `.codex/config.toml`, `.codex/agents/`, `.codex/hooks.json` and project MCP ran **untrusted** and proves nothing about trusted behaviour.
 - Claude counts of "how many times does a token appear in the context" use the model to count, with `memory_paths` from the init event as a cross-check. Treat them as strong but not formal evidence.
-- Scratchpad fixtures: `/private/tmp/claude-501/-Users-gautamr-dev-projects-agent-layers/da2fcdc2-d9c9-4d3f-9b05-272ea677fb99/scratchpad/{repo2,repo3a,repo3b,repo3c,repo4,parent,cx}`.
+- Scratchpad fixtures: throwaway repositories in a temporary session folder (`repo2`, `repo3a`, `repo3b`, `repo3c`, `repo4`, `parent`, `cx`), deleted after the run.
 
 ### 0.2 Introspection tools found (useful for `alz doctor` and the acceptance tests)
 
