@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseStackOption } from "../../src/cli/commands/init";
 import { fixture, layers, readFile, type Workspace } from "../helpers";
 
 function git(ws: Workspace, args: string[]): void {
@@ -55,14 +54,30 @@ describe("§10 alz init --stack --hub", () => {
     expect(settings.permissions.additionalDirectories).toEqual(["../hub"]);
   });
 
-  it("reads --stack values as path, git or github sources", () => {
-    expect(parseStackOption("../personal")).toEqual({ source: "path:../personal" });
-    expect(parseStackOption("path:../hub/layer@layer-v1.0.0")).toEqual({
-      source: "path:../hub/layer",
-      ref: "layer-v1.0.0",
-    });
-    expect(parseStackOption("github:me/agent-layerz-personal@v1.2.0")).toEqual({
-      source: "github:me/agent-layerz-personal@v1.2.0",
-    });
+  it("writes --stack values as path, pinned path and github sources into layer.yaml", async () => {
+    const ws = fixture("16-hub");
+    mkdirSync(`${ws.root}/new-repo`);
+
+    // The unresolvable first entry stops resolution before the github entry, so no clone is tried.
+    const init = await layers(ws, "new-repo", [
+      "init",
+      "--stack",
+      "../nowhere",
+      "--stack",
+      "path:../hub/layer@layer-v1.0.0",
+      "--stack",
+      "github:me/agent-layerz-personal@v1.2.0",
+    ]);
+    expect(init.code).toBe(0);
+    expect(readFile(ws, "new-repo/layer.yaml")).toContain(
+      [
+        "stack:",
+        "  - source: path:../nowhere",
+        "  - source: path:../hub/layer",
+        "    ref: layer-v1.0.0",
+        "  - source: github:me/agent-layerz-personal@v1.2.0",
+        "  - source: path:./.layer",
+      ].join("\n"),
+    );
   });
 });
