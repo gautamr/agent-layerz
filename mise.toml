@@ -1,6 +1,8 @@
 [tools]
 node = "22"
 rust = { version = "1.100.0", profile = "minimal", components = "rustfmt,clippy" }
+"aqua:EmbarkStudios/cargo-deny" = "0.22.0"
+"aqua:rustsec/rustsec/cargo-audit" = "0.23.0"
 
 [tasks.install]
 description = "Install npm dependencies"
@@ -21,6 +23,46 @@ run = "npm run build"
 [tasks."rust:check"]
 description = "Rust workspace: format check, clippy with -D warnings, and tests"
 run = "cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace"
+
+[tasks."rust:deny"]
+description = "Rust supply chain: advisories, licences, bans (including duplicate versions) and sources (deny.toml)"
+# Run the pinned binary directly: `cargo deny` would pick up a global install from ~/.cargo/bin first.
+run = "cargo-deny check"
+
+[tasks."rust:audit"]
+description = "Rust supply chain: audit Cargo.lock against the RustSec advisory database, warnings fail"
+run = "cargo-audit audit --deny warnings"
+
+[tasks."rust:doc"]
+description = "Build the Rust API docs with rustdoc warnings as errors"
+env = { RUSTDOCFLAGS = "-D warnings" }
+run = "cargo doc --workspace --all-features --no-deps --locked"
+
+[tasks."rust:doctest"]
+description = "Run only the Rust doc tests (rust:check already runs them through cargo test)"
+run = "cargo test --workspace --all-features --doc --locked"
+
+[tasks."rust:msrv"]
+description = "MSRV: the pinned toolchain equals rust-version, and the workspace builds on it with the lockfile"
+run = """
+declared=$(sed -n 's/^rust-version = "\\(.*\\)"$/\\1/p' Cargo.toml)
+pinned=$(rustc --version | cut -d' ' -f2)
+if [ "$declared" != "$pinned" ]; then
+  echo "rust-version in Cargo.toml is '$declared' but the mise toolchain is '$pinned' (decision-25: they rise together)" >&2
+  exit 1
+fi
+cargo check --workspace --all-targets --all-features --locked
+"""
+
+[tasks."rust:ci"]
+description = "Rust workspace, the full local set: rust:check, rust:doc, rust:msrv, rust:deny, rust:audit"
+run = [
+  { task = "rust:check" },
+  { task = "rust:doc" },
+  { task = "rust:msrv" },
+  { task = "rust:deny" },
+  { task = "rust:audit" },
+]
 
 [tasks."test:node24"]
 description = "Run the tests on the newest supported Node line too"
