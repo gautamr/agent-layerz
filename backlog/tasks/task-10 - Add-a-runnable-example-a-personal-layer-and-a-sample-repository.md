@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-19T17:13:00Z'
+updated_date: '2026-11-22T14:00:00Z'
 labels:
   - area:docs
   - area:cli
@@ -28,3 +29,9 @@ Newcomers should be able to try alz in two minutes without writing a layer first
 - [ ] #3 CI builds and checks the example
 - [ ] #4 The README quick start points to it
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-22: the runnable example is now part of TASK-57.8, built on the starter layer.
+<!-- SECTION:NOTES:END -->
