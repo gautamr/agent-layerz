@@ -73,6 +73,8 @@ run `mise run alz:build`. Never edit generated files.
 | Bundle the CLI | `mise run build` |
 | Install this checkout as one file at `~/.local/bin/alz` | `mise run install:local` |
 | Rust workspace: fmt, clippy `-D warnings`, tests | `mise run rust:check` |
+| Rust workspace, the full local set (check, doc, MSRV, deny, audit) | `mise run rust:ci` |
+| Lint GitHub Actions workflows (actionlint, zizmor) | `mise run workflows:lint` |
 | Rebuild this repo's agent config with the current code | `mise run alz:build` |
 | Check the generated agent config is current | `mise run alz:check` |
 

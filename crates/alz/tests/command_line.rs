@@ -1,9 +1,14 @@
 //! The command line contract of the skeleton: clap owns `--version`, `--help` and usage errors,
 //! alz sets their streams and exit codes and sanitises what clap echoes (decision-26).
 
+// The tests sit in a `mod tests` so that `clippy::tests_outside_test_module` holds for this file
+// as for every other one; an integration test crate is compiled with `cfg(test)` already.
 #[cfg(test)]
 mod tests {
-    use assert_cmd::{Command, cargo::cargo_bin_cmd};
+    use assert_cmd::{
+        Command,
+        cargo::{cargo_bin, cargo_bin_cmd},
+    };
 
     fn alz() -> Command {
         cargo_bin_cmd!("alz")
@@ -64,12 +69,87 @@ mod tests {
         let hostile = "--bad\u{1b}[31mred\r\u{202e}flipped\u{7}";
         let output = alz().arg(hostile).assert().code(2).get_output().clone();
         let stderr = text(&output.stderr);
-        assert!(stderr.contains("--badredflipped"), "stderr: {stderr:?}");
+        assert!(stderr.contains("--bad[31mredflipped"), "stderr: {stderr:?}");
         for forbidden in ['\u{1b}', '\r', '\u{202e}', '\u{7}'] {
             assert!(
                 !stderr.contains(forbidden),
                 "stderr kept {forbidden:?}: {stderr:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_line_feed_in_an_argument_cannot_forge_a_diagnostic_line() {
+        let output = alz()
+            .arg("--x\nerror [fake] layer.yaml: forged")
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        let stderr = text(&output.stderr);
+        assert!(
+            stderr.contains("'--xerror [fake] layer.yaml: forged'"),
+            "stderr: {stderr:?}"
+        );
+        assert!(
+            stderr.lines().all(|line| !line.starts_with("error [fake]")),
+            "stderr: {stderr:?}"
+        );
+    }
+
+    #[test]
+    fn a_line_separator_in_an_argument_is_removed() {
+        let output = alz()
+            .arg("--x\u{2028}y\u{2029}z")
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        let stderr = text(&output.stderr);
+        assert!(stderr.contains("'--xyz'"), "stderr: {stderr:?}");
+    }
+
+    #[test]
+    fn a_format_character_added_after_unicode_four_is_removed_from_an_argument() {
+        // U+0890 (Arabic pound mark above), U+110BD (Kaithi number sign), U+1D173 (musical
+        // symbol begin beam): format characters of the Cf table that an older list missed.
+        let output = alz()
+            .arg("--a\u{890}b\u{110bd}c\u{1d173}d")
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        let stderr = text(&output.stderr);
+        assert!(stderr.contains("'--abcd'"), "stderr: {stderr:?}");
+    }
+
+    /// Runs `alz --version` with standard output redirected to `stdout`. `assert_cmd` cannot
+    /// redirect a stream, so this one test starts the binary itself.
+    #[expect(
+        clippy::disallowed_types,
+        clippy::disallowed_methods,
+        reason = "assert_cmd has no way to redirect standard output"
+    )]
+    fn version_into(stdout: std::io::PipeWriter) -> std::process::Output {
+        std::process::Command::new(cargo_bin!("alz"))
+            .arg("--version")
+            .stdout(stdout)
+            .output()
+            .expect("alz starts")
+    }
+
+    #[test]
+    fn output_that_cannot_be_written_exits_one_and_not_seventy() {
+        // The read end of the pipe is closed before alz starts, so its write fails with a
+        // broken pipe; decision-26 keeps 70 for a bug in alz.
+        let (reader, writer) = std::io::pipe().expect("the operating system creates a pipe");
+        drop(reader);
+        let output = version_into(writer);
+        assert_eq!(output.status.code(), Some(1));
+        assert!(
+            text(&output.stderr).contains("alz: cannot write its output"),
+            "stderr: {}",
+            text(&output.stderr)
+        );
     }
 }

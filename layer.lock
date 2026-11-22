@@ -24,7 +24,7 @@
     ".claude/hooks/personal/scripts/notify.sh": "sha256:50b957e410cc0fd6a267d9d1c6c28f4e06d27e9a1ddd7feecea25d8349d28850",
     ".claude/hooks/personal/scripts/session-brief.sh": "sha256:0c120ca99a1f30a25310711735da64f1b6687ae7cefab13ebcbefe96cb16ab73",
     ".claude/rules/docs.md": "sha256:444e92ea2c4394addd7f1fe0e2e77ba0777953bc8581a9b4b2d391ddfd23de03",
-    ".claude/rules/rust.md": "sha256:bba00312d85d868a3475266b9400f4e628ffbbe4e0ba4d18c3a78578f7c12cee",
+    ".claude/rules/rust.md": "sha256:f28953a8273f1b5d282edf3288d2062893136f79ac4d4ec5feafbca08974faa3",
     ".claude/rules/src.md": "sha256:52192a4587b6f87c24a62db3d669f165c124dc036b00985972f9315b420331f8",
     ".claude/rules/tests.md": "sha256:52edb9ed77eaf0d98fbac06d1c0805ff151bb778facbe580c2a9fd7e707edf79",
     ".claude/settings.json": "sha256:c469fe5ff8c7ff23eb0f6f963d85703e420c7bd1fc45df2a45c1397f16b7d971",
@@ -66,7 +66,7 @@
     ".claude/skills/triage/SKILL.md": "sha256:1eb144a6c119fcb7a90e07f6d0efbad4b2bc65194c84fb68c52c0675558e1cb1",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:5bdba2257ddd9300d8258bb1082d5a5ce0de07241cf06fc8daade44016a92ca5",
+    "AGENTS.md": "sha256:d8ef034a4ee4d31d1ffe3d8b0b97a50df6417a540512d65b294e5d9cf200103f",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
@@ -78,7 +78,7 @@
       "source": "path:../agent-layerz-personal"
     },
     {
-      "contentHash": "sha256:71917f0e373603d06925cadc4077860412685fc293140c93e1a26a9fb227ae30",
+      "contentHash": "sha256:0f255e2df60e112d4ff550b26387219d92dd11c1b7076e00a926be63bd75065c",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

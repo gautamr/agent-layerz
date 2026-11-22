@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-22T15:52:00Z'
-updated_date: '2026-11-22T16:46:00Z'
+updated_date: '2026-11-22T17:14:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -72,6 +72,16 @@ Dependencies added, all MIT OR Apache-2.0: clap 4.6.9 (derive) runtime; assert_c
 Choices to review: only alz-test-support has publish = false (as the task says); the other three crates could be published by accident, consider publish = false everywhere. Crate clippy.toml files for alz-core and alz repeat the four test allowances plus the ban list (functions of std::fs, std::fs::File, OpenOptions, std::path::Path fs methods, std::process::Command::new/exit/abort/id, std::env args/vars/current_dir/etc). Cargo.lock is committed. `target/` added to .gitignore; biome, tsc and vitest were unaffected (lint and test pass).
 
 Owner (session): publish = false on all four crates; clap and assert_cmd recorded in one dependency decision. Orchestrator reran mise run rust:check after the publish change: pass, 3 unit + 5 assert_cmd tests, no warnings.
+
+Review fixes (implementer).
+- Sanitiser: clap's error context (InvalidArg, InvalidValue, Suggested* and every other String/Strings/StyledStr value except Usage) is sanitised with strip_untrusted (Cc incl. LF, U+2028/2029, full Cf table) before clap renders it, so only clap's own line feeds survive; the rendered text then passes a last guard (strip_untrusted_keeping_line_feeds). The Cf table is crates/alz/src/terminal_text/format_characters.rs, generated from node's \p{Cf} (Unicode 17.0) by 'node crates/alz/tools/untrusted-code-points.mjs', which also writes crates/alz/tests/fixtures/untrusted-code-points.txt from isControl||isFormat of src/core/sanitize.ts (bundled with esbuild). A unit test compares the Rust predicate with that fixture over every code point. Regression tests: report.rs unit tests plus assert_cmd cases for LF (forged 'error [fake]' line), U+2028/2029 and U+0890/U+110BD/U+1D173. With sanitise_context disabled, the LF and escape tests fail. Behaviour note: an ESC inside an argument now leaves its '[31m' tail (as the TS reference does); before, clap's own ANSI stripping removed the whole sequence.
+- escape_for_decision (TS quoteEscaped) not added: nothing in the binary calls it yet and an unused function fails clippy -D warnings. Add it with the task that prompts on untrusted text.
+- Panic: main installs a hook that prints one fixed line (no payload, no location) and exit_code_of catches the unwind at the process boundary and returns 70. Unit-tested (exit code, fixed message); an end-to-end panic test is not possible without a test-only trigger in the binary.
+- Output write failure: report::Rendered::emit flushes, says 'alz: cannot write its output: <io error>' on stderr when it can, and exits 1 (ordinary failure; 70 stays for bugs). Tested with a failing writer and end to end with a stdout pipe whose reader is closed (std::io::pipe; the one test that starts the binary itself, with #[expect] on the banned type).
+- clippy.toml (alz-core and alz): added disallowed-types (File, OpenOptions, DirBuilder, process::Command, TcpStream, TcpListener, UdpSocket), methods DirBuilder::new, std::fs::soft_link, std::os::unix::fs::{symlink,chown,lchown,fchown?,chroot}, and in alz-core only SystemTime::now, Instant::now, io::{stdin,stdout,stderr}. File::create_buffered/open_buffered are still unstable (feature file_buffered) on 1.100, so not listed. Each file names its twin and the repeated root allowances. Proof: a throwaway module calling every banned item, in both crates, produced 'use of a disallowed method/type' for each (File, OpenOptions, DirBuilder, Command incl. the use line, Tcp*, Udp, DirBuilder::new, soft_link, symlink, chown, lchown, chroot; alz-core also SystemTime::now, Instant::now, stdin, stdout, stderr; the alz crate correctly does not flag the standard streams). Module removed afterwards. fchown is in the list but was not in the throwaway module.
+- tests_outside_test_module: comment in command_line.rs on why tests sit in mod tests.
+
+Correction to the note above: fchown is listed in both clippy.toml files (clippy reports no unresolved path for it); it was the only listed item the throwaway module did not call.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

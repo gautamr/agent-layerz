@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-22T15:53:00Z'
-updated_date: '2026-11-22T16:50:00Z'
+updated_date: '2026-11-22T17:14:00Z'
 labels:
   - area:rust
   - area:security
@@ -48,6 +48,12 @@ MSRV: MSRV equals the mise pin (decision-25), so a second toolchain adds nothing
 Tasks: rust:deny, rust:audit (--deny warnings), rust:doc (RUSTDOCFLAGS=-D warnings, --no-deps, --locked), rust:doctest, rust:msrv, rust:ci (sequential: rust:check, rust:doc, rust:msrv, rust:deny, rust:audit). rust:check unchanged and fast. rust:doctest is standalone: cargo test --workspace in rust:check already runs doc tests, so rust:ci does not repeat it.
 
 Evidence: all five new tasks and rust:ci exit 0 on the skeleton; the advisory database fetched from the network (1560 advisories). Negative checks: a broken intra-doc link made rust:doc fail; rust-version 1.99.0 made rust:msrv fail with the explanatory message (both reverted). Not done: the AGENTS.md command table is generated from .layer/, so the new tasks are not listed there; add them with the CI task (TASK-55.1.5) if wanted.
+
+Review fixes (implementer).
+- deny.toml, checked on a scratch graph with cargo-deny 0.22.0 (path crates named rustix and serde-saphyr with pre-release versions): '<1.1.6' does not ban rustix 1.1.5-rc.1; '<2.2.0' does not ban serde-saphyr 2.2.0-rc.1; '>2.2.0' does not ban 2.2.1-rc.1. '<1.1.6-0' adds nothing (semver lets a pre-release match only a requirement that names a pre-release of the same major.minor.patch). Added twins '>=1.1.6-0, <1.1.6', '>=2.2.0-0, <2.2.0' and '>=2.2.1-0', which the scratch graph showed ban 1.1.6-alpha.1, 2.2.0-rc.1 and 2.2.1-rc.1. Pre-releases of other versions cannot be expressed; cargo does not select them unless a requirement names one. Wrapper entry { name = rustix, wrappers = [alz-io, tempfile] }: on the scratch graph a direct dependent that is not listed fails with 'banned', a listed one passes. The {name, version, reason} form raised no deprecation warning in 0.22.0. The wrapper entry warns 'unused-wrapper' until rustix is in the graph, so rust:deny passes '-A unused-wrapper' (unmatched-wrapper stays on).
+- mise.toml: --locked on clippy, tests and cargo-deny. rust:deny and rust:audit now run the binary of the pinned install by path and compare '--version' with 'mise current'. Reason: inside 'mise run', ~/.cargo/bin comes first on PATH, so a global cargo-deny 0.21.0 was shadowing the pinned 0.22.0 (the earlier rust:deny runs used 0.21.0). rust:msrv is now the equality check only (rust:check already builds on the pinned toolchain, which equals rust-version).
+- mise.lock: generated with 'mise lock --platform linux-x64,macos-arm64' (mise 2026.9.1): checksums and URLs for node, rust (no checksum: rustup toolchain, options only), cargo-deny, cargo-audit, actionlint and zizmor on both platforms. This mise has no 'lockfile' setting (the file's presence is enough; the only related settings are locked, locked_scopes, locked_verify_provenance), so mise.toml has no [settings] change. The cargo-audit macos-arm64 entry is the Intel macOS build (the release has no arm64 binary; it runs under Rosetta). Re-run 'mise lock --platform linux-x64,macos-arm64' when a tool version changes. 'MISE_LOCKED=1 mise install --dry-run' passes with the owner's global mise config ignored.
+- .layer: rust:ci and workflows:lint rows in 50-repo.md; rules/rust.md paths now include Cargo.lock, deny.toml, clippy.toml, mise.toml and mise.lock, and name the clippy.toml twin; alz:build and alz:check run (68 files match).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
