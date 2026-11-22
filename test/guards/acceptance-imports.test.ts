@@ -42,14 +42,9 @@ const mismatch = (root: string, written: readonly string[]) => {
   };
 };
 
-/** Imports src/ directly: 21, 24, 26, 28, 29, 30, 31, 32. */
+/** Imports src/ directly: 24 (the fake-terminal cases, until R1.6), 31, 32. */
 const DIRECT = [
-  "test/acceptance/21-init-stack.test.ts",
   "test/acceptance/24-untrusted-repo.test.ts",
-  "test/acceptance/26-commit-identity.test.ts",
-  "test/acceptance/28-cache-integrity.test.ts",
-  "test/acceptance/29-account-layer.test.ts",
-  "test/acceptance/30-account-cache-read.test.ts",
   "test/acceptance/31-account-which.test.ts",
   "test/acceptance/32-account-allow.test.ts",
 ];
@@ -75,9 +70,14 @@ const THROUGH_HELPERS = [
   "test/acceptance/18-native-fields.test.ts",
   "test/acceptance/19-hook-commands.test.ts",
   "test/acceptance/20-adopt-native.test.ts",
+  "test/acceptance/21-init-stack.test.ts",
   "test/acceptance/22-ls.test.ts",
   "test/acceptance/23-rename-compat.test.ts",
   "test/acceptance/25-cli.test.ts",
+  "test/acceptance/26-commit-identity.test.ts",
+  "test/acceptance/28-cache-integrity.test.ts",
+  "test/acceptance/29-account-layer.test.ts",
+  "test/acceptance/30-account-cache-read.test.ts",
 ];
 
 const WRITTEN: readonly string[] = [...DIRECT, ...THROUGH_HELPERS].sort();

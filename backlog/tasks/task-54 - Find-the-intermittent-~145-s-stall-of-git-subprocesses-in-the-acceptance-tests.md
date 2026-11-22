@@ -4,7 +4,7 @@ title: Find the intermittent ~145 s stall of git subprocesses in the acceptance 
 status: To Do
 assignee: []
 created_date: '2026-11-22T09:02:00Z'
-updated_date: '2026-11-22T18:13:00Z'
+updated_date: '2026-11-22T22:58:00Z'
 labels:
   - area:test
   - discovered
@@ -42,4 +42,6 @@ Hypotheses (no experiments run):
 2026-11-22: deleted 33102 leftover alz-* folders from $TMPDIR (owner approved), so the folder-size hypothesis (H1) can be checked: if the stall stops while R1.7 prevents new leaks, H1 is likely.
 
 2026-11-22: after the cleanup, three full suite runs left 3,203 new alz-* folders in $TMPDIR (~1,070 per run). R1.7 (one temp root per run, removed at the end) is what stops this.
+
+2026-11-23 evidence for H1 (temp folder size): with 17,630 alz-* folders in $TMPDIR a full run took 2,128 s with 25 tests timing out at 20 s across 9 files (all TestTimeoutError, no assertion failures); git --version, init and commit each took 10-20 ms outside the suite. After deleting the folders the same tree passed in 58 s (958 passed). One run then left ~950 new folders. Next: R1.7 removes the per-run root; if the stall does not return once folders no longer pile up, close this with H1 as the cause.
 <!-- SECTION:NOTES:END -->
