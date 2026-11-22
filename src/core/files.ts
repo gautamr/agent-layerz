@@ -28,6 +28,11 @@ export function isWithin(root: string, path: string): boolean {
 
 const SKIPPED = new Set([".git", ".DS_Store", "node_modules"]);
 
+/** Names `listFiles` never lists, so a layer never provides them. */
+export function isSkippedName(name: string): boolean {
+  return SKIPPED.has(name);
+}
+
 /** Every file under `dir` as a POSIX relative path, sorted by code point for determinism. */
 export function listFiles(dir: string): string[] {
   const files: string[] = [];

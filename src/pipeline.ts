@@ -6,7 +6,7 @@ import { listFiles } from "./core/files";
 import { resolveConfig } from "./merge/resolve-config";
 import type { ResolvedConfig } from "./model/config";
 import type { Layer } from "./model/layer";
-import { type Lock, readLock } from "./model/lock";
+import { type Lock, lockedContentHash, readLock } from "./model/lock";
 import { type Manifest, readManifest } from "./model/manifest";
 import { AGENTS_MD, checkInstructionBudgets, renderAgentsMd } from "./render/agents-md";
 import { FileTree } from "./render/file-tree";
@@ -76,7 +76,7 @@ export function computeBuild(ctx: BuildContext): BuildResult {
       source: layer.source,
       rev: layer.rev,
       sha: layer.sha,
-      contentHash: `sha256:${layer.contentHash}`,
+      contentHash: lockedContentHash(layer),
     })),
     files: tree.hashes(),
   };

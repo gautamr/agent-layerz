@@ -1,11 +1,30 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, realpathSync, renameSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { FatalError } from "../core/diagnostics";
-import { isWithin } from "../core/files";
+import { isWithin, sha256 } from "../core/files";
+import { stripControl } from "../core/sanitize";
 import type { LockedLayer } from "../model/lock";
 import { GIT_REF, type StackEntry } from "../model/manifest";
 import { type Env, git } from "./git";
+import { hashLayerDir } from "./layer-hash";
+import {
+  listTree,
+  requireBlobs,
+  TreeError,
+  treeAt,
+  treeEnv,
+  verifyTreeEntry,
+  writeTree,
+} from "./tree-cache";
 
 export interface ResolveContext {
   repoRoot: string;
@@ -19,6 +38,13 @@ export interface ResolvedSource {
   dir: string;
   rev?: string;
   sha?: string;
+  /** The directory was already in the cache, so its content is not new (§5.3). */
+  cached?: boolean;
+}
+
+/** What `git clone` is given for `github:<owner>/<repo>`. */
+export function githubCloneUrl(ownerRepo: string): string {
+  return `https://github.com/${ownerRepo}.git`;
 }
 
 export function resolveSource(entry: StackEntry, ctx: ResolveContext): ResolvedSource {
@@ -26,15 +52,15 @@ export function resolveSource(entry: StackEntry, ctx: ResolveContext): ResolvedS
   if (source.startsWith("path:")) return resolvePath(entry, source.slice(5), ctx);
   if (source.startsWith("github:")) {
     const { url, ref } = splitRef(source.slice(7), source);
-    const clone = `https://github.com/${url}.git`;
-    return resolveGit(source, clone, ref, ctx, { arg: clone, remote: true });
+    const clone = githubCloneUrl(url);
+    return resolveGit(source, ref, ctx, { arg: clone, remote: true });
   }
   if (source.startsWith("git:")) {
     const { url, ref } = splitRef(source.slice(4), source);
     const target = gitTarget(ctx.repoRoot, url);
     if (target.kind === "invalid") throw new FatalError("source", `'${source}': ${target.reason}`);
     const arg = target.kind === "local" ? target.clone : url;
-    return resolveGit(source, url, ref, ctx, { arg, remote: target.kind === "remote" });
+    return resolveGit(source, ref, ctx, { arg, remote: target.kind === "remote" });
   }
   throw new FatalError("source", `unsupported source '${source}' (use path:, github: or git:)`);
 }
@@ -182,45 +208,84 @@ function materializeAtRef(
   ref: string,
   ctx: ResolveContext,
 ): ResolvedSource {
+  // No replace refs and no lazy fetch: the tree and its blobs are what the repository holds.
+  const env = treeEnv(ctx.env);
   let top: string;
   let sha: string;
   let tree: string;
   try {
-    top = git(["rev-parse", "--show-toplevel"], ctx.env, dir);
-    const prefix = git(["rev-parse", "--show-prefix"], ctx.env, dir).replace(/\/$/, "");
-    sha = git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], ctx.env, dir);
-    tree = git(["rev-parse", "--verify", "--quiet", `${sha}:${prefix}`], ctx.env, dir);
+    top = git(["rev-parse", "--show-toplevel"], env, dir);
+    const prefix = git(["rev-parse", "--show-prefix"], env, dir).replace(/\/$/, "");
+    sha = git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], env, dir);
+    // A real tree, not a link or a submodule entry whose recorded id could be any tree id.
+    tree = treeAt(sha, prefix, env, top);
   } catch {
     throw new FatalError(
       "source",
-      `cannot resolve ref ${ref} for '${source}': not a git repo, unknown ref, or the layer did not exist at that ref`,
+      `cannot resolve ref ${ref} for '${stripControl(source)}': not a git repo, unknown ref, the layer did not exist at that ref, or its path is not a plain directory there`,
     );
   }
 
-  // Content-addressed by the layer's tree, so equal content at two refs shares one copy.
+  // Content-addressed by the layer's tree, so equal content at two refs shares one copy. The
+  // name is versioned (`tree2@`): entries of the older format were written by `checkout-index`,
+  // with attribute conversions, and are ignored.
   const root = cacheRoot(ctx);
-  const cached = join(root, `tree@${tree}`);
-  if (!existsSync(cached)) {
+  const cached = join(root, `tree2@${tree}`);
+  let files: ReturnType<typeof listTree>;
+  try {
+    files = listTree(tree, env, top);
+    requireBlobs(files, env, top);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unreadable tree";
+    throw new FatalError("source", `cannot read '${stripControl(source)}' at ${ref}: ${detail}`);
+  }
+  const wasCached = existsSync(cached) || isLink(cached);
+  if (wasCached) {
+    // Checked against the tree itself, not the lock: the commit may have moved while the tree
+    // did not, which is the normal case for a hub whose docs change.
+    const problem = verifyTreeEntry(cached, files);
+    if (problem)
+      throw cacheError(source, cached, `no longer matches git tree ${tree} (${problem})`);
+  } else {
     mkdirSync(root, { recursive: true });
     const temp = join(root, `.tmp-${randomBytes(6).toString("hex")}`);
-    // A private index keeps the repo's own index and working tree untouched. Run from the top
-    // level: inside a subdirectory, checkout-index only writes entries under that subdirectory.
-    const env = { ...ctx.env, GIT_INDEX_FILE: `${temp}.index` };
     try {
-      git(["read-tree", tree], env, top);
-      git(["checkout-index", "--all", `--prefix=${temp}/`], env, top);
-      mkdirSync(temp, { recursive: true });
+      writeTree(temp, files, env, top);
+      // The first build is checked too, before the entry gets its name.
+      const problem = verifyTreeEntry(temp, files);
+      if (problem) throw new TreeError(`the written entry does not match its tree (${problem})`);
       if (existsSync(cached)) rmSync(temp, { recursive: true, force: true });
       else renameSync(temp, cached);
     } catch (error) {
       rmSync(temp, { recursive: true, force: true });
-      const detail = (error as { stderr?: string }).stderr?.trim().split("\n")[0] ?? "";
-      throw new FatalError("source", `cannot read '${source}' at ${ref}: ${detail}`);
-    } finally {
-      rmSync(`${temp}.index`, { force: true });
+      const detail =
+        error instanceof TreeError
+          ? error.message
+          : ((error as { stderr?: Buffer }).stderr?.toString().trim().split("\n")[0] ?? "");
+      throw new FatalError(
+        "source",
+        `cannot read '${stripControl(source)}' at ${ref}: ${stripControl(detail)}`,
+      );
     }
   }
-  return { dir: cached, rev: ref, sha };
+  return { dir: cached, rev: ref, sha, cached: wasCached };
+}
+
+function isLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/** §5.3: a cache entry that is not what it should be; never quotes file content. */
+function cacheError(source: string, dir: string, what: string): FatalError {
+  return new FatalError(
+    "cache",
+    `cached layer '${stripControl(source)}' ${what}: its files in ${dir} changed after they were cached; delete that directory and rebuild`,
+    source,
+  );
 }
 
 function cacheRoot(ctx: ResolveContext): string {
@@ -240,22 +305,36 @@ function splitRef(spec: string, source: string): { url: string; ref: string } {
   return { url: spec.slice(0, at), ref };
 }
 
+/**
+ * §6: the cache directory name of a git source, before `@<sha>`. A hash of exactly what is
+ * cloned (the remote URL, or the canonical path of a local repository), so no two different
+ * URLs share an entry; the URL is not rewritten, so the same text always gives the same key.
+ */
+export function gitCacheKey(cloneArg: string): string {
+  return `git-${sha256(cloneArg)}`;
+}
+
+/** A cache entry is a real directory: a link could point at another source's entry. */
+function requireRealDirectory(source: string, dir: string): void {
+  if (!lstatSync(dir).isDirectory()) throw cacheError(source, dir, "is not a plain directory");
+}
+
 function resolveGit(
   source: string,
-  url: string,
   ref: string,
   ctx: ResolveContext,
   clone: { arg: string; remote: boolean },
 ): ResolvedSource {
   const root = cacheRoot(ctx);
-  const key = url
-    .replace(/^[a-z]+:\/\//, "")
-    .replace(/\.git$/, "")
-    .replace(/[^A-Za-z0-9._-]+/g, "-");
+  const key = gitCacheKey(clone.arg);
+  // `readLock` already refuses a sha that is not 40 or 64 hexadecimal characters.
   const lockedSha = ctx.locked.find((layer) => layer.source === source)?.sha;
   if (lockedSha) {
     const cached = join(root, `${key}@${lockedSha}`);
-    if (existsSync(cached)) return { dir: cached, rev: lockedSha.slice(0, 12), sha: lockedSha };
+    if (existsSync(cached) || isLink(cached)) {
+      requireRealDirectory(source, cached);
+      return { dir: cached, rev: lockedSha.slice(0, 12), sha: lockedSha, cached: true };
+    }
   }
 
   mkdirSync(root, { recursive: true });
@@ -267,9 +346,16 @@ function resolveGit(
     const sha = git(["rev-parse", `${lockedSha ?? ref}^{commit}`], ctx.env, temp);
     git(["-c", "advice.detachedHead=false", "checkout", "--quiet", sha], ctx.env, temp);
     const dir = join(root, `${key}@${sha}`);
-    if (existsSync(dir)) rmSync(temp, { recursive: true, force: true });
-    else renameSync(temp, dir);
-    return { dir, rev: sha.slice(0, 12), sha };
+    const cached = existsSync(dir) || isLink(dir);
+    if (cached) {
+      // An entry already there is not trusted over a fresh clone of the same commit: with no
+      // lock entry to check it against, compare the two, and keep the clone out of the cache.
+      requireRealDirectory(source, dir);
+      const same = hashLayerDir(dir).contentHash === hashLayerDir(temp).contentHash;
+      rmSync(temp, { recursive: true, force: true });
+      if (!same) throw cacheError(source, dir, "differs from a fresh clone of the same commit");
+    } else renameSync(temp, dir);
+    return { dir, rev: sha.slice(0, 12), sha, cached };
   } catch (error) {
     rmSync(temp, { recursive: true, force: true });
     if (error instanceof FatalError) throw error;

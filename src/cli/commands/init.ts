@@ -4,6 +4,7 @@ import { type Diagnostic, Diagnostics, FatalError, formatDiagnostic } from "../.
 import { ensureLocalIdentity } from "../../identity/setup";
 import { mergeCommitIdentity } from "../../merge/commit-identity";
 import { NAME_PATTERN, VISIBILITIES, type Visibility } from "../../model/layer-meta";
+import { readLock } from "../../model/lock";
 import type { StackEntry } from "../../model/manifest";
 import { readManifest } from "../../model/manifest";
 import { git } from "../../resolve/git";
@@ -163,7 +164,12 @@ function setUpIdentity(io: Io): void {
   try {
     const layers = loadStack(
       readManifest(io.cwd),
-      { repoRoot: io.cwd, home: ctx.home, env: io.env, locked: [] },
+      {
+        repoRoot: io.cwd,
+        home: ctx.home,
+        env: io.env,
+        locked: readLock(io.cwd)?.layers ?? [],
+      },
       diags,
     );
     const declared = mergeCommitIdentity(layers, io.cwd, diags);

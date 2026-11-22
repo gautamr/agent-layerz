@@ -1,18 +1,48 @@
-import { existsSync, readFileSync } from "node:fs";
+import { lstatSync } from "node:fs";
 import { join } from "node:path";
 import { type Diagnostics, FatalError, InputError } from "../core/diagnostics";
-import { isEnvFile, listFiles, sha256 } from "../core/files";
+import { stripControl } from "../core/sanitize";
 import { readYamlFile } from "../core/yaml";
 import type { Layer } from "../model/layer";
 import { type LayerMeta, parseLayerMeta, privacyRank, type Visibility } from "../model/layer-meta";
+import { LOCK_FILE } from "../model/lock";
 import type { Manifest } from "../model/manifest";
+import { lockedEntryFor, verifyCachedLayer } from "./cache-integrity";
+import { hashLayerDir } from "./layer-hash";
 import { type ResolveContext, resolveSource } from "./sources";
 
-/** Loads one layer directory: metadata, file list and content hash. */
-export function loadLayer(dir: string, source: string, diags: Diagnostics): Layer {
+/**
+ * Loads one layer directory: metadata, file list and content hash. `verify` runs on the content
+ * hash before anything is parsed, so an edited cache entry is refused without its `layer.yaml`
+ * being read. `layer.yaml` must be a regular file, never a link to somewhere else.
+ */
+export function loadLayer(
+  dir: string,
+  source: string,
+  diags: Diagnostics,
+  verify?: (contentHash: string) => void,
+): Layer {
   const metaPath = join(dir, "layer.yaml");
-  if (!existsSync(metaPath)) {
-    throw new FatalError("layer", `missing layer.yaml in layer '${source}'`);
+  let kind: "missing" | "file" | "other";
+  try {
+    kind = lstatSync(metaPath).isFile() ? "file" : "other";
+  } catch {
+    kind = "missing";
+  }
+  const missing = () =>
+    new FatalError("layer", `missing layer.yaml in layer '${stripControl(source)}'`);
+  // Without a cache check there is nothing to hash first (the directory may not exist).
+  if (kind === "missing" && !verify) throw missing();
+  const { files, envFiles, contentHash } = hashLayerDir(dir);
+  // Before anything about layer.yaml is judged: a tampered cache entry gets the cache error
+  // whether its layer.yaml was edited, replaced or deleted.
+  verify?.(contentHash);
+  if (kind === "missing") throw missing();
+  if (kind === "other" || !files.includes("layer.yaml")) {
+    throw new FatalError(
+      "layer",
+      `layer.yaml in layer '${stripControl(source)}' must be a regular file, not a link or a folder`,
+    );
   }
   let meta: LayerMeta;
   try {
@@ -22,8 +52,7 @@ export function loadLayer(dir: string, source: string, diags: Diagnostics): Laye
       throw new FatalError("layer", error.message, `${source}:layer.yaml`);
     throw error;
   }
-  const files = listFiles(dir);
-  for (const file of files.filter(isEnvFile)) {
+  for (const file of envFiles) {
     // Never read: secrets do not belong in a layer.
     diags.error(
       "env-file",
@@ -31,20 +60,40 @@ export function loadLayer(dir: string, source: string, diags: Diagnostics): Laye
       `${meta.name}:${file}`,
     );
   }
-  const contentHash = sha256(
-    files
-      .filter((file) => !isEnvFile(file))
-      .map((file) => `${file}\0${sha256(readFileSync(join(dir, file)))}\n`)
-      .join(""),
-  );
-  return { meta, dir, source, files: files.filter((file) => !isEnvFile(file)), contentHash };
+  return { meta, dir, source, files, contentHash };
+}
+
+/**
+ * §5.3: what to run on the content hash of a layer read from the cache. It compares with the
+ * lock's entry for that source and commit, and does nothing when there is none (build and the
+ * other commands that rebuild treat "no entry" as "new content": see `lockedEntryFor`).
+ */
+function cacheCheck(
+  source: string,
+  dir: string,
+  sha: string | undefined,
+  ctx: ResolveContext,
+): (contentHash: string) => void {
+  return (contentHash) => {
+    const entry = lockedEntryFor(ctx.locked, source, sha);
+    if (!entry || verifyCachedLayer({ contentHash }, entry) === "ok") return;
+    // Named by the lock and the source: the layer's own files are not trusted, or read, yet.
+    throw new FatalError(
+      "cache",
+      `cached layer '${stripControl(entry.name)}' (${stripControl(source)}) no longer matches ${LOCK_FILE}: its files in ${dir} changed after they were cached; delete that directory and rebuild`,
+      source,
+    );
+  };
 }
 
 /** Resolves every stack entry and validates the stack (§6 steps 1–2). */
 export function loadStack(manifest: Manifest, ctx: ResolveContext, diags: Diagnostics): Layer[] {
   const layers = manifest.stack.map((entry) => {
     const resolved = resolveSource(entry, ctx);
-    const layer = loadLayer(resolved.dir, entry.source, diags);
+    const verify = resolved.cached
+      ? cacheCheck(entry.source, resolved.dir, resolved.sha, ctx)
+      : undefined;
+    const layer = loadLayer(resolved.dir, entry.source, diags, verify);
     return { ...layer, rev: resolved.rev, sha: resolved.sha };
   });
   validateStack(layers, diags);

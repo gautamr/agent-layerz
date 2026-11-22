@@ -1,0 +1,1 @@
+- Team A keeps its release notes in the A tracker.

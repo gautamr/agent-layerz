@@ -16,3 +16,8 @@ export function stripControl(text: string): string {
     .filter((char) => !isControl(char.codePointAt(0) ?? 0) && !isFormat(char))
     .join("");
 }
+
+/** Text from an untrusted source for an error message: no control or format characters, quoted. */
+export function quote(text: string): string {
+  return JSON.stringify(stripControl(text));
+}

@@ -4,7 +4,7 @@ title: Resolve each repository's account from its layers and the user config
 status: To Do
 assignee: []
 created_date: '2026-11-21T17:57:00Z'
-updated_date: '2026-11-22T01:36:00Z'
+updated_date: '2026-11-22T01:58:00Z'
 labels:
   - area:accounts
   - area:cli
@@ -45,4 +45,6 @@ The client layer names the expected account; a machine-local user config can ove
 2026-11-22 (@architect): criteria revised to the owner decisions and review findings recorded in TASK-50.1 (allow scope and human-only allow, fail-closed missing folder, marker sources, no fetch on resolve, path matching, user config safety, layers may not set the variables, the invariant update now belongs here because allow writes outside the repo). Spec: LAYERING-SPEC §7.13, §7.9, §9.1, §13 tests 19, 20 and 24. Settled 2026-11-22 (coordinator, second review; replaces the earlier open point): a pinned path: layer is found through a cache index that alz build writes next to each tree@<tree> entry, keyed by the layer directory's real path and the commit SHA (for example pathref@<sha256 of the real path>-<sha>) and naming its tree. Resolution computes the real path from the manifest without git, accepts the lock sha only when it is 40 or 64 hex characters, and reads only that path's index entry; an unpinned path: layer is read in place (layer.yaml only, §7.12 inside/outside test); anything else is a cache miss. layer.lock does not change, so no generated output changes. Resolution relies on cache integrity, which TASK-51 fixes. See criterion #10 and LAYERING-SPEC §7.13 'No fetch on resolve'.
 
 2026-11-22 (@architect, final pass): criteria 2, 5, 6 and 10 revised for the fail-closed output of alz account which, the content-hash check on resolution (TASK-51), alz account allow --remove, the alz build-only hint and the index entry checks (LAYERING-SPEC §7.13, §10, §13 tests 19 and 20). Dependencies left as set (TASK-50.1, TASK-51).
+
+2026-11-22 (@implementer, from TASK-51 review): build treats a lock with no entry for a source, or an entry whose sha differs, as 'skip the content check' because new content is expected. Account resolution must not: anything it cannot verify (no lock entry, a different sha, a missing or malformed field, an unreadable entry, a layer.yaml that is not a regular file) is a cache miss that fails closed. Use lockedEntryFor and verifyCachedLayer (src/resolve/cache-integrity.ts), hash with hashLayerDir (src/resolve/layer-hash.ts) before parsing layer.yaml, and for tree@ entries it cannot run git, so it relies on the lock hash only.
 <!-- SECTION:NOTES:END -->

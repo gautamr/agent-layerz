@@ -14,6 +14,7 @@ import { mergeRules } from "../../merge/rules";
 import { mergeSettings } from "../../merge/settings";
 import { mergeSkills } from "../../merge/skills";
 import { type Layer, where } from "../../model/layer";
+import { readLock } from "../../model/lock";
 import { isStackManifest, readManifest } from "../../model/manifest";
 import { SKILL_NAME } from "../../model/vocabulary";
 import { loadLayer, loadStack } from "../../resolve/stack";
@@ -28,7 +29,11 @@ export function lintCommand(io: Io, layerPath: string | undefined): number {
     layers = [loadLayer(dir, layerPath, diags)];
   } else if (isRepoManifest(io.cwd)) {
     const ctx = buildContext(io);
-    layers = loadStack(readManifest(io.cwd), { ...ctx, locked: [] }, diags);
+    layers = loadStack(
+      readManifest(io.cwd),
+      { ...ctx, locked: readLock(io.cwd)?.layers ?? [] },
+      diags,
+    );
   } else {
     layers = [loadLayer(io.cwd, ".", diags)];
   }

@@ -1,0 +1,1 @@
+- Team B keeps its release notes in the B tracker.
