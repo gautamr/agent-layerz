@@ -89,6 +89,15 @@ export function expected(fixtureName: string, path: string): string {
   return readFileSync(join(fixturesDir, fixtureName, "expected", path), "utf8");
 }
 
+/** The text of a file, or a marker when nobody can read it (a mode 000 file is still a state). */
+function contentOf(full: string): string {
+  try {
+    return readFileSync(full, "utf8");
+  } catch {
+    return "<unreadable>";
+  }
+}
+
 /**
  * Everything under `dir`, without following links: path (relative to `dir`) → kind, mode and
  * content or link target. A folder that is missing or unreadable gives an empty snapshot. Two
@@ -101,7 +110,7 @@ export function snapshot(dir: string): Record<string, string> {
     const rel = full.slice(dir.length);
     if (stat.isSymbolicLink()) return [[rel, `link:${readlinkSync(full)}`]];
     if (stat.isDirectory()) return [[rel, `dir:${mode}`], ...walk(full)];
-    if (stat.isFile()) return [[rel, `file:${mode}:${readFileSync(full, "utf8")}`]];
+    if (stat.isFile()) return [[rel, `file:${mode}:${contentOf(full)}`]];
     return [[rel, `other:${mode}`]];
   };
   const walk = (current: string): [string, string][] => {
