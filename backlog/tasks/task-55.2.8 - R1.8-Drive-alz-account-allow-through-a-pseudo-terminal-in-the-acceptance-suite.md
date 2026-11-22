@@ -1,0 +1,43 @@
+---
+id: TASK-55.2.8
+title: >-
+  R1.8: Drive alz account allow through a pseudo-terminal in the acceptance
+  suite
+status: To Do
+assignee: []
+created_date: '2026-11-22T17:56:00Z'
+labels:
+  - area:test
+  - area:rust
+  - needs:owner-approval
+milestone: m-7
+dependencies:
+  - TASK-55.2.7
+parent_task_id: TASK-55.2
+priority: medium
+type: task
+ordinal: 78390
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+This brings the fake-terminal cases that R1.6 moved to reference back into the language-neutral oracle. `alz account allow` runs only when standard input is a terminal (§7.13). A spawned binary therefore needs a pseudo-terminal on stdin. stdout and stderr stay pipes, so the tests can still tell the streams apart. The driver must be able to wait for a prompt on stderr, change files (the "read again after the confirmation" cases), and then send an answer or the end of input.
+
+Owner choice, open (see the TASK-55.2 comment):
+- (a) A small pty driver binary in crates/alz-test-support, built with the safe rustix pty functions (openpt, grantpt, unlockpt, ptsname), so `unsafe_code = "forbid"` holds and no setsid is needed. R6 (TASK-55.7) reuses it for the Rust CLI tests of alz account allow. This needs a decision that lets alz-test-support use rustix outside alz-io; decision-27 says "only behind alz-io capability types".
+- (b) The node-pty dev dependency: a native addon, which needs an intake decision.
+- (c) Python's pty module through python3: a system dependency, which on macOS is another xcrun shim.
+- (d) No pty: these cases stay reference-only, and R6 writes its own pty tests.
+
+Once chosen:
+- The cases marked "pending R1.8" move back to acceptance as spawned cases, and their reference copies are removed only where the acceptance case covers the same behaviour.
+- The 12-process lock case gets a CLI form: twelve `alz account allow` runs under ptys answering at once.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The owner's choice of driver is recorded as a decision and linked from this task
+- [ ] #2 Every fake-terminal case R1.6 marked pending R1.8 runs in test/acceptance against ALZ_BIN through the driver and passes on the TypeScript bundle; the notes list each case with its reference copy, kept or removed
+- [ ] #3 A positive control shows the driver's stdin is a terminal and a plain spawn's is not: allow asks under the driver and refuses without it
+<!-- AC:END -->
