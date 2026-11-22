@@ -1,15 +1,21 @@
 ---
 id: TASK-55.1
 title: 'R0: Rust foundation and recorded choices'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T15:53:00Z'
+updated_date: '2026-11-22T16:31:00Z'
 labels:
   - area:rust
   - area:spec
 milestone: m-7
 dependencies: []
+references:
+  - decision-23
+  - decision-24
+  - decision-25
+  - decision-26
+  - decision-27
 parent_task_id: TASK-55
 priority: high
 ordinal: 33390
@@ -37,4 +43,6 @@ doc-5 phase R0: repository layout, toolchain through mise, the YAML library spik
 2026-11-22: the personal layer folder and repository are renamed agent-layerz-personal, and the planned starter is agent-layerz-starter; earlier notes keep the old names.
 
 2026-11-22: split into small subtasks (spike, decisions, skeleton, tooling, CI). The .layer Rust rule, Rust-aware agents, rust:check and the cargo stop hook were done in commit 23ca45e, which covers the rule half of AC #2; CI enforcement is the CI subtask.
+
+2026-11-22: R0 choices 1, 3, 4, 5 and the directory-access crate are recorded as decision-23 to decision-27 (TASK-55.1.2). The YAML library (TASK-55.1.1) is still open.
 <!-- SECTION:NOTES:END -->

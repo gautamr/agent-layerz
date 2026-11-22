@@ -3,13 +3,14 @@ id: doc-6
 title: 'Rust architecture: layout, domain modelling and type-level design'
 type: specification
 created_date: '2026-11-22T14:38:00Z'
-updated_date: '2026-11-22T14:38:00Z'
+updated_date: '2026-11-22T16:30:00Z'
 ---
 # Rust architecture: layout, domain modelling and type-level design
 
-Companion to doc-5 (plan), decision-21 (Rust) and decision-22 (idiomatic Rust). Proposed for
-TASK-55.1 (R0), where the layout becomes a decision. Nothing here mirrors `src/`; it starts from
-what alz is.
+Companion to doc-5 (plan), decision-21 (Rust) and decision-22 (idiomatic Rust). The layout in §2
+was adopted with two changes in decision-23 (TASK-55.1.2). Git access is decision-24, the
+toolchain and targets decision-25, output text decision-26, and directory access decision-27.
+Nothing here mirrors `src/`; it starts from what alz is.
 
 ## 1. What alz is, for design purposes
 
@@ -32,16 +33,19 @@ names do not collide: Rust lives under `crates/`, TypeScript under `src/` and `t
 
 ```text
 agent-layerz/
-├── Cargo.toml                 # [workspace]: members = ["crates/*", "xtask"], resolver = "3"
-│                              # [workspace.package]: edition = "2024", rust-version, license
+├── Cargo.toml                 # [workspace]: members = ["crates/*"] (+ "xtask" once it exists), resolver = "3"
+│                              # [workspace.package]: edition = "2024", rust-version = the pin, license
 │                              # [workspace.lints]: rust + clippy levels, inherited by every crate
 │                              # [workspace.dependencies]: one version per dependency
 ├── Cargo.lock                 # committed: alz ships a binary
-├── rust-toolchain.toml        # pinned stable channel, components rustfmt and clippy (mise reads it)
+├── rust-toolchain.toml        # if kept: the same version as the mise pin (1.100.0, decision-25),
+│                              # components rustfmt and clippy; TASK-55.1.3 checks mise and rustup agree
 ├── deny.toml                  # cargo-deny: licences, advisories, bans, duplicate versions
-├── clippy.toml                # thresholds only; MSRV comes from Cargo.toml
+├── clippy.toml                # thresholds and test allowances; MSRV comes from Cargo.toml. A crate's
+│                              # own clippy.toml replaces this file (not merged): repeat the allowances
 ├── crates/
 │   ├── alz-core/              # library, no I/O: the domain and its algebra
+│   │   ├── clippy.toml        # disallowed-methods: std::fs, std::process, std::env
 │   │   ├── src/lib.rs         # #![forbid(unsafe_code)] #![deny(missing_docs)]
 │   │   ├── src/layer/         # LayerName, LayerKind, Visibility, LayerMeta, Layer
 │   │   ├── src/stack/         # Source, Ref, Stack, ResolvedStack (typestate)
@@ -54,21 +58,23 @@ agent-layerz/
 │   │   ├── src/account/       # AccountName, declarations, resolution decision (pure)
 │   │   └── src/diagnostic.rs  # Diagnostic { code, message, at }, no printing
 │   ├── alz-io/                # library: every effect, behind capability types
-│   │   ├── src/fs/            # ReadOnlyDir, RepoRoot (write), StateDir, safe walks (openat via
-│   │   │                      # rustix or cap-std), O_NOFOLLOW reads, atomic write + rename, locks
-│   │   ├── src/git.rs         # GitRunner: argument arrays, guarded environment, no shell
+│   │   ├── src/fs/            # ReadOnlyDir, RepoRoot (write), CacheDir, StateDir, safe walks (openat via
+│   │   │                      # rustix >= 1.1.6, decision-27), O_NOFOLLOW reads, atomic write + rename, locks
+│   │   ├── src/git.rs         # GitRunner: the git binary, argument arrays, explicit environment,
+│   │   │                      # no shell, no git library (decision-24)
 │   │   ├── src/cache.rs       # cache layout and integrity, on top of fs
 │   │   ├── src/terminal.rs    # PersonAtTerminal proof value (only constructible from a real TTY
 │   │   │                      # with no agent marker)
 │   │   └── src/env.rs         # Env snapshot taken once at start; presence-only queries
 │   ├── alz/                   # binary: clap CLI, wiring, rendering diagnostics, exit codes
-│   │   ├── src/main.rs        # a few lines: parse, run, map Result to ExitCode
-│   │   ├── src/cli.rs         # clap derive types
+│   │   ├── clippy.toml        # disallowed-methods: std::fs, std::process, std::env (decision-23)
+│   │   ├── src/main.rs        # a few lines: try_parse, run, map Result to ExitCode
+│   │   ├── src/cli.rs         # clap derive types; clap errors rendered and sanitised by alz (decision-26)
 │   │   ├── src/command/       # one module per command; each is a thin use case
-│   │   └── tests/             # assert_cmd + snapshot tests against fixtures
+│   │   └── tests/             # assert_cmd + snapshot tests; files set up through alz-test-support
 │   └── alz-test-support/      # publish = false; isolated HOME, fixture copies, git helpers
-├── xtask/                     # cargo xtask: parity run against the TypeScript build, release prep
-├── fuzz/                      # cargo-fuzz targets for the parsers (manifest, lock, frontmatter)
+├── xtask/                     # later, added by the first task that needs it: parity run, release prep
+├── fuzz/                      # later, added by the first task that needs it: cargo-fuzz targets for the parsers
 ├── test/fixtures/             # shared by both implementations until R8, then moved under crates/alz
 └── src/, test/, package.json  # TypeScript reference, removed at cutover
 ```
@@ -86,7 +92,9 @@ enforce:
   turns "the merge is pure" from a convention into a build error.
 - **`alz-io` owns every effect** and exposes them as capabilities (§3.4), so the safety rules live
   in one place a security reviewer can read end to end.
-- **`alz` is thin**: argument parsing and wiring only.
+- **`alz` is thin**: argument parsing and wiring only. Its own `clippy.toml` bans the same
+  `std::fs`, `std::process` and `std::env` functions (decision-23), so "only `alz-io` performs
+  effects" is a build error on both sides, not a convention. clap still reads the arguments.
 - More crates would follow folders, not boundaries (a TypeScript habit); crates cost build time
   and API ceremony. Modules give enough structure inside a crate. Revisit only if build times or
   a real second consumer (an editor extension, a library user) appear.
