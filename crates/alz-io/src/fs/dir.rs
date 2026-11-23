@@ -4,10 +4,12 @@ use std::io;
 use std::os::fd::OwnedFd;
 
 use alz_core::account::AccountFolders;
+use alz_core::layer::{LayerScan, Purpose};
 use alz_core::path::{AbsolutePath, SafeRelPath};
 
 use crate::fs::read_below::read_file_below;
 use crate::fs::read_error::ReadError;
+use crate::fs::scan::scan_layer;
 use crate::fs::walk::find;
 use crate::fs::walk_error::WalkError;
 
@@ -66,5 +68,27 @@ impl Dir {
     /// `cap` bytes, and [`ReadError::Io`] for any other failure.
     pub fn read_file(&self, path: &SafeRelPath, cap: usize) -> Result<Vec<u8>, ReadError> {
         read_file_below(&self.handle, path, cap)
+    }
+
+    /// Walks the layer below this directory and reports what it saw (spec §5.3 "File names",
+    /// §7.13 "No fetch on resolve"). Every folder is listed and opened relative to the handle
+    /// before it with `O_NOFOLLOW`, so no path is opened again by name and no link is followed.
+    /// Folders are entered from an explicit stack, so the depth of a tree costs open handles and
+    /// never call-stack frames.
+    ///
+    /// Every entry counts, including the entries of a folder whose name is not valid Unicode,
+    /// but `.git`, `.DS_Store` and `node_modules` are neither counted nor entered. Links and
+    /// entries that are not regular files, such as a pipe, a socket or a device, are counted and
+    /// never opened; a `.env` file is recorded and never opened. A regular file is opened with
+    /// `O_NONBLOCK`, checked with `fstat` on that handle, and read to its end, counting the bytes
+    /// as they arrive. A name that is not valid Unicode (`OsStr::to_str`) is recorded as a fact
+    /// and never kept. Nothing that fails stops the walk with an error: a failure is recorded as
+    /// a fact of the scan, and [`scan_verdict`](alz_core::layer::scan_verdict) decides.
+    ///
+    /// With [`Purpose::Resolution`] the walk stops at entry 2001 and a file is read only while
+    /// 16 MiB are not yet used up; with [`Purpose::Build`] there is no budget.
+    #[must_use]
+    pub fn scan(&self, purpose: Purpose) -> LayerScan {
+        scan_layer(&self.handle, purpose)
     }
 }

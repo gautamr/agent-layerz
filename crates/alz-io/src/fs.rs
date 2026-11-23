@@ -6,6 +6,7 @@ mod dir;
 mod read_below;
 mod read_error;
 mod read_only_dir;
+mod scan;
 mod walk;
 mod walk_error;
 
