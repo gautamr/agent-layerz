@@ -447,7 +447,9 @@ fetch on resolve"). It then checks, and the first that fails decides the miss: t
 MiB in all (`unreadable`), the content hash (`content-hash`), a `.env` file (`layer-invalid`),
 then `layer.yaml`. The entry limit comes first so that the walk never goes past entry 2001. In
 the build the name check comes first, before the content hash is computed or compared (below),
-`layer.yaml` is read or any `.env` file is reported.
+`layer.yaml` is read or any `.env` file is reported. A file of more than 16 MiB is unreadable in the
+build too, at the place of a file that cannot be read in that order (the 16 MiB in all are not
+limited there).
 
 The TypeScript `alz` reads names from the file system as UTF-8 with U+FFFD in place of each
 invalid sequence and then cannot open the file or folder by that name. So account resolution
@@ -527,14 +529,25 @@ entry (§6) or an entry whose content is not what the lock recorded.
      XDG_CACHE_HOME to a folder outside it`.
    - Each missing folder of the cache root is created with mode `0700`. An existing folder
      keeps its mode.
+   - A cache root that the effective user does not own, or that group or others can write, is
+     refused, because what a stranger can write there would be read as a layer (as §7.13 "Both
+     files" refuses such a file). The mode and the owner are those of the handle that is kept,
+     read with `fstat`. The error is `cache`, no location, with the message `the layer cache at
+     <dir> is not owned by you or can be written by group or others; fix its owner and mode, or
+     set XDG_CACHE_HOME to another folder`. Each entry is opened relative to that handle, and one
+     that another user owns is the error `cache`, no location: `cache entry <name> in the layer
+     cache at <dir> is not owned by you; delete it and run alz again`.
 
    - A cache entry that is a link or any other name but a folder is the error `cache`, no
      location: `cache entry <name> in the layer cache at <dir> must be a folder, not a link or a
      file; delete it and run alz again`. An entry that was removed while alz used it gives
      `cache entry <name> in the layer cache at <dir> was removed while alz used it; run alz again`.
-   - Any other failure to open or create the cache root, or to use a temporary entry in it, is
-     the error `cache`, no location: `cannot use the layer cache at <dir>`. The message names
-     no operating system error.
+   - Any other failure to open or create the cache root is the error `cache`, no location:
+     `cannot use the layer cache at <dir>`. The message names no operating system error. A
+     failure to create or use a temporary entry in the open root, to write into it or to move it
+     to its name, is the error `cache`, no location, with the message `cannot store '<source>' in
+     the layer cache at <dir>` ("A failed fetch" below), because it is the layer that cannot be
+     stored.
 
    `<dir>` is stripped as in every diagnostic (decision-26, class 1), and `<name>` is the entry's
    own name (`git-<hex>@<sha>`, `tree2@<id>` or `pathref@<hex>-<sha>`). The entries inside the
@@ -544,7 +557,8 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - it uses `XDG_CACHE_HOME` whenever the variable is set, so an empty value puts the cache in
      the working directory;
    - it refuses neither a cache inside the repository nor one in an account folder;
-   - it creates missing folders with mode `0777` minus the umask.
+   - it creates missing folders with mode `0777` minus the umask;
+   - it does not check the owner or the mode of the cache root or of an entry.
 
    **Layers in or around an account folder** (TASK-52). Every command that resolves the stack
    finds the directory of a `path:` layer, pinned or not, and of a local `git:` source, from the
@@ -556,7 +570,12 @@ entry (§6) or an entry whose content is not what the lock recorded.
 
    A directory that touches an account folder (§9.1) stops the command before any name in it
    is looked at, and before git runs there, whether or not a link planted in the repository
-   leads to it. The error is `source`, no location, with the message `layer '<source>' touches
+   leads to it. An account folder that is itself reached through a link counts as that folder:
+   alz lists `$HOME` for the names it knows (`~/.claude`, `~/.claude.json`, `~/.codex`,
+   `~/.claude-*` and `~/.codex-*`), reads each with `lstat`, and for each that is a link takes the
+   real path it leads to as an account folder too, so a layer in `~/dotfiles/claude` is refused
+   when `~/.claude-x` is a link to it. Only the names in `$HOME` are looked at, never what an
+   account folder holds. The error is `source`, no location, with the message `layer '<source>' touches
    an account folder or the home folder; alz never reads there`. `<source>` is stripped.
 
    Files inside a layer, a cache entry or a temporary clone are then opened relative to the
@@ -738,6 +757,13 @@ entry (§6) or an entry whose content is not what the lock recorded.
    with `git checkout-index`, may differ from the tree by attribute conversions, so they are
    ignored and written again (and never removed). Reading the tree:
 
+   - The top of the repository that `git rev-parse --show-toplevel` reports is walked like a
+     layer directory (§6 "Layers in or around an account folder") before git is asked anything
+     else there. One that touches an account folder, which `core.worktree` or a `.git` file can
+     arrange, is refused with the error `source` of that paragraph, naming the layer.
+   - Standard output of the git calls that read the tree is read up to 64 MiB for a listing or
+     object contents (`ls-tree -r`, `cat-file --batch`) and 64 KiB for a one-line answer. More is
+     a failed read, `cannot read '<source>' at <ref>: git wrote more output than alz accepts`.
    - `git ls-tree` must list the layer's path as a directory (mode `040000`, type `tree`), so a
      symbolic link or a submodule entry, whose recorded id could be any tree id, is refused as an
      unresolvable ref.
@@ -756,7 +782,7 @@ entry (§6) or an entry whose content is not what the lock recorded.
      (`SafeRelPath`): the `.git` comparison ignores ASCII case (`.GIT` names `.git` on a
      case-insensitive file system), and a segment `.git.` or `.git ` (a trailing dot or space,
      which Windows drops) counts as `.git`.
-   - A tree with two paths that are equal after Unicode NFC normalisation and case folding, or a
+   - A tree with two paths that are equal after Unicode NFC normalisation and lowercasing, or a
      file and a folder with such names, is refused before anything is written, because one file
      system would merge them.
    - These refusals are the error `layer`, with no location, and name the layer by its source and
@@ -764,7 +790,7 @@ entry (§6) or an entry whose content is not what the lock recorded.
      that is not safe gives `the git tree of layer '<source>' lists a path with a backslash, a
      '.', '..' or '.git' segment; rename it`; two paths that one file system would merge give
      `the git tree of layer '<source>' lists two paths that one file system would merge (equal
-     after Unicode normalisation and case folding); rename one`. Every path the tree lists is
+     after Unicode normalisation and lowercasing); rename one`. Every path the tree lists is
      judged, links and submodules too, but only the files are compared for merging.
    - A layer at the top of its repository (`git rev-parse --show-prefix` is empty) is the commit's
      own tree. A git step that fails before the tree is listed, because the folder is not in a
@@ -1622,7 +1648,9 @@ account:                       # per target; a target left out is not decided by
   on the handle that is read (decision-27), so a name swapped between two calls cannot change
   what was checked. A
   layer with more than 2000 entries, or more than 16 MiB in all, is a cache miss
-  (`unreadable`); `alz build` has no such limit. The entries are the names the walk lists in
+  (`unreadable`); `alz build` has no such limit in all. A file of more than 16 MiB is
+  unreadable in both (`unreadable`; in the build, the error `layer` of §5.3 "File names" that
+  says a file cannot be read). The entries are the names the walk lists in
   the layer directory and in each folder below it: files, folders, links, other entries and
   `.env` files all count, while the skipped names (`.git`, `.DS_Store`, `node_modules`, §5.3),
   everything below them and the layer directory itself do not. The walk stops at entry 2001.
@@ -2014,7 +2042,9 @@ resolve") lives in the layer cache, so it is no exception.
 A path *touches an account folder* when it is `$HOME` or above it, lies inside an account
 folder, or contains one, a folder that `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names included.
 Names are compared one component at a time after Unicode NFC normalisation and lowercasing, so
-a case or form variant of `~/.claude-x` counts (TASK-52).
+a case or form variant of `~/.claude-x` counts (TASK-52). The real path that a link named like an
+account folder in `$HOME` leads to is an account folder too (§6 "Layers in or around an account
+folder").
 - Account resolution treats a repository root, cache or layer directory that touches an
   account folder as a cache miss, and opens nothing in it.
 - Every command that resolves the stack refuses such a layer directory or cache root (§6 "The

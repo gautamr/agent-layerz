@@ -11,7 +11,7 @@ use std::os::fd::OwnedFd;
 use std::os::unix::ffi::OsStrExt;
 
 use alz_core::git::{BlobId, ObjectFormat};
-use alz_core::layer::{GitFileFacts, LayerScan, NameProblem, Purpose};
+use alz_core::layer::{GitFileFacts, LayerScan, MAX_FILE_BYTES, NameProblem, Purpose};
 use alz_core::lock::{FileDigest, is_env_file, is_skipped_name};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
 use rustix::fs::{self, AtFlags, DirEntry, FileType, Mode, OFlags};
@@ -260,12 +260,16 @@ fn read_or_record(
                     };
                     scan.with_file(path, FileDigest::of(&bytes), length)
                 }
-                // One byte past what is left marks the budget as used up.
-                Err(ReadError::TooLarge) => scan.with_bytes(
-                    u64::try_from(remaining)
-                        .unwrap_or(u64::MAX)
-                        .saturating_add(1),
-                ),
+                // In resolution one byte past what is left marks the budget as used up; in the build
+                // there is no budget, so a file past the cap of one file is itself unreadable.
+                Err(ReadError::TooLarge) => match purpose {
+                    Purpose::Resolution => scan.with_bytes(
+                        u64::try_from(remaining)
+                            .unwrap_or(u64::MAX)
+                            .saturating_add(1),
+                    ),
+                    Purpose::Build => scan.with_unreadable(),
+                },
                 Err(ReadError::Missing | ReadError::NotRegular | ReadError::Io(_)) => {
                     scan.with_unreadable()
                 }
@@ -274,11 +278,13 @@ fn read_or_record(
     }
 }
 
-/// How many bytes the next file may have: what is left of the budget, or all there is.
+/// How many bytes the next file may have: the cap of one file, or what is left of the budget in
+/// all when that is less.
 fn remaining_bytes(purpose: Purpose, scan: &LayerScan) -> usize {
-    purpose.limits().map_or(usize::MAX, |limits| {
-        usize::try_from(limits.bytes().saturating_sub(scan.bytes())).unwrap_or(usize::MAX)
-    })
+    let left = purpose.limits().map_or(MAX_FILE_BYTES, |limits| {
+        limits.bytes().saturating_sub(scan.bytes())
+    });
+    usize::try_from(left.min(MAX_FILE_BYTES)).unwrap_or(usize::MAX)
 }
 
 /// Opens the file relative to the handle of its folder, with `O_NONBLOCK` so that a pipe swapped

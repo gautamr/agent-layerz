@@ -17,12 +17,19 @@ pub enum CacheError {
     /// An absolute `XDG_CACHE_HOME` puts the cache root inside the repository.
     #[error("the layer cache lies inside the repository")]
     InsideRepository,
+    /// The cache root is not owned by the effective user, or group or others can write it. What a
+    /// stranger can write there would be read as a layer.
+    #[error("the layer cache is not private to this user")]
+    NotPrivate,
     /// The cache root could not be opened or created.
     #[error("the layer cache cannot be opened")]
     Unusable(#[source] WalkError),
     /// An entry is a link or something else but a folder. It is never followed.
     #[error("a cache entry is not a folder")]
     EntryNotDirectory(EntryName),
+    /// An entry is a folder that another user owns.
+    #[error("a cache entry is not owned by this user")]
+    EntryNotOwned(EntryName),
     /// A temporary entry is not the folder this process just made: the name was swapped.
     #[error("a temporary cache entry was replaced")]
     TempEntryReplaced,
@@ -53,6 +60,11 @@ impl CacheError {
             Self::InsideRepository => Message::new("the layer cache at ")
                 .then(dir)
                 .then(" lies inside the repository; set XDG_CACHE_HOME to a folder outside it"),
+            Self::NotPrivate => Message::new("the layer cache at ").then(dir).then(
+                " is not owned by you or can be written by group or others; fix its owner and mode, or set XDG_CACHE_HOME to another folder",
+            ),
+            Self::EntryNotOwned(name) => entry_message(&name, dir)
+                .then(" is not owned by you; delete it and run alz again"),
             Self::EntryNotDirectory(name) => entry_message(&name, dir)
                 .then(" must be a folder, not a link or a file; delete it and run alz again"),
             Self::EntryVanished(name) => {
@@ -129,6 +141,12 @@ mod tests {
                 .into_diagnostic(&location)
                 .to_string(),
             "error [cache] the layer cache at /c[0m/agent-layerz lies inside the repository; set XDG_CACHE_HOME to a folder outside it"
+        );
+        assert_eq!(
+            CacheError::NotPrivate
+                .into_diagnostic(&location)
+                .to_string(),
+            "error [cache] the layer cache at /c[0m/agent-layerz is not owned by you or can be written by group or others; fix its owner and mode, or set XDG_CACHE_HOME to another folder"
         );
     }
 }

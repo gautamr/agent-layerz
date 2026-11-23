@@ -587,6 +587,49 @@ mod tests {
     }
 
     #[test]
+    fn a_layer_in_the_target_of_a_link_named_like_an_account_folder_is_refused_before_anything_is_read()
+     {
+        let world = World::new();
+        world.put("home/dotfiles/claude/layer.yaml", LAYER);
+        world.put("repo/.layer/layer.yaml", LAYER);
+        world
+            .scratch
+            .make_link("home/.claude-x", "dotfiles/claude")
+            .expect("linked");
+        world
+            .scratch
+            .make_link("repo/via", "../home/dotfiles/claude")
+            .expect("linked");
+        world.manifest(
+            "stack:\n  - source: path:../home/dotfiles/claude\n  - source: path:./via\n  - source: path:./.layer\n",
+        );
+        // Sealed: a read of anything in the folder fails loudly instead of being refused.
+        world
+            .scratch
+            .set_mode("home/dotfiles/claude", 0o000)
+            .expect("sealed");
+        let run = world.alz();
+        world
+            .scratch
+            .set_mode("home/dotfiles/claude", 0o700)
+            .expect("unsealed");
+        assert_eq!(run.code, 1, "{}", run.stderr);
+        let lines: Vec<&str> = run.stderr.lines().collect();
+        assert_eq!(lines.len(), 2, "{}", run.stderr);
+        for (line, source) in lines
+            .iter()
+            .zip(["path:../home/dotfiles/claude", "path:./via"])
+        {
+            assert_eq!(
+                *line,
+                format!(
+                    "error [source] layer '{source}' touches an account folder or the home folder; alz never reads there"
+                )
+            );
+        }
+    }
+
+    #[test]
     fn a_local_git_path_with_dot_dot_and_a_file_url_without_a_path_are_refused() {
         let world = World::new();
         plant_git_spy(&world);

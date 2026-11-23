@@ -194,6 +194,10 @@ mod tests {
             id(&self.git(&["rev-parse", &format!("{commit}:{path}")]))
         }
 
+        fn folders(&self) -> AccountFolders {
+            AccountFolders::from_env(&absolute(&self.path("home")), None, None)
+        }
+
         fn parts(&self, writable_cache: bool) -> (GitRunner, CacheLocation, CacheDir) {
             let pairs: Vec<(OsString, OsString)> = vec![
                 ("PATH".into(), real_path()),
@@ -209,7 +213,7 @@ mod tests {
             let location =
                 CacheLocation::from_env(self.path("home").to_str(), self.path("xdg").to_str())
                     .expect("a location");
-            let folders = AccountFolders::from_env(&absolute(&self.path("home")), None, None);
+            let folders = self.folders();
             let cache = CacheDir::open_or_create(
                 &location,
                 &folders,
@@ -235,6 +239,7 @@ mod tests {
                 source: &source,
                 git_ref: &git_ref,
                 real_dir: &absolute(&dir),
+                folders: &self.folders(),
                 locked,
             })
         }
@@ -705,6 +710,53 @@ mod tests {
     }
 
     #[test]
+    fn a_repository_top_at_the_home_folder_or_in_an_account_folder_is_refused_before_git_reads_it()
+    {
+        for top in ["home", "home/.claude-work"] {
+            let world = World::new();
+            world
+                .scratch
+                .make_dirs(format!("{top}/layer"))
+                .expect("made");
+            world.put(
+                &world.path(&format!("{top}/layer/layer.yaml")),
+                "name: team\n",
+            );
+            let repository = world.path(top);
+            for args in [
+                vec!["init", "-q", "--initial-branch=main"],
+                vec!["add", "-A"],
+                vec![
+                    "-c",
+                    "user.name=t",
+                    "-c",
+                    "user.email=t@example.com",
+                    "commit",
+                    "-q",
+                    "-m",
+                    "c",
+                ],
+            ] {
+                let args: Vec<&OsStr> = args.iter().map(OsStr::new).collect();
+                world.git_in(&repository, &args, b"");
+            }
+            let diagnostic = world
+                .resolve_in(&repository, "layer", "main", None)
+                .expect_err("refused");
+            assert_eq!(
+                diagnostic.to_string(),
+                format!(
+                    "error [source] layer 'path:{}/layer' touches an account folder or the home folder; alz never reads there",
+                    repository.display()
+                ),
+                "{top}"
+            );
+            assert!(!world.scratch.exists("xdg/agent-layerz/tree2@"), "{top}");
+            assert_eq!(world.cache_names(), Vec::<String>::new(), "{top}");
+        }
+    }
+
+    #[test]
     fn a_layer_at_the_top_of_its_repository_is_the_commit_s_own_tree() {
         let world = World::new();
         let commit = world.commit(&[("layer.yaml", "name: team\n"), ("a.md", "hello\n")]);
@@ -717,6 +769,7 @@ mod tests {
                 source: &source,
                 git_ref: &git_ref,
                 real_dir: &absolute(&world.hub()),
+                folders: &world.folders(),
                 locked: None,
             })
             .expect("resolved");
@@ -810,7 +863,7 @@ mod tests {
     }
 
     #[test]
-    fn two_names_equal_after_nfc_and_case_folding_are_refused_before_a_write() {
+    fn two_names_equal_after_nfc_and_lowercasing_are_refused_before_a_write() {
         for pair in [("a.md", "A.md"), ("\u{e9}.md", "e\u{301}.md")] {
             let world = World::new();
             let blob = world.blob("x\n");

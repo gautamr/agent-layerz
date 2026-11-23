@@ -21,8 +21,8 @@ pub enum LayerRefusal {
     NameNotUtf8,
     /// A path that is no safe relative path.
     NameNotSafe,
-    /// A folder or file that cannot be read, or more than 16 MiB of files (account resolution
-    /// only for the second).
+    /// A folder or file that cannot be read, a file of more than 16 MiB, or more than 16 MiB of
+    /// files in all (account resolution only for the last).
     Unreadable,
     /// A `.env` file.
     EnvFile,
@@ -106,11 +106,11 @@ impl ReadLayer {
 ///
 /// 1. too many entries (`unreadable`; account resolution only);
 /// 2. a name that is not valid Unicode (`layer-invalid`), then a path that is not safe;
-/// 3. a file that could not be read, or reading past 16 MiB (`unreadable`; the second only in
-///    account resolution).
+/// 3. a file that could not be read, a file of more than 16 MiB (`unreadable`; the build too), or
+///    reading past 16 MiB in all (`unreadable`; account resolution only).
 ///
 /// The content hash and the `.env` check follow on the result. In the build nothing is limited,
-/// so the name check comes first and the budgets are not applied.
+/// so the name check comes first and the budgets in all are not applied.
 ///
 /// # Errors
 ///

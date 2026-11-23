@@ -73,7 +73,7 @@ describe.each(FORMS)(
 
     referenceDrift(
       "TASK-52",
-      "refuses a layer that is the home folder, and opens nothing in it",
+      "refuses a layer that is the home folder, and leaves it unchanged",
       async () => {
         const ws = fixture(FIXTURE);
         writeFileSync(`${ws.home}/layer.yaml`, LAYER_YAML);

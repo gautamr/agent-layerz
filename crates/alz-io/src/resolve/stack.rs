@@ -227,6 +227,7 @@ impl<'a> StackResolver<'a> {
                     source,
                     git_ref,
                     real_dir: &real_dir,
+                    folders: &self.folders,
                     locked,
                 })
                 .map_err(single)?;

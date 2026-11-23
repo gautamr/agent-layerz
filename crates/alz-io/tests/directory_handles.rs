@@ -10,8 +10,10 @@ mod machine;
 mod tests {
     use alz_core::Stripped;
     use alz_core::account::Relation;
+    use alz_core::git::CloneTransport;
     use alz_core::path::SafeRelPath;
-    use alz_io::{Dir, ReadError, WalkError};
+    use alz_core::stack::GitUrl;
+    use alz_io::{Dir, ReadError, WalkError, locate_git_source};
 
     use super::machine::Machine;
 
@@ -225,5 +227,27 @@ mod tests {
                 Err(ReadError::NotRegular)
             ));
         }
+    }
+
+    #[test]
+    fn a_git_source_is_local_for_a_regular_file_and_never_through_a_link_to_one() {
+        let machine = Machine::new();
+        machine.write("repo/h:bundle", "not a repository");
+        machine.link("repo/h:link", "h:bundle");
+        machine.make_dirs("repo/h:dir");
+        machine.link("repo/h:dirlink", "h:dir");
+        let folders = machine.folders(None, None);
+        let transport = |url: &str| {
+            let url = GitUrl::try_from(url).expect("a url");
+            locate_git_source(&url, &machine.abs("repo"), &folders)
+                .expect("an origin")
+                .transport()
+        };
+        assert_eq!(transport("h:bundle"), CloneTransport::Local);
+        assert_eq!(transport("h:dir"), CloneTransport::Local);
+        // A link to a folder is followed by the walk, which checks every prefix.
+        assert_eq!(transport("h:dirlink"), CloneTransport::Local);
+        // A link to a file is not looked through: it is nothing on disk, so `h:link` is a remote.
+        assert_eq!(transport("h:link"), CloneTransport::Remote);
     }
 }

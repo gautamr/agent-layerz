@@ -15,7 +15,7 @@ use crate::path::SafeRelPath;
 /// several occur, as for the names of a walked layer (§5.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ListingRefusal {
-    /// Two paths that are equal after Unicode NFC normalisation and case folding, or a file and
+    /// Two paths that are equal after Unicode NFC normalisation and lowercasing, or a file and
     /// a folder with such names: one file system would merge them.
     Collision,
     /// A path with a backslash, a `.` or `..` segment or a `.git` segment, in any case or with a
@@ -63,7 +63,7 @@ fn has_collision<'p>(paths: impl Iterator<Item = &'p SafeRelPath>) -> bool {
             BTreeMap::<String, BTreeSet<&str>>::new(),
             |mut groups, prefix| {
                 groups
-                    .entry(nfc(prefix).to_lowercase())
+                    .entry(nfc(&nfc(prefix).to_lowercase()))
                     .or_default()
                     .insert(prefix);
                 groups

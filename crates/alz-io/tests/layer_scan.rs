@@ -366,9 +366,36 @@ mod tests {
             scan_verdict(Purpose::Resolution, found).map(|_| ()),
             Err(LayerRefusal::Unreadable)
         );
-        let in_build = scan(&machine, Purpose::Build);
-        assert_eq!(in_build.bytes(), 16 * MIB + 1);
-        assert!(scan_verdict(Purpose::Build, in_build).is_ok());
+    }
+
+    #[test]
+    fn a_file_of_sixteen_mib_is_read_in_the_build_and_one_byte_more_is_unreadable() {
+        let machine = layer();
+        sparse_file(&machine.path("repo/layer/big"), 16 * MIB);
+        let read = verdict(&machine, Purpose::Build).expect("16 MiB is read");
+        assert_eq!(names(read.files()), ["big"]);
+
+        sparse_file(&machine.path("repo/layer/big"), 16 * MIB + 1);
+        assert_eq!(
+            verdict(&machine, Purpose::Build).map(|_| ()),
+            Err(LayerRefusal::Unreadable)
+        );
+        // A name that is a problem still wins, as in every refusal.
+        machine.write("repo/layer/bad\\name", "x");
+        assert_eq!(
+            verdict(&machine, Purpose::Build).map(|_| ()),
+            Err(LayerRefusal::NameNotSafe)
+        );
+    }
+
+    #[test]
+    fn the_build_has_no_budget_in_all_only_the_cap_of_each_file() {
+        let machine = layer();
+        (0..3).for_each(|index| {
+            sparse_file(&machine.path(&format!("repo/layer/f{index}")), 16 * MIB);
+        });
+        assert_eq!(scan(&machine, Purpose::Build).bytes(), 48 * MIB);
+        assert!(verdict(&machine, Purpose::Build).is_ok());
     }
 
     #[test]

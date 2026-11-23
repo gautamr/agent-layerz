@@ -91,7 +91,6 @@ pub fn verify_entry(
     let wanted_names: BTreeSet<&String> = wanted.keys().collect();
     let seen_env_names: BTreeSet<&String> = seen_env.iter().collect();
     let wanted_env_names: BTreeSet<&String> = wanted_env.iter().collect();
-    let skipped_wanted: BTreeSet<&SafeRelPath> = skipped_found.keys().collect();
     let skipped_missing = listing
         .skipped()
         .any(|(path, _)| !skipped_found.contains_key(path));
@@ -100,7 +99,7 @@ pub fn verify_entry(
     {
         return Err(difference);
     }
-    if skipped_missing || skipped_wanted.len() > skipped.len() {
+    if skipped_missing {
         return Err(EntryDifference::Missing);
     }
     let skipped_changed = listing

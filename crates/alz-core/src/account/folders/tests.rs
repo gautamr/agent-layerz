@@ -153,3 +153,27 @@ fn only_a_path_inside_an_account_folder_is_inside() {
     assert!(!Relation::Home.is_inside());
     assert!(!Relation::Holds.is_inside());
 }
+
+#[test]
+fn the_entries_of_home_that_name_an_account_folder_are_picked_by_name() {
+    for named in [
+        ".claude",
+        ".claude.json",
+        ".codex",
+        ".claude-work",
+        ".codex-a",
+        ".CLAUDE-Work",
+    ] {
+        assert!(super::names_account_folder(named), "{named}");
+    }
+    for other in [
+        "dotfiles",
+        "claude",
+        ".config",
+        ".codexx",
+        ".claudejson",
+        "x.claude",
+    ] {
+        assert!(!super::names_account_folder(other), "{other}");
+    }
+}

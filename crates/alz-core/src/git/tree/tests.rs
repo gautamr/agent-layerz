@@ -95,7 +95,7 @@ fn a_path_that_is_not_safe_is_refused() {
 }
 
 #[test]
-fn two_paths_equal_after_nfc_and_case_folding_are_refused() {
+fn two_paths_equal_after_nfc_and_lowercasing_are_refused() {
     let nfd = "e\u{301}.md";
     for pair in [
         ("a.md", "A.md"),
