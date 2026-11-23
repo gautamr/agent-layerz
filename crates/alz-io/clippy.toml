@@ -1,0 +1,18 @@
+# The environment is read in one place: `EnvSnapshot::capture` (src/env.rs), which carries the
+# only `#[expect]` for it. alz-core and alz ban the whole of std::env in their own clippy.toml.
+# This file repeats the four `allow-*-in-tests` lines of the root clippy.toml, because clippy reads
+# one clippy.toml per crate and does not merge them.
+
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-print-in-tests = true
+allow-indexing-slicing-in-tests = true
+
+disallowed-methods = [
+    { path = "std::env::var", reason = "the environment is read by EnvSnapshot::capture only" },
+    { path = "std::env::var_os", reason = "the environment is read by EnvSnapshot::capture only" },
+    { path = "std::env::vars", reason = "the environment is read by EnvSnapshot::capture only" },
+    { path = "std::env::vars_os", reason = "the environment is read by EnvSnapshot::capture only" },
+    { path = "std::env::remove_var", reason = "the environment is never mutated" },
+    { path = "std::env::set_var", reason = "the environment is never mutated" },
+]
