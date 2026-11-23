@@ -27,6 +27,17 @@ All notable changes to agent-layerz are recorded here. The format follows
   - Markdown frontmatter closes only at a line that is exactly `---`, and a Markdown file
     without frontmatter must be valid UTF-8.
   - A folder in `targets/` must be named after a known target (`claude`, `codex`).
+  - Codex keys that duplicate a first-class item are refused at any depth. That covers `hooks`
+    and `codex_hooks` in any `features` table, `approval_policy` and `sandbox_mode` in a
+    profile, and `profile` itself.
+  - An agent overlay may only make an agent stricter. Its `permission_mode` may not be looser
+    than that of the agent it refines or than the permissions floor, and it may not take an
+    entry out of `claude.disallowedTools`.
+  - A tool path scope that starts with `~` or `/`, holds a backslash or starts with a drive
+    letter is covered only by an equal scope.
+  - The leak guard decodes UTF-16 files (with a byte order mark) and removes NULs before it
+    checks. `^` and `$` in `forbid_patterns` match at every line, and the secret scan reads the
+    whole `layer.yaml`.
 
   These are breaking changes for some layers. The cutover to the Rust `alz` is a minor version
   bump (0.x).
