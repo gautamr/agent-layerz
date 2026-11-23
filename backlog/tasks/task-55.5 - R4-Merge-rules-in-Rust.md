@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T15:41:00Z'
+updated_date: '2026-11-23T16:08:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -139,6 +139,89 @@ Test 19 (hook commands, 2 cases): merge::hooks::tests case_19_command_hooks_are_
 Test 26 (commit identity, 121 cases): the merge verdicts -> merge::declarers::tests (23 tests) a_declaration_in_the_repo_layer_is_refused_whatever_its_kind_says, a_declaration_in_a_group_layer_is_refused_and_names_its_kind, a_public_layer_that_calls_itself_client_is_refused, a_second_client_layer_is_refused_and_both_are_named, every_client_layer_is_named_when_more_than_two_declare, a_first_layer_inside_the_repository_is_refused_and_leaves_no_winner, a_client_layer_inside_the_repository_is_refused, a_kind_with_control_characters_prints_without_them, the_client_layer_overrides..., the_first_layers_identity_applies..., no_declaration_is_no_winner_and_no_error; the 34 schema cases and the section 13.28 fetch cases drive alz lint and pass now (crates/alz/tests/lint.rs, stack_lint.rs, alz-core lint and layer tests); the section 9.4 cases need R6.
 Test 29 (account layer, 54 cases): merge::declarers::tests the_first_layers_account_applies..., the_client_layers_whole_account_replaces..., a_confidential_client_layer_may_declare, no_declaration_is_no_winner_and_no_error, a_group_layer_may_not_declare_an_account, two_client_layers_conflict_over_the_account..., the_two_fields_follow_the_rule_independently; the schema cases drive alz lint --layer and pass now (46); the others drive build or init (R5/R6).
 Not a case of the listed files, but R4's: test 24 (fixture 29-account-layer) holds the settings, MCP and passthrough protected-variable cases: item::protected_variable::tests, item::settings::tests, item::mcp::tests, item::passthrough::tests and merge::mcp::tests (see TASK-55.5.10 to .12). Test 37 (new, R4.15) holds the settings and MCP top-level key rows: item::settings::tests a_top_level_key_that_is_not_a_known_target_is_refused_naming_the_file_whatever_the_key and item::mcp::tests (server-id grammar) give the verdict; the lint rows pass against the Rust binary now, the build rows by R5.
+
+Owner answers to the R4 security review (2026-11-23): (1) Codex keys that duplicate first-class items are reserved at any depth (features.hooks and features.codex_hooks anywhere; profile; approval_policy, sandbox_mode and features.hooks under profiles.*) — fixed in R4; (2) an agent overlay may only make an agent stricter: its permission_mode may not be looser than the base agent's or the permissions floor, and claude.disallowedTools only grows down the stack (like deny), spec change and reference drift; (3) a named list of security-relevant native settings gets floor semantics (only stricter down the stack), and plugin and marketplace keys (enabledPlugins, extraKnownMarketplaces) are reserved — the architect drafts the list for the owner's review; (4) a warning when a layer inside the repository replaces an MCP server defined outside it. Lead decisions: the secret scan runs over the whole layer.yaml (forbid_patterns lines only skipped for the forbid match); a path scope starting with ~ or / (or holding \ or a drive prefix) is covered only by an equal scope; UTF-16 files (BOM) are decoded and NULs stripped before the secret scan; for R5, passthrough collisions and protected paths compare with ASCII case folding.
+
+Architect (2026-11-23): DRAFT for the owner's review (security review answer 3). These are the native settings that get floor semantics, meaning they may only become stricter down the stack, and the keys that are reserved, meaning settings.yaml refuses them. Nothing in the spec or code has changed yet.
+
+Sources checked on 2026-11-23:
+- Claude Code 2.1.323: the settings reference page (code.claude.com/docs/en/settings-reference.md) and the settings page.
+- Codex 0.169.0: codex-rs/core/config.schema.json and codex-rs/config/src/config_toml.rs at tag rust-v0.169.0. This was read from source, not run.
+- Status column: "TF §n" means the fact is recorded in docs/target-facts.md. UNVERIFIED means the key is not recorded there yet; it was seen only in the docs or schema named above. Adapters may rely only on TF rows, so every UNVERIFIED row needs a target-facts entry (DOCS at least) before R5 depends on it.
+
+How the floor works:
+- A key with a floor, once set by a layer, can only move up its order in more specific layers. A looser value is a `settings` error that names the layer, the file and the key path, like permission-floor.
+- Lists marked "no additions" may not gain entries in a more specific layer once a more general layer has set them. Removal has no syntax in settings.yaml.
+- Lists marked "union" may only grow. A later kind change (a list replaced by a scalar or by null) is refused for every floor key, which departs from §7.9's left fold for these keys only.
+
+### Claude (under `claude:` in settings.yaml)
+
+| Key path | Proposal | Stricter order | Status |
+| --- | --- | --- | --- |
+| sandbox.enabled | floor | true > false | UNVERIFIED (settings-reference) |
+| sandbox.failIfUnavailable | floor | true > false | UNVERIFIED |
+| sandbox.autoAllowBashIfSandboxed | floor | false > true (true skips the prompts) | UNVERIFIED |
+| sandbox.allowUnsandboxedCommands | floor | false > true | UNVERIFIED |
+| sandbox.excludedCommands | floor | list, no additions | UNVERIFIED |
+| sandbox.filesystem.allowWrite, sandbox.filesystem.allowRead | floor | list, no additions | UNVERIFIED |
+| sandbox.filesystem.denyWrite, sandbox.filesystem.denyRead | floor | list, union | TF §12 item 21 (DOCS: they cover shell commands and their children) |
+| sandbox.ignoreViolations | floor | no additions (hides reports only) | UNVERIFIED |
+| sandbox.enableWeakerNestedSandbox, sandbox.enableWeakerNetworkIsolation | floor | false > true | UNVERIFIED |
+| sandbox.network.allowedDomains, sandbox.network.allowUnixSockets, sandbox.network.allowMachLookup | floor | list, no additions | UNVERIFIED |
+| sandbox.network.allowAllUnixSockets, sandbox.network.allowLocalBinding | floor | false > true | UNVERIFIED |
+| sandbox.network.deniedDomains | floor | list, union | UNVERIFIED |
+| sandbox.network.httpProxyPort, sandbox.network.socksProxyPort | reserve | (routing; no order) | UNVERIFIED |
+| sandbox.filesystem.disabled, sandbox.allowAppleEvents, sandbox.allowNestedUserNamespaces, sandbox.network.strictAllowlist, sandbox.network.allowManagedDomainsOnly | reserve | (user or managed scope only; Claude ignores them in a project) | UNVERIFIED |
+| sandbox.credentials.* | reserve | (carries or pins a login) | TF §12 item 16 |
+| apiKeyHelper | reserve | (runs a command; carries a login) | TF §12 item 16 |
+| permissions.* (defaultMode, disableBypassPermissionsMode, additionalDirectories, blockReadsOutsideWorkingDirectories, blockWritesOutsideWorkingDirectories, allow/ask/deny) | already reserved: `claude.permissions` is refused as a whole (§7.9) | see the question below | TF §7b, §7c (allow/ask/deny, additionalDirectories); the rest UNVERIFIED |
+| disableAutoMode | floor | "disable" > unset | UNVERIFIED |
+| autoMode, skipAutoPermissionPrompt, skipDangerousModePermissionPrompt, permissions.denyInsteadOfPrompting | reserve | (user, local or managed scope only) | UNVERIFIED |
+| disableAllHooks, hooks | already reserved | n/a | TF §4 (disableAllHooks) |
+| allowManagedHooksOnly | reserve | (managed only) | UNVERIFIED |
+| allowedHttpHookUrls, httpHookAllowedEnvVars | floor | list, no additions | UNVERIFIED |
+| statusLine, fileSuggestion | reserve (proposed) | (each runs a command outside hooks.yaml and its locks) | UNVERIFIED |
+| disableSkillShellExecution | floor | true > false | UNVERIFIED |
+| enableAllProjectMcpServers, enabledMcpjsonServers, disabledMcpjsonServers, mcpServers | already reserved | n/a | UNVERIFIED (the settings-reference scope is "any file") |
+| allowedMcpServers | floor | list, no additions | UNVERIFIED |
+| deniedMcpServers | floor | list, union | UNVERIFIED |
+| allowManagedMcpServersOnly, managedMcpServers | reserve | (managed only) | UNVERIFIED |
+| disableClaudeAiConnectors | floor | true > false | UNVERIFIED |
+| allowAllClaudeAiMcps | reserve | (widens connector MCPs) | UNVERIFIED |
+| enabledPlugins, extraKnownMarketplaces | reserve (owner) | (bring hooks and MCP servers past the allowlist) | TF §12 item 14 records only that plugins work as links; the semantics are UNVERIFIED |
+| prependPlugins, appendPlugins, pluginConfigs, strictKnownMarketplaces, blockedMarketplaces, strictPluginOnlyCustomization, syncClaudeAiPlugins | reserve | (user or managed scope, or plugin sources) | UNVERIFIED |
+| env | existing protected-variable check (§7.9) | n/a | TF §12 |
+
+### Codex (under `codex:` in settings.yaml)
+
+| Key path | Proposal | Stricter order | Status |
+| --- | --- | --- | --- |
+| approval_policy, sandbox_mode (top level and profiles.*) | already reserved at any depth (owner answer 1) | n/a | TF §6.6 (DOCS) |
+| features.hooks, features.codex_hooks (anywhere), hooks, profile | already reserved (owner answer 1) | n/a | TF §6.4 |
+| mcp_servers (incl. per-server default_tools_approval_mode, enabled_tools, disabled_tools) | already reserved | n/a | TF §6.5 |
+| sandbox_workspace_write.network_access | floor | false > true | TF §6.6 names sandbox_workspace_write.* (DOCS); the field is UNVERIFIED (0.169.0 schema) |
+| sandbox_workspace_write.writable_roots | floor | list, no additions | UNVERIFIED (schema) |
+| sandbox_workspace_write.exclude_tmpdir_env_var, sandbox_workspace_write.exclude_slash_tmp | floor | true > false (fewer writable folders) | UNVERIFIED (schema) |
+| approvals_reviewer (top and profiles.*) | floor | user > auto_review, guardian_subagent | UNVERIFIED (schema) |
+| auto_review | reserve | (no defined order) | UNVERIFIED |
+| default_permissions, permissions.* (named permission profiles: filesystem, network, workspace_roots) | reserve | (no total order between profiles) | TF §6.6 (exists; detail UNVERIFIED) |
+| allow_login_shell | floor | false > true | UNVERIFIED (schema) |
+| web_search (top and profiles.*), tools.web_search | floor | disabled > cached > indexed > live | UNVERIFIED (schema enum) |
+| projects.*.trust_level | reserve | (a layer must not mark a project trusted) | UNVERIFIED (TF §0.1 mentions trust only as a test setup) |
+| plugins, marketplaces | reserve (the Codex counterparts of enabledPlugins and extraKnownMarketplaces) | n/a | UNVERIFIED (schema) |
+| apps (connector tool approval: auto, prompt, writes, approve) | reserve | (no order across connectors) | UNVERIFIED (schema) |
+| windows.sandbox | reserve | (elevated, unelevated, mxc: no order) | UNVERIFIED (schema) |
+| notify, model_provider, model_providers, openai_base_url, chatgpt_base_url, otel | reserve | (run a program or route traffic; several cannot be set at project level) | TF §6.6 (notify, model_provider and otel cannot be set at project level, DOCS); the rest UNVERIFIED |
+| shell_environment_policy | existing protected-variable check (§7.9) | n/a | TF §12 item 15 |
+
+Questions for the owner, each with a recommendation:
+1. The `claude.permissions` block is reserved as a whole. So disableBypassPermissionsMode, blockReadsOutsideWorkingDirectories and blockWritesOutsideWorkingDirectories cannot be set at all today. Recommended: make them first-class in permissions.yaml as floor fields (disable_bypass_mode, block_reads_outside, block_writes_outside; true sticks). additionalDirectories is already the manifest's workspace.add_dirs. Alternative: leave them unreachable.
+2. Reserving enabledPlugins contradicts decision-5's title ("community skills as Claude Code plugins declared in a layer's settings.yaml enabledPlugins"). No layer or fixture here uses it. Recommended: a superseding decision with a first-class plugin item behind an allowlist in the manifest, like mcp.enable. Alternative: reserve now and decide plugins later.
+3. An agent's native `claude.mcpServers` (and per-agent `hooks`) can bring MCP servers and hooks past the mcp.enable allowlist and hooks.yaml. Recommended: refuse them in native fields too, or route them through the same allowlists.
+4. How a floor list refuses changes: "no additions" lists cannot be narrowed either, because settings.yaml has no removal syntax. Recommended: accept that for now; a `-[...]` form for settings can come later.
+5. Every UNVERIFIED row needs a target-facts entry first. Recommended: one docs task that records them at DOCS level from the two sources above, before R5's adapter relies on any of them.
+
+Owner answers on the security-key list (2026-11-23): (1) the architect's draft list is approved as written: floors (only stricter down the stack; a looser value is a settings error naming the layer, file and key path; 'no additions' and 'union' lists; a kind change refused for floor keys) and reserved keys; every unverified key is recorded in docs/target-facts.md through a docs task before R5's adapter relies on it; (2) disableBypassPermissionsMode and the block-reads/writes-outside-working-directories keys become first-class floor fields of permissions.yaml (once true, stays true); (3) enabledPlugins and extraKnownMarketplaces are reserved now; a decision superseding decision-5 and a later task plan a first-class plugin item behind a manifest allowlist; (4) claude.mcpServers and per-agent hooks in an agent's native fields are refused (servers and hooks come only through mcp.yaml and hooks.yaml). Lead: 'no additions' lists cannot be narrowed either (no removal syntax), accepted for now.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
