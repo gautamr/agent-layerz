@@ -27,6 +27,12 @@ pub(super) mod paths {
     pub(super) const CODEX_SERVER_ENV: &str = "codex.mcp_servers.env";
     /// The `env_from` of a server of `mcp.yaml`.
     pub(in crate::item) const MCP_ENV_FROM: &str = "mcp.env_from";
+    /// The root `env` of a passthrough JSON file.
+    pub(in crate::item) const FILE_ENV: &str = "env";
+    /// An `env` mapping nested anywhere below the root of a passthrough JSON file.
+    pub(in crate::item) const FILE_NESTED_ENV: &str = "a nested env";
+    /// The `env` of a server under `mcpServers` in a passthrough file.
+    pub(super) const FILE_SERVER_ENV: &str = "mcpServers.env";
     /// A `shell_environment_policy` under `codex`.
     pub(super) const POLICY: &str = "codex.shell_environment_policy";
     pub(super) const POLICY_SET: &str = "codex.shell_environment_policy.set";
@@ -69,6 +75,9 @@ pub(super) enum ServerField {
     Claude,
     /// `codex.mcp_servers`: a map of name to definition.
     Codex,
+    /// `mcpServers` at the root of a passthrough JSON file or of a passthrough agent file's
+    /// frontmatter: shaped as for Claude, named by itself.
+    File,
 }
 
 impl ServerField {
@@ -76,6 +85,7 @@ impl ServerField {
         match self {
             Self::Claude => "claude.mcpServers",
             Self::Codex => "codex.mcp_servers",
+            Self::File => "mcpServers",
         }
     }
 
@@ -83,6 +93,7 @@ impl ServerField {
         match self {
             Self::Claude => paths::CLAUDE_SERVER_ENV,
             Self::Codex => paths::CODEX_SERVER_ENV,
+            Self::File => paths::FILE_SERVER_ENV,
         }
     }
 }
@@ -99,7 +110,7 @@ pub(super) fn server_envs(
     let path = field.env_path();
     let definitions: Result<Vec<&Tree>, Diagnostics> = match (servers, field) {
         (None | Some(Tree::Null), _) => Ok(Vec::new()),
-        (Some(Tree::List(items)), ServerField::Claude) => Ok(items
+        (Some(Tree::List(items)), ServerField::Claude | ServerField::File) => Ok(items
             .iter()
             .filter_map(|item| match item {
                 Tree::Map(entries) => Some(entries.values()),
@@ -112,16 +123,17 @@ pub(super) fn server_envs(
             })
             .flatten()
             .collect()),
-        (Some(Tree::Map(entries)), ServerField::Claude | ServerField::Codex) => {
-            Ok(entries.values().collect())
-        }
+        (
+            Some(Tree::Map(entries)),
+            ServerField::Claude | ServerField::Codex | ServerField::File,
+        ) => Ok(entries.values().collect()),
         (
             Some(Tree::Bool(_) | Tree::Int(_) | Tree::Float(_) | Tree::Text(_) | Tree::List(_)),
-            ServerField::Claude | ServerField::Codex,
+            ServerField::Claude | ServerField::Codex | ServerField::File,
         ) => Err(wrong_shape(
             field.path(),
             match field {
-                ServerField::Claude => " must be a mapping or a list",
+                ServerField::Claude | ServerField::File => " must be a mapping or a list",
                 ServerField::Codex => " must be a mapping",
             },
             shape,
@@ -236,7 +248,11 @@ fn name_problem(key: &str, path: &'static str, at: &Where) -> Option<Diagnostic>
     }
 }
 
-fn refused(path: &'static str, variable: &'static str, at: &Where) -> Diagnostic {
+pub(in crate::item) fn refused(
+    path: &'static str,
+    variable: &'static str,
+    at: &Where,
+) -> Diagnostic {
     Diagnostic::error(
         Code::ProtectedVariable,
         Some(at.clone()),
@@ -247,7 +263,7 @@ fn refused(path: &'static str, variable: &'static str, at: &Where) -> Diagnostic
     )
 }
 
-fn unchecked(path: &'static str, why: &'static str, at: &Where) -> Diagnostics {
+pub(in crate::item) fn unchecked(path: &'static str, why: &'static str, at: &Where) -> Diagnostics {
     Diagnostics::new().with(Diagnostic::error(
         Code::ProtectedVariable,
         Some(at.clone()),

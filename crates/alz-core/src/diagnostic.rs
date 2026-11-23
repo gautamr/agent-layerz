@@ -130,6 +130,9 @@ pub enum Code {
     /// A protected or malformed variable name, or a list or map of variables that cannot be
     /// checked (§7.9).
     ProtectedVariable,
+    /// A passthrough file, a warning for each use, or a file below a folder of `targets/` that is
+    /// not a known target, an error (§7.11, §4.1).
+    Passthrough,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -179,6 +182,7 @@ impl Code {
             Self::Models => "models",
             Self::LeakSecret => "leak-secret",
             Self::ProtectedVariable => "protected-variable",
+            Self::Passthrough => "passthrough",
             Self::Unresolved => "unresolved",
         }
     }

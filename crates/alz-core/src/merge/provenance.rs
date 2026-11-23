@@ -86,6 +86,12 @@ impl<T> Traced<T> {
         }
     }
 
+    /// A value with the contributions that made it, for a merge that builds the provenance itself.
+    #[must_use]
+    pub(crate) const fn with_provenance(value: T, provenance: Provenance) -> Self {
+        Self { value, provenance }
+    }
+
     /// The value after a more specific layer changed it to `value`.
     #[must_use]
     pub fn revised(self, value: T, layer: LayerName, action: Action) -> Self {
