@@ -5,7 +5,8 @@
 //! - [`Stripped`], class 1, for diagnostics: control and format characters are removed;
 //! - [`Escaped`], class 2, for text a person decides on: nothing is removed, every character that
 //!   is not printable ASCII is written as an escape;
-//! - [`QuotedKey`], a key name taken from the input, stripped, cut and quoted (decision-28).
+//! - [`QuotedKey`], a key name taken from the input, stripped, cut and quoted, with a single quote
+//!   inside it doubled (decision-28, spec §10.1).
 //!
 //! Class 3, usage output, stays in the binary, which strips each argument fragment with
 //! [`Stripped`].
@@ -123,8 +124,10 @@ fn escape(character: char) -> String {
 
 /// A key name taken from the input, as a diagnostic prints it (decision-28, spec §10.1): stripped,
 /// cut after 64 code points counted after stripping, with `…` added when it is cut, and shown in
-/// single quotes. It is the only text from the input that a YAML, JSON or schema diagnostic may
-/// hold.
+/// single quotes. A single quote inside the key is written twice, as in a YAML single-quoted
+/// scalar (`it's` is shown as `'it''s'`), so the key cannot close its own quotes and pass the rest
+/// as message text. The cut counts the key's own code points, never the doubled quotes. It is the
+/// only text from the input that a YAML, JSON or schema diagnostic may hold.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct QuotedKey {
     /// At most [`QUOTED_KEY_LIMIT`] code points, the first of the stripped key.
@@ -147,7 +150,8 @@ impl QuotedKey {
 impl fmt::Display for QuotedKey {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ellipsis = if self.cut { "…" } else { "" };
-        write!(formatter, "'{}{ellipsis}'", self.shown)
+        let doubled = self.shown.as_str().replace('\'', "''");
+        write!(formatter, "'{doubled}{ellipsis}'")
     }
 }
 
@@ -250,6 +254,30 @@ mod tests {
     }
 
     #[test]
+    fn a_single_quote_inside_a_key_is_doubled_so_the_key_cannot_close_its_quotes() {
+        assert_eq!(QuotedKey::from_untrusted("a'b").to_string(), "'a''b'");
+        assert_eq!(
+            QuotedKey::from_untrusted("x': forged '").to_string(),
+            "'x'': forged '''"
+        );
+        assert_eq!(QuotedKey::from_untrusted("'").to_string(), "''''");
+    }
+
+    #[test]
+    fn a_key_with_a_backslash_is_shown_as_it_is() {
+        assert_eq!(QuotedKey::from_untrusted(r"a\'b").to_string(), r"'a\''b'");
+    }
+
+    #[test]
+    fn the_cut_counts_the_keys_own_code_points_not_the_doubled_quotes() {
+        let key = "'".repeat(65);
+        assert_eq!(
+            QuotedKey::from_untrusted(&key).to_string(),
+            format!("'{}…'", "''".repeat(64))
+        );
+    }
+
+    #[test]
     fn an_empty_key_is_two_quotes() {
         assert_eq!(QuotedKey::from_untrusted("\u{1b}").to_string(), "''");
     }
@@ -293,7 +321,7 @@ mod tests {
 
     /// Text drawn from every code point, and from the characters that matter to the escapes.
     fn any_text() -> impl Strategy<Value = String> {
-        proptest::prop_oneof![any::<String>(), "[a\\\\\"u{}0-9A-F\u{e9}\u{200b}\n]{0,12}"]
+        proptest::prop_oneof![any::<String>(), "[a\\\\\"'u{}0-9A-F\u{e9}\u{200b}\n]{0,12}"]
     }
 
     proptest! {
@@ -327,6 +355,10 @@ mod tests {
             let inner = printed.strip_prefix('\'').and_then(|rest| rest.strip_suffix('\''));
             prop_assert!(inner.is_some());
             let inner = inner.unwrap_or_default();
+            // Every single quote inside is one of a pair, so the key cannot close its quotes.
+            let undoubled = inner.replace("''", "'");
+            prop_assert!(!inner.replace("''", "").contains('\''));
+            let inner = undoubled.as_str();
             let stripped_length = stripped(&key).chars().count();
             let cut = stripped_length > 64;
             prop_assert_eq!(inner.chars().count(), stripped_length.min(64) + usize::from(cut));

@@ -8,6 +8,7 @@
 
 use std::io::{self, Write};
 
+use alz_core::Diagnostics;
 use clap::Error;
 use clap::builder::StyledStr;
 use clap::error::{ContextKind, ContextValue};
@@ -24,6 +25,28 @@ const WRITE_FAILED: u8 = 1;
 
 /// Exit code of a usage error (decision-26).
 const USAGE_ERROR: u8 = 2;
+
+/// Exit code of a run that reports at least one error diagnostic (decision-26).
+const FAILED: u8 = 1;
+
+/// Writes every diagnostic of a run to standard error, one line each, and returns the exit code
+/// they give: 0 when none is an error, 1 when any is, so warnings alone do not fail a command
+/// (spec §10.1). When standard error cannot be written there is nowhere left to say so; the exit
+/// code is [`WRITE_FAILED`] then.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "alz lint (TASK-55.3.10) is the first command to report diagnostics"
+    )
+)]
+pub fn emit_diagnostics(diagnostics: &Diagnostics, stderr: &mut impl Write) -> u8 {
+    match write_through(stderr, &diagnostics.to_string()) {
+        Ok(()) if diagnostics.has_errors() => FAILED,
+        Ok(()) => SUCCESS,
+        Err(_) => WRITE_FAILED,
+    }
+}
 
 /// The standard stream clap's output belongs on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -125,9 +148,10 @@ fn strip_styled(text: &StyledStr) -> StyledStr {
 mod tests {
     use std::io::{self, Write};
 
+    use alz_core::{Code, Diagnostic, Diagnostics, Message};
     use clap::{CommandFactory, Parser};
 
-    use super::{Rendered, Stream};
+    use super::{Rendered, Stream, emit_diagnostics};
     use crate::cli::Cli;
 
     /// A stream that fails every write, as a closed pipe does.
@@ -233,5 +257,32 @@ mod tests {
         assert_eq!(rendered.emit(&mut stdout, &mut stderr), 2);
         assert_eq!(String::from_utf8_lossy(&stdout), "");
         assert_eq!(String::from_utf8_lossy(&stderr), rendered.text);
+    }
+
+    #[test]
+    fn diagnostics_with_an_error_go_to_stderr_one_line_each_and_exit_one() {
+        let diagnostics = Diagnostics::new()
+            .with(Diagnostic::warning(Code::Lock, None, "stale".into()))
+            .with(Diagnostic::error(Code::Yaml, None, Message::new("bad")));
+        let mut stderr = Vec::new();
+        assert_eq!(emit_diagnostics(&diagnostics, &mut stderr), 1);
+        assert_eq!(
+            String::from_utf8_lossy(&stderr),
+            "warning [lock] stale\nerror [yaml] bad\n"
+        );
+    }
+
+    #[test]
+    fn warnings_alone_exit_zero() {
+        let diagnostics =
+            Diagnostics::new().with(Diagnostic::warning(Code::Lock, None, "x".into()));
+        assert_eq!(emit_diagnostics(&diagnostics, &mut Vec::new()), 0);
+    }
+
+    #[test]
+    fn diagnostics_that_cannot_be_written_exit_one() {
+        let diagnostics =
+            Diagnostics::new().with(Diagnostic::warning(Code::Lock, None, "x".into()));
+        assert_eq!(emit_diagnostics(&diagnostics, &mut Broken), 1);
     }
 }
