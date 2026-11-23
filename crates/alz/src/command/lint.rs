@@ -3,17 +3,19 @@
 //!
 //! The command wires three parts: `alz-io` reads `layer.yaml` and `layer.lock` without following
 //! links and with a size cap and resolves the stack's layers, `alz_core::lint` decides what is
-//! wrong, and [`crate::report`] prints it. It checks what is modelled so far (the schema of a
-//! layer, the stack manifest and lock, and the resolution of the stack's layers) and the leak
-//! guard of each public layer (§9.2); the rest of the checks arrive with R5.
+//! wrong, and [`crate::report`] prints it. It checks the schema of a layer, the stack manifest and
+//! lock, the resolution of the stack's layers, the leak guard of each public layer (§9.2) and
+//! what the reader of each kind of item finds in each layer alone (§10).
 
 use std::io::{self, Write};
 use std::path::Path;
 
-use alz_core::layer::{LayerContents, Purpose, ReadLayer, Visibility, scan_verdict};
+use alz_core::layer::{LayerContents, Purpose, ReadLayer, scan_verdict};
 use alz_core::lint::{self, LayerLint, LockFile};
+use alz_core::merge::check_alone;
 use alz_core::path::{SafeRelPath, SafeRelPathError};
 use alz_core::stack::resolution_failure::layer_unreadable;
+use alz_core::stack::{ResolvedLayer, Source};
 use alz_core::yaml::MAX_BYTES;
 use alz_core::{Diagnostic, Diagnostics, Stripped, leak_guard};
 use alz_io::{EnvSnapshot, ReadError, ReadOnlyDir, StackResolver, WorkingDirectory};
@@ -86,8 +88,9 @@ fn lint_working_directory(surroundings: Surroundings<'_>) -> Outcome {
     }
 }
 
-/// A layer alone: its `layer.yaml`, then, when the layer is public, the leak guard over every file
-/// of the directory (§9.2).
+/// A layer alone: its `layer.yaml`, then, when the layer is valid, the checks over every file of
+/// the directory: the leak guard when the layer is public (§9.2) and the readers of every kind
+/// (§10).
 fn layer_outcome(
     directory: &Path,
     source: &Stripped,
@@ -96,7 +99,7 @@ fn layer_outcome(
     match read {
         Ok(document) => {
             let linted: LayerLint = lint::layer(source, document);
-            let linted = match guard_of(directory, source, &linted) {
+            let linted = match files_of(directory, source, &linted) {
                 Some(found) => linted.with_diagnostics(found),
                 None => linted,
             };
@@ -112,16 +115,27 @@ fn layer_outcome(
     }
 }
 
-/// The leak guard's findings for a valid public layer in `directory`, or the one problem that kept
-/// its files from being read; `None` for a layer that is invalid or not public.
-fn guard_of(directory: &Path, source: &Stripped, linted: &LayerLint) -> Option<Diagnostics> {
-    let meta = linted
-        .meta()
-        .filter(|meta| meta.visibility() == Visibility::Public)?;
+/// What the files of a valid layer in `directory` show, or the one problem that kept them from
+/// being read; `None` for a layer that is invalid.
+fn files_of(directory: &Path, source: &Stripped, linted: &LayerLint) -> Option<Diagnostics> {
+    let meta = linted.meta()?;
     Some(read_contents(directory, source).map_or_else(
         |unreadable| Diagnostics::new().with(unreadable),
-        |contents| leak_guard::check(meta, &contents),
+        |contents| {
+            checked_alone(&ResolvedLayer::new(
+                Source::working_directory(),
+                meta.clone(),
+                contents,
+                None,
+            ))
+        },
     ))
+}
+
+/// The leak guard over a layer's files, then what its readers find in them, each layer alone: a
+/// reference to a more general layer is not checked (§10).
+fn checked_alone(layer: &ResolvedLayer) -> Diagnostics {
+    leak_guard::check(layer.meta(), layer.contents()).merge(check_alone(layer))
 }
 
 /// Every file of the layer in `directory`, read as a build reads it (§6, §7.13): no link is
@@ -169,7 +183,7 @@ fn lint_stack(
                     let guarded = report
                         .resolved_layers()
                         .iter()
-                        .map(|layer| leak_guard::check(layer.meta(), layer.contents()))
+                        .map(checked_alone)
                         .fold(Diagnostics::new(), Diagnostics::merge);
                     Outcome {
                         summary: Some(joined(report.names())),
