@@ -2,9 +2,12 @@
 //! answer 1 of TASK-55.4, TASK-70).
 //!
 //! A program that can open `/dev/tty` can prompt there, outside alz's output and its
-//! sanitising. The runner therefore starts a copy of this program, with [`INTERNAL_ARGUMENT`]
-//! and its own process id first. The copy, called early in `main` through [`run_if_requested`],
-//! starts a new session with `setsid` and then runs `git` as its child, in that session. A session
+//! sanitising. The runner therefore starts a copy of this program, with [`INTERNAL_ARGUMENT`],
+//! its own process id and the absolute path of git first. The copy, called early in `main`
+//! through [`run_if_requested`], starts a new session with `setsid`, tells the runner so with one
+//! byte, [`READY_BYTE`], on its standard output, and then runs that git as its child, in that
+//! session. The runner treats the copy's process group as git's only after it has read the byte,
+//! because before that the copy is not yet the leader of a group of its own. A session
 //! leader without a terminal has no controlling terminal, and neither does anything it starts, so
 //! git and `ssh` get ENXIO from `/dev/tty`. The copy is not a process group leader when it calls
 //! `setsid`, which is what makes the call succeed. All of this is safe code: `rustix` wraps the
@@ -19,7 +22,7 @@ use std::ffi::OsString;
 use std::io::{self, Write};
 use std::num::NonZero;
 use std::os::unix::process::ExitStatusExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitCode, ExitStatus};
 use std::thread;
 use std::time::Duration;
@@ -34,6 +37,10 @@ const LONGEST_WAIT: Duration = Duration::from_millis(25);
 /// The first argument of the copy. It is not part of the command-line interface: it runs `git`
 /// and no other program, with the arguments that follow.
 const INTERNAL_ARGUMENT: &str = "--alz-internal-run-git-without-terminal";
+
+/// The one byte that the copy writes to its standard output once it has started its session. It
+/// comes before anything git writes, and the runner takes it off the stream.
+pub(super) const READY_BYTE: u8 = 0x06;
 
 /// The exit status of a copy that could not run git, as a shell's "command not found".
 pub(super) const COULD_NOT_RUN_GIT: u8 = 127;
@@ -59,13 +66,15 @@ impl Launcher {
         Self(executable.into())
     }
 
-    /// The command that starts the copy, which then runs git with `git_arguments`. The copy is
-    /// told this process's id, so that it can tell when this process is gone.
-    pub(super) fn command(&self, git_arguments: &[OsString]) -> Command {
+    /// The command that starts the copy, which then runs `git`, an absolute path, with
+    /// `git_arguments`. The copy is told this process's id, so that it can tell when this process
+    /// is gone.
+    pub(super) fn command(&self, git: &Path, git_arguments: &[OsString]) -> Command {
         let mut command = Command::new(&self.0);
         command
             .arg(INTERNAL_ARGUMENT)
             .arg(std::process::id().to_string())
+            .arg(git)
             .args(git_arguments);
         command
     }
@@ -81,20 +90,35 @@ pub fn run_if_requested() -> Option<ExitCode> {
         let parent = arguments
             .next()
             .and_then(|text| text.to_str().and_then(|text| text.parse::<i32>().ok()));
-        supervise_git(parent, arguments.collect())
+        let git = arguments.next().map(PathBuf::from);
+        supervise_git(parent, git, arguments.collect())
     })
 }
 
-/// Runs `git` in a new session and waits for it, ending its whole process group when `parent`,
-/// the process that asked for the call, is gone.
-fn supervise_git(parent: Option<i32>, git_arguments: Vec<OsString>) -> ExitCode {
-    let started = setsid()
-        .map_err(|error| ("cannot start a new session", io::Error::from(error)))
-        .and_then(|_session| {
-            Command::new("git")
-                .args(git_arguments)
-                .spawn()
-                .map_err(|error| ("cannot run git", error))
+/// Runs `git`, an absolute path, in a new session and waits for it, ending its whole process
+/// group when `parent`, the process that asked for the call, is gone.
+fn supervise_git(
+    parent: Option<i32>,
+    git: Option<PathBuf>,
+    git_arguments: Vec<OsString>,
+) -> ExitCode {
+    let started = git
+        .ok_or((
+            "cannot run git",
+            io::Error::other("no path of git was given"),
+        ))
+        .and_then(|git| {
+            setsid()
+                .map_err(|error| ("cannot start a new session", io::Error::from(error)))
+                .and_then(|_session| {
+                    announce_session().map_err(|error| ("cannot tell the caller", error))
+                })
+                .and_then(|()| {
+                    Command::new(git)
+                        .args(git_arguments)
+                        .spawn()
+                        .map_err(|error| ("cannot run git", error))
+                })
         });
     match started {
         Ok(git) => wait_for(git, parent),
@@ -105,6 +129,13 @@ fn supervise_git(parent: Option<i32>, git_arguments: Vec<OsString>) -> ExitCode 
             ExitCode::from(COULD_NOT_RUN_GIT)
         }
     }
+}
+
+/// Writes [`READY_BYTE`] to the standard output, where the caller reads it first.
+fn announce_session() -> io::Result<()> {
+    let mut stdout = io::stdout();
+    stdout.write_all(&[READY_BYTE])?;
+    stdout.flush()
 }
 
 /// Whether the process that started this copy is still its parent. A process whose parent ended

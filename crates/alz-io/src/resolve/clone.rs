@@ -7,6 +7,7 @@
 //! read or move what git made is `cache` ("cannot store"), never a fetch failure.
 
 use std::ffi::OsStr;
+use std::fmt;
 use std::path::PathBuf;
 
 use alz_core::cache::{CacheLocation, EntryName};
@@ -18,7 +19,7 @@ use alz_core::stack::resolution_failure::{
     cache_differs_from_clone, cache_differs_from_lock, cannot_fetch, cannot_store,
 };
 use alz_core::stack::{CloneOrigin, GitRef, Source};
-use alz_core::{Diagnostic, Stripped};
+use alz_core::{Diagnostic, Diagnostics, Stripped};
 
 use crate::fs::{CacheDir, CacheError, Dir, Published, TempEntry};
 use crate::git::{GitFailure, GitRunner, ReadScope};
@@ -65,12 +66,38 @@ pub struct FetchedLayer {
     pub read: ReadHow,
 }
 
+/// How a fetcher gets git: a runner that exists, or one that is made when a source needs a
+/// clone, which is the first time and never for a layer read from the cache.
+#[derive(Clone, Copy)]
+enum GitAccess<'a> {
+    Ready(&'a GitRunner),
+    OnDemand(&'a dyn Fn() -> Result<&'a GitRunner, Diagnostics>),
+}
+
+impl fmt::Debug for GitAccess<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Ready(_) => "GitAccess::Ready",
+            Self::OnDemand(_) => "GitAccess::OnDemand",
+        })
+    }
+}
+
+impl<'a> GitAccess<'a> {
+    fn runner(self) -> Result<&'a GitRunner, Diagnostics> {
+        match self {
+            Self::Ready(runner) => Ok(runner),
+            Self::OnDemand(make) => make(),
+        }
+    }
+}
+
 /// Resolves `git:` and `github:` layers into the cache.
 #[derive(Debug, Clone, Copy)]
 pub struct Fetcher<'a> {
     cache: &'a CacheDir,
     location: &'a CacheLocation,
-    git: &'a GitRunner,
+    git: GitAccess<'a>,
 }
 
 /// The outcome of one step, with the diagnostic of its failure.
@@ -83,7 +110,23 @@ impl<'a> Fetcher<'a> {
         Self {
             cache,
             location,
-            git,
+            git: GitAccess::Ready(git),
+        }
+    }
+
+    /// A fetcher that uses `cache`, found at `location`, and calls `git` for the runner when a
+    /// source needs a clone. A layer that the lock pins and the cache holds is read without
+    /// calling it, so git is neither started nor asked for its version.
+    #[must_use]
+    pub const fn on_demand(
+        cache: &'a CacheDir,
+        location: &'a CacheLocation,
+        git: &'a dyn Fn() -> Result<&'a GitRunner, Diagnostics>,
+    ) -> Self {
+        Self {
+            cache,
+            location,
+            git: GitAccess::OnDemand(git),
         }
     }
 
@@ -97,16 +140,16 @@ impl<'a> Fetcher<'a> {
     ///
     /// # Errors
     ///
-    /// The diagnostic of the failure: `source` for a failed clone, `rev-parse` or checkout;
+    /// The diagnostics of the failure: `source` for a failed clone, `rev-parse` or checkout;
     /// `layer` for a name that is not valid UTF-8; `cache` for an entry that differs from the
     /// lock or from a fresh clone, an entry that is a link, or a clone that cannot be read or
     /// moved into the cache.
-    pub fn resolve(&self, layer: &GitLayer<'_>) -> Result<FetchedLayer, Diagnostic> {
+    pub fn resolve(&self, layer: &GitLayer<'_>) -> Result<FetchedLayer, Diagnostics> {
         let pinned = layer
             .locked
             .and_then(|locked| locked.sha.map(|sha| (locked, sha)));
         match pinned {
-            Some((locked, sha)) => match self.cached(layer, locked, sha)? {
+            Some((locked, sha)) => match self.cached(layer, locked, sha).map_err(single)? {
                 Some(hit) => Ok(hit),
                 None => self.clone_and_publish(layer, Some(sha)),
             },
@@ -225,9 +268,20 @@ impl<'a> Fetcher<'a> {
         cannot_fetch(Self::source_text(layer), line)
     }
 
-    /// Steps 2 and 3.
+    /// Steps 2 and 3, with git made first: a git that cannot be used stops the source before
+    /// anything is written to the cache.
     fn clone_and_publish(
         &self,
+        layer: &GitLayer<'_>,
+        locked_sha: Option<ObjectId>,
+    ) -> Result<FetchedLayer, Diagnostics> {
+        let git = self.git.runner()?;
+        self.clone_with(git, layer, locked_sha).map_err(single)
+    }
+
+    fn clone_with(
+        &self,
+        git: &GitRunner,
         layer: &GitLayer<'_>,
         locked_sha: Option<ObjectId>,
     ) -> Step<FetchedLayer> {
@@ -235,20 +289,18 @@ impl<'a> Fetcher<'a> {
             TempEntry::create(self.cache).map_err(|error| self.cache_failure(layer, error))?;
         let clone = PathBuf::from(self.cache.real_path().as_str()).join(temp.name());
         let fail = |failure: GitFailure| Self::fetch_failure(layer, &failure);
-        self.git
-            .clone_source(
-                layer.origin.transport(),
-                OsStr::new(layer.origin.argument()),
-                &clone,
-            )
-            .map_err(fail)?;
+        git.clone_source(
+            layer.origin.transport(),
+            OsStr::new(layer.origin.argument()),
+            &clone,
+        )
+        .map_err(fail)?;
         let rev = locked_sha.map_or_else(|| layer.git_ref.clone(), |sha| GitRef::of_commit(&sha));
-        let commit = self
-            .git
+        let commit = git
             .rev_parse_commit(&clone, ReadScope::CacheEntry, &rev)
             .map_err(fail)?
             .ok_or_else(|| cannot_fetch(Self::source_text(layer), None))?;
-        self.git.checkout(&clone, &commit).map_err(fail)?;
+        git.checkout(&clone, &commit).map_err(fail)?;
         let (files, env_files) = self.read(layer, temp.dir())?;
         let name = EntryName::Git {
             key: layer.origin.key(),
@@ -286,4 +338,8 @@ impl<'a> Fetcher<'a> {
             }
         }
     }
+}
+
+fn single(diagnostic: Diagnostic) -> Diagnostics {
+    Diagnostics::new().with(diagnostic)
 }

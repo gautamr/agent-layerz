@@ -4,6 +4,7 @@
 mod call;
 mod deadlines;
 mod detach;
+mod executable;
 mod failure;
 mod runner;
 mod spawn;

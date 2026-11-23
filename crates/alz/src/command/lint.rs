@@ -14,7 +14,7 @@ use alz_core::lint::{self, LayerLint, LockFile};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
 use alz_core::yaml::MAX_BYTES;
 use alz_core::{Diagnostic, Diagnostics, Stripped};
-use alz_io::{EnvSnapshot, ReadError, ReadOnlyDir, StackResolver};
+use alz_io::{EnvSnapshot, ReadError, ReadOnlyDir, StackResolver, WorkingDirectory};
 
 use crate::cli::LintArgs;
 use crate::report::emit_diagnostics;
@@ -31,10 +31,22 @@ struct Outcome {
     summary: Option<Stripped>,
 }
 
+/// Where and with what environment the command runs, both taken once when the process started.
+#[derive(Debug, Clone, Copy)]
+pub struct Surroundings<'a> {
+    pub env: &'a EnvSnapshot,
+    pub directory: &'a WorkingDirectory,
+}
+
 /// Runs `alz lint`, writes the diagnostics to `stderr` and the summary to `stdout`, and returns
 /// the exit code.
-pub fn run(args: &LintArgs, stdout: &mut impl Write, stderr: &mut impl Write) -> u8 {
-    let outcome = lint(args);
+pub fn run(
+    args: &LintArgs,
+    surroundings: Surroundings<'_>,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> u8 {
+    let outcome = lint(args, surroundings);
     let code = emit_diagnostics(&outcome.diagnostics, stderr);
     match outcome.summary {
         Some(names) => write_summary(&names, &outcome.diagnostics, stdout).map_or(1, |()| code),
@@ -42,10 +54,10 @@ pub fn run(args: &LintArgs, stdout: &mut impl Write, stderr: &mut impl Write) ->
     }
 }
 
-fn lint(args: &LintArgs) -> Outcome {
+fn lint(args: &LintArgs, surroundings: Surroundings<'_>) -> Outcome {
     match &args.layer {
         Some(directory) => lint_layer_in(directory),
-        None => lint_working_directory(),
+        None => lint_working_directory(surroundings),
     }
 }
 
@@ -60,11 +72,13 @@ fn lint_layer_in(directory: &Path) -> Outcome {
 
 /// No `--layer`: a `layer.yaml` with a `stack` field is a repository's manifest, anything else
 /// is a layer (§10).
-fn lint_working_directory() -> Outcome {
+fn lint_working_directory(surroundings: Surroundings<'_>) -> Outcome {
     let directory = Path::new(WORKING_DIRECTORY);
     let source = given(directory);
     match read_layer_yaml(directory, &source).map(|bytes| lint::parse_document(&bytes)) {
-        Ok(Ok(document)) if lint::is_stack_manifest(&document) => lint_stack(directory, &document),
+        Ok(Ok(document)) if lint::is_stack_manifest(&document) => {
+            lint_stack(directory, &document, surroundings)
+        }
         read => layer_outcome(&source, read),
     }
 }
@@ -91,7 +105,11 @@ fn layer_outcome(
 /// A repository's stack: the manifest and the lock are read first, and when both are valid each
 /// entry is resolved (§6) and its `layer.yaml` read, then the stack is validated. A lock that
 /// cannot be read is reported as a lock error; a lock that does not exist is no lock.
-fn lint_stack(directory: &Path, manifest: &alz_core::yaml::Node) -> Outcome {
+fn lint_stack(
+    directory: &Path,
+    manifest: &alz_core::yaml::Node,
+    surroundings: Surroundings<'_>,
+) -> Outcome {
     let bytes = read_lock(directory);
     let lock = match &bytes {
         Ok(None) => LockFile::Absent,
@@ -104,8 +122,7 @@ fn lint_stack(directory: &Path, manifest: &alz_core::yaml::Node) -> Outcome {
             summary: None,
         },
         Ok(files) => {
-            let env = EnvSnapshot::capture();
-            match StackResolver::in_working_directory(&env) {
+            match StackResolver::in_working_directory(surroundings.env, surroundings.directory) {
                 Err(diagnostic) => Outcome {
                     diagnostics: Diagnostics::new().with(diagnostic),
                     summary: None,

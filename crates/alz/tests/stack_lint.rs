@@ -80,11 +80,21 @@ mod tests {
         }
 
         fn alz(&self) -> Run {
+            self.alz_with_path(&self.path_with_bin())
+        }
+
+        /// `alz lint` with a `PATH` that holds no git at all: only the empty `bin` folder.
+        fn alz_without_git(&self) -> Run {
+            assert!(!self.scratch.exists("bin/git"), "bin holds a git");
+            self.alz_with_path(self.path("bin").as_os_str())
+        }
+
+        fn alz_with_path(&self, path: &std::ffi::OsStr) -> Run {
             let mut command: Command = cargo_bin_cmd!("alz");
             let output = command
                 .current_dir(self.path("repo"))
                 .env_clear()
-                .env("PATH", self.path_with_bin())
+                .env("PATH", path)
                 .env("HOME", self.path("home"))
                 .env("XDG_CACHE_HOME", self.path("xdg"))
                 .env("GIT_CONFIG_NOSYSTEM", "1")
@@ -394,7 +404,9 @@ mod tests {
         world.lock(vec![locked(&source, Some(sha), &[("layer.yaml", LAYER)])]);
         // With the source repository gone, only the cache can answer.
         world.scratch.remove_tree("bare.git").expect("removed");
-        let run = world.alz();
+        // And with no git on PATH: a layer that the lock pins and the cache holds starts no git
+        // and asks for no version.
+        let run = world.alz_without_git();
         assert_eq!((run.code, run.stderr.as_str()), (0, ""));
         assert_eq!(run.stdout, "lint ok: team\n");
 
@@ -403,7 +415,7 @@ mod tests {
             Some(sha),
             &[("layer.yaml", "other\n")],
         )]);
-        let run = world.alz();
+        let run = world.alz_without_git();
         assert_eq!(run.code, 1);
         assert!(
             run.stderr.starts_with("error [cache] cached layer 'team'")
@@ -476,6 +488,8 @@ mod tests {
             "git:https://token-7f3a@host.example/x.git@v1",
             "git:ssh://git:token-7f3a@host.example/x.git@v1",
             "git:https://token-7f3a@host.example/x.git",
+            "git:me:token-7f3a@host.example/o/r",
+            "git:user:token-7f3a@host.example:repo@v1",
         ] {
             let world = World::new();
             plant_git_spy(&world);
@@ -497,6 +511,9 @@ mod tests {
         for source in [
             "git:ssh://git@host.example/x.git@v1",
             "git:git@host.example:o/x.git@v1",
+            "git:git@host.example:repo.git@v1",
+            "git:host.invalid:client.git@v1",
+            "git:x:y@v1",
         ] {
             let world = World::new();
             plant_git_spy(&world);
@@ -508,6 +525,26 @@ mod tests {
                 run.stderr
             );
         }
+    }
+
+    #[test]
+    fn a_transport_helper_url_is_a_manifest_error_and_git_never_runs() {
+        let world = World::new();
+        plant_git_spy(&world);
+        world.manifest(
+            "stack:\n  - source: \"git:ext::sh -c touch% /x@v1\"\n  - source: \"git:https::https://tok@host/x.git@v1\"\n",
+        );
+        let run = world.alz();
+        assert_eq!(run.code, 1);
+        assert_eq!(
+            run.stderr.matches("transport helper").count(),
+            2,
+            "{}",
+            run.stderr
+        );
+        assert!(!run.stderr.contains("tok@host"), "{}", run.stderr);
+        assert!(!world.scratch.exists("git-ran"));
+        assert!(!world.scratch.exists("xdg"));
     }
 
     #[test]

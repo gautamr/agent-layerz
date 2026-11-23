@@ -39,3 +39,13 @@ pub fn start_silently(
         .stderr(std::process::Stdio::null())
         .spawn()
 }
+
+/// Whether the tests run as the superuser. The superuser reads and writes whatever its mode says,
+/// so a test that takes a permission away cannot show what it claims and returns early.
+#[must_use]
+pub fn running_as_root() -> bool {
+    std::process::Command::new("id")
+        .arg("-u")
+        .output()
+        .is_ok_and(|output| output.stdout.trim_ascii() == b"0")
+}

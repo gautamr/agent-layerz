@@ -33,6 +33,9 @@ pub enum SourceError {
     /// A `git:` URL that holds credentials (§5.2 "Credentials in a source").
     #[error("a git: source holds credentials in its URL")]
     Credentials,
+    /// A `git:` URL that names a transport helper, `<helper>::<address>` (§5.2 "Transports").
+    #[error("the URL of a git: source names a transport helper")]
+    TransportHelper,
 }
 
 /// The message of a `git:` source that holds credentials (§5.2). It never prints the source.
@@ -51,6 +54,9 @@ impl SourceError {
             Self::UrlStartsWithDash => "must have a URL that does not start with '-'",
             Self::GitHubShape => "must be github:<owner>/<repo>@<ref>",
             Self::Credentials => CREDENTIALS_MESSAGE,
+            Self::TransportHelper => {
+                "must have a URL that is not a transport helper (<helper>::<address>)"
+            }
         }
     }
 }
@@ -74,8 +80,8 @@ impl SourceDir {
     }
 }
 
-/// The URL of a `git:` source as written: non-empty, not starting with `-`, and without
-/// credentials (§5.2).
+/// The URL of a `git:` source as written: non-empty, not starting with `-`, not a transport
+/// helper and without credentials (§5.2).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct GitUrl(String);
 
@@ -87,14 +93,41 @@ impl GitUrl {
     }
 }
 
-/// Whether `url` holds credentials, by §5.2:
-/// - an `http://` or `https://` URL with anything before an `@` in its authority;
-/// - any other URL, or a scp-like address, whose user part holds a `:`.
-fn holds_credentials(url: &str) -> bool {
-    match url
-        .split_once("://")
+/// Whether git would read `url` as `<helper>::<address>`: a run of ASCII letters, digits, `+`,
+/// `-` and `.` (possibly none) and then `::`. git then runs `git-remote-<helper>`, and for `ext`
+/// a command line; alz never uses a helper (§5.2 "Transports").
+fn names_transport_helper(url: &str) -> bool {
+    url.trim_start_matches(|character: char| {
+        character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')
+    })
+    .starts_with("::")
+}
+
+/// The URL of `spec`, which is `<url>[@<ref>]`: `spec` without its ref when the last `@` starts
+/// a ref that can be one (not empty, no `:`, no `/`), otherwise the whole `spec`. A `/` rules the
+/// split out because `me:token@host/o/r` must not read as the URL `me:token` and the ref
+/// `host/o/r` (§5.2 "Credentials in a source").
+fn address_of(spec: &str) -> &str {
+    spec.rsplit_once('@')
+        .filter(|(url, git_ref)| {
+            !url.is_empty() && !git_ref.is_empty() && !git_ref.contains([':', '/'])
+        })
+        .map_or(spec, |(url, _)| url)
+}
+
+/// The scheme and the rest of `text`, when `text` is `<scheme>://<rest>`.
+fn split_scheme(text: &str) -> Option<(&str, &str)> {
+    text.split_once("://")
         .filter(|(scheme, _)| !scheme.contains('/'))
-    {
+}
+
+/// Whether `url`, a `git:` URL without its ref, holds credentials, by §5.2:
+/// - a URL with `://`: an `http://` or `https://` URL with anything before an `@` in its
+///   authority, or any other scheme whose user part holds a `:`;
+/// - any other address, a scp-like `[user@]host:path`: a user part, which is what precedes the
+///   first `@` of its first `/`-separated segment, that holds a `:`.
+fn holds_credentials(url: &str) -> bool {
+    match split_scheme(url) {
         Some((scheme, rest)) => {
             let authority = rest.split(['/', '\\', '?', '#']).next().unwrap_or_default();
             let web = scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https");
@@ -105,9 +138,21 @@ fn holds_credentials(url: &str) -> bool {
         None => url
             .split('/')
             .next()
-            .and_then(|address| address.rsplit_once('@'))
+            .and_then(|segment| segment.split_once('@'))
             .is_some_and(|(user, _)| user.contains(':')),
     }
+}
+
+/// Whether the text after `git:`, which may end with `@<ref>`, holds credentials. A URL with
+/// `://` is checked whole, because without a ref its last `@` is the credentials' own. Any other
+/// text is checked without the ref it ends with, so `x:y@v1` is the address `x:y` and a ref,
+/// while `me:token@host/o/r` is checked whole.
+fn spec_holds_credentials(spec: &str) -> bool {
+    holds_credentials(if split_scheme(spec).is_some() {
+        spec
+    } else {
+        address_of(spec)
+    })
 }
 
 impl TryFrom<&str> for GitUrl {
@@ -116,6 +161,8 @@ impl TryFrom<&str> for GitUrl {
     fn try_from(text: &str) -> Result<Self, Self::Error> {
         if text.starts_with('-') {
             Err(SourceError::UrlStartsWithDash)
+        } else if names_transport_helper(text) {
+            Err(SourceError::TransportHelper)
         } else if holds_credentials(text) {
             Err(SourceError::Credentials)
         } else {
@@ -212,8 +259,12 @@ impl TryFrom<&str> for Source {
             })
         } else if let Some(spec) = text.strip_prefix("git:") {
             // The whole text is checked too: without a ref, the last `@` is the credentials' own
-            // and the split below would cut the URL at it (§5.2).
-            if holds_credentials(spec) {
+            // and the split below would cut the URL at it (§5.2). The transport is read from the
+            // start of the text, so a helper is refused before anything else is.
+            if names_transport_helper(spec) {
+                return Err(SourceError::TransportHelper);
+            }
+            if spec_holds_credentials(spec) {
                 return Err(SourceError::Credentials);
             }
             let (url, git_ref) = split_ref(spec)?;

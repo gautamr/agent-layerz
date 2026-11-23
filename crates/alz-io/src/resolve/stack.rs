@@ -25,13 +25,13 @@ use alz_core::stack::{
 use alz_core::yaml::MAX_BYTES;
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped};
 
-use crate::EnvSnapshot;
 use crate::fs::{CacheDir, Dir, ReadError, RepositoryPaths, WalkError};
-use crate::git::{Deadlines, GitRunner, GitRunnerError};
+use crate::git::{Deadlines, GitRunner};
 use crate::resolve::clone::{FetchedLayer, Fetcher, GitLayer};
 use crate::resolve::folders::{account_folders, real_path};
 use crate::resolve::locate::locate_git_source;
 use crate::resolve::pinned_tree::{PinnedLayer, PinnedRead, PinnedTreeReader};
+use crate::{EnvSnapshot, WorkingDirectory};
 
 /// Something made once, on the first use. A failure is told to the first user only: the entries
 /// that need it afterwards fail without a second report of the same cause.
@@ -79,20 +79,19 @@ pub struct StackResolver<'a> {
 }
 
 impl<'a> StackResolver<'a> {
-    /// A resolver for the repository in the working directory, with the account folders of `env`.
+    /// A resolver for the repository in `directory`, the working directory the command captured
+    /// when it started, with the account folders of `env`.
     ///
     /// # Errors
     ///
-    /// The error `source` when the working directory cannot be found.
-    pub fn in_working_directory(env: &'a EnvSnapshot) -> Result<Self, Diagnostic> {
-        std::env::current_dir()
-            .ok()
-            .and_then(|directory| {
-                directory
-                    .to_str()
-                    .and_then(|text| AbsolutePath::try_from(text).ok())
-            })
-            .map(|repository| Self::at(env, repository))
+    /// The error `source` when the working directory is not known.
+    pub fn in_working_directory(
+        env: &'a EnvSnapshot,
+        directory: &WorkingDirectory,
+    ) -> Result<Self, Diagnostic> {
+        directory
+            .path()
+            .map(|repository| Self::at(env, repository.clone()))
             .ok_or_else(|| {
                 Diagnostic::error(
                     Code::Source,
@@ -235,7 +234,7 @@ impl<'a> StackResolver<'a> {
     }
 
     /// A `git:` or `github:` layer: cloned into the cache once, or read from the entry the lock
-    /// pins.
+    /// pins, in which case git is not started.
     fn fetch(
         &self,
         source: &Source,
@@ -244,8 +243,10 @@ impl<'a> StackResolver<'a> {
         locked: Option<&LockedLayer>,
     ) -> Result<Found, Diagnostics> {
         let cache = self.cache()?;
-        let git = self.git()?;
-        Fetcher::new(&cache.dir, &cache.location, git)
+        // Git is made only when the source is cloned: a layer that the lock pins and the cache
+        // holds is read without it.
+        let git = || self.git();
+        Fetcher::on_demand(&cache.dir, &cache.location, &git)
             .resolve(&GitLayer {
                 source,
                 git_ref,
@@ -253,19 +254,11 @@ impl<'a> StackResolver<'a> {
                 locked,
             })
             .map(|layer| found_in_cache(layer, Diagnostics::new()))
-            .map_err(single)
     }
 
     fn git(&self) -> Result<&GitRunner, Diagnostics> {
         self.git.get(|| {
-            GitRunner::new(self.env, Deadlines::STANDARD).map_err(|error| match error {
-                GitRunnerError::Refused(refusal) => refusal.diagnostic(),
-                GitRunnerError::Executable(_) => Diagnostic::error(
-                    Code::Git,
-                    None,
-                    Message::new("alz cannot find its own executable, which it needs to run git"),
-                ),
-            })
+            GitRunner::new(self.env, Deadlines::STANDARD).map_err(|error| error.diagnostic())
         })
     }
 

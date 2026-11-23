@@ -124,6 +124,8 @@ const WITH_CREDENTIALS: [string, string][] = [
   ["a token as the user of an https URL", `git:https://${TOKEN}@host.invalid/x.git@v1`],
   ["a password in an ssh URL", `git:ssh://git:${TOKEN}@host.invalid/x.git@v1`],
   ["a token in an https URL without a ref", `git:https://${TOKEN}@host.invalid/x.git`],
+  ["a password in a scp-like address without a ref", `git:me:${TOKEN}@host.invalid/o/r`],
+  ["a password in a scp-like address before a ref", `git:user:${TOKEN}@host.invalid:repo@v1`],
 ];
 const CREDENTIALS_MESSAGE =
   "a git: source in layer.yaml holds credentials in its URL; remove them and use a git credential helper";
@@ -160,6 +162,8 @@ describe("a git: source with credentials (TASK-71)", () => {
   it.each([
     ["a user name in an ssh URL", "git:ssh://git@host.invalid/x.git@v1"],
     ["a user name in a scp-like address", "git:git@host.invalid:o/x.git@v1"],
+    ["a user name and a ref in a scp-like address", "git:git@host.invalid:repo.git@v1"],
+    ["a colon and a ref without a user in a scp-like address", "git:host.invalid:client.git@v1"],
   ])("does not refuse %s for credentials", async (_label, source) => {
     const ws = fixture("14-non-destructive");
     credentialStack(ws, source);
@@ -168,6 +172,37 @@ describe("a git: source with credentials (TASK-71)", () => {
     expect(result.stderr).not.toContain("holds credentials");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain(`cannot fetch '${source}'`);
+  });
+});
+
+// §5.2 "Transports" (TASK-55.4): a git: URL that names a transport helper, `<helper>::<address>`,
+// is refused at the manifest. git would run `git-remote-<helper>`, and `ext` runs a command.
+describe("a git: source that names a transport helper", () => {
+  describe.each([
+    ["lint", ["lint"]],
+    // alz build exists in the Rust alz from R5 (TASK-55.6); until then this form fails against it.
+    ["build", ["build"]],
+  ])("through alz %s", (_command, args) => {
+    describe.each([
+      ["ext", "git:ext::sh -c touch% PWNED@v1"],
+      ["an empty helper", "git:::x@v1"],
+      ["a helper in front of https", `git:https::https://${TOKEN}@host.invalid/x.git@v1`],
+    ])("%s", (_label, source) => {
+      referenceDrift("TASK-55.4", "is refused, and nothing is run or written", async () => {
+        const ws = fixture("14-non-destructive");
+        writeFileSync(
+          `${ws.root}/repo/layer.yaml`,
+          `stack:\n  - source: "${source}"\n  - source: path:./.layer\n`,
+        );
+        const files = readTree(ws.root);
+        const result = await layers(ws, "repo", args);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toMatch(/error \[manifest\].*transport helper/);
+        expect(existsSync(`${ws.root}/repo/PWNED`)).toBe(false);
+        expect(result.stdout + result.stderr).not.toContain(TOKEN);
+        expect(readTree(ws.root)).toEqual(files);
+      });
+    });
   });
 });
 

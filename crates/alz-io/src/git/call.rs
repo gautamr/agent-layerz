@@ -111,6 +111,13 @@ pub(super) enum Outcome {
     Contents(Vec<ObjectContent>),
 }
 
+/// The `-c` settings of a remote clone: no transport unless it is named, then https and ssh.
+const REMOTE_CLONE_CONFIGURATION: [&str; 3] = [
+    "protocol.allow=never",
+    "protocol.https.allow=always",
+    "protocol.ssh.allow=always",
+];
+
 fn os(text: &str) -> OsString {
     OsString::from(text)
 }
@@ -164,13 +171,25 @@ impl GitCall<'_> {
                 source,
                 destination,
             } => {
-                let guard = match transport {
-                    CloneTransport::Remote => vec![os("-c"), os("protocol.file.allow=never")],
-                    CloneTransport::Local => vec![],
+                // A remote clone may use https and ssh and nothing else, not even a transport
+                // that the user's configuration allows (spec §6 "Git subprocesses"); a local
+                // one goes through git's own transport and not a copy of the files, so that
+                // hard links never make the clone share the source's objects.
+                let (guard, local) = match transport {
+                    CloneTransport::Remote => (
+                        REMOTE_CLONE_CONFIGURATION
+                            .iter()
+                            .flat_map(|setting| [os("-c"), os(setting)])
+                            .collect(),
+                        vec![],
+                    ),
+                    CloneTransport::Local => (vec![], vec![os("--no-local")]),
                 };
                 [
                     guard,
-                    vec![os("clone"), os("--quiet"), os("--"), (*source).to_owned()],
+                    vec![os("clone"), os("--quiet")],
+                    local,
+                    vec![os("--"), (*source).to_owned()],
                     vec![destination.as_os_str().to_owned()],
                 ]
                 .concat()

@@ -12,11 +12,13 @@ use alz_core::git::{
 use alz_core::lock::ObjectId;
 use alz_core::path::SafeRelPath;
 use alz_core::stack::GitRef;
+use alz_core::{Code, Diagnostic, Message};
 use thiserror::Error;
 
 use super::call::{GitCall, Outcome, ReadScope};
 use super::deadlines::Deadlines;
 use super::detach::{COULD_NOT_RUN_GIT, Launcher};
+use super::executable::find_git;
 use super::failure::GitFailure;
 use super::spawn::{self, Invocation};
 use crate::EnvSnapshot;
@@ -24,12 +26,27 @@ use crate::EnvSnapshot;
 /// A runner that could not be made.
 #[derive(Debug, Error)]
 pub enum GitRunnerError {
-    /// The running executable, which starts git without a terminal, cannot be found.
-    #[error("cannot find the running executable")]
+    /// The running executable, which starts git without a terminal, cannot be found or started.
+    #[error("cannot find or start the running executable")]
     Executable(#[source] io::Error),
     /// The git on `PATH` is refused (spec §6 "Version").
     #[error("{0}")]
     Refused(#[from] VersionRefusal),
+}
+
+impl GitRunnerError {
+    /// The error `git` that the spec gives for it, with no location (§6 "Git subprocesses").
+    #[must_use]
+    pub fn diagnostic(&self) -> Diagnostic {
+        match self {
+            Self::Refused(refusal) => refusal.diagnostic(),
+            Self::Executable(_) => Diagnostic::error(
+                Code::Git,
+                None,
+                Message::new("alz cannot find its own executable, which it needs to run git"),
+            ),
+        }
+    }
 }
 
 /// Runs git for the sources of a stack. A runner exists only for a git that is at least
@@ -38,6 +55,8 @@ pub enum GitRunnerError {
 #[derive(Debug)]
 pub struct GitRunner {
     launcher: Launcher,
+    /// The absolute path of the git that was checked, and that every call runs.
+    git: PathBuf,
     environment: EnvVars,
     deadlines: Deadlines,
 }
@@ -52,43 +71,51 @@ impl GitRunner {
     /// # Errors
     ///
     /// [`GitRunnerError::Refused`] when git is older than 2.30, prints no version or cannot be
-    /// started; [`GitRunnerError::Executable`] when the running executable is not known.
+    /// found; [`GitRunnerError::Executable`] when the running executable is not known or cannot
+    /// be started.
     pub fn new(environment: &EnvSnapshot, deadlines: Deadlines) -> Result<Self, GitRunnerError> {
         let launcher = Launcher::current_exe().map_err(GitRunnerError::Executable)?;
-        Ok(Self::with_launcher(launcher, environment, deadlines)?)
+        Self::with_launcher(launcher, environment, deadlines)
     }
 
-    /// A runner that starts git through `launcher`, after checking the git version.
+    /// A runner that starts git through `launcher`, after checking the git version. The git is
+    /// the first executable `git` in an absolute folder of the snapshot's `PATH`, found once; the
+    /// version check runs that git, and so does every later call.
     ///
     /// # Errors
     ///
-    /// The [`VersionRefusal`] when git is older than 2.30, prints no version or cannot be started.
+    /// [`GitRunnerError::Refused`] with the [`VersionRefusal`] when no git is found, or git is
+    /// older than 2.30 or prints no version; [`GitRunnerError::Executable`] when `launcher`
+    /// cannot be started.
     pub fn with_launcher(
         launcher: Launcher,
         environment: &EnvSnapshot,
         deadlines: Deadlines,
-    ) -> Result<Self, VersionRefusal> {
+    ) -> Result<Self, GitRunnerError> {
+        let git = find_git(environment.vars().get("PATH")).ok_or(VersionRefusal::NotStarted)?;
         let runner = Self {
             launcher,
+            git,
             environment: environment.vars().clone(),
             deadlines,
         };
         match runner.run(&GitCall::Version) {
-            Ok(Outcome::Version(output)) => GitVersion::accept(&output).map(|_| runner),
+            Ok(Outcome::Version(output)) => Ok(GitVersion::accept(&output).map(|_| runner)?),
             Ok(_)
             | Err(
                 GitFailure::Io(_)
                 | GitFailure::TimedOut { .. }
                 | GitFailure::OutputTooLarge
                 | GitFailure::Unreadable(_),
-            ) => Err(VersionRefusal::Unreadable),
-            Err(GitFailure::Spawn(_)) => Err(VersionRefusal::NotStarted),
+            ) => Err(VersionRefusal::Unreadable.into()),
+            Err(GitFailure::Spawn(error)) => Err(GitRunnerError::Executable(error)),
             Err(GitFailure::Exited { status, .. }) => {
                 Err(if status.code() == Some(i32::from(COULD_NOT_RUN_GIT)) {
                     VersionRefusal::NotStarted
                 } else {
                     VersionRefusal::Unreadable
-                })
+                }
+                .into())
             }
         }
     }
@@ -98,6 +125,7 @@ impl GitRunner {
         let environment = child_environment(call.operation(), &self.environment);
         let completed = spawn::run(Invocation {
             launcher: &self.launcher,
+            git: &self.git,
             arguments: &arguments,
             environment: &environment,
             directory: call.directory(),

@@ -2,21 +2,26 @@
 //!
 //! The process is the launcher's copy of alz (see `detach`), started with a cleared environment,
 //! the null device or a pipe for standard input, and pipes for the other two streams. Each stream
-//! is handled on a thread of its own, so a full pipe can never stop git, and the caller waits on
+//! is read on a thread of its own, so a full pipe can never stop git, and the caller waits on
 //! channels with the one deadline. When the deadline passes, git's whole process group is ended.
+//!
+//! Once the copy has been waited for, its process id is never signalled again, because the system
+//! may have given the id to another process. The streams are then read for a short grace period
+//! only: a descendant of git that left the process group and keeps a pipe open (an `ssh` that
+//! stays on for later connections) does not hold the call until its deadline.
 
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::{Child, ExitStatus, Stdio};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use alz_core::env::EnvVars;
 use rustix::process::{Pid, Signal, kill_process, kill_process_group};
 
-use super::detach::Launcher;
+use super::detach::{Launcher, READY_BYTE};
 use super::failure::GitFailure;
 
 /// How much of git's standard error is kept: the first 64 KiB.
@@ -25,10 +30,21 @@ const STDERR_KEPT: u64 = 64 * 1024;
 /// How long to wait, after ending the process group, for git to be reaped.
 const REAP_GRACE: Duration = Duration::from_secs(5);
 
+/// How long the streams are read after the copy has ended, when a descendant keeps them open.
+const PIPE_GRACE: Duration = Duration::from_millis(500);
+
+/// How long, after the copy was ended, to wait for it to have announced its session.
+const ANNOUNCEMENT_GRACE: Duration = Duration::from_secs(1);
+
+/// What a read of a stream takes at a time.
+const CHUNK: usize = 8 * 1024;
+
 /// One process to run.
 #[derive(Debug)]
 pub(super) struct Invocation<'a> {
     pub launcher: &'a Launcher,
+    /// The absolute path of the git that the copy runs.
+    pub git: &'a Path,
     pub arguments: &'a [OsString],
     pub environment: &'a EnvVars,
     pub directory: Option<&'a Path>,
@@ -47,27 +63,18 @@ pub(super) struct Completed {
     pub stderr: Vec<u8>,
 }
 
-/// A stream read up to a limit.
-struct Capped {
-    bytes: Vec<u8>,
-    truncated: bool,
-}
-
-/// The first `limit` bytes of `pipe`; the rest is read to the end and dropped, so the writer never
-/// blocks.
-fn read_capped(mut pipe: impl Read, limit: u64) -> io::Result<Capped> {
-    let mut bytes = Vec::new();
-    pipe.by_ref().take(limit).read_to_end(&mut bytes)?;
-    let dropped = io::copy(&mut pipe, &mut io::sink())?;
-    Ok(Capped {
-        bytes,
-        truncated: dropped > 0,
-    })
+/// What a stream's thread hands over.
+enum Piece {
+    /// The next bytes, within the limit.
+    Bytes(Vec<u8>),
+    /// A byte past the limit was read and dropped.
+    Dropped,
+    /// The stream failed.
+    Failed(io::Error),
 }
 
 /// Runs `work` on a thread of its own; its result arrives on the receiver. The thread is not
-/// joined: when a stream stays open past the deadline (a descendant that left the group), the
-/// thread ends with the process.
+/// joined: when it has nothing to deliver to a caller that stopped waiting, it ends on its own.
 fn in_thread<T: Send + 'static>(
     work: impl FnOnce() -> T + Send + 'static,
 ) -> io::Result<Receiver<T>> {
@@ -79,19 +86,114 @@ fn in_thread<T: Send + 'static>(
     Ok(receiver)
 }
 
+/// `chunk` without its first byte when that is [`READY_BYTE`], and whether it was.
+fn without_announcement(chunk: &[u8]) -> (&[u8], bool) {
+    match chunk.split_first() {
+        Some((&READY_BYTE, rest)) => (rest, true),
+        Some(_) | None => (chunk, false),
+    }
+}
+
+/// Reads `pipe` to its end. The bytes within `limit` go to `pieces`, the rest is dropped, so the
+/// writer never blocks and memory stays bounded. When `announcement` is given, the first byte of
+/// the stream is expected to be [`READY_BYTE`]: it is taken off and reported there. Reading goes
+/// on after the caller stopped listening, so a writer that outlives the call is not cut off.
+fn pump(mut pipe: impl Read, limit: u64, announcement: Option<Sender<()>>, pieces: &Sender<Piece>) {
+    let mut room = usize::try_from(limit).unwrap_or(usize::MAX);
+    let mut dropped = false;
+    let mut announcement = announcement;
+    let mut buffer = vec![0_u8; CHUNK];
+    loop {
+        match pipe.read(&mut buffer) {
+            Ok(0) => return,
+            Ok(count) => {
+                let chunk = buffer.get(..count).unwrap_or_default();
+                let chunk = match announcement.take() {
+                    Some(ready) => {
+                        let (rest, announced) = without_announcement(chunk);
+                        if announced {
+                            ready.send(()).unwrap_or_default();
+                        }
+                        rest
+                    }
+                    None => chunk,
+                };
+                let kept = chunk.len().min(room);
+                room -= kept;
+                if kept > 0 {
+                    pieces
+                        .send(Piece::Bytes(chunk.get(..kept).unwrap_or_default().to_vec()))
+                        .unwrap_or_default();
+                }
+                if kept < chunk.len() && !dropped {
+                    dropped = true;
+                    pieces.send(Piece::Dropped).unwrap_or_default();
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => {
+                pieces.send(Piece::Failed(error)).unwrap_or_default();
+                return;
+            }
+        }
+    }
+}
+
+/// Starts the thread that reads `pipe`.
+fn stream(
+    pipe: impl Read + Send + 'static,
+    limit: u64,
+    announcement: Option<Sender<()>>,
+) -> io::Result<Receiver<Piece>> {
+    let (sender, receiver) = mpsc::channel();
+    thread::Builder::new().spawn(move || pump(pipe, limit, announcement, &sender))?;
+    Ok(receiver)
+}
+
+/// A stream as far as it was read.
+struct Gathered {
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
+/// Everything that arrives on `pieces` until the stream ends or `until` passes. A stream that has
+/// not ended by then is taken as it is.
+fn gather(pieces: &Receiver<Piece>, until: Instant) -> Result<Gathered, GitFailure> {
+    let mut gathered = Gathered {
+        bytes: Vec::new(),
+        truncated: false,
+    };
+    loop {
+        match pieces.recv_timeout(until.saturating_duration_since(Instant::now())) {
+            Ok(Piece::Bytes(bytes)) => gathered.bytes.extend_from_slice(&bytes),
+            Ok(Piece::Dropped) => gathered.truncated = true,
+            Ok(Piece::Failed(error)) => return Err(GitFailure::Io(error)),
+            Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {
+                return Ok(gathered);
+            }
+        }
+    }
+}
+
 /// What the caller waits for.
 struct Watch {
     status: Receiver<io::Result<ExitStatus>>,
-    stdout: Receiver<io::Result<Capped>>,
-    stderr: Receiver<io::Result<Capped>>,
+    stdout: Receiver<Piece>,
+    stderr: Receiver<Piece>,
 }
 
 fn missing_pipe() -> io::Error {
     io::Error::other("a pipe of the git process is missing")
 }
 
-/// Starts a thread for each stream and for the wait.
-fn watch(mut child: Child, input: Option<Vec<u8>>, stdout_limit: u64) -> io::Result<Watch> {
+/// Starts a thread for each stream and for the wait. `announcement` receives a message when the
+/// copy has started its own session.
+fn watch(
+    mut child: Child,
+    input: Option<Vec<u8>>,
+    stdout_limit: u64,
+    announcement: Sender<()>,
+) -> io::Result<Watch> {
     let stdout = child.stdout.take().ok_or_else(missing_pipe)?;
     let stderr = child.stderr.take().ok_or_else(missing_pipe)?;
     if let Some(bytes) = input {
@@ -101,8 +203,8 @@ fn watch(mut child: Child, input: Option<Vec<u8>>, stdout_limit: u64) -> io::Res
         in_thread(move || stdin.write_all(&bytes).unwrap_or_default())?;
     }
     Ok(Watch {
-        stdout: in_thread(move || read_capped(stdout, stdout_limit))?,
-        stderr: in_thread(move || read_capped(stderr, STDERR_KEPT))?,
+        stdout: stream(stdout, stdout_limit, Some(announcement))?,
+        stderr: stream(stderr, STDERR_KEPT, None)?,
         status: in_thread(move || child.wait())?,
     })
 }
@@ -113,8 +215,11 @@ enum Stop {
     Failed(GitFailure),
 }
 
-/// The next value on `receiver`, if it comes before `until`.
-fn next<T>(receiver: &Receiver<io::Result<T>>, until: Instant) -> Result<T, Stop> {
+/// The status of the copy, if it comes before `until`.
+fn next_status(
+    receiver: &Receiver<io::Result<ExitStatus>>,
+    until: Instant,
+) -> Result<ExitStatus, Stop> {
     match receiver.recv_timeout(until.saturating_duration_since(Instant::now())) {
         Ok(result) => result.map_err(|error| Stop::Failed(GitFailure::Io(error))),
         Err(RecvTimeoutError::Timeout) => Err(Stop::Expired),
@@ -124,34 +229,47 @@ fn next<T>(receiver: &Receiver<io::Result<T>>, until: Instant) -> Result<T, Stop
     }
 }
 
-/// Ends the process group of the copy, which became the leader of its own session when it ran
-/// `setsid`. If it did not get that far, the copy alone is ended. A process that is already gone
-/// is not an error.
-fn end_group(process: u32) {
+/// Ends the copy, and git's whole process group once the copy has announced that it leads one.
+///
+/// The group is the copy's process id only after the copy ran `setsid`, which it reports with one
+/// byte (see `detach`). If the byte has arrived, the group is ended first, then the copy. If not,
+/// the copy is ended alone, and then the byte is waited for a moment: the copy may have got as far
+/// as starting git before it was ended, and git is then alone in a group nobody else would end. A
+/// process that is already gone is not an error.
+fn end_call(process: u32, announcement: &Receiver<()>) {
     if let Some(process) = i32::try_from(process).ok().and_then(Pid::from_raw) {
-        kill_process_group(process, Signal::KILL)
-            .or_else(|_| kill_process(process, Signal::KILL))
-            .unwrap_or_default();
+        let announced = announcement.try_recv().is_ok();
+        if announced {
+            kill_process_group(process, Signal::KILL).unwrap_or_default();
+        }
+        kill_process(process, Signal::KILL).unwrap_or_default();
+        if !announced && announcement.recv_timeout(ANNOUNCEMENT_GRACE).is_ok() {
+            kill_process_group(process, Signal::KILL).unwrap_or_default();
+        }
     }
 }
 
-/// A call that has started and is not yet finished. When it is dropped before it was
-/// [`finished`](Self::finished), the call was abandoned (an error, a panic, a thread that
-/// unwinds), and git's whole process group is ended, so no git or `ssh` is left behind. The copy
-/// itself also ends the group when this process is gone altogether (see `detach`).
-struct Running(Option<u32>);
+/// A call that has started and whose copy has not yet been waited for. When it is dropped before
+/// that, the call was abandoned (an error, a panic, a thread that unwinds), and git's whole
+/// process group is ended, so no git or `ssh` is left behind. The copy itself also ends the group
+/// when this process is gone altogether (see `detach`).
+struct Running {
+    process: Option<u32>,
+    announcement: Receiver<()>,
+}
 
 impl Running {
-    /// Ends the group now, and nothing more happens when this is dropped.
+    /// Ends the call now, and nothing more happens when this is dropped.
     fn end(&mut self) {
-        if let Some(process) = self.0.take() {
-            end_group(process);
+        if let Some(process) = self.process.take() {
+            end_call(process, &self.announcement);
         }
     }
 
-    /// The call ended by itself and was reaped.
-    fn finished(mut self) {
-        self.0 = None;
+    /// The copy was waited for: its process id may belong to another process from now on, so it
+    /// is never signalled again.
+    fn waited_for(&mut self) {
+        self.process = None;
     }
 }
 
@@ -169,7 +287,9 @@ impl Drop for Running {
 /// deadline passes (git's process group is ended first) and [`GitFailure::Io`] when a stream
 /// fails.
 pub(super) fn run(invocation: Invocation<'_>) -> Result<Completed, GitFailure> {
-    let mut command = invocation.launcher.command(invocation.arguments);
+    let mut command = invocation
+        .launcher
+        .command(invocation.git, invocation.arguments);
     command
         .env_clear()
         .envs(invocation.environment.iter())
@@ -185,25 +305,27 @@ pub(super) fn run(invocation: Invocation<'_>) -> Result<Completed, GitFailure> {
     }
     let until = Instant::now() + invocation.deadline;
     let child = command.spawn().map_err(GitFailure::Spawn)?;
-    let process = child.id();
-    let mut running = Running(Some(process));
-    let watch = watch(child, invocation.input, invocation.stdout_limit).map_err(GitFailure::Io)?;
-    let completed = next(&watch.status, until).and_then(|status| {
-        let stdout = next(&watch.stdout, until)?;
-        let stderr = next(&watch.stderr, until)?;
-        Ok(Completed {
-            status,
-            stdout: stdout.bytes,
-            stdout_truncated: stdout.truncated,
-            stderr: stderr.bytes,
-        })
-    });
-    match completed {
-        Ok(completed) => {
-            running.finished();
-            Ok(completed)
+    let (announce, announcement) = mpsc::channel();
+    let mut running = Running {
+        process: Some(child.id()),
+        announcement,
+    };
+    let watch = watch(child, invocation.input, invocation.stdout_limit, announce)
+        .map_err(GitFailure::Io)?;
+    match next_status(&watch.status, until) {
+        Ok(status) => {
+            running.waited_for();
+            let pipes_until = until.min(Instant::now() + PIPE_GRACE);
+            let stdout = gather(&watch.stdout, pipes_until)?;
+            let stderr = gather(&watch.stderr, pipes_until)?;
+            Ok(Completed {
+                status,
+                stdout: stdout.bytes,
+                stdout_truncated: stdout.truncated,
+                stderr: stderr.bytes,
+            })
         }
-        // Dropping `running` ends the group.
+        // Dropping `running` ends the call.
         Err(Stop::Failed(failure)) => Err(failure),
         Err(Stop::Expired) => {
             running.end();

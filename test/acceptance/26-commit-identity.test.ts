@@ -944,9 +944,7 @@ describe("§13.18 commit identity", () => {
 // §6 "A failed fetch" (TASK-68), through `alz lint` and `alz build`. The remote cannot be reached:
 // a fake `ssh` first on PATH ends the attempt at once, so nothing touches the network.
 describe("§13.28 a failed fetch", () => {
-  // The path holds a slash: a scp-like source like `host:repo.git@v1` is read as `host:repo.git`
-  // with a ref only when it cannot be credentials (§5.2 "Credentials in a source").
-  const SOURCE = "git:host.invalid:o/client.git@v1";
+  const SOURCE = "git:host.invalid:client.git@v1";
   const STACK = ["path:../personal", SOURCE, "path:./.layer"];
 
   /** A PATH whose first folder holds an `ssh` that runs `body`, as a shell script, and fails. */

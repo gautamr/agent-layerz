@@ -22,7 +22,7 @@ fn id() -> ObjectId {
 }
 
 #[test]
-fn a_remote_clone_guards_the_file_protocol_and_a_local_one_does_not() {
+fn a_remote_clone_allows_only_https_and_ssh_and_a_local_one_is_never_a_hard_link_copy() {
     let remote = GitCall::Clone {
         transport: CloneTransport::Remote,
         source: OsStr::new("-oProxyCommand=x"),
@@ -32,7 +32,11 @@ fn a_remote_clone_guards_the_file_protocol_and_a_local_one_does_not() {
         args(&remote),
         [
             "-c",
-            "protocol.file.allow=never",
+            "protocol.allow=never",
+            "-c",
+            "protocol.https.allow=always",
+            "-c",
+            "protocol.ssh.allow=always",
             "clone",
             "--quiet",
             "--",
@@ -47,7 +51,14 @@ fn a_remote_clone_guards_the_file_protocol_and_a_local_one_does_not() {
     };
     assert_eq!(
         args(&local),
-        ["clone", "--quiet", "--", "-oProxyCommand=x", "/tmp/c"]
+        [
+            "clone",
+            "--quiet",
+            "--no-local",
+            "--",
+            "-oProxyCommand=x",
+            "/tmp/c"
+        ]
     );
 }
 
