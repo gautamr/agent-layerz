@@ -1,3 +1,5 @@
-//! Writing files alz generates. For now only the YAML emitter (decision-28).
+//! Writing files alz generates: the YAML emitter (decision-28) and the stable JSON emitter
+//! (decision-33).
 
+pub mod json;
 pub mod yaml;

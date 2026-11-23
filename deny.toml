@@ -73,6 +73,18 @@ deny = [
 crate = "serde"
 deny = ["derive"]
 
+# decision-33: serde_json parses only and keeps its default behaviour: no exact-precision numbers, no
+# float round-trip, no insertion-ordered maps, no raw values and no unbounded nesting (the depth
+# limit of 128 stays).
+[[bans.features]]
+crate = "serde_json"
+deny = ["arbitrary_precision", "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth"]
+
+# decision-34: sha2 without its default features: alz hashes no secrets and needs no ASN.1 object ids.
+[[bans.features]]
+crate = "sha2"
+deny = ["alloc", "oid", "zeroize"]
+
 [sources]
 # crates.io only: no git dependencies, no other registries.
 unknown-registry = "deny"
