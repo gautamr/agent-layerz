@@ -186,6 +186,49 @@ Documented (DOCS): global `~/.codex/AGENTS.override.md` else `AGENTS.md`; per di
 | Other permission surfaces | config reference lists **named permission profiles**; `codex exec --ignore-rules` and "project … rules" exist. A rules/profile mechanism likely gives allow/deny, which the spec does not use. Syntax not read. | HELP + DOCS, UNVERIFIED detail |
 | Where AGENTS/skills need trust | They do not: both loaded untrusted. | SMOKE |
 
+### 6.7 A wrongly typed `config.toml` key (task-80) — checked 2026-11-23
+
+Codex CLI **0.169.0** (`codex --version`: `codex-cli 0.169.0`), macOS (Darwin 25.6.0). Every run used a temporary `CODEX_HOME` (`<tmp>/home-*`), never `~/.codex*`. No login and no model call: the probe is `codex debug prompt-input hi`. Each user config held `approval_policy = "never"`, `sandbox_mode = "read-only"` and `developer_instructions = "MARKER-DEVINSTR-USER"`, plus the key under test. In a valid config, the output shows `Approval policy is currently never`, the sandbox text `read-only` and the marker, so a missing marker means the file was not applied. This section is not yet reflected in the header's date and tool lines, to merge cleanly with other work on this file.
+
+**Result: Codex refuses the whole file.** One key of the wrong type makes the command fail with exit 1 and no output. No other key in that file applies, including the approval and sandbox settings. Nothing is ignored or skipped key by key.
+
+| Case (`config.toml` line under test) | Result | Status |
+|---|---|---|
+| Control: `tool_output_token_limit = 4000` | exit 0; marker present; approval and sandbox text present | SMOKE |
+| `tool_output_token_limit = "lots"` (integer expected) | exit 1, stdout empty, marker absent. stderr: `Error: <tmp>/home-bad/config.toml:4:27: invalid type: string "lots", expected usize`, then `Caused by:` the same text and ``in `tool_output_token_limit` `` | SMOKE |
+| `model_reasoning_effort = 42` (string expected) | exit 1: ``invalid type: integer `42`, expected a string`` | SMOKE |
+| `hide_agent_reasoning = "yes"` (boolean expected) | exit 1: `invalid type: string "yes", expected a boolean` | SMOKE |
+| `tool_output_token_limit = { a = 1 }` | exit 1: `invalid type: map, expected usize` (a table prints as `map`) | SMOKE |
+| `hooks = "not-a-table"` | exit 1: `invalid type: string "not-a-table", expected struct HooksToml` | SMOKE |
+| `sandbox_mode = "bogus"` (unknown enum value) | exit 1: ``unknown variant `bogus`, expected one of `read-only`, `workspace-write`, `danger-full-access` `` | SMOKE |
+| `model_reasoning_effort = "bogus"` (string, unknown value) | exit 0, marker present: an unknown value of a string key is **not** checked at load | SMOKE |
+| `totally_unknown_key = 1` | exit 0, marker present: an unknown key is accepted silently | SMOKE |
+| `tool_output_token_limit =` (TOML syntax error) | exit 1: `string values must be quoted, expected literal string` plus the TOML parse error | SMOKE |
+
+Facts the rows show:
+
+- The error names the file, the line and column, and the key. For a string or number it also **prints the offending value**. A mistyped secret-like key would therefore end up in the log. The error never lists the file's other values.
+- Wrong type and unknown enum variant are errors; an unknown key and an unknown value of a plain string key are not. So Codex's own check is a type check on keys it knows, not an allowlist.
+- This differs from §6.6 and §7, which found a malformed file in an **untrusted** project only warned: that file is never read.
+
+**Project-local `.codex/config.toml` behaves the same when trusted.** Trust was granted without touching `~/.codex`: the temporary `CODEX_HOME/config.toml` held `[projects."<tmp>/proj"]` with `trust_level = "trusted"`, and `<tmp>/proj` held an empty `.git` folder and `.codex/config.toml`. This works, unlike the `-c` form in §0.1, so project-layer behaviour can be tested with a temporary home (the form of the grant, not the `-c` flag, is what matters).
+
+| Case (run from `<tmp>/proj`) | Result | Status |
+|---|---|---|
+| Trusted, project file valid (`developer_instructions = "MARKER-DEVINSTR-PROJECT"`, `tool_output_token_limit = 4000`) | exit 0; project marker present, user marker absent (the project value replaces the user's for the same key) | SMOKE |
+| Trusted, project file with `tool_output_token_limit = "lots"` | exit 1, stdout empty, so **no** marker from either file: `Error: <tmp>/proj/.codex/config.toml:2:27: invalid type: string "lots", expected usize`. The valid user config stops applying too. | SMOKE |
+| Not trusted (no `projects` table), same wrong-typed project file | exit 0; user marker present, project marker absent: the project file is not read | SMOKE |
+
+Consequence for alz: a single wrongly typed key written into `config.toml`, at user or project level, switches off every Codex setting for that run, and a trusted project file switches off the user's settings too. That is why TASK-82 asks for an allowlist of recorded keys with a checked type for Codex, mirroring TASK-79. alz must also not echo the value in its own error, because Codex does. Not tested: other commands (`codex exec`, `codex mcp list`) were not run, so the same refusal there is expected but not observed.
+
+Commands (fixtures made with `printf`; `<tmp>` stands for the scratch folder):
+
+```sh
+CODEX_HOME=<tmp>/home-ok  codex debug prompt-input hi   # control: exit 0
+CODEX_HOME=<tmp>/home-bad codex debug prompt-input hi   # exit 1, see rows above
+(cd <tmp>/proj && CODEX_HOME=<tmp>/home-trust codex debug prompt-input hi)
+```
+
 ## 7. Both — unsupported items must not break startup (spec §12.7)
 
 | Case | Result | Status |
