@@ -3,10 +3,11 @@ id: TASK-55.3.8
 title: >-
   R2.8: alz's YAML emitter, byte for byte against golden samples from the
   reference
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
+updated_date: '2026-11-23T06:04:00Z'
 labels:
   - area:rust
   - area:render

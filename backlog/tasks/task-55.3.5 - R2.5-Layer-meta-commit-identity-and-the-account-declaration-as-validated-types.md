@@ -3,10 +3,11 @@ id: TASK-55.3.5
 title: >-
   R2.5: Layer meta, commit identity and the account declaration as validated
   types
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
+updated_date: '2026-11-23T06:04:00Z'
 labels:
   - area:rust
   - area:model
