@@ -199,6 +199,35 @@ mod tests {
     }
 
     #[test]
+    fn the_leak_guard_checks_each_public_layer_of_a_stack_even_when_another_entry_failed() {
+        let world = World::new();
+        world.put(
+            "personal/layer.yaml",
+            "name: personal\nkind: personal\nvisibility: public\nforbid_patterns:\n  - hidden-client\n",
+        );
+        world.put("personal/notes.md", "for hidden-client\n");
+        world.put(
+            "repo/.layer/layer.yaml",
+            "name: repo\nkind: repo\nvisibility: private\n",
+        );
+        world.put("repo/.layer/notes.md", "for hidden-client\n");
+        world.manifest(
+            "stack:\n  - source: path:../personal\n  - source: path:../gone\n  - source: path:./.layer\n",
+        );
+        let run = world.alz();
+        assert_eq!(run.code, 1);
+        assert!(
+            run.stderr.contains(
+                "error [leak-forbid] personal:notes.md: matches forbid_patterns entry #1\n"
+            ),
+            "{}",
+            run.stderr
+        );
+        assert!(!run.stderr.contains("repo:notes.md"), "{}", run.stderr);
+        assert!(!run.stderr.contains("hidden-client"), "{}", run.stderr);
+    }
+
+    #[test]
     fn several_errors_of_a_stack_are_reported_together_in_stack_order() {
         let world = World::new();
         world.put("bad/layer.yaml", "name: bad\nkind: personal\n");

@@ -9,6 +9,9 @@ import { fixture, layers, type Workspace } from "../helpers";
 // parse itself passed by showing no `yaml` diagnostic.
 
 const BASE = "name: limits\nkind: personal\nvisibility: public\nversion: 1.0.0\n";
+// The two documents that carry their load in `forbid_patterns` are private layers: the leak guard
+// (§9.2) refuses more than 64 entries in a public layer, and these cases test the YAML limits.
+const PRIVATE_BASE = BASE.replace("visibility: public", "visibility: private");
 const MIB = 1024 * 1024;
 // Reserved marker: it must never reach any output.
 const MARKER = "secret-marker-9f3a1c";
@@ -50,7 +53,7 @@ function aliasesOverThreeAnchors(total: number): string {
     ...uses("b", second),
     ...uses("c", third),
   ];
-  return `${BASE}forbid_patterns: [${items.join(", ")}]\n`;
+  return `${PRIVATE_BASE}forbid_patterns: [${items.join(", ")}]\n`;
 }
 
 const nested = (levels: number) => `${BASE}x: ${"[".repeat(levels)}${"]".repeat(levels)}\n`;
@@ -58,7 +61,7 @@ const nested = (levels: number) => `${BASE}x: ${"[".repeat(levels)}${"]".repeat(
 /** Scalars of a list under an unknown field; the mapping, its four pairs and the key and list of `forbid_patterns` are 11 nodes. */
 function nodes(total: number): string {
   const items = Array.from({ length: total - 11 }, () => "x");
-  return `${BASE}forbid_patterns: [${items.join(", ")}]\n`;
+  return `${PRIVATE_BASE}forbid_patterns: [${items.join(", ")}]\n`;
 }
 
 /** `uses` aliases of one anchor on a sequence of `size` scalars, replayed once each. */

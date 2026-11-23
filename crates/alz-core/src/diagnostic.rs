@@ -125,8 +125,14 @@ pub enum Code {
     Mcp,
     /// The schema of `models.yaml`: an unknown field, or an alias key that is not a target (§7.8).
     Models,
+    /// A `forbid_patterns` match in a public layer, or an entry that is refused (§9.2).
+    LeakForbid,
     /// A value that looks like a token (§7.7, §9.2).
     LeakSecret,
+    /// An email address in a public layer, a warning (§9.2).
+    LeakEmail,
+    /// A private host name in a public layer, a warning (§9.2).
+    LeakHost,
     /// A protected or malformed variable name, or a list or map of variables that cannot be
     /// checked (§7.9).
     ProtectedVariable,
@@ -185,7 +191,10 @@ impl Code {
             Self::Settings => "settings",
             Self::Mcp => "mcp",
             Self::Models => "models",
+            Self::LeakForbid => "leak-forbid",
             Self::LeakSecret => "leak-secret",
+            Self::LeakEmail => "leak-email",
+            Self::LeakHost => "leak-host",
             Self::ProtectedVariable => "protected-variable",
             Self::Passthrough => "passthrough",
             Self::Identity => "identity",
@@ -223,6 +232,12 @@ impl Position {
             line: NonZeroU32::new(line)?,
             column: NonZeroU32::new(column)?,
         })
+    }
+
+    /// The line, counted from 1.
+    #[must_use]
+    pub const fn line(self) -> u32 {
+        self.line.get()
     }
 }
 

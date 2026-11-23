@@ -13,6 +13,7 @@ pub mod identity;
 pub mod item;
 pub mod json;
 pub mod layer;
+pub mod leak_guard;
 pub mod lint;
 pub mod lock;
 pub mod markdown;

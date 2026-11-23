@@ -2,8 +2,8 @@
 //! the stack manifest and `layer.lock` of a repository, and the metadata of each stack entry. Every
 //! function here is pure: the caller reads the files and prints the diagnostics.
 //!
-//! Instructions, skills, agents, settings, protected variables, the leak guard, the secret scan
-//! and slots arrive with the phases that model them (R4, R5).
+//! The leak guard runs in [`crate::leak_guard`] over a layer's files, which the caller reads.
+//! Slots and the other checks of §10 arrive with the phases that model them (R5).
 
 use crate::diagnostic::{Diagnostic, Diagnostics, Where};
 use crate::layer::LayerMeta;
@@ -16,6 +16,7 @@ use crate::yaml::{self, Node, Value, YamlError, YamlText};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayerLint {
     name: Stripped,
+    meta: Option<LayerMeta>,
     diagnostics: Diagnostics,
 }
 
@@ -25,6 +26,21 @@ impl LayerLint {
     #[must_use]
     pub const fn name(&self) -> &Stripped {
         &self.name
+    }
+
+    /// The layer's metadata, when its `layer.yaml` was valid.
+    #[must_use]
+    pub const fn meta(&self) -> Option<&LayerMeta> {
+        self.meta.as_ref()
+    }
+
+    /// The layer with `later` diagnostics added after the ones it has.
+    #[must_use]
+    pub fn with_diagnostics(self, later: Diagnostics) -> Self {
+        Self {
+            diagnostics: self.diagnostics.merge(later),
+            ..self
+        }
     }
 
     /// What was wrong with the layer, in document order.
@@ -71,10 +87,12 @@ pub fn layer(source: &Stripped, document: Result<Node, YamlError>) -> LayerLint 
     match read_layer(source, document) {
         Ok(meta) => LayerLint {
             name: Stripped::from_untrusted(meta.name().as_str()),
+            meta: Some(meta),
             diagnostics: Diagnostics::new(),
         },
         Err(diagnostics) => LayerLint {
             name: source.clone(),
+            meta: None,
             diagnostics,
         },
     }

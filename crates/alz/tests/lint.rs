@@ -375,6 +375,82 @@ mod tests {
         );
     }
 
+    // --- the leak guard (spec §9.2, TASK-55.5.14) ------------------------------------------------
+
+    const PUBLIC_LAYER: &str = "name: shared\nkind: personal\nvisibility: public\n";
+
+    /// A token assembled at run time, so that no file of the repository holds a token-shaped string.
+    fn token() -> String {
+        format!("{}_{}", "ghp", "aB3".repeat(13))
+    }
+
+    #[test]
+    fn a_public_layer_with_a_forbidden_pattern_fails_naming_the_file_and_the_entry_only() {
+        let directory = with_layer(format!(
+            "{PUBLIC_LAYER}forbid_patterns:\n  - \"never-seen\"\n  - \"(?i)hidden-client\"\n"
+        ));
+        directory.make_dir("layer/skills").expect("made");
+        directory
+            .write("layer/skills/a.md", "Bill HIDDEN-CLIENT monthly\n")
+            .expect("written");
+        let run = lint_layer(&directory, "layer");
+        assert_eq!(run.code, 1);
+        assert_eq!(
+            run.stderr,
+            "error [leak-forbid] shared:skills/a.md: matches forbid_patterns entry #2\n"
+        );
+        assert_eq!(run.stdout, "lint failed: 1 error in shared\n");
+    }
+
+    #[test]
+    fn a_secret_in_a_public_layer_is_named_by_its_kind_and_never_printed() {
+        let directory = with_layer(PUBLIC_LAYER);
+        let secret = token();
+        directory
+            .write("layer/ci.md", format!("- CI: {secret}\n"))
+            .expect("written");
+        let run = lint_layer(&directory, "layer");
+        assert_eq!(run.code, 1);
+        assert!(
+            run.stderr
+                .contains("error [leak-secret] shared:ci.md: looks like a secret (GitHub token)"),
+            "{}",
+            run.stderr
+        );
+        assert!(!run.stderr.contains(&secret) && !run.stdout.contains(&secret));
+    }
+
+    #[test]
+    fn an_email_and_a_private_host_warn_and_the_exit_code_stays_zero() {
+        let directory = with_layer(PUBLIC_LAYER);
+        directory
+            .write("layer/a.md", "ask dev@acme-widgets.io or build.corp\n")
+            .expect("written");
+        let run = lint_layer(&directory, "layer");
+        assert_eq!(run.code, 0);
+        assert_eq!(
+            run.stderr,
+            "warning [leak-email] shared:a.md: contains an email address; check that it may be public\n\
+             warning [leak-host] shared:a.md: contains what looks like a private host name; check that it may be public\n"
+        );
+    }
+
+    #[test]
+    fn an_unsupported_entry_is_refused_by_its_number_and_a_private_layer_is_not_checked() {
+        let patterns = "forbid_patterns:\n  - \"a(?=hidden-text)\"\n";
+        let directory = with_layer(format!("{PUBLIC_LAYER}{patterns}"));
+        let run = lint_layer(&directory, "layer");
+        assert_eq!(run.code, 1);
+        assert_eq!(
+            run.stderr,
+            "error [leak-forbid] shared:layer.yaml: forbid_patterns entry #1 uses look-around, which is not supported by the pattern syntax\n"
+        );
+        let directory = with_layer(format!("{LAYER}{patterns}"));
+        directory.write("layer/a.md", token()).expect("written");
+        let run = lint_layer(&directory, "layer");
+        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+    }
+
     #[test]
     fn lint_arguments_are_checked_by_clap() {
         let directory = scratch();

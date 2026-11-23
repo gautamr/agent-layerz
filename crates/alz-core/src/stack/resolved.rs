@@ -91,10 +91,16 @@ impl ResolvedStack {
     ///
     /// Every problem found, as diagnostics.
     pub fn validate(layers: Vec<ResolvedLayer>) -> Result<Self, Diagnostics> {
+        Self::check(layers).map_err(|(_, problems)| problems)
+    }
+
+    /// As [`validate`](Self::validate), and gives the layers back with the problems when the stack
+    /// is not valid.
+    fn check(layers: Vec<ResolvedLayer>) -> Result<Self, (Vec<ResolvedLayer>, Diagnostics)> {
         let problems =
             validate::duplicate_names(&layers).merge(validate::visibility_order(&layers));
         if problems.has_errors() {
-            Err(problems)
+            Err((layers, problems))
         } else {
             Ok(Self(layers))
         }
@@ -104,6 +110,10 @@ impl ResolvedStack {
     #[must_use]
     pub fn layers(&self) -> &[ResolvedLayer] {
         &self.0
+    }
+
+    fn into_layers(self) -> Vec<ResolvedLayer> {
+        self.0
     }
 }
 
@@ -132,7 +142,15 @@ pub struct FailedEntry {
 pub struct StackReport {
     names: Vec<Stripped>,
     diagnostics: Diagnostics,
-    stack: Option<ResolvedStack>,
+    layers: ReportedLayers,
+}
+
+/// The layers that were resolved: a stack that passed every check, or only the layers, kept so
+/// that a command can still look at each of them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ReportedLayers {
+    Valid(ResolvedStack),
+    Unusable(Vec<ResolvedLayer>),
 }
 
 impl StackReport {
@@ -159,17 +177,17 @@ impl StackReport {
                 Err(failed) => (layers, reported.merge(failed.diagnostics)),
             },
         );
-        match ResolvedStack::validate(layers) {
-            Ok(stack) => Self {
-                names,
-                stack: complete.then_some(stack).filter(|_| !reported.has_errors()),
-                diagnostics: reported,
-            },
-            Err(problems) => Self {
-                names,
-                diagnostics: reported.merge(problems),
-                stack: None,
-            },
+        let (layers, diagnostics) = match ResolvedStack::check(layers) {
+            Ok(stack) if complete && !reported.has_errors() => {
+                (ReportedLayers::Valid(stack), reported)
+            }
+            Ok(stack) => (ReportedLayers::Unusable(stack.into_layers()), reported),
+            Err((layers, problems)) => (ReportedLayers::Unusable(layers), reported.merge(problems)),
+        };
+        Self {
+            names,
+            diagnostics,
+            layers,
         }
     }
 
@@ -189,7 +207,21 @@ impl StackReport {
     /// The validated stack, when there is one.
     #[must_use]
     pub const fn stack(&self) -> Option<&ResolvedStack> {
-        self.stack.as_ref()
+        match &self.layers {
+            ReportedLayers::Valid(stack) => Some(stack),
+            ReportedLayers::Unusable(_) => None,
+        }
+    }
+
+    /// The layers that were resolved, in stack order, whether or not the stack is valid: an entry
+    /// that failed is not among them. A command that checks each layer alone (`alz lint`) reads
+    /// them here.
+    #[must_use]
+    pub fn resolved_layers(&self) -> &[ResolvedLayer] {
+        match &self.layers {
+            ReportedLayers::Valid(stack) => stack.layers(),
+            ReportedLayers::Unusable(layers) => layers,
+        }
     }
 }
 
