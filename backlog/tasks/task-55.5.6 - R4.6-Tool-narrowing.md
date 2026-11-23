@@ -1,11 +1,11 @@
 ---
 id: TASK-55.5.6
 title: 'R4.6: Tool narrowing'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:27:00Z'
-updated_date: '2026-11-23T12:39:00Z'
+updated_date: '2026-11-23T13:26:00Z'
 labels:
   - area:rust
   - area:merge
