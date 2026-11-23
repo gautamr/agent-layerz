@@ -10,7 +10,8 @@ import {
   remoteStack,
   writeAllowed,
 } from "../account-workspace";
-import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
+import { referenceDrift } from "../drift";
+import { fixture, layers, readFile, readTree, type Workspace, writeLock } from "../helpers";
 
 // A cloned repo is untrusted input: its manifest and lock must not reach outside it.
 describe("untrusted repo content", () => {
@@ -64,6 +65,109 @@ describe("untrusted repo content", () => {
     const result = await layers(ws, "repo", ["build"]);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("is not a valid git ref");
+  });
+});
+
+// §13.28: the cases above that need only a verdict, through `alz lint`.
+describe("untrusted repo content, through alz lint", () => {
+  it("refuses a lock whose layer sha is not a commit id", async () => {
+    const ws = fixture("14-non-destructive");
+    writeLock(ws, [
+      {
+        name: "personal",
+        source: "path:../personal",
+        sha: "../../../etc",
+        dir: `${ws.root}/personal`,
+      },
+    ]);
+    const result = await layers(ws, "repo", ["lint"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/\[lock\]/);
+    expect(result.stdout).not.toContain("lint ok");
+  });
+
+  it.each([
+    ["git:--upload-pack=touch PWNED@v1", /cannot start with '-'|does not start with '-'/],
+    ["github:owner/repo@--upload-pack=touch", /is not a valid git ref|must be a git ref/],
+  ])("never passes %s to git as an option", async (source, message) => {
+    const ws = fixture("14-non-destructive");
+    writeFileSync(
+      `${ws.root}/repo/layer.yaml`,
+      `stack:\n  - source: ${source}\n  - source: path:./.layer\n`,
+    );
+    const result = await layers(ws, "repo", ["lint"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(message);
+    expect(existsSync(`${ws.root}/repo/PWNED`)).toBe(false);
+  });
+
+  it("rejects a manifest ref that git would read as an option", async () => {
+    const ws = fixture("14-non-destructive");
+    writeFileSync(
+      `${ws.root}/repo/layer.yaml`,
+      "stack:\n  - source: path:../personal\n    ref: --output=/tmp/x\n  - source: path:./.layer\n",
+    );
+    const result = await layers(ws, "repo", ["lint"]);
+    expect(result.code).toBe(1);
+    // The spec fixes the code and the field, not the sentence (§10.1): both spellings are accepted
+    // until cutover, and the Rust wording is pinned by its unit tests.
+    expect(result.stderr).toMatch(/is not a valid git ref|stack\[\d+\]\.ref must be a git ref/);
+    expect(result.stdout).not.toContain("lint ok");
+  });
+});
+
+// §5.2 "Credentials in a source" (TASK-71): a git: URL with credentials is refused at the
+// manifest, before any cache or git access, and the token is printed and written nowhere.
+const TOKEN = "tok3n-s3cret";
+const WITH_CREDENTIALS: [string, string][] = [
+  ["a user and a token in an https URL", `git:https://user:${TOKEN}@host.invalid/x.git@v1`],
+  ["a token as the user of an https URL", `git:https://${TOKEN}@host.invalid/x.git@v1`],
+  ["a password in an ssh URL", `git:ssh://git:${TOKEN}@host.invalid/x.git@v1`],
+  ["a token in an https URL without a ref", `git:https://${TOKEN}@host.invalid/x.git`],
+];
+const CREDENTIALS_MESSAGE =
+  "a git: source in layer.yaml holds credentials in its URL; remove them and use a git credential helper";
+
+function credentialStack(ws: Workspace, source: string): void {
+  writeFileSync(
+    `${ws.root}/repo/layer.yaml`,
+    `stack:\n  - source: ${source}\n  - source: path:./.layer\n`,
+  );
+}
+
+describe("a git: source with credentials (TASK-71)", () => {
+  describe.each([
+    ["lint", ["lint"]],
+    // alz build exists in the Rust alz from R5 (TASK-55.6); until then this form fails against it.
+    ["build", ["build"]],
+  ])("through alz %s", (_command, args) => {
+    describe.each(WITH_CREDENTIALS)("%s", (_label, source) => {
+      referenceDrift("TASK-71", "is refused, and no token is printed or written", async () => {
+        const ws = fixture("14-non-destructive");
+        credentialStack(ws, source);
+        const files = readTree(ws.root);
+        const result = await layers(ws, "repo", args);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain(`error [source] ${CREDENTIALS_MESSAGE}`);
+        expect(result.stdout + result.stderr).not.toContain(TOKEN);
+        // Nothing is written, so no file but the manifest we wrote holds the token.
+        expect(readTree(ws.root)).toEqual(files);
+        expect(readTree(ws.home)).toEqual({});
+      });
+    });
+  });
+
+  it.each([
+    ["a user name in an ssh URL", "git:ssh://git@host.invalid/x.git@v1"],
+    ["a user name in a scp-like address", "git:git@host.invalid:o/x.git@v1"],
+  ])("does not refuse %s for credentials", async (_label, source) => {
+    const ws = fixture("14-non-destructive");
+    credentialStack(ws, source);
+    // The host does not exist: a fake ssh that ends at once keeps the case off the network.
+    const result = await layers(ws, "repo", ["lint"], { GIT_SSH: "/usr/bin/false" });
+    expect(result.stderr).not.toContain("holds credentials");
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`cannot fetch '${source}'`);
   });
 });
 

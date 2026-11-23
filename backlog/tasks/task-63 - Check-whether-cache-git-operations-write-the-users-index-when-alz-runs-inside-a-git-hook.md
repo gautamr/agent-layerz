@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T17:19:00Z'
-updated_date: '2026-11-23T07:59:00Z'
+updated_date: '2026-11-23T10:09:00Z'
 labels:
   - discovered
   - area:security
@@ -31,9 +31,9 @@ Found while amending decision-24 after the R0 security review; not reproduced ye
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A reproduction (acceptance test) shows whether alz lint in a repository with a git: layer, run inside a pre-commit hook in a main checkout and in a linked worktree, changes the user's index or repository (lint twin, R3.11)
-- [ ] #2 The Rust alz removes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_NAMESPACE and GIT_CEILING_DIRECTORIES for cache and clone operations (decision-24), with an acceptance case that is marked reference drift if the TypeScript reference fails it
-- [ ] #3 The spec section on git subprocesses states the rule
+- [x] #1 A reproduction (acceptance test) shows whether alz lint in a repository with a git: layer, run inside a pre-commit hook in a main checkout and in a linked worktree, changes the user's index or repository (lint twin, R3.11)
+- [x] #2 The Rust alz removes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_NAMESPACE and GIT_CEILING_DIRECTORIES for cache and clone operations (decision-24), with an acceptance case that is marked reference drift if the TypeScript reference fails it
+- [x] #3 The spec section on git subprocesses states the rule
 - [ ] #4 The alz check form of AC #1, run as a pre-commit hook, is in the acceptance suite (written in R3.11 where it is missing) and is checked again against the Rust alz in R5 (TASK-55.6)
 <!-- AC:END -->
 
@@ -45,4 +45,6 @@ Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only i
 Lead (2026-11-23, owner asked the lead to decide): no row in docs/target-facts.md for --end-of-options or the hook environment, since that file holds Claude Code and Codex facts only; these git facts are recorded in decision-24 (including the observed GIT_INDEX_FILE in a pre-commit hook). AC #3's spec text should also name the oldest git that alz supports, at least 2.24, the first with --end-of-options, and what alz does with an older git.
 
 Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged. Correction to the lead's note: the oldest supported git is 2.30, not 2.24. `rev-parse` accepts --end-of-options from 2.30, and 2.24 is the floor for checkout only (decision-24's evidence). Owner answer 4: below 2.30, alz stops with error [git], naming the version it found and the minimum.
+
+R3.11 (2026-11-23): AC1-3 checked. Reproduction: a pre-commit hook that snapshots every file under the main .git (index included) before and after running alz lint, in a main checkout and in a linked worktree. Against the Rust binary both leave the repository byte-identical and lint exits 0. Against the TypeScript reference the main-checkout case passes (the index is not changed there) and the linked-worktree case fails, so only the worktree case is referenceDrift TASK-63. Spec 'Git subprocesses' states the rule (R3.1). AC4 left unchecked: the alz check hook form is written and fails against Rust until R5 (check does not exist yet).
 <!-- SECTION:NOTES:END -->

@@ -414,10 +414,19 @@ lists must be valid UTF-8 too, and is refused with the same error before anythin
 (§6). APFS and HFS+ refuse such a name when a file is created, so on macOS it can occur only on
 another file system.
 
+A name that is valid Unicode but not a safe relative path (`SafeRelPath`, §6: a backslash, a
+`.` or `..` segment, or a `.git` segment in any case, with or without a trailing dot or space)
+makes the layer invalid in the same way, and the check follows the one for a name that is not
+valid Unicode. Account resolution counts it as a cache miss (`layer-invalid`). The build reports
+it, like a file or folder that cannot be read, with the message of §6 step 2 (`layer '<source>'
+holds a file that cannot be read or a name that is not allowed`) when the layer is read in place;
+§6 step 2 gives the message for a clone and for a `tree2@` entry.
+
 The order of the checks is fixed, so that the reason never depends on the order in which the
 file system lists names. Account resolution walks the layer, stopping at entry 2001 (§7.13 "No
 fetch on resolve"). It then checks, and the first that fails decides the miss: too many entries
-(`unreadable`), a name that is not valid Unicode (`layer-invalid`), reading each file within 16
+(`unreadable`), a name that is not valid Unicode (`layer-invalid`), a name that is not a safe relative path
+(`layer-invalid`), reading each file within 16
 MiB in all (`unreadable`), the content hash (`content-hash`), a `.env` file (`layer-invalid`),
 then `layer.yaml`. The entry limit comes first so that the walk never goes past entry 2001. In
 the build the name check comes first, before the content hash is computed or compared (below),
@@ -437,7 +446,11 @@ required or parsed. A mismatch means the entry was edited or replaced after it w
 that rebuilds stops with an error that names the layer by its lock entry and source, gives its
 cache directory and says to delete that directory: `build`, `check`, `diff`, `doctor`, `ls`,
 `explain`, `lint` (on a repository), and `init`, where the error is a warning and no identity
-is set. The message never contains file content. Nothing is compared when the lock has no entry
+is set. The message never contains file content. It is the error `cache`, no location, and reads
+`cached layer '<name>' (<source>) no longer matches layer.lock: its files in <dir> changed after
+they were cached; delete that directory and rebuild`, where `<name>` is the lock entry's name,
+`<source>` the stack entry as written and `<dir>` the entry's directory in the cache, the last
+two stripped (decision-26, class 1). Nothing is compared when the lock has no entry
 for the source, or its `sha` differs (the ref moved, so new content is expected), or the layer
 was just fetched or written rather than read from the cache. These commands treat "no entry" as
 new content; account resolution (§7.13) does not (TASK-50.9), since it must treat anything it
@@ -472,7 +485,9 @@ entry (§6) or an entry whose content is not what the lock recorded.
    fetched again, and is never removed. A cached git entry that already exists is not trusted over
    a fresh clone: when the lock has no entry to check it against, the build clones the commit,
    compares the two content hashes, discards the clone and stops with the "delete that directory"
-   error on a difference. A cache entry must be a real directory, never a link.
+   error on a difference. The error is `cache`, no location: `cached layer '<source>' differs from
+   a fresh clone of the same commit: its files in <dir> changed after they were cached; delete that
+   directory and rebuild`. A cache entry must be a real directory, never a link.
 
    **The layer cache** (TASK-52, TASK-53). Every command that resolves the stack (the list in
    §5.3 "Cache integrity") locates the cache in the same way, with the same function as account
@@ -496,7 +511,16 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - Each missing folder of the cache root is created with mode `0700`. An existing folder
      keeps its mode.
 
-   `<dir>` is stripped as in every diagnostic (decision-26, class 1). The entries inside the
+   - A cache entry that is a link or any other name but a folder is the error `cache`, no
+     location: `cache entry <name> in the layer cache at <dir> must be a folder, not a link or a
+     file; delete it and run alz again`. An entry that was removed while alz used it gives
+     `cache entry <name> in the layer cache at <dir> was removed while alz used it; run alz again`.
+   - Any other failure to open or create the cache root, or to use a temporary entry in it, is
+     the error `cache`, no location: `cannot use the layer cache at <dir>`. The message names
+     no operating system error.
+
+   `<dir>` is stripped as in every diagnostic (decision-26, class 1), and `<name>` is the entry's
+   own name (`git-<hex>@<sha>`, `tree2@<id>` or `pathref@<hex>-<sha>`). The entries inside the
    cache are never followed through a link (above).
 
    The TypeScript `alz` differs (reference drift, TASK-52, TASK-53):
@@ -522,6 +546,19 @@ entry (§6) or an entry whose content is not what the lock recorded.
    folder that holds them, never through a link. Each check of type and size is made with
    `fstat` on the handle that is read (decision-27), so a name swapped for a link or a pipe
    between two calls cannot change what was checked.
+
+   A `path:` layer whose directory is not there, or is not a directory, whatever the reason (a
+   missing folder on the way, a name on the way that is not a folder, more than 40 links, or
+   another failure of the operating system), is the error `source`, no location, with the message
+   `layer directory not found for '<source>'`. A pinned `path:` layer whose ref does not give a
+   layer tree is the error `source`, no location: `cannot resolve ref <ref> for '<source>': not a
+   git repo, unknown ref, the layer did not exist at that ref, or its path is not a plain
+   directory there`. The walk that opens a layer directory has its own words for a failure when a
+   caller reports it for a layer given as `<source>`: the error `layer`, no location, `layer
+   '<source>' is not a directory` for a missing name or a name that is not a folder, and `layer
+   '<source>' cannot be opened` for too many links or any other failure; an account folder or the
+   home folder is the error `source` above in every case. Stack resolution uses the first two
+   messages of this paragraph.
 
    The TypeScript `alz` resolves the path with `realpath` and makes no such check in these
    commands, so it opens the files of such a layer (reference drift, TASK-52).
@@ -632,6 +669,27 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - it leaves `ssh` able to prompt on the terminal;
    - it sets no deadline and checks no version.
 
+   **Other messages of resolution** (TASK-55.4.11). Each is stripped as every diagnostic is
+   (decision-26, class 1) and has no location unless it says so:
+   - `source`: `'<source>': a local git: path must not contain '..' segments; use a path without
+     them`, for a local `git:` path with a `..` segment (§7.12), and `'<source>': not a valid
+     file:// URL` for a `file://` URL that names no path.
+   - `source`: `cannot find the working directory`, when the process has none.
+   - `git`: `alz cannot find its own executable, which it needs to run git`, when alz cannot
+     start its copy for the call (above).
+   - `layer`: `layer.yaml in layer '<source>' cannot be read`, for a `layer.yaml` that cannot be
+     opened or read for another reason than "missing" and "not a regular file" (§5.3).
+   - `env-file`, at `<layer>:<path>`: `layers must not contain .env files; remove it`.
+   - `cache-index` (a warning, §6 below): `cache entry pathref@<hex>-<sha> in the layer cache at
+     <dir> cannot be written`. A folder at that name is the error `cache`: `cache entry
+     pathref@<hex>-<sha> in the layer cache at <dir> is a folder; delete it and rebuild`.
+   - `lock`, at `layer.lock`: `layer.lock must be a regular file, not a link or a folder`,
+     `layer.lock cannot be read`, and, for a field that is missing or invalid, `the lock's
+     <field> is missing or not valid; delete the lock and rebuild`, where `<field>` is one of
+     `the document`, `lockVersion`, `visibility`, `layers`, `layers[].name`, `layers[].source`,
+     `layers[].rev`, `layers[].sha`, `layers[].contentHash`, `files`, `a key of files` and
+     `a value of files`. The value is never printed.
+
    A pinned `path:` layer is `tree2@<git tree id>`, where the tree is the layer's directory at the
    commit. The prefix is the format version: entries named `tree@<id>`, written by older versions
    with `git checkout-index`, may differ from the tree by attribute conversions, so they are
@@ -718,7 +776,12 @@ entry (§6) or an entry whose content is not what the lock recorded.
    unpinned `path:` layer that holds a name that is not valid UTF-8 is the error `layer` of §5.3
    "File names"; one that holds a name that is not a safe path or a file that cannot be read is
    the error `layer` with the message `layer '<source>' holds a file that cannot be read or a name
-   that is not allowed`.
+   that is not allowed`. The same two refusals for a `git:` or `github:` clone are the first the
+   error `layer` of §5.3 and then the error `cache` `cannot store '<source>' in the layer cache
+   at <dir>` (above); for an existing `tree2@` entry the first is that error `layer`, and the
+   second is the "no longer matches git tree" error (`cached layer '<source>' no longer matches
+   git tree <id>: its files in <dir> changed after they were cached; delete that directory and
+   rebuild`, the error `cache`, no location).
 3. For each item type, collect items from all layers **in stack order** (general → specific).
 4. Apply the merge rule for that type (§7).
 5. Check: slots filled, budgets met, leak guard on public layers, permission floor kept.
@@ -2577,6 +2640,9 @@ environment unless a case sets them, because `mise run test` and an agent sessio
       ESC, CR and U+202E leaves none of them in the output.
     - A layer holding a name with the byte 0xFF is the error `layer`, on Linux only.
     - A `git:` source with credentials is the error `source`, and the token appears nowhere.
+    - The cases that belong to no existing test file (TASK-52, TASK-53, TASK-63, TASK-69) are in
+      `test/acceptance/36-sources-and-cache-guards.test.ts`, each as an `alz lint` case and an
+      `alz build` case (an `alz check` case for the hook).
 
     The cases the TypeScript `alz` fails are marked as reference drift (`test/drift.ts`). Their
     `alz build` and `alz check` forms are checked against the Rust `alz` in R5 (TASK-55.6).

@@ -4,7 +4,7 @@ title: 'Never read files inside account folders through a path: layer'
 status: To Do
 assignee: []
 created_date: '2026-11-22T07:23:00Z'
-updated_date: '2026-11-23T07:59:00Z'
+updated_date: '2026-11-23T10:09:00Z'
 labels:
   - discovered
   - area:security
@@ -28,9 +28,9 @@ Found while planning TASK-50.9. LAYERING-SPEC §9.1 says alz never opens a file 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 alz lint in a repository refuses an unpinned path: layer whose real directory is $HOME or above it, inside an account folder, or above a folder CLAUDE_CONFIG_DIR or CODEX_HOME names, before opening any file in it, with an error that names the layer (acceptance lint twin with a fake HOME, R3.11, and a Rust test with account folders made mode 000, R3.6)
-- [ ] #2 A layer cache root inside an account folder is refused the same way (test)
-- [ ] #3 The component walk that alz lint uses and account resolution will use (R3.5) resolves repository-named paths one component at a time and never lstats, readlinks or stats a name inside an account folder, even through a symlink planted in the repository (proptest on the walk, R3.5, and an alz lint twin, R3.11)
+- [x] #1 alz lint in a repository refuses an unpinned path: layer whose real directory is $HOME or above it, inside an account folder, or above a folder CLAUDE_CONFIG_DIR or CODEX_HOME names, before opening any file in it, with an error that names the layer (acceptance lint twin with a fake HOME, R3.11, and a Rust test with account folders made mode 000, R3.6)
+- [x] #2 A layer cache root inside an account folder is refused the same way (test)
+- [x] #3 The component walk that alz lint uses and account resolution will use (R3.5) resolves repository-named paths one component at a time and never lstats, readlinks or stats a name inside an account folder, even through a symlink planted in the repository (proptest on the walk, R3.5, and an alz lint twin, R3.11)
 - [ ] #4 The alz build form of AC #1 is in the acceptance suite (written in R3.11 where it is missing) and is checked again against the Rust alz in R5 (TASK-55.6); account resolution's use of the walk is checked in R6 (TASK-55.7)
 <!-- AC:END -->
 
@@ -44,4 +44,6 @@ Found while planning TASK-50.9. LAYERING-SPEC §9.1 says alz never opens a file 
 Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R3 (TASK-55.4, sources and the cache). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R4 depends on this task, so it closes within R3.
 
 Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged.
+
+R3.11 (2026-11-23): AC1-3 checked. Lint twins in test/acceptance/36-sources-and-cache-guards.test.ts pass against target/release/alz: layer at the fake HOME, layer above it, a layer reached through a link into ~/.claude-x with the folder at mode 000, and a cache root inside ~/.claude-x (error [cache], nothing created); marked referenceDrift TASK-52 (the reference fails all four). Rust: crates/alz-io/tests/directory_handles.rs (account folders), walk proptest R3.5. AC4 left unchecked: the build forms are written in the same file and fail against the Rust binary until alz build exists (R5, TASK-55.6); account resolution's use of the walk is R6.
 <!-- SECTION:NOTES:END -->

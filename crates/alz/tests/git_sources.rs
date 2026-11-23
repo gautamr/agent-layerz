@@ -798,6 +798,64 @@ exit $status
         assert_eq!(locate("../repo/x:y").err(), Some(OriginRefusal::DotDot));
     }
 
+    /// A file name with the byte 0xFF cannot be made on macOS: APFS refuses it with `EILSEQ`
+    /// (spec §5.3 "File names"). The clone's checkout can create it only on Linux, so this case
+    /// runs there. The commit is made with plumbing (`mktree -z`), so the name is any bytes.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_clone_that_holds_a_name_that_is_not_utf8_is_the_layer_error_and_publishes_nothing() {
+        let world = World::new();
+        let work = world.work();
+        world.mkdirs(&work);
+        world.git(&work, &["init", "-q"]);
+        let plumbing = |args: &[&str], input: &[u8]| -> String {
+            let output = Command::new("git")
+                .current_dir(&work)
+                .env_clear()
+                .env("PATH", real_path())
+                .env("HOME", world.path("home"))
+                .env("GIT_CONFIG_NOSYSTEM", "1")
+                .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
+                .args(args)
+                .write_stdin(input)
+                .output()
+                .expect("git runs");
+            assert!(output.status.success(), "git {args:?}: {output:?}");
+            String::from_utf8(output.stdout).unwrap().trim().to_owned()
+        };
+        let blob = plumbing(&["hash-object", "-w", "--stdin"], b"x\n");
+        let record =
+            |name: &[u8]| [format!("100644 blob {blob}\t").as_bytes(), name, b"\0"].concat();
+        let tree = plumbing(
+            &["mktree", "-z"],
+            &[record(b"ok.md"), record(b"bad\xff.md")].concat(),
+        );
+        let commit = plumbing(&["commit-tree", &tree, "-m", "raw"], b"");
+        world.git(&work, &["update-ref", "refs/heads/main", &commit]);
+        let source = world.source_of_work("main");
+
+        let text = error_text(world.fetch(&source, None, &Setup::default()));
+
+        assert_eq!(
+            text,
+            format!(
+                "error [layer] a file or folder name in layer '{source}' is not valid UTF-8; rename it"
+            )
+        );
+        assert!(
+            !text.contains('\u{fffd}') && !text.as_bytes().contains(&0xff),
+            "{text}"
+        );
+        assert!(
+            world
+                .cache_names()
+                .iter()
+                .all(|name| !name.starts_with(".tmp-") && !name.starts_with("git-")),
+            "{:?}",
+            world.cache_names()
+        );
+    }
+
     #[test]
     fn a_local_git_source_in_an_account_folder_is_refused_before_it_is_looked_at() {
         let world = World::new();

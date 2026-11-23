@@ -1,4 +1,4 @@
-import { appendFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
@@ -85,5 +85,49 @@ describe("§13.16 hub", () => {
     const result = await layers(ws, "repo-a", ["build"]);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("cannot resolve ref layer-v0.1.0 for 'path:../hub/layer'");
+  });
+});
+
+// §13.28: the same cases through `alz lint`, which resolves the stack (§6) and writes nothing.
+describe("§13.16 hub, through alz lint", () => {
+  it("each repo resolves path:../hub/layer at layer-v0.1.0", async () => {
+    const ws = hubWorkspace();
+    for (const repo of REPOS) {
+      const before = readTree(`${ws.root}/${repo}`);
+      const result = await layers(ws, repo, ["lint"]);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout).toContain("lint ok: ");
+      expect(result.stdout).toContain("acme");
+      expect(readTree(`${ws.root}/${repo}`)).toEqual(before);
+    }
+  });
+
+  it("hub commits and edits after the tag do not change either repo's verdict", async () => {
+    const ws = hubWorkspace();
+    appendFileSync(`${ws.root}/hub/docs/product/overview.md`, "Version 2.\n");
+    git(ws, ["commit", "--quiet", "-am", "docs: product overview v2"]);
+    // A layer.yaml that is invalid, committed after the tag and then edited again in the work
+    // tree: lint reads the tree at the tag, so neither a commit nor an edit may reach it.
+    writeFileSync(`${ws.root}/hub/layer/layer.yaml`, "name: [broken\n");
+    git(ws, ["commit", "--quiet", "-am", "layer: broken after the tag"]);
+    appendFileSync(`${ws.root}/hub/layer/instructions/10-domain.md`, "- CLIENT-RULE-V2\n");
+
+    for (const repo of REPOS) {
+      const result = await layers(ws, repo, ["lint"]);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout).toContain("lint ok: ");
+    }
+  });
+
+  it("a ref the hub does not have is an error [source]", async () => {
+    const ws = fixture("16-hub");
+    git(ws, ["init", "--quiet", "--initial-branch=main"]);
+    git(ws, ["add", "."]);
+    git(ws, ["commit", "--quiet", "-m", "hub"]);
+    const result = await layers(ws, "repo-a", ["lint"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(
+      "error [source] cannot resolve ref layer-v0.1.0 for 'path:../hub/layer'",
+    );
   });
 });

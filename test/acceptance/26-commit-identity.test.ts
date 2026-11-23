@@ -940,3 +940,81 @@ describe("§13.18 commit identity", () => {
     });
   });
 });
+
+// §6 "A failed fetch" (TASK-68), through `alz lint` and `alz build`. The remote cannot be reached:
+// a fake `ssh` first on PATH ends the attempt at once, so nothing touches the network.
+describe("§13.28 a failed fetch", () => {
+  // The path holds a slash: a scp-like source like `host:repo.git@v1` is read as `host:repo.git`
+  // with a ref only when it cannot be credentials (§5.2 "Credentials in a source").
+  const SOURCE = "git:host.invalid:o/client.git@v1";
+  const STACK = ["path:../personal", SOURCE, "path:./.layer"];
+
+  /** A PATH whose first folder holds an `ssh` that runs `body`, as a shell script, and fails. */
+  function pathWithSsh(body: string): string {
+    const fakeBin = tempDir("alz-fake-ssh-");
+    writeFileSync(join(fakeBin, "ssh"), `#!/bin/sh\n${body}\nexit 255\n`, { mode: 0o755 });
+    return `${fakeBin}${delimiter}${process.env.PATH ?? ""}`;
+  }
+
+  describe.each([
+    ["lint", ["lint"]],
+    // alz build exists in the Rust alz from R5 (TASK-55.6); until then this form fails against it.
+    ["build", ["build"]],
+  ])("through alz %s", (_command, args) => {
+    it("prints the source and git's first line, whole", async () => {
+      const ws = gitFixture();
+      setStack(ws, STACK);
+      const tree = readTree(`${ws.root}/repo`, TREE_IGNORE);
+      const result = await layers(ws, "repo", args, {
+        ...ENV,
+        PATH: pathWithSsh("echo 'fake ssh: no network' >&2"),
+      });
+      expect(result.code).toBe(1);
+      expect(result.stderr.split("\n")).toContain(
+        `error [source] cannot fetch '${SOURCE}': fake ssh: no network`,
+      );
+      expect(result.stderr).not.toContain("inside the repository");
+      expect(readTree(`${ws.root}/repo`, TREE_IGNORE)).toEqual(tree);
+    });
+
+    it("prints no ESC, CR or U+202E from git's line, which is not split at the CR", async () => {
+      const ws = gitFixture();
+      setStack(ws, STACK);
+      const result = await layers(ws, "repo", args, {
+        ...ENV,
+        // ESC [ 3 1 m, a CR, then U+202E (RIGHT-TO-LEFT OVERRIDE), in one line git passes on.
+        PATH: pathWithSsh(String.raw`printf 'x\033[31m red\r\342\200\256y\n' >&2`),
+      });
+      expect(result.code).toBe(1);
+      for (const character of ["\u001b", "\r", "\u202e"]) {
+        expect(result.stderr).not.toContain(character);
+        expect(result.stdout).not.toContain(character);
+      }
+      expect(result.stderr.split("\n")).toContain(
+        `error [source] cannot fetch '${SOURCE}': x[31m redy`,
+      );
+    });
+
+    // The reference takes the first line of the trimmed standard error, so a line of control
+    // characters is its line and prints as nothing; the spec takes the first line left after
+    // the characters are removed (§6 "A failed fetch", steps 3 to 5).
+    referenceDrift(
+      "TASK-68",
+      "uses the first line that is left once control characters are removed",
+      async () => {
+        const ws = gitFixture();
+        setStack(ws, STACK);
+        const result = await layers(ws, "repo", args, {
+          ...ENV,
+          PATH: pathWithSsh(String.raw`printf '\033\n\342\200\256 \n' >&2`),
+        });
+        expect(result.code).toBe(1);
+        const line = result.stderr.split("\n").find((text) => text.includes("cannot fetch"));
+        expect(line).toMatch(
+          new RegExp(`^error \\[source\\] cannot fetch '${SOURCE.replaceAll(".", "\\.")}': \\S`),
+        );
+        expect(line).not.toMatch(/: $/);
+      },
+    );
+  });
+});
