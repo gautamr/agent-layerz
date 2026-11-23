@@ -22,7 +22,7 @@
 use std::collections::BTreeMap;
 
 use crate::diagnostic::Diagnostics;
-use crate::item::{AgentName, ClaudeExtra, Hook, RuleName, Skill, SkillName};
+use crate::item::{AgentName, ClaudeExtra, Hook, RuleName, SettingsTree, Skill, SkillName};
 use crate::layer::LayerName;
 use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::algebra::Replace;
@@ -32,8 +32,10 @@ use crate::merge::permissions::{MergedPermissions, PermissionState};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
 use crate::merge::rules::{MergedRule, RuleState};
+use crate::merge::settings::SettingsState;
 use crate::merge::skills::{MergedSkills, SkillState, SlotDemand};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
+use crate::target::TargetName;
 
 /// What a kind needs to absorb one layer: the layer, where it lies in the stack, the manifest and
 /// where the layer lies in relation to the repository.
@@ -92,6 +94,7 @@ pub struct Merged {
     slot_stubs: BTreeMap<SkillName, SlotDemand>,
     hooks: Vec<Traced<Hook>>,
     permissions: MergedPermissions,
+    settings: BTreeMap<TargetName, Traced<SettingsTree>>,
 }
 
 impl Merged {
@@ -150,6 +153,13 @@ impl Merged {
         &self.permissions
     }
 
+    /// The settings of each target, deep-merged across layers (§7.9), each with the layers that
+    /// set them. A target no layer set has no entry, and no other key can be there.
+    #[must_use]
+    pub const fn settings(&self) -> &BTreeMap<TargetName, Traced<SettingsTree>> {
+        &self.settings
+    }
+
     /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
     /// that says "not defined for this repo", and who asked for it first (§7.3).
     #[must_use]
@@ -204,6 +214,7 @@ struct Accumulator {
     skills: SkillState,
     hooks: HookState,
     permissions: PermissionState,
+    settings: SettingsState,
     diagnostics: Diagnostics,
 }
 
@@ -217,6 +228,7 @@ impl Accumulator {
         let (skills, found_skills) = self.skills.absorb(context);
         let (hooks, found_hooks) = self.hooks.absorb(context);
         let (permissions, found_permissions) = self.permissions.absorb(context);
+        let (settings, found_settings) = self.settings.absorb(context);
         Self {
             layers: self
                 .layers
@@ -229,6 +241,7 @@ impl Accumulator {
             skills,
             hooks,
             permissions,
+            settings,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
@@ -236,7 +249,8 @@ impl Accumulator {
                 .merge(found_agents)
                 .merge(found_skills)
                 .merge(found_hooks)
-                .merge(found_permissions),
+                .merge(found_permissions)
+                .merge(found_settings),
         }
     }
 
@@ -260,6 +274,7 @@ impl Accumulator {
                 slot_stubs: stubs,
                 hooks: self.hooks.finish(),
                 permissions: self.permissions.finish(),
+                settings: self.settings.finish(),
             },
             self.diagnostics.merge(found_slots).merge(shadowed),
         )

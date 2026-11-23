@@ -7,6 +7,8 @@
 //! appearance, a key that a later layer adds comes after the existing ones, and a later value
 //! replaces or merges in place without moving its key. A whole-number key is an ordinary key.
 
+use std::collections::BTreeMap;
+
 use crate::merge::{FloatBits, Tree};
 
 /// A mapping with unique keys, in the order they first appeared. Equality is order-sensitive:
@@ -105,15 +107,19 @@ impl NativeMap {
         })
     }
 
+    /// The same entries in key order, as values of a sorted tree.
+    #[must_use]
+    pub fn sorted(&self) -> BTreeMap<String, Tree> {
+        self.0
+            .iter()
+            .map(|(key, value)| (key.clone(), value.to_tree()))
+            .collect()
+    }
+
     /// The same entries as a sorted tree, which compares mappings without regard to key order.
     #[must_use]
     pub fn to_tree(&self) -> Tree {
-        Tree::Map(
-            self.0
-                .iter()
-                .map(|(key, value)| (key.clone(), value.to_tree()))
-                .collect(),
-        )
+        Tree::Map(self.sorted())
     }
 }
 

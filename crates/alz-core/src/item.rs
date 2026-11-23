@@ -6,12 +6,15 @@
 //! so a merged model never holds a half-read file.
 
 mod agent;
+mod env_var_name;
 mod hook;
 mod instruction;
 mod kebab_case;
 mod list_edit;
 mod permission;
+mod protected_variable;
 mod rule;
+mod settings;
 mod skill;
 
 pub use agent::{
@@ -19,6 +22,7 @@ pub use agent::{
     Isolation, McpToolName, Memory, ModelId, NativeFields, NativeMap, NativeValue, NeutralTool,
     OverlayMode, PermissionMode, Role, SkillName, ToolGrant, ToolName, ToolScope,
 };
+pub use env_var_name::{EnvVarName, EnvVarNameError};
 pub use hook::{
     CommandLine, Hook, HookAction, HookEntry, HookId, HookItems, HookRefusal, HookScript, HookTool,
     LifecycleEvent, Lock, Matcher, NativeEvent, NativeEventName, NeutralEvent, OnFail, Seconds,
@@ -35,6 +39,7 @@ pub use rule::{
     Glob, GlobError, RuleBase, RuleEdit, RuleExtension, RuleFile, RuleItems, RuleMode,
     RuleModeError, RuleName, RuleNameError,
 };
+pub use settings::{Settings, SettingsItems, SettingsTree};
 pub use skill::{
     ArgumentHint, Command, Skill, SkillDescription, SkillDescriptionError, SkillDirectory,
     SkillFile, SkillItems,

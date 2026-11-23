@@ -26,6 +26,7 @@ mod permissions;
 mod placement;
 mod provenance;
 mod rules;
+mod settings;
 mod skills;
 mod stack;
 #[cfg(test)]

@@ -19,6 +19,7 @@ pub use folders::{AccountFolders, Relation, lies_within, names_account_folder};
 pub use name::{AccountName, AccountNameError};
 pub use protected::{
     PROTECTED_VARIABLES, codex_pattern_matches, is_protected_name, matched_protected_names,
+    protected_variable,
 };
 pub use reading::Reading;
 pub use user_config::{FolderRule, UserConfig};
