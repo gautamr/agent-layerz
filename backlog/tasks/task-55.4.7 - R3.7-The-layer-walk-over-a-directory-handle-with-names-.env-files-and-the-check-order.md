@@ -3,7 +3,7 @@ id: TASK-55.4.7
 title: >-
   R3.7: The layer walk over a directory handle, with names, .env files and the
   check order
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
