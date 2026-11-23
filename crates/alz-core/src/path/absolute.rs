@@ -28,6 +28,12 @@ impl AbsolutePathError {
 }
 
 impl AbsolutePath {
+    /// The root, `/`.
+    #[must_use]
+    pub fn root() -> Self {
+        Self("/".to_owned())
+    }
+
     /// The path as text.
     #[must_use]
     pub fn as_str(&self) -> &str {

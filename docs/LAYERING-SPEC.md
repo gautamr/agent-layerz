@@ -702,6 +702,23 @@ entry (§6) or an entry whose content is not what the lock recorded.
    hold the file" (run `git fetch` for that ref, or use a full clone); and every git and tree cache
    entry is fetched or written once again under its new name.
 2. Validate the stack: visibility ordering (§3.1), layer schema, no duplicate layer names.
+   The layers are first read, each by its own rule (steps above and §5.3): a failure of one
+   entry does not stop the others, so one run reports every problem, in stack order. The layer
+   schema errors are the `layer` errors of §5.1, at `<source>:layer.yaml`, where `<source>` is the
+   stack entry as written. Then, over the layers that were read, in stack order:
+   - A name that an earlier layer has is the error `duplicate-layer`, with no location and the
+     message `layer name '<name>' is used by both '<source>' and '<source>'`, naming the earlier
+     layer's entry first.
+   - A layer that is more public than a layer before it is the error `visibility` at the later
+     layer's entry, one for each such earlier layer: `<visibility> layer '<name>' cannot extend
+     <visibility> layer '<name>'; order the stack from most public to most private`.
+
+   `<source>` is stripped (§10.1). Each `.env` file of a layer is the error `env-file` at
+   `<layer>:<path>` (§5.3), and does not stop the layer from being read. A directory of an
+   unpinned `path:` layer that holds a name that is not valid UTF-8 is the error `layer` of §5.3
+   "File names"; one that holds a name that is not a safe path or a file that cannot be read is
+   the error `layer` with the message `layer '<source>' holds a file that cannot be read or a name
+   that is not allowed`.
 3. For each item type, collect items from all layers **in stack order** (general → specific).
 4. Apply the merge rule for that type (§7).
 5. Check: slots filled, budgets met, leak guard on public layers, permission floor kept.
@@ -2103,8 +2120,17 @@ error, with no payload, location or backtrace, and the process exits 70.
 the linted layers' names joined by `, `. A layer whose name is not known (its `layer.yaml` did not
 parse or did not pass the schema) appears as its directory as it was given, stripped.
 
-Until R3 (TASK-55.4), the Rust `alz lint` in a repository (stack mode, no `--layer`) stops with
-`error [not-ported]` and prints no summary line; both go away in R3.
+**`alz lint` in a repository** (stack mode, no `--layer`; TASK-55.4.10). It reads the stack
+manifest (§5.2) and `layer.lock` (§5.3), and when both are valid resolves every stack entry and
+validates the stack as §6 steps 1 and 2 say: the cache, git and the account folders are used as
+for `alz build`, except that nothing is written to the repository. The cache is made, and git run
+(after its version check), only when an entry is a `git:`, `github:` or pinned `path:` layer, and
+only after the walk has accepted that entry's directory; an unpinned `path:` layer is read in
+place and is never checked against the lock. A `git:` source that holds credentials is refused
+at the manifest (§5.2), before any cache or git access. `<names>` has one name for each stack
+entry in stack order: the layer's name, or, when the entry could not be resolved or its
+`layer.yaml` did not pass the schema, the entry as written, stripped. When the manifest or the
+lock is invalid no layer is resolved and no summary line is printed.
 
 ### 10.2 Generated YAML
 

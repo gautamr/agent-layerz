@@ -1,11 +1,11 @@
 //! What `alz lint` checks of the files R2 models (spec §10): the schema of one `layer.yaml`, and
-//! the stack manifest and `layer.lock` of a repository. Every function here is pure: the caller
-//! reads the files and prints the diagnostics.
+//! the stack manifest and `layer.lock` of a repository, and the metadata of each stack entry. Every
+//! function here is pure: the caller reads the files and prints the diagnostics.
 //!
 //! Instructions, skills, agents, settings, protected variables, the leak guard, the secret scan
 //! and slots arrive with the phases that model them (R4, R5).
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
+use crate::diagnostic::{Diagnostic, Diagnostics, Where};
 use crate::layer::LayerMeta;
 use crate::lock::Lock;
 use crate::stack::Manifest;
@@ -68,21 +68,16 @@ pub fn is_stack_manifest(document: &Node) -> bool {
 /// error at once. `source` is the name of the layer's directory as the person wrote it.
 #[must_use]
 pub fn layer(source: &Stripped, document: Result<Node, YamlError>) -> LayerLint {
-    let file = || Where::layer_file(source.clone(), Stripped::from_untrusted("layer.yaml"));
-    let (name, diagnostics) = match document {
-        Err(error) => (
-            source.clone(),
-            Diagnostics::new().with(error.into_diagnostic(file())),
-        ),
-        Ok(root) => match LayerMeta::from_yaml(&root) {
-            Ok(meta) => (
-                Stripped::from_untrusted(meta.name().as_str()),
-                Diagnostics::new(),
-            ),
-            Err(errors) => (source.clone(), errors.diagnostics(source)),
+    match read_layer(source, document) {
+        Ok(meta) => LayerLint {
+            name: Stripped::from_untrusted(meta.name().as_str()),
+            diagnostics: Diagnostics::new(),
         },
-    };
-    LayerLint { name, diagnostics }
+        Err(diagnostics) => LayerLint {
+            name: source.clone(),
+            diagnostics,
+        },
+    }
 }
 
 /// What the caller found where the repository's `layer.lock` should be.
@@ -96,48 +91,56 @@ pub enum LockFile<'a> {
     Unreadable(Diagnostic),
 }
 
-/// Lints a repository's stack manifest and, when there is one, its `layer.lock`: every manifest
-/// error, then the lock's error. A manifest and a lock that are both valid end with the error
-/// `not-ported`, because resolving the stack's layers is not ported yet (R3, TASK-55.4); R3
-/// removes it.
-#[must_use]
-pub fn stack_manifest(manifest: &Node, lock: LockFile<'_>) -> Diagnostics {
-    let manifest_errors = Manifest::from_yaml(manifest).map_or_else(
-        |errors| errors.manifest_diagnostics(),
-        |_| Diagnostics::new(),
-    );
-    let lock_errors = match lock {
-        LockFile::Absent => Diagnostics::new(),
-        LockFile::Bytes(bytes) => Lock::parse(bytes).map_or_else(
-            |error| Diagnostics::new().with(error.into_diagnostic()),
-            |_| Diagnostics::new(),
-        ),
-        LockFile::Unreadable(diagnostic) => Diagnostics::new().with(diagnostic),
+/// The repository's stack manifest and, when it has one, its `layer.lock`, both valid.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StackFiles {
+    /// The stack manifest.
+    pub manifest: Manifest,
+    /// The lock, `None` when the repository has none.
+    pub lock: Option<Lock>,
+}
+
+/// Reads a repository's stack manifest and, when there is one, its `layer.lock`, as lint does.
+///
+/// # Errors
+///
+/// Every manifest error, then the lock's error, in that order; the layers are not resolved until
+/// both files are valid.
+pub fn read_stack(manifest: &Node, lock: LockFile<'_>) -> Result<StackFiles, Diagnostics> {
+    let manifest = Manifest::from_yaml(manifest).map_err(|errors| errors.manifest_diagnostics());
+    let lock = match lock {
+        LockFile::Absent => Ok(None),
+        LockFile::Bytes(bytes) => Lock::parse(bytes)
+            .map(Some)
+            .map_err(|error| Diagnostics::new().with(error.into_diagnostic())),
+        LockFile::Unreadable(diagnostic) => Err(Diagnostics::new().with(diagnostic)),
     };
-    let found = manifest_errors.merge(lock_errors);
-    if found.has_errors() {
-        found
-    } else {
-        found.with(not_ported())
+    match (manifest, lock) {
+        (Ok(manifest), Ok(lock)) => Ok(StackFiles { manifest, lock }),
+        (Err(manifest), Err(lock)) => Err(manifest.merge(lock)),
+        (Err(problems), Ok(_)) | (Ok(_), Err(problems)) => Err(problems),
     }
 }
 
-fn not_ported() -> Diagnostic {
-    Diagnostic::error(
-        Code::NotPorted,
-        Some(Where::repository_file(Stripped::from_untrusted(
-            "layer.yaml",
-        ))),
-        Message::new(
-            "linting a repository's stack is not ported to the Rust alz yet (R3, TASK-55.4); \
-             use alz lint --layer <path> for one layer",
-        ),
-    )
+/// Reads the `layer.yaml` of one stack entry, given as `source` as it was written: its metadata,
+/// or every schema error at once.
+///
+/// # Errors
+///
+/// A YAML error, or every schema error, at `<source>:layer.yaml`.
+pub fn read_layer(
+    source: &Stripped,
+    document: Result<Node, YamlError>,
+) -> Result<LayerMeta, Diagnostics> {
+    let file = || Where::layer_file(source.clone(), Stripped::from_untrusted("layer.yaml"));
+    document
+        .map_err(|error| Diagnostics::new().with(error.into_diagnostic(file())))
+        .and_then(|root| LayerMeta::from_yaml(&root).map_err(|errors| errors.diagnostics(source)))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{LockFile, is_stack_manifest, layer, parse_document, stack_manifest};
+    use super::{LockFile, is_stack_manifest, layer, parse_document, read_layer, read_stack};
     use crate::untrusted_text::Stripped;
 
     fn node(text: &str) -> crate::yaml::Node {
@@ -193,22 +196,44 @@ mod tests {
     }
 
     #[test]
-    fn a_valid_manifest_and_no_lock_stop_at_not_ported() {
-        let found = stack_manifest(&node("stack:\n  - source: path:../a\n"), LockFile::Absent);
-        assert_eq!(
-            lines(&found),
-            [
-                "error [not-ported] layer.yaml: linting a repository's stack is not ported to the Rust alz yet (R3, TASK-55.4); use alz lint --layer <path> for one layer"
-            ]
-        );
+    fn a_valid_manifest_without_a_lock_is_read_with_no_lock() {
+        let files =
+            read_stack(&node("stack:\n  - source: path:../a\n"), LockFile::Absent).expect("valid");
+        assert_eq!(files.manifest.stack().len(), 1);
+        assert!(files.lock.is_none());
     }
 
     #[test]
-    fn manifest_errors_and_lock_errors_are_all_reported_and_not_ported_is_not() {
-        let found = stack_manifest(&node("stack: 1\nbogus: 2\n"), LockFile::Bytes(b"{"));
+    fn manifest_errors_and_lock_errors_are_all_reported() {
+        let found =
+            read_stack(&node("stack: 1\nbogus: 2\n"), LockFile::Bytes(b"{")).expect_err("invalid");
         let all = lines(&found);
         assert!(all.iter().any(|line| line.starts_with("error [manifest]")));
         assert!(all.iter().any(|line| line.starts_with("error [lock]")));
-        assert!(!all.iter().any(|line| line.contains("not-ported")));
+    }
+
+    #[test]
+    fn a_lock_error_alone_stops_a_valid_manifest() {
+        let found = read_stack(
+            &node("stack:\n  - source: path:../a\n"),
+            LockFile::Bytes(b"{"),
+        )
+        .expect_err("invalid");
+        assert_eq!(found.error_count(), 1);
+    }
+
+    #[test]
+    fn a_layer_is_read_into_its_metadata_or_every_schema_error() {
+        let source = Stripped::from_untrusted("path:../x");
+        let meta = read_layer(&source, Ok(node(LAYER))).expect("valid");
+        assert_eq!(meta.name().as_str(), "personal");
+        let found = read_layer(&source, Ok(node("name: a\n"))).expect_err("invalid");
+        assert_eq!(
+            lines(&found),
+            [
+                "error [layer] path:../x:layer.yaml:1:1: kind is required",
+                "error [layer] path:../x:layer.yaml:1:1: visibility is required"
+            ]
+        );
     }
 }
