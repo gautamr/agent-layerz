@@ -4,7 +4,7 @@ title: 'R5: Render, Claude adapter and commands in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T16:08:00Z'
+updated_date: '2026-11-23T16:16:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -45,4 +45,6 @@ From TASK-73 (2026-11-23, lead): adoption refuses, before writing, any text the 
 From R2.7 (2026-11-23): serde_json without float_roundtrip (decision-33) can read a float literal up to 1 ulp off where JSON.parse is exact; check before R4/R5 read target JSON with floats.
 
 From the R4 security review (2026-11-23, lead): generated-file collisions and the §4.5 protected paths compare with ASCII case folding (as item/passthrough/coverage.rs does), so a passthrough file such as targets/claude/.claude/Settings.json counts as colliding with .claude/settings.json on a case-insensitive file system; add an acceptance case.
+
+From the R4 review fixes (2026-11-23): the TOML emitter for Codex config quotes every key that holds a dot, so a YAML key written as one dotted string stays one literal TOML key; add a test.
 <!-- SECTION:NOTES:END -->

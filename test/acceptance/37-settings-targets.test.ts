@@ -97,3 +97,37 @@ describe.each(SUITES)("§13.29 %s top-level keys", (_name, kind, keys) => {
     });
   });
 });
+
+const CODEX_ROWS = [
+  "codex: { features: { hooks: false } }\n",
+  "codex: { features: { codex_hooks: false } }\n",
+  "codex: { profile: work }\n",
+  "codex: { profiles: { work: { approval_policy: never } } }\n",
+  "codex: { profiles: { work: { sandbox_mode: danger-full-access } } }\n",
+  "codex: { profiles: { work: { features: { hooks: false } } } }\n",
+  "codex: { other: [{ features: { codex_hooks: false } }] }\n",
+];
+
+describe("§13.29 settings.yaml codex keys that duplicate a first-class item", () => {
+  it("a file with only other nested keys lints clean", async () => {
+    const ws = fixture("37-settings-targets");
+    plant(
+      ws,
+      SETTINGS,
+      "codex: { features: { other: true }, profiles: { work: { model_reasoning_effort: high } } }\n",
+    );
+    const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+    expect(result.stderr).toBe("");
+    expect(result.code).toBe(0);
+  });
+
+  describe.each(CODEX_ROWS)("file %j", (text) => {
+    referenceDrift("TASK-55.5", "alz lint --layer refuses the file and names it", async () => {
+      const ws = fixture("37-settings-targets");
+      plant(ws, SETTINGS, text);
+      const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("error [settings] personal:settings.yaml");
+    });
+  });
+});

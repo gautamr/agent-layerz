@@ -137,6 +137,26 @@ impl Held {
     }
 }
 
+/// The floor of the layers before the one being merged: the strictest mode a layer declared with
+/// `floor: true`, and the layer that did. Agent overlays may not be looser than it (§7.2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DeclaredFloor {
+    mode: PermissionMode,
+    by: LayerName,
+}
+
+impl DeclaredFloor {
+    /// The strictest mode declared.
+    pub(super) const fn mode(&self) -> PermissionMode {
+        self.mode
+    }
+
+    /// The layer that first declared it.
+    pub(super) const fn by(&self) -> &LayerName {
+        &self.by
+    }
+}
+
 /// The state of the fold for permissions.
 #[derive(Debug, Clone, Default)]
 pub(super) struct PermissionState {
@@ -148,6 +168,16 @@ pub(super) struct PermissionState {
 }
 
 impl PermissionState {
+    /// The floor declared so far, with the layer that declared it.
+    pub(super) fn declared_floor(&self) -> Option<DeclaredFloor> {
+        self.held
+            .floor
+            .get()
+            .copied()
+            .zip(self.held.by.clone())
+            .map(|(mode, by)| DeclaredFloor { mode, by })
+    }
+
     /// The state after one more, more specific, layer.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
         let layer = context.layer().meta().name();
