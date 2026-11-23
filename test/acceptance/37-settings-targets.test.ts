@@ -166,7 +166,6 @@ const RESERVED_ROWS = [
   "codex: { apps: { a: { default_tools_approval_mode: auto } } }\n",
   "codex: { windows: { sandbox: unelevated } }\n",
   "codex: { profiles: { work: { model_provider: other } } }\n",
-  "claude: { mcpServers: { s: { command: server-bin } } }\n",
   "claude: { awsAuthRefresh: ./refresh.sh }\n",
   "claude: { awsCredentialExport: ./export.sh }\n",
   "claude: { gcpAuthRefresh: ./refresh.sh }\n",
@@ -203,6 +202,16 @@ describe("§13.29 settings.yaml keys with a security meaning", () => {
     const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
     expect(result.stderr).toBe("");
     expect(result.code).toBe(0);
+  });
+
+  // Claude Code documents no `mcpServers` settings key (target-facts §13); the reference already
+  // refuses it as a key that duplicates mcp.yaml, so this row is no reference drift.
+  it("alz lint --layer refuses claude mcpServers in settings.yaml and names the file", async () => {
+    const ws = fixture("37-settings-targets");
+    plant(ws, SETTINGS, "claude: { mcpServers: { s: { command: server-bin } } }\n");
+    const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("error [settings] personal:settings.yaml");
   });
 
   describe.each(RESERVED_ROWS)("file %j", (text) => {
