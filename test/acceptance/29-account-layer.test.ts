@@ -77,7 +77,8 @@ describe("§13.24 account layer field: schema (§7.13 'Account names')", () => {
     const result = await lintLayer(ws, "personal");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("error [layer]");
-    expect(result.stderr).toContain("'account");
+    // §10.1 prints key paths unquoted: `account`, `account.claude`.
+    expect(result.stderr).toContain("account");
     for (const text of [result.stdout, result.stderr]) {
       expect(text).not.toContain("secret-dir");
       expect(text).not.toContain(TOKEN_LIKE);

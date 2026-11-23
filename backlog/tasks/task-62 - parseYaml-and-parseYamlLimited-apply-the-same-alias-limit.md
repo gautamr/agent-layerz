@@ -1,10 +1,10 @@
 ---
 id: TASK-62
 title: parseYaml and parseYamlLimited apply the same alias limit
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
-updated_date: '2026-11-23T05:19:00Z'
+updated_date: '2026-11-23T06:52:00Z'
 labels:
   - discovered
   - area:spec
@@ -27,8 +27,8 @@ The yaml library's default maxAliasCount is 100, the same as MAX_ALIASES, so par
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The spec states one parsing rule for all YAML alz reads (alias limit, size cap, depth) or names which files differ and why
-- [ ] #2 The Rust port's single YAML entry point follows that rule
+- [x] #1 The spec states one parsing rule for all YAML alz reads (alias limit, size cap, depth) or names which files differ and why
+- [x] #2 The Rust port's single YAML entry point follows that rule
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -41,4 +41,6 @@ From TASK-65 (2026-11-23): spec §7.13 'The YAML alias limit' now defines the te
 TASK-65 review (2026-11-23): spec §7.13 'YAML limits' now states the one rule decision-28 (amended) gives. Every YAML file alz reads gets strict UTF-8, the 1 MiB cap and the four budgets: 100 aliases as written, 64 nested collections, 20000 nodes and 10000 replayed events. This covers layer.yaml, frontmatter (cap on the whole file), settings, accounts.yaml and allowed.yaml. So AC #1 is met by TASK-65's text, and what is left here is AC #2 (the Rust entry point) and the drift cases. The drift is listed in the spec. The reference caps only some files, reads U+FFFD and has no depth, node or replay budget. Its maxAliasCount counts per anchor: count starts at 1, weight from Alias.js getAliasCount, max over items, 1 for a scalar. So an anchor on an empty collection is never limited; SMOKE with yaml 2.9.1, 1000 uses of &a [] parse.
 
 Architect (2026-11-23, R2 plan in TASK-55.3): fixed in the Rust model by R2.4 (TASK-55.3.4); closed by R2.11 (TASK-55.3.11), which adds the acceptance cases (referenceDrift where the reference fails) and checks these criteria with its run. This task now depends on TASK-55.3.11.
+
+R2.11 evidence (2026-11-23): AC1 - spec 7.13 'YAML limits' states one rule for every YAML file alz reads (1 MiB, strict UTF-8, 100 aliases, depth 64, 20000 nodes, 10000 replayed events) and records the reference's differences. 34-yaml-limits proves each boundary against the Rust alz: 1 MiB lints and 1 MiB + 1 byte is error [yaml]; invalid UTF-8 refused; 100 aliases over three anchors lint and 101 are refused; 20000 nodes lint and 20001 are refused; 10000 replayed events parse and 10001 are refused. Each refusal is referenceDrift TASK-62 (the reference does not enforce it). AC2 - alz-core's clippy.toml bans every serde_saphyr entry point and granit_parser::Parser constructor (disallowed-methods); the only exceptions are the two #[expect] in yaml/events.rs and yaml/load.rs, so yaml::parse is the single entry point. mise run rust:ci exits 0.
 <!-- SECTION:NOTES:END -->
