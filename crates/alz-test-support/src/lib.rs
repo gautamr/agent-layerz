@@ -19,3 +19,23 @@ pub use scratch_dir::ScratchDir;
 pub fn test_executable() -> io::Result<PathBuf> {
     std::env::current_exe()
 }
+
+/// Starts `program` with `args` and `environment` added to this process's own, with no standard
+/// streams, and gives the child to wait for or to signal.
+///
+/// # Errors
+///
+/// The error of starting the program.
+pub fn start_silently(
+    program: &std::path::Path,
+    args: &[&str],
+    environment: &[(&str, &std::ffi::OsStr)],
+) -> io::Result<std::process::Child> {
+    std::process::Command::new(program)
+        .args(args)
+        .envs(environment.iter().copied())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+}

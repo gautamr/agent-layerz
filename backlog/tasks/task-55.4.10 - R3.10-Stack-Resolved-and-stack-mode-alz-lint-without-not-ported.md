@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
+updated_date: '2026-11-23T08:49:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -43,3 +44,9 @@ Plan for this step. Removes R2's `[not-ported]`, and fixes TASK-71 end to end th
 - [ ] #2 alz lint with a git:https://user:token@host/x.git@v1 source exits 1 with error [source] and the §5.2 message, runs no git, creates no cache directory, and stderr holds no token (assert_cmd test; TASK-71 AC #1 and AC #2 through lint)
 - [ ] #3 An unpinned path: layer is read in place and never checked against the lock, while a cached git: or pinned layer is (assert_cmd tests)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R3.8 (2026-11-23): wire the origin refusals (OriginRefusal::into_diagnostic: account folder, '..' in a local git path, invalid file:// URL) into stack resolution.
+<!-- SECTION:NOTES:END -->

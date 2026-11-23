@@ -600,7 +600,13 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - **No terminal.** Git and the programs it starts never reach the terminal.
      - alz starts git through a copy of itself, run with an internal argument that is not
        part of the command-line interface. The copy starts a new session (`setsid`) and then
-       runs git, so git and `ssh` have no controlling terminal and cannot open `/dev/tty`.
+       runs git as its child, so git and `ssh` have no controlling terminal and cannot open
+       `/dev/tty`.
+     - **Abandoned calls.** git runs in a session of its own, so an interrupt that reaches alz
+       does not reach it. The copy therefore waits for git and ends git's whole process group,
+       `ssh` included, when alz is gone (interrupted or killed), and alz ends the group when it
+       abandons a call (an error, a panic or the deadline below). No git or `ssh` is left running
+       after alz ends. The copy ends with git's exit status.
      - Standard input is the null device, except for the batch calls whose input alz writes.
      - A SMOKE run (TASK-55.4.3, Darwin 25.6, git 2.50.1) started a pseudo-terminal with
        `script(1)`. A process that opened `/dev/tty` there succeeded when it was started

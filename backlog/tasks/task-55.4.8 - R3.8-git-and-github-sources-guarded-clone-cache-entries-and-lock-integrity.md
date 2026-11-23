@@ -3,11 +3,11 @@ id: TASK-55.4.8
 title: >-
   R3.8: git: and github: sources: guarded clone, cache entries and lock
   integrity
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:47:00Z'
+updated_date: '2026-11-23T08:49:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -53,9 +53,9 @@ Plan for this step. Fixes TASK-68 (AC #4 and the wiring of AC #1). It uses R3.3,
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A git: or github: layer is cloned once into git-<key>@<sha> through a temporary entry, read from the cache when the lock pins it, and recorded with rev equal to the 12-character sha prefix (integration tests with real git)
-- [ ] #2 A cached entry that differs from the lock's content hash, or from a fresh clone when the lock has no entry, stops with the cache error naming the layer and its directory, and a link at the entry name is refused (integration tests)
-- [ ] #3 A failed clone, rev-parse or checkout gives error [source] cannot fetch with the stripped first line, and a failure to read or publish the clone gives error [cache] cannot store (integration tests; TASK-68 AC #4)
+- [x] #1 A git: or github: layer is cloned once into git-<key>@<sha> through a temporary entry, read from the cache when the lock pins it, and recorded with rev equal to the 12-character sha prefix (integration tests with real git)
+- [x] #2 A cached entry that differs from the lock's content hash, or from a fresh clone when the lock has no entry, stops with the cache error naming the layer and its directory, and a link at the entry name is refused (integration tests)
+- [x] #3 A failed clone, rev-parse or checkout gives error [source] cannot fetch with the stripped first line, and a failure to read or publish the clone gives error [cache] cannot store (integration tests; TASK-68 AC #4)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -80,4 +80,12 @@ Open / for the lead:
 4. A work-tree source's clone argument is its .git folder (git's suffix order), as in the reference; a bare repo is its own path. Tests that delete the source use a bare copy for that reason.
 5. Existing-entry-equal-to-clone is reported as ReadHow::Fetched; R3.10 can map it to Cached if the resolved stack needs the difference.
 6. Account-folder and '..' refusals for a git: source are values (OriginRefusal::into_diagnostic); wiring them into the stack resolution is R3.10.
+
+Verified by the lead (2026-11-23): mise run rust:ci exits 0 (551 tests; git_sources 20, git_runner 12 + 2 ignored child-process tests), lint passes, src/ and test/ unchanged, no stray fake ssh or sleep left. The interrupt test failed with the supervisor's parent check disabled and passes with it. Spec §6 'No terminal' gains 'Abandoned calls' (the copy now runs git as its child and kills the group when its parent changes). Lead on open points: (1) R3.11 adds a Linux-only case for a fetched clone holding a name that is not valid UTF-8; (2) the x:y local-folder-for-a-remote case rests on the argv test and target-facts §11; (5) an existing entry equal to the clone reported as Fetched is fine unless R3.10 needs the difference; (6) R3.10 wires the origin refusals into stack resolution.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+git: and github: sources resolve through the cache: the origin is classed local or remote in pure code (account-folder paths refused before they are looked at), a missing entry is cloned once through the GitRunner into an owner-checked temp folder and published under its entry name, the lock's sha pins it and an existing entry is compared with the lock or a fresh clone, failures give error [source] with git's first stripped line or error [cache] for a store failure, and an interrupted alz leaves no git or ssh running.
+<!-- SECTION:FINAL_SUMMARY:END -->

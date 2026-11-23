@@ -135,6 +135,32 @@ fn end_group(process: u32) {
     }
 }
 
+/// A call that has started and is not yet finished. When it is dropped before it was
+/// [`finished`](Self::finished), the call was abandoned (an error, a panic, a thread that
+/// unwinds), and git's whole process group is ended, so no git or `ssh` is left behind. The copy
+/// itself also ends the group when this process is gone altogether (see `detach`).
+struct Running(Option<u32>);
+
+impl Running {
+    /// Ends the group now, and nothing more happens when this is dropped.
+    fn end(&mut self) {
+        if let Some(process) = self.0.take() {
+            end_group(process);
+        }
+    }
+
+    /// The call ended by itself and was reaped.
+    fn finished(mut self) {
+        self.0 = None;
+    }
+}
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        self.end();
+    }
+}
+
 /// Runs `invocation` and returns how it ended.
 ///
 /// # Errors
@@ -160,10 +186,8 @@ pub(super) fn run(invocation: Invocation<'_>) -> Result<Completed, GitFailure> {
     let until = Instant::now() + invocation.deadline;
     let child = command.spawn().map_err(GitFailure::Spawn)?;
     let process = child.id();
-    let watch = watch(child, invocation.input, invocation.stdout_limit).map_err(|error| {
-        end_group(process);
-        GitFailure::Io(error)
-    })?;
+    let mut running = Running(Some(process));
+    let watch = watch(child, invocation.input, invocation.stdout_limit).map_err(GitFailure::Io)?;
     let completed = next(&watch.status, until).and_then(|status| {
         let stdout = next(&watch.stdout, until)?;
         let stderr = next(&watch.stderr, until)?;
@@ -175,13 +199,14 @@ pub(super) fn run(invocation: Invocation<'_>) -> Result<Completed, GitFailure> {
         })
     });
     match completed {
-        Ok(completed) => Ok(completed),
-        Err(Stop::Failed(failure)) => {
-            end_group(process);
-            Err(failure)
+        Ok(completed) => {
+            running.finished();
+            Ok(completed)
         }
+        // Dropping `running` ends the group.
+        Err(Stop::Failed(failure)) => Err(failure),
         Err(Stop::Expired) => {
-            end_group(process);
+            running.end();
             // Reap the copy so that no zombie stays behind; its result is of no use now.
             drop(watch.status.recv_timeout(REAP_GRACE));
             Err(GitFailure::TimedOut {

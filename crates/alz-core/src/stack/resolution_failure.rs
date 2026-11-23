@@ -61,6 +61,59 @@ pub fn cache_differs_from_lock(
     )
 }
 
+/// A cached `github:` or `git:` layer that differs from a fresh clone of the same commit, when the
+/// lock has no entry to compare it with (§6): the same "delete that directory" error.
+#[must_use]
+pub fn cache_differs_from_clone(source: Stripped, cache_directory: Stripped) -> Diagnostic {
+    Diagnostic::error(
+        Code::Cache,
+        None,
+        Message::new("cached layer '")
+            .then(source)
+            .then("' differs from a fresh clone of the same commit: its files in ")
+            .then(cache_directory)
+            .then(" changed after they were cached; delete that directory and rebuild"),
+    )
+}
+
+/// A local `git:` path with a `..` segment (§7.12): text and disk can disagree about where it
+/// leads.
+#[must_use]
+pub fn local_git_path_has_dotdot(source: Stripped) -> Diagnostic {
+    Diagnostic::error(
+        Code::Source,
+        None,
+        Message::new("'")
+            .then(source)
+            .then("': a local git: path must not contain '..' segments; use a path without them"),
+    )
+}
+
+/// A `file://` URL in a `git:` source that names no path.
+#[must_use]
+pub fn invalid_file_url(source: Stripped) -> Diagnostic {
+    Diagnostic::error(
+        Code::Source,
+        None,
+        Message::new("'")
+            .then(source)
+            .then("': not a valid file:// URL"),
+    )
+}
+
+/// A `path:` layer or local `git:` source whose real directory touches an account folder or the
+/// home folder (§6 "Layers in or around an account folder"). alz never reads there.
+#[must_use]
+pub fn layer_touches_account_folder(source: Stripped) -> Diagnostic {
+    Diagnostic::error(
+        Code::Source,
+        None,
+        Message::new("layer '")
+            .then(source)
+            .then("' touches an account folder or the home folder; alz never reads there"),
+    )
+}
+
 /// A `path:` layer whose directory is missing, not a directory, or not allowed (§6).
 #[must_use]
 pub fn layer_directory_not_found(source: Stripped) -> Diagnostic {
@@ -112,8 +165,9 @@ mod tests {
     use proptest::prelude::{Strategy, any, prop_assert, prop_assert_eq, proptest};
 
     use super::{
-        cache_differs_from_lock, cannot_fetch, cannot_resolve_ref, cannot_store,
-        file_name_not_utf8, layer_directory_not_found, source_holds_credentials,
+        cache_differs_from_clone, cache_differs_from_lock, cannot_fetch, cannot_resolve_ref,
+        cannot_store, file_name_not_utf8, invalid_file_url, layer_directory_not_found,
+        layer_touches_account_folder, local_git_path_has_dotdot, source_holds_credentials,
     };
     use crate::diagnostic::Diagnostic;
     use crate::git::FetchFailureLine;
@@ -215,6 +269,10 @@ mod tests {
         vec![
             cannot_fetch(stripped(source), FetchFailureLine::from_stderr(stderr)),
             cannot_store(stripped(source), stripped(directory)),
+            cache_differs_from_clone(stripped(source), stripped(directory)),
+            local_git_path_has_dotdot(stripped(source)),
+            invalid_file_url(stripped(source)),
+            layer_touches_account_folder(stripped(source)),
             cache_differs_from_lock(&name(), stripped(source), stripped(directory)),
             layer_directory_not_found(stripped(source)),
             cannot_resolve_ref(&git_ref, stripped(source)),
