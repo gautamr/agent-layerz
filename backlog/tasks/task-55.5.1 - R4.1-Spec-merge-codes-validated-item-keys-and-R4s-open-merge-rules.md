@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-23T12:27:00Z'
-updated_date: '2026-11-23T17:25:00Z'
+updated_date: '2026-11-23T17:46:00Z'
 labels:
   - area:rust
   - area:spec
@@ -107,6 +107,10 @@ Architect (2026-11-23), spec text for the R4 review fixes (18eba98, 63cc01d), on
 - §10.1: permission-shadowed is the one merge warning without <where>, in its table row and in the paragraph below the table.
 - CHANGELOG: four bullets: Codex keys at any depth, overlay strictness, the path-scope rule, UTF-16 and multi-line leak checks.
 Checks: mise run lint exit 0. The grep of the spec and CHANGELOG diff for the private items' words found nothing. I did not touch crates/, test/ or TASK-55.5.16.
+
+Architect (2026-11-23), R4.16 spec text, on the branch and not committed: §7.9 has the table of security-relevant native keys (first-class, reserved and floor keys, key paths, the breach rule, the TASK-76 facts rule). §7.2 refuses servers and hooks in native fields and drops the per-agent hooks example. §7.6 has the three permissions floor fields. §10.1 rows are extended, and the CHANGELOG has three bullets. mise run lint exit 0; the leak grep found nothing.
+
+Architect (2026-11-23), correction to the R4.16 pass: §7.9 now lists Claude disableAutoMode as ordered text with one rank, disable (once set, no more specific layer may change it; unset is free). The six Codex features.hooks and features.codex_hooks paths are now written out in full. A script checked all 98 path rows of native_keys.rs KEYS against §7.9 and found none missing. mise run lint exit 0; the leak grep found nothing. Not committed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

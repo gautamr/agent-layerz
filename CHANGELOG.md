@@ -35,6 +35,14 @@ All notable changes to agent-layerz are recorded here. The format follows
     entry out of `claude.disallowedTools`.
   - A tool path scope that starts with `~` or `/`, holds a backslash or starts with a drive
     letter is covered only by an equal scope.
+  - Security-relevant native settings (`docs/LAYERING-SPEC.md` §7.9) may only get stricter down
+    the stack: sandbox switches, allow lists that may gain no entries, and deny lists that only
+    grow. Reserved keys are refused in `settings.yaml`: plugin and marketplace sources, keys that
+    run a command or route traffic, and keys meant for user or managed settings.
+  - An agent's native fields may not hold `claude.mcpServers`, `codex.mcp_servers` or `hooks`.
+  - `permissions.yaml` has the floor fields `disable_bypass_mode`, `block_reads_outside` and
+    `block_writes_outside`. Once a layer sets one to `true`, a more specific layer cannot set it
+    back to `false`.
   - The leak guard decodes UTF-16 files (with a byte order mark) and removes NULs before it
     checks. `^` and `$` in `forbid_patterns` match at every line, and the secret scan reads the
     whole `layer.yaml`.
