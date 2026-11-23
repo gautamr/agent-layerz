@@ -1,6 +1,7 @@
 //! A layer's own description, `layer.yaml` of a layer (spec §5.1), as validated types.
 
 mod contents;
+mod heading;
 mod item_path;
 mod kind;
 mod meta;
@@ -10,6 +11,7 @@ mod text;
 mod visibility;
 
 pub use contents::LayerContents;
+pub use heading::LayerHeading;
 pub use item_path::ItemPath;
 pub use kind::{Kind, KindError, KindLabel};
 pub use meta::LayerMeta;

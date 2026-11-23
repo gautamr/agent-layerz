@@ -8,6 +8,7 @@ use thiserror::Error;
 use crate::account::{AccountNameError, AccountShapeError};
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Position, Where};
 use crate::identity::{EmailError, IdentityNameError};
+use crate::item::{GlobError, InstructionModeError, RuleModeError};
 use crate::layer::{KindError, LayerNameError, VisibilityError};
 use crate::stack::{BudgetError, GitRefError, SourceError, StackError, WorkspaceDirError};
 use crate::target::TargetError;
@@ -45,6 +46,12 @@ pub enum Refusal {
     Budget(BudgetError),
     /// The stack as a whole.
     Stack(StackError),
+    /// A glob of a rule's `paths`.
+    Glob(GlobError),
+    /// The `mode` of an instruction file.
+    InstructionMode(InstructionModeError),
+    /// The `mode` of a rule.
+    RuleMode(RuleModeError),
 }
 
 impl Refusal {
@@ -65,6 +72,9 @@ impl Refusal {
             Self::WorkspaceDir(error) => error.rule(),
             Self::Budget(error) => error.rule(),
             Self::Stack(error) => error.rule(),
+            Self::Glob(error) => error.rule(),
+            Self::InstructionMode(error) => error.rule(),
+            Self::RuleMode(error) => error.rule(),
         }
     }
 }
@@ -93,6 +103,9 @@ refusal_from! {
     WorkspaceDirError => WorkspaceDir,
     BudgetError => Budget,
     StackError => Stack,
+    GlobError => Glob,
+    InstructionModeError => InstructionMode,
+    RuleModeError => RuleMode,
 }
 
 /// One problem of a file against its schema, with the position it is reported at.

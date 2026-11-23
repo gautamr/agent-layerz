@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T12:39:00Z'
+updated_date: '2026-11-23T13:04:00Z'
 labels:
   - area:rust
   - area:lint
@@ -34,3 +34,9 @@ Plan for this step.
 - [ ] #3 Every case of tests 02 to 11, 17 to 19, 26, 29 and 37 that drives alz lint passes against ALZ_BIN, the 84 of the 2026-11-23 baseline included, and TASK-55.5's notes list each merge case with its Rust test
 - [ ] #4 mise run rust:ci, mise run lint and mise run alz:check pass, and src/ is unchanged (git diff --stat main -- src)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Spec items collected by the lead for a spec pass before the R4 review (2026-11-23), from R4.4: (a) instructions mode values: absent or append adds, replace, remove; anything else is an instructions error; (b) replace or remove with no base is an unresolved error (add to §10.1's unresolved list), dropped by single-layer lint; (c) a replacing rule without paths is a rule error 'paths is required; always-loaded text belongs in instructions/'; (d) bodies and CLAUDE.extra.md text are trimmed of Unicode White_Space and a block empty after trimming is dropped (the reference's JS trim also removes U+FEFF: drift); (e) the layer heading capitalises the first character of the layer's kind and is printed as untrusted text; (f) duplicate globs within one rule's paths are kept once (the reference kept them on replace: drift).
+<!-- SECTION:NOTES:END -->

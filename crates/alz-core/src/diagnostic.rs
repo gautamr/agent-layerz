@@ -76,6 +76,13 @@ pub enum Code {
     Visibility,
     /// A Markdown file whose frontmatter block is not closed or is not a mapping (§4.1, §7.13).
     Frontmatter,
+    /// An instruction file's unknown field or `mode` (§7.1).
+    Instructions,
+    /// A rule's schema (§7.10).
+    Rule,
+    /// A reference to a more general layer that is not there: an overlay or `extend` rule without
+    /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
+    Unresolved,
 }
 
 impl Code {
@@ -99,6 +106,9 @@ impl Code {
             Self::DuplicateLayer => "duplicate-layer",
             Self::Visibility => "visibility",
             Self::Frontmatter => "frontmatter",
+            Self::Instructions => "instructions",
+            Self::Rule => "rule",
+            Self::Unresolved => "unresolved",
         }
     }
 }

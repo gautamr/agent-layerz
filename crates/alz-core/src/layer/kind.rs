@@ -55,6 +55,19 @@ impl Kind {
     }
 }
 
+impl Kind {
+    /// The label with its first character in capitals, as the heading of a layer's text writes it:
+    /// `repo` is `Repo` (§7.1).
+    #[must_use]
+    pub fn title(&self) -> String {
+        let label = self.as_str();
+        let mut characters = label.chars();
+        characters.next().map_or_else(String::new, |first| {
+            first.to_uppercase().chain(characters).collect()
+        })
+    }
+}
+
 impl TryFrom<&str> for Kind {
     type Error = KindError;
 
@@ -76,6 +89,15 @@ mod tests {
         assert_eq!(Kind::try_from("client"), Ok(Kind::Client));
         assert!(Kind::try_from("personal").is_ok_and(|kind| !kind.is_client()));
         assert!(Kind::try_from("Client").is_ok_and(|kind| !kind.is_client()));
+    }
+
+    #[test]
+    fn the_title_capitalises_the_first_character_only() {
+        let title = |label: &str| Kind::try_from(label).expect("a kind").title();
+        assert_eq!(title("repo"), "Repo");
+        assert_eq!(title("client"), "Client");
+        assert_eq!(title("my Kind"), "My Kind");
+        assert_eq!(title("Team"), "Team");
     }
 
     #[test]

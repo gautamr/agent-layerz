@@ -7,7 +7,8 @@
 
 use thiserror::Error;
 
-use crate::diagnostic::{Code, Diagnostic, Message, Where};
+use crate::diagnostic::{Code, Diagnostic, Message, Position, Where};
+use crate::yaml::fields::{KeyPath, Section};
 use crate::yaml::{self, Mapping, Node, Value, YamlError, YamlText};
 
 /// The first line of a file with frontmatter, after line endings are normalised.
@@ -131,6 +132,13 @@ impl Frontmatter {
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&Node> {
         self.0.get(key)
+    }
+
+    /// The mapping as a schema section, for the readers of the fields of an item. A field the
+    /// section lacks is reported at the first line.
+    #[must_use]
+    pub const fn section(&self) -> Section<'_> {
+        Section::of_mapping(&self.0, KeyPath::root(), Position::FIRST)
     }
 
     /// Whether there is no entry.

@@ -10,6 +10,7 @@ mod diagnostic;
 pub mod env;
 pub mod git;
 pub mod identity;
+pub mod item;
 pub mod json;
 pub mod layer;
 pub mod lint;

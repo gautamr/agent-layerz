@@ -101,6 +101,17 @@ impl<T> Traced<T> {
         &self.value
     }
 
+    /// The same contributions with the value changed by `change`, which may refuse it: `None`
+    /// when it does. For the finished form of a value that was built up while layers were
+    /// absorbed.
+    #[must_use]
+    pub fn filter_map<U>(self, change: impl FnOnce(T) -> Option<U>) -> Option<Traced<U>> {
+        change(self.value).map(|value| Traced {
+            value,
+            provenance: self.provenance,
+        })
+    }
+
     /// The contributions that made the value.
     #[must_use]
     pub const fn provenance(&self) -> &Provenance {

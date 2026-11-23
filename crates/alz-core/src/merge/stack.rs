@@ -19,9 +19,15 @@
 //!    accessor.
 //! 4. A case for each merge rule of §7 and its law, in the kind's module.
 
+use std::collections::BTreeMap;
+
 use crate::diagnostic::Diagnostics;
+use crate::item::{ClaudeExtra, RuleName};
 use crate::layer::LayerName;
+use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
 use crate::merge::placement::{Placement, Placements};
+use crate::merge::provenance::Traced;
+use crate::merge::rules::{MergedRule, RuleState};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
 
 /// What a kind needs to absorb one layer: the layer, where it lies in the stack, the manifest and
@@ -73,6 +79,9 @@ impl<'a> LayerContext<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Merged {
     layers: Vec<LayerName>,
+    instructions: Vec<Traced<InstructionBlock>>,
+    claude_extras: Vec<ClaudeExtra>,
+    rules: BTreeMap<RuleName, Traced<MergedRule>>,
 }
 
 impl Merged {
@@ -80,6 +89,27 @@ impl Merged {
     #[must_use]
     pub fn layers(&self) -> &[LayerName] {
         &self.layers
+    }
+
+    /// The instruction blocks in stack order, then by file name within a layer (§7.1), each with
+    /// the layers that made it. A block of `mode: replace` stands at the place of the layer that
+    /// replaced it.
+    #[must_use]
+    pub fn instructions(&self) -> &[Traced<InstructionBlock>] {
+        &self.instructions
+    }
+
+    /// The text of each layer's `targets/claude/CLAUDE.extra.md` that has any, in stack order
+    /// (§7.1).
+    #[must_use]
+    pub fn claude_extras(&self) -> &[ClaudeExtra] {
+        &self.claude_extras
+    }
+
+    /// The path-scoped rules by name (§7.10), each with the layers that made it.
+    #[must_use]
+    pub const fn rules(&self) -> &BTreeMap<RuleName, Traced<MergedRule>> {
+        &self.rules
     }
 }
 
@@ -123,6 +153,8 @@ impl Merging {
 #[derive(Debug, Default)]
 struct Accumulator {
     layers: Vec<LayerName>,
+    instructions: InstructionState,
+    rules: RuleState,
     diagnostics: Diagnostics,
 }
 
@@ -130,20 +162,34 @@ impl Accumulator {
     /// The state after one more, more specific, layer. Each kind's `absorb` is called here, in
     /// the order of §7.
     fn absorb(self, context: &LayerContext<'_>) -> Self {
+        let (instructions, found_instructions) = self.instructions.absorb(context);
+        let (rules, found_rules) = self.rules.absorb(context);
         Self {
             layers: self
                 .layers
                 .into_iter()
                 .chain([context.layer().meta().name().clone()])
                 .collect(),
-            diagnostics: self.diagnostics,
+            instructions,
+            rules,
+            diagnostics: self
+                .diagnostics
+                .merge(found_instructions)
+                .merge(found_rules),
         }
     }
 
     fn finish(self) -> Merging {
+        let MergedInstructions {
+            blocks,
+            claude_extras,
+        } = self.instructions.finish();
         Merging::of(
             Merged {
                 layers: self.layers,
+                instructions: blocks,
+                claude_extras,
+                rules: self.rules.finish(),
             },
             self.diagnostics,
         )
