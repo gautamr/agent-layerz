@@ -3,10 +3,10 @@ id: TASK-68
 title: >-
   A failed fetch prints the source and git's first line stripped of control
   characters
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T04:40:00Z'
-updated_date: '2026-11-23T10:09:00Z'
+updated_date: '2026-11-23T11:58:00Z'
 labels:
   - discovered
   - area:rust

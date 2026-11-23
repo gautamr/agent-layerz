@@ -3,10 +3,10 @@ id: TASK-53
 title: >-
   Treat an empty or relative XDG_CACHE_HOME as unset when locating the layer
   cache
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22T08:16:00Z'
-updated_date: '2026-11-23T10:09:00Z'
+updated_date: '2026-11-23T11:58:00Z'
 labels:
   - discovered
   - area:resolve

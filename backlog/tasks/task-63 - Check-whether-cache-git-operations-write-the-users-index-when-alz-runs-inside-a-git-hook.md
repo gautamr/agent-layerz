@@ -3,10 +3,10 @@ id: TASK-63
 title: >-
   Check whether cache git operations write the user's index when alz runs inside
   a git hook
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22T17:19:00Z'
-updated_date: '2026-11-23T10:09:00Z'
+updated_date: '2026-11-23T11:58:00Z'
 labels:
   - discovered
   - area:security

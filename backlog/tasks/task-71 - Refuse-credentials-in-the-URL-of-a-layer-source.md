@@ -1,10 +1,10 @@
 ---
 id: TASK-71
 title: Refuse credentials in the URL of a layer source
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T04:51:00Z'
-updated_date: '2026-11-23T10:09:00Z'
+updated_date: '2026-11-23T11:58:00Z'
 labels:
   - discovered
   - area:rust
