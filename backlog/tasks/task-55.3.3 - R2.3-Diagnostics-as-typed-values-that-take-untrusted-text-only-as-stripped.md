@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:17:00Z'
-updated_date: '2026-11-23T05:27:00Z'
+updated_date: '2026-11-23T05:45:00Z'
 labels:
   - area:rust
   - area:security
@@ -43,3 +43,9 @@ Laws: for any strings put into any parts, the rendered line contains no control 
 - [ ] #2 Property test: no rendered diagnostic contains a control or format character or a line feed, whatever strings went into its parts
 - [ ] #3 A compile_fail doc test shows that a String cannot become a Message part
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R2.2 (2026-11-23): decide and specify whether a single quote inside a QuotedKey is escaped (spec §10.1 is silent), so 'a'b' cannot be misread.
+<!-- SECTION:NOTES:END -->

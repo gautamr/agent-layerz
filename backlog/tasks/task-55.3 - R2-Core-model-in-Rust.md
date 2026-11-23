@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T05:27:00Z'
+updated_date: '2026-11-23T05:45:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -164,6 +164,8 @@ decision-30: R2 also fixes TASK-59 to TASK-62 in Rust and implements name order 
 Architect (2026-11-23): plan written and split into TASK-55.3.1 to TASK-55.3.11; owner questions Q1 to Q6 in a comment; TASK-59 to TASK-62 now depend on TASK-55.3.11, which closes them.
 
 Owner answers (2026-11-23): (1) a quoted key name is cut at 64 characters, counted after stripping, then '…'; (2) approve thiserror, serde without derive, serde_json for parsing only, sha2 and proptest (dev) — one decision each; (3) allow CR in raw YAML text, refuse it in decoded strings (amend decision-28); (4) schema errors never print values, only the field path and quoted keys (reference drift where the reference prints more); (5) stack-mode alz lint gives a fixed error [not-ported], exit 1, until R3, and TASK-61 closes in R2 through its lint case; (6) R3 and R4 are judged by Rust tests plus the acceptance cases their CLI can reach; the full suite files must pass by R5.
+
+Owner (2026-11-23): Q7 answered, an encoding_rs-only licence exception (decision-28 amended); R2.1 spec text approved.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
