@@ -602,6 +602,11 @@ entry (§6) or an entry whose content is not what the lock recorded.
        part of the command-line interface. The copy starts a new session (`setsid`) and then
        runs git, so git and `ssh` have no controlling terminal and cannot open `/dev/tty`.
      - Standard input is the null device, except for the batch calls whose input alz writes.
+     - A SMOKE run (TASK-55.4.3, Darwin 25.6, git 2.50.1) started a pseudo-terminal with
+       `script(1)`. A process that opened `/dev/tty` there succeeded when it was started
+       directly, and failed with ENXIO ("Device not configured") when it was started through
+       the copy. The copy must not be a process group leader when it calls `setsid`, which is
+       why the runner starts it as an ordinary child.
      - The user's `core.sshCommand` and `GIT_SSH_COMMAND` are left as they are.
      - An `ssh` agent keeps working, and so does a graphical `SSH_ASKPASS` program, which does
        not use the terminal.

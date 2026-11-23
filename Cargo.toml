@@ -18,8 +18,9 @@ clap = { version = "4.6.9", features = ["derive"] }
 # decision-35: dev-dependency only, with std and without fork, timeout or bit-set.
 proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 # decision-27: rustix 1.1.6 or later, called only from alz-io; `fs` for directory-relative access,
-# and no feature beyond `std` until a task needs one. deny.toml keeps the version floor and the caller list.
-rustix = { version = "1.1.6", default-features = false, features = ["std", "fs"] }
+# `process` for `setsid` and the process-group kill of the git runner (TASK-55.4.3),
+# and no other feature until a task needs one. deny.toml keeps the version floor and the caller list.
+rustix = { version = "1.1.6", default-features = false, features = ["std", "fs", "process"] }
 # decision-32: no derive; alz writes its own visitors. A `[bans]` feature rule in deny.toml keeps it off.
 serde = { version = "=1.0.229", default-features = false, features = ["std"] }
 # decision-33: parse only, into alz's own tree; alz writes JSON with its own emitter. A `[bans]` feature rule in deny.toml keeps the other features off.

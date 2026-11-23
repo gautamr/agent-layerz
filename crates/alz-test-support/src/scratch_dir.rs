@@ -55,6 +55,38 @@ impl ScratchDir {
         fs::write(self.join(name), contents)
     }
 
+    /// Writes an executable file `name` (mode 0755) with `contents`.
+    ///
+    /// # Errors
+    ///
+    /// The error of writing the file or of setting its mode.
+    pub fn write_executable(
+        &self,
+        name: impl AsRef<Path>,
+        contents: impl AsRef<[u8]>,
+    ) -> io::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = self.join(name);
+        fs::write(&path, contents)?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+    }
+
+    /// The bytes of the file `name`.
+    ///
+    /// # Errors
+    ///
+    /// The error of reading the file.
+    pub fn read(&self, name: impl AsRef<Path>) -> io::Result<Vec<u8>> {
+        fs::read(self.join(name))
+    }
+
+    /// Whether `name` exists inside the directory, links not followed.
+    #[must_use]
+    pub fn exists(&self, name: impl AsRef<Path>) -> bool {
+        fs::symlink_metadata(self.join(name)).is_ok()
+    }
+
     /// Makes a folder `name`.
     ///
     /// # Errors

@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:10:00Z'
+updated_date: '2026-11-23T08:20:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -53,4 +53,6 @@ Plan for this step (TASK-55.4, "Acceptance cases R3 must pass against ALZ_BIN").
 
 <!-- SECTION:NOTES:BEGIN -->
 From R3.4 (2026-11-23): add the exact texts of the cache-integrity message, 'layer directory not found' and 'cannot resolve ref' to the spec (§6 / §10.1), matching crates/alz-core/src/stack/resolution_failure.rs.
+
+From R3.3 (2026-11-23): run crates/alz/tests/git_runner.rs against git 2.30 if a 2.30 build can be installed (e.g. through mise); otherwise record that the floor's argv is verified only on the git found (2.50.1).
 <!-- SECTION:NOTES:END -->
