@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-23T18:29:00Z'
 labels:
   - area:rust
   - area:cli
@@ -34,3 +35,9 @@ Plan for this step: crates/alz/src/command/{pipeline,build,check}.rs.
 - [ ] #2 Acceptance files 01, 02, 07 to 09, 11, 14, 15, 23 and 37's build rows pass against ALZ_BIN (vitest run with ALZ_BIN=target/release/alz, counts in the notes)
 - [ ] #3 The build and check forms of TASK-52, TASK-53, TASK-63 and TASK-71 in tests 24 and 36 pass against ALZ_BIN (vitest run)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R5.2 (2026-11-24): the layer walk must raise error [layer] naming the layer for a file name with a control or format character (SourceRef and OutputPath refuse them as typed values only), and a layer version with a control character or '-->' (LayerLabel) is a layer error in the renderer.
+<!-- SECTION:NOTES:END -->

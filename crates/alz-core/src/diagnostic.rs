@@ -139,6 +139,11 @@ pub enum Code {
     /// A passthrough file, a warning for each use, or a file below a folder of `targets/` that is
     /// not a known target, an error (§7.11, §4.1).
     Passthrough,
+    /// Two generated files whose paths differ only by ASCII case or Unicode normalisation, or a
+    /// generated path that holds a file alz does not own (§4.3).
+    Collision,
+    /// A generated path that a protected pattern covers, a warning (§4.5).
+    Protected,
     /// A layer that declares `commit_identity` and may not, or several client layers that do
     /// (§7.12).
     Identity,
@@ -197,6 +202,8 @@ impl Code {
             Self::LeakHost => "leak-host",
             Self::ProtectedVariable => "protected-variable",
             Self::Passthrough => "passthrough",
+            Self::Collision => "collision",
+            Self::Protected => "protected",
             Self::Identity => "identity",
             Self::Account => "account",
             Self::Unresolved => "unresolved",
