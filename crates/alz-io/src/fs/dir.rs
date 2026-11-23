@@ -6,6 +6,7 @@ use std::os::fd::OwnedFd;
 use alz_core::account::AccountFolders;
 use alz_core::layer::{LayerScan, Purpose};
 use alz_core::path::{AbsolutePath, SafeRelPath};
+use rustix::fs::{AtFlags, statat};
 
 use crate::fs::read_below::read_file_below;
 use crate::fs::read_error::ReadError;
@@ -45,6 +46,31 @@ impl Dir {
         } else {
             Err(WalkError::Missing)
         }
+    }
+
+    /// Opens the directory at `path` as [`open`](Self::open) does, and gives its real path too:
+    /// every link resolved, as the walk found it.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`open`](Self::open).
+    pub fn open_with_real_path(
+        path: &AbsolutePath,
+        folders: &AccountFolders,
+    ) -> Result<(Self, AbsolutePath), WalkError> {
+        let found = find(path, folders)?;
+        if found.below.is_empty() {
+            Ok((Self::from_handle(found.handle), found.existing))
+        } else {
+            Err(WalkError::Missing)
+        }
+    }
+
+    /// Whether `name`, a single name and not a path, exists in this directory, following a link
+    /// the way a test for existence does. Only the answer is used, never what it names.
+    #[must_use]
+    pub fn contains(&self, name: &str) -> bool {
+        !name.contains('/') && statat(&self.handle, name, AtFlags::empty()).is_ok()
     }
 
     pub(super) const fn from_handle(handle: OwnedFd) -> Self {

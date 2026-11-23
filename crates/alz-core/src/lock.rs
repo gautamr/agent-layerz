@@ -4,6 +4,7 @@
 
 mod content_hash;
 pub(crate) mod hex;
+mod integrity;
 mod lock_file;
 mod object_id;
 
@@ -11,5 +12,6 @@ pub use content_hash::{
     ContentHash, DigestError, FileDigest, FileHash, LayerFiles, is_env_file, is_hashed,
     is_skipped_name,
 };
+pub use integrity::{Integrity, locked_entry_for, locked_sha_for, verify};
 pub use lock_file::{Lock, LockError, LockField, LockedLayer};
 pub use object_id::{ObjectId, ObjectIdError};

@@ -7,6 +7,7 @@ use std::fmt;
 use thiserror::Error;
 
 use crate::lock::hex;
+use crate::stack::GitRef;
 
 /// A git object id: the commit a layer was resolved to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -27,6 +28,15 @@ impl ObjectIdError {
     #[must_use]
     pub const fn rule(self) -> &'static str {
         "must be 40 or 64 lowercase hexadecimal characters"
+    }
+}
+
+impl ObjectId {
+    /// The first 12 hexadecimal characters of the id, as a ref: the `rev` that `layer.lock`
+    /// records for a `git:` or `github:` layer.
+    #[must_use]
+    pub fn short_rev(&self) -> GitRef {
+        GitRef::short_of(self)
     }
 }
 
@@ -55,6 +65,7 @@ mod tests {
     use proptest::prelude::{any, prop_assert_eq, proptest};
 
     use super::{ObjectId, ObjectIdError};
+    use crate::stack::GitRef;
 
     const SHA1: &str = "b8b1dadfa8feded6f6d93583dd449585eaafb9f8";
 
@@ -102,5 +113,18 @@ mod tests {
                 prop_assert_eq!(ObjectId::try_from(id.to_string().as_str()), Ok(id));
             }
         }
+    }
+
+    #[test]
+    fn the_short_rev_is_the_first_twelve_characters_and_a_valid_ref() {
+        let sha1 = ObjectId::try_from(SHA1).expect("an id");
+        assert_eq!(sha1.short_rev().as_str(), "b8b1dadfa8fe");
+        assert_eq!(
+            sha1.short_rev(),
+            GitRef::try_from("b8b1dadfa8fe").expect("a ref")
+        );
+        assert_eq!(GitRef::of_commit(&sha1).as_str(), SHA1);
+        let sha256 = ObjectId::try_from(&*"ab".repeat(32)).expect("an id");
+        assert_eq!(sha256.short_rev().as_str(), "abababababab");
     }
 }

@@ -20,7 +20,7 @@ mod tests {
     use alz_core::path::SafeRelPath;
     use alz_core::stack::GitRef;
     use alz_io::{Deadlines, EnvSnapshot, GitFailure, GitRunner, Launcher, ReadScope};
-    use alz_test_support::{ScratchDir, test_executable};
+    use alz_test_support::{ScratchDir, start_silently, test_executable};
     use assert_cmd::Command;
 
     const SHA: &str = "b8b1dadfa8feded6f6d93583dd449585eaafb9f8";
@@ -484,6 +484,89 @@ exec sleep 300
         assert!(
             eventually_dead(parent_pid.trim()),
             "git {parent_pid} is alive"
+        );
+    }
+
+    // --- An abandoned call ---------------------------------------------------------------------
+
+    const SLOW_CLONE_TEST: &str = "tests::the_slow_clone_of_a_process_that_gets_interrupted";
+
+    /// Runs as the child of the test below: a clone through the runner, with the standard
+    /// deadline, whose `ssh` sleeps for five minutes. It never finishes by itself.
+    #[test]
+    #[ignore = "runs only as the child that interrupting_alz_during_a_slow_clone_leaves_no_git_or_ssh starts"]
+    fn the_slow_clone_of_a_process_that_gets_interrupted() {
+        let probe = probe_dir_of("ALZ_SLOW_CLONE_DIR");
+        let dir = Path::new(&probe);
+        let ssh = dir.join("ssh").into_os_string();
+        let path = real_path();
+        let env = snapshot(&[
+            ("PATH", &path),
+            ("HOME", &probe),
+            ("GIT_SSH_COMMAND", &ssh),
+            ("ALZ_PROBE_DIR", &probe),
+        ]);
+        let git = GitRunner::with_launcher(launcher(), &env, Deadlines::STANDARD).expect("a git");
+        let outcome = git.clone_source(
+            CloneTransport::Remote,
+            OsStr::new("ssh://example.invalid/layer.git"),
+            &dir.join("clone"),
+        );
+        panic!("the clone was not interrupted: {outcome:?}");
+    }
+
+    fn probe_dir_of(name: &str) -> OsString {
+        EnvSnapshot::capture()
+            .vars()
+            .get(name)
+            .expect("run by the test that starts this one")
+            .to_owned()
+    }
+
+    #[test]
+    fn interrupting_alz_during_a_slow_clone_leaves_no_git_or_ssh() {
+        let dir = scratch();
+        dir.write_executable("ssh", SLEEPING_SSH).unwrap();
+        let mut alz = start_silently(
+            &test_executable().expect("the test executable"),
+            &["--exact", SLOW_CLONE_TEST, "--ignored", "--nocapture"],
+            &[
+                ("ALZ_SLOW_CLONE_DIR", dir.path().as_os_str()),
+                ("HOME", dir.path().as_os_str()),
+                ("PATH", &real_path()),
+            ],
+        )
+        .expect("the child starts");
+        let ssh_started = (0..300).any(|_| {
+            let started = dir.exists("parent-pid");
+            if !started {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            started
+        });
+        assert!(ssh_started, "the fake ssh never started");
+        // Let the fake ssh finish writing its two files.
+        std::thread::sleep(Duration::from_millis(200));
+        let ssh_pid = String::from_utf8(dir.read("ssh-pid").unwrap()).unwrap();
+        let git_pid = String::from_utf8(dir.read("parent-pid").unwrap()).unwrap();
+        assert!(
+            is_alive(ssh_pid.trim()),
+            "ssh is running before the interrupt"
+        );
+        let interrupt = Command::new("kill")
+            .args(["-INT", &alz.id().to_string()])
+            .output()
+            .expect("kill runs");
+        assert!(interrupt.status.success(), "{interrupt:?}");
+        let status = alz.wait().expect("alz ends");
+        assert!(!status.success(), "{status:?}");
+        assert!(
+            eventually_dead(ssh_pid.trim()),
+            "ssh {ssh_pid} is alive after alz was interrupted"
+        );
+        assert!(
+            eventually_dead(git_pid.trim()),
+            "git {git_pid} is alive after alz was interrupted"
         );
     }
 

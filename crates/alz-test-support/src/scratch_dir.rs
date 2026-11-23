@@ -96,6 +96,86 @@ impl ScratchDir {
         fs::create_dir(self.join(name))
     }
 
+    /// Makes the folder `name` and the folders above it that are missing.
+    ///
+    /// # Errors
+    ///
+    /// The error of creating the folders.
+    pub fn make_dirs(&self, name: impl AsRef<Path>) -> io::Result<()> {
+        fs::create_dir_all(self.join(name))
+    }
+
+    /// The real path of the directory itself, every link resolved.
+    ///
+    /// # Errors
+    ///
+    /// The error of resolving the path.
+    pub fn real_path(&self) -> io::Result<PathBuf> {
+        fs::canonicalize(&self.path)
+    }
+
+    /// Reads the file `name` as UTF-8 text.
+    ///
+    /// # Errors
+    ///
+    /// The error of reading the file, or of the text not being UTF-8.
+    pub fn read_text(&self, name: impl AsRef<Path>) -> io::Result<String> {
+        fs::read_to_string(self.join(name))
+    }
+
+    /// Removes the folder `name` with everything in it.
+    ///
+    /// # Errors
+    ///
+    /// The error of removing it.
+    pub fn remove_tree(&self, name: impl AsRef<Path>) -> io::Result<()> {
+        fs::remove_dir_all(self.join(name))
+    }
+
+    /// Renames `from` to `to`, both inside the directory.
+    ///
+    /// # Errors
+    ///
+    /// The error of renaming.
+    pub fn rename(&self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
+        fs::rename(self.join(from), self.join(to))
+    }
+
+    /// Sets the permission bits of `name`, such as `0o500`.
+    ///
+    /// # Errors
+    ///
+    /// The error of setting them.
+    pub fn set_mode(&self, name: impl AsRef<Path>, mode: u32) -> io::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(self.join(name), fs::Permissions::from_mode(mode))
+    }
+
+    /// Whether `name` is a folder, links followed.
+    #[must_use]
+    pub fn is_dir(&self, name: impl AsRef<Path>) -> bool {
+        fs::metadata(self.join(name)).is_ok_and(|meta| meta.is_dir())
+    }
+
+    /// Whether `name` is a regular file, links followed.
+    #[must_use]
+    pub fn is_file(&self, name: impl AsRef<Path>) -> bool {
+        fs::metadata(self.join(name)).is_ok_and(|meta| meta.is_file())
+    }
+
+    /// The names inside the folder `name`, sorted; none when it cannot be listed.
+    #[must_use]
+    pub fn list(&self, name: impl AsRef<Path>) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(self.join(name))
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
     /// Makes a symbolic link `name` that points at `target`, which is stored as it is given.
     ///
     /// # Errors

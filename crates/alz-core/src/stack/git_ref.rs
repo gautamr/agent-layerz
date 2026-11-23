@@ -5,6 +5,7 @@ use std::fmt;
 use thiserror::Error;
 
 use crate::diagnostic::{Printable, sealed::Sealed};
+use crate::lock::ObjectId;
 
 /// A git ref: non-empty, never starting with `-` (so git cannot read it as an option), holding no
 /// `..`, and made only of ASCII letters, digits and `. _ / + -`. Its alphabet is printable ASCII,
@@ -30,6 +31,20 @@ impl GitRef {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// The ref that names `commit` by its full id: lowercase hexadecimal is within the alphabet,
+    /// so no check is needed.
+    #[must_use]
+    pub fn of_commit(commit: &ObjectId) -> Self {
+        Self(commit.to_string())
+    }
+
+    /// The first 12 characters of `commit`'s id: what `layer.lock` records as `rev` for a
+    /// `git:` or `github:` layer (§5.3).
+    #[must_use]
+    pub fn short_of(commit: &ObjectId) -> Self {
+        Self(commit.to_string().chars().take(12).collect())
     }
 }
 

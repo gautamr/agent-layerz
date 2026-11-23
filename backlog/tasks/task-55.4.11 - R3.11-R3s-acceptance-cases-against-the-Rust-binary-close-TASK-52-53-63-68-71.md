@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:35:00Z'
+updated_date: '2026-11-23T08:49:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -59,4 +59,6 @@ From R3.3 (2026-11-23): run crates/alz/tests/git_runner.rs against git 2.30 if a
 From R3.6 (2026-11-23): add to the spec the messages 'cannot use the layer cache at <dir>', "layer '<s>' is not a directory" and "layer '<s>' cannot be opened" (alz-io fs/walk_error.rs, cache_error.rs).
 
 From R3.7 (2026-11-23): the spec needs (a) the rule for a name that is valid Unicode but not a SafeRelPath (a backslash, .GIT, .git.) — implemented as NameNotSafe, a layer-invalid miss right after NameNotUtf8 — and its build message, and (b) the build message for an unreadable file or folder in a layer.
+
+From R3.8 (2026-11-23): add a Linux-only case for a fetched git clone that holds a file name that is not valid UTF-8 (§5.3).
 <!-- SECTION:NOTES:END -->
