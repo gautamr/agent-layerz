@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T12:33:00Z'
+updated_date: '2026-11-23T12:43:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -119,6 +119,8 @@ Owner questions (options; recommendation first):
 6. Tool narrowing (§7.2) does not say how one scope covers another. Recommended rule for the spec: a path scope covers another when equal, or when it ends in `/**` and the other lies below its prefix, with `*` never crossing `/`; a command scope (bash) covers another when equal, or when it ends in ` *` and the other starts with its prefix and holds no shell control operator (`;`, `&`, `|`, a line feed, a backtick, `$(`, `<`, `>`). Cases where the reference accepts more become referenceDrift. Alternative: keep the reference's prefix rule.
 
 Owner answers (2026-11-23): (1) MCP server ids follow a strict grammar ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$, shared with mcp.enable; any other key is an error naming the file; AC #3 reworded to match. (2) The leak guard (forbid_patterns) and the secret scan are both ported in R4, with a regex crate decision; the spec states the pattern syntax and refuses look-around and backreferences with a clear error. (3) Stack-mode alz lint checks each layer alone, as the reference; merge errors show in build (R5); no spec change. (4, lead) Test 26's §9.4 identity cases pass by R6; AC #2 reworded. (5) Settings deep merge keeps the reference's left fold (a later kind replaces); the laws are stated for kind-consistent trees; list items are deduplicated by structural equality. (6) Tool scopes use the stricter containment rule: path scopes compare by whole segments (docs/** never covers docs-private/), and a narrowed command scope may not add shell operators beyond its base; the reference's prefix rule is reference drift, described in the open on R4.6's task.
+
+Architect (2026-11-23, after the owner's answers): the answers are folded into R4.3, R4.6, R4.10, R4.11, R4.14 and R4.15, with their descriptions and criteria rewritten. R4.11 adds regex-lite for the secret scan, and R4.14 uses it for forbid_patterns. decision-38 is recorded as accepted: regex-lite =0.1.9, std and string, with size and nest limits; its intake is in the decision's Context. R4.1's spec text and CHANGELOG are on the branch and not committed. R4.2 is in progress with the implementer; I did not touch its files.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

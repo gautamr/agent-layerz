@@ -8,6 +8,29 @@ All notable changes to agent-layerz are recorded here. The format follows
 
 ### Changed
 
+- The Rust `alz` checks layer files more strictly than the TypeScript `alz`, as
+  `docs/LAYERING-SPEC.md` §5.2, §7.2, §7.7, §7.8, §7.9, §9.2 and §10.1 say (TASK-55.5). A layer
+  that the TypeScript `alz` accepts can fail when the repository moves to the Rust `alz`:
+  - The top level of `settings.yaml` takes only `claude` and `codex`. Any other key is an error
+    and the file's settings are not merged.
+  - Keys of `mcp.yaml` and entries of `mcp.enable` must be server ids: an ASCII letter or digit,
+    then up to 63 letters, digits, `_` or `-`. Each alias in `models.yaml` maps only `claude`
+    and `codex`.
+  - An agent overlay narrows a tool only when the base covers it segment by segment
+    (`docs/**` covers `docs/adr/**`, while `docs*` covers only `docs*`), and a narrowed `bash` scope
+    may not add a shell operator such as `;`, `&&`, `|` or `$(`.
+  - `forbid_patterns` use the `regex-lite` syntax. `\d`, `\w` and `\b` are ASCII only, and
+    look-around, backreferences and `\p{…}` are refused. Each layer has at most 64 entries of
+    at most 512 characters each.
+  - Array items in `settings.yaml` are de-duplicated by value, so two mappings that differ only
+    in key order become one.
+  - Markdown frontmatter closes only at a line that is exactly `---`, and a Markdown file
+    without frontmatter must be valid UTF-8.
+  - A folder in `targets/` must be named after a known target (`claude`, `codex`).
+
+  These are breaking changes for some layers. The cutover to the Rust `alz` is a minor version
+  bump (0.x).
+
 - The Rust `alz` resolves layer sources more strictly than the TypeScript `alz`, as
   `docs/LAYERING-SPEC.md` §6 ("The layer cache", "Layers in or around an account folder", "Git
   subprocesses") and §9.1 say (TASK-52, TASK-53, TASK-63, TASK-70). What changes when a

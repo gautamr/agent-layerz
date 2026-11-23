@@ -1,14 +1,14 @@
 ---
 id: TASK-55.5.1
 title: 'R4.1: Spec: merge codes, validated item keys and R4''s open merge rules'
-status: To Do
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-23T12:27:00Z'
+updated_date: '2026-11-23T12:47:00Z'
 labels:
   - area:rust
   - area:spec
-  - needs:owner-approval
 milestone: m-7
 dependencies: []
 parent_task_id: TASK-55.5
@@ -32,7 +32,46 @@ Plan for this step: spec text only (docs/LAYERING-SPEC.md, CHANGELOG.md), on the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 §7.7, §7.8 and §7.9 state which top-level keys settings.yaml, mcp.yaml and the aliases of models.yaml accept, and that any other key is an error naming the file (spec diff)
-- [ ] #2 §10.1 lists every diagnostic code the merge emits with its level, and says how item names, refused keys and refused values print (spec diff)
-- [ ] #3 Each answered owner question of TASK-55.5 has spec text or a note that the reference behaviour stays; §13 has the known-target entry; CHANGELOG lists the user-facing changes with the version note (spec and CHANGELOG diff)
+- [x] #1 §7.7, §7.8 and §7.9 state which top-level keys settings.yaml, mcp.yaml and the aliases of models.yaml accept, and that any other key is an error naming the file (spec diff)
+- [x] #2 §10.1 lists every diagnostic code the merge emits with its level, and says how item names, refused keys and refused values print (spec diff)
+- [x] #3 Each answered owner question of TASK-55.5 has spec text or a note that the reference behaviour stays; §13 has the known-target entry; CHANGELOG lists the user-facing changes with the version note (spec and CHANGELOG diff)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Architect (2026-11-23): the spec text is written on feat/rust-r4-task-55.5 and not committed, so it lands in the R4 pull request with the code. Files: docs/LAYERING-SPEC.md (§5.2, §7.2, §7.7, §7.8, §7.9, §9.2, §10.1, §13 item 29) and CHANGELOG.md (Unreleased, Changed).
+- AC #1:
+  - §7.9: the top level of settings.yaml takes only claude and codex. Any other key, whatever it is, is a settings error naming the layer and file, with the key quoted, and none of the file's settings are merged. The merged settings are ordered maps of the checked keys.
+  - §7.7: mcp.yaml keys are server ids matching ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$. Any other key is an mcp error naming the file. §5.2 applies the same grammar to mcp.enable.
+  - §7.8: an alias key that is not a target is a models error naming the file.
+- AC #2: §10.1 has a "Merge diagnostics" table with 27 codes and their levels, taken from the reference's merge and leak guard plus R4's new refusals. It also says how names, refused keys and refused values print.
+- AC #3:
+  - Answer 1 is in §7.7 and §5.2.
+  - Answer 2 is in §9.2: the regex-lite syntax (decision-38), refusal of look-around and backreferences with a message naming the feature, the limits (64 entries, 512 characters, 64 KiB compiled, nesting 32), and the secret scan with its codes.
+  - Answer 3 is the §10.1 sentence "alz lint checks each layer alone and leaves out unresolved". There is no other lint change.
+  - Answer 4 changes a phase, not behaviour, so the spec does not change.
+  - Answer 5 is in §7.9: a left fold, a later kind replaces, deduplication by value.
+  - Answer 6 is in §7.2: the containment rule, with the reference's prefix rule described in the open as reference drift (TASK-55.5.6).
+  - §13 has the new item 29, and the CHANGELOG lists the user-facing refusals with the minor-bump note.
+Checks: mise run lint passed (biome, tsc). No code changed. I searched the changed files for the private item's words and found none.
+
+Correction: the §10.1 table lists 28 codes (leak-email and leak-host share one row), not 27.
+
+Architect (2026-11-23), second pass after R4.2 (b42dc6c), still on the branch and not committed:
+- §4.1 "Item paths": the item paths R4.2 classifies, layer.yaml and hooks/scripts/<path> included, and the rule for a targets/ folder that is not a known target (an error naming each file; a file directly in targets/ is no item).
+- §4.1 "Markdown frontmatter": the opening line is exactly --- plus LF, with CRLF read as LF; the block closes at the first line that is exactly --- (reference drift); the body follows the closing line's LF; an empty, comment-only or null block is an empty mapping; a file without an opening line is body only and must be valid UTF-8 (reference drift: the reference reads it lossily); the 1 MiB cap and the YAML rules apply to a file with a block; YAML errors are located at the file's line and column.
+- §7.5: run: names a script below hooks/scripts/, relative to hooks/. The reference takes any file below hooks/ (reference drift). Every fixture and .layer use scripts/.
+- §7.11: only known-target folders hold passthrough files.
+- §10.1: the frontmatter row quotes the two messages; the passthrough row gains the error case.
+- CHANGELOG: two more bullets.
+Checks: mise run lint exit 0. The added lines of the spec and CHANGELOG contain none of the private item's words.
+
+Lead (2026-11-23): accepted, including the stricter hook run: rule (a script below hooks/scripts/, reference drift) and the unknown targets/<name> folder as a passthrough error. The R4 unit review checks the text against the code.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The spec text and CHANGELOG entry for R4 are written, uncommitted, on the R4 branch: the known-target rule for settings.yaml, the server-id grammar for mcp.yaml and mcp.enable, target-only model aliases, the tool-scope containment rule with the reference's prefix rule as drift, the forbid_patterns syntax and limits (decision-38), the secret scan, the merge diagnostic codes in §10.1, and §13 item 29. mise run lint passes. It waits for review, then ships in the R4 pull request.
+<!-- SECTION:FINAL_SUMMARY:END -->
