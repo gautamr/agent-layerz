@@ -113,7 +113,8 @@ pub enum ToolName {
 }
 
 impl ToolName {
-    fn named(name: &str) -> Option<Self> {
+    /// The tool a bare name stands for: a neutral tool or an `mcp__` tool.
+    pub(in crate::item) fn named(name: &str) -> Option<Self> {
         NeutralTool::named(name).map(Self::Neutral).or_else(|| {
             name.starts_with("mcp__")
                 .then(|| Self::Mcp(McpToolName(name.to_owned())))

@@ -20,6 +20,7 @@
 
 mod agents;
 pub mod algebra;
+mod hooks;
 mod instructions;
 mod placement;
 mod provenance;
