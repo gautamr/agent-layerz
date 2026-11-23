@@ -4,7 +4,7 @@ title: 'R4: Merge rules in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T04:25:00Z'
+updated_date: '2026-11-23T05:28:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -26,12 +26,15 @@ doc-5 phase R4: every merge rule, protected variables, who may declare.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The merge cases (tests 02 to 11, 17 to 19, 26, 29) pass against the Rust binary
-- [ ] #2 Settings and MCP files accept only the known target names at the top level; any other top-level key is an error naming the file, and the merged settings are ordered maps of validated keys
+- [ ] #1 Every merge rule of spec §7 has Rust tests, with property tests for its law (doc-6 §3.5), and each merge case of tests 02 to 11, 17 to 19, 26 and 29 has a Rust test with the same verdict (list in the notes)
+- [ ] #2 The cases of tests 02 to 11, 17 to 19, 26 and 29 that alz lint can reach pass against the Rust binary; the rest of those files pass by R5 (TASK-55.6)
+- [ ] #3 Settings and MCP files accept only the known target names at the top level; any other top-level key is an error naming the file, and the merged settings are ordered maps of validated keys
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 decision-30: R3 closes TASK-52, TASK-53 and TASK-63 (fixed in Rust only).
+
+Architect (2026-11-23): criteria restated per the owner's answer 6 in TASK-55.3's notes: R4 is judged by Rust tests plus the acceptance cases its CLI can reach, and the full suite files must pass by R5. The known-target criterion is unchanged in wording and meaning; it is now #3.
 <!-- SECTION:NOTES:END -->

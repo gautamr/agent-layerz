@@ -96,6 +96,18 @@ TypeScript output samples. No serialiser dependency.
 **Fallback.** yaml_serde, if serde-saphyr becomes unusable. Adopting it needs alz's own alias
 count, duplicate-key and size checks, and a new decision.
 
+**Amended 2026-11-23 (owner, TASK-55.3).** The control-character set of the "Decoded text" bullet
+above is split in two:
+- **Raw text** may hold tab, line feed and carriage return. Raw text means the file's characters after
+  UTF-8 decoding and before parsing. YAML reads CR and CRLF as line breaks, so a file saved with CRLF
+  line ends parses.
+- **Decoded strings** may hold only tab and line feed. These are keys and values after YAML has applied
+  its escapes and normalised its line breaks. A carriage return there can only come from an escape such
+  as `\r`, and it is an error.
+
+Every other character of U+0000 to U+001F, U+007F to U+009F (NEL, U+0085, included), U+2028 and U+2029
+stays an error in both. The spec states both sets in §7.13 "YAML limits" (TASK-55.3.1).
+
 ## Consequences
 
 - Generated files and `layer.lock` hashes stay the same at cutover only if the emitter matches the
@@ -143,3 +155,6 @@ count, duplicate-key and size checks, and a new decision.
 - The spike's findings in the TypeScript reference are filed as TASK-59 to TASK-62: alias names
   quoted in errors, cyclic aliases accepted, `ref` converted with `String()`, and both parse
   functions applying the same alias limit.
+- **Amended 2026-11-23 (owner, TASK-55.3):** with CR allowed in raw text, a file with CRLF line ends
+  is not a new error. A `\r` escape that decodes to a carriage return is one: it belongs to the new
+  error "a control character that an escape in a quoted string produces" listed above.

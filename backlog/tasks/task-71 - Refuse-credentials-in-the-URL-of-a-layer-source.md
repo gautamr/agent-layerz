@@ -4,7 +4,7 @@ title: Refuse credentials in the URL of a layer source
 status: To Do
 assignee: []
 created_date: '2026-11-23T04:51:00Z'
-updated_date: '2026-11-23T05:00:00Z'
+updated_date: '2026-11-23T05:19:00Z'
 labels:
   - discovered
   - area:rust
@@ -34,4 +34,6 @@ Found in the TASK-65 review. A git: source such as https://user:token@host/repo.
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-23): the rule in §5.2 'Credentials in a source' is accepted as written.
+
+Architect (2026-11-23, R2 plan in TASK-55.3): the parse rule of spec §5.2 'Credentials in a source' is built into the Rust GitUrl type in R2.6 (TASK-55.3.6) with unit tests; the CLI cases still need alz build, so this task stays R3's.
 <!-- SECTION:NOTES:END -->
