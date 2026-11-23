@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T03:24:00Z'
+updated_date: '2026-11-23T03:26:00Z'
 labels:
   - area:rust
   - area:test
@@ -25,7 +25,7 @@ doc-5 phase R1. The suite runs against the binary named by ALZ_BIN (TypeScript b
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 With ALZ_BIN pointing at the TypeScript bundle the whole suite passes as before, no test imports src/ through the acceptance path, and a run leaves no alz-* folder in the temp folder
+- [x] #1 With ALZ_BIN pointing at the TypeScript bundle the whole suite passes as before, no test imports src/ through the acceptance path, and a run leaves no alz-* folder in the temp folder
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -123,6 +123,8 @@ Owner answers (2026-11-22): PTY driver deferred to R6 (TASK-55.2.8 now blocks TA
 Review fixes on R1 (implementer): (1) test/exec.ts killGroup refuses any pid that is not an integer > 1 (isStartedPid); capture kills the group only for a child that started (a failed start reports pid 0). (2) capture now sends stdout/stderr to files under the run root instead of pipes, so spawnSync returns when the direct child ends; the group is then listed (before the kill) and killed. 'sh -c "sleep 30 & sleep 31"' with a 500 ms timeout throws in well under 5 s, listing sleep 30, and none survives. (3) Import guard walks test/acceptance recursively, allows leading whitespace, follows absolute specifiers (reported as src/...); positive control for each; tmpdir guard comment says it is discipline, not a boundary. (4) 27 split: acceptance keeps decision-26 --version/--help through layers(); the install-script cases moved to test/reference/27-install-local.test.ts under their names with an allow-listed env (PATH, HOME, BIN_DIR, PREFIX, npm_config_cache, npm_config_userconfig=/dev/null) and a HOME for every alz. (5) 26: the guarded-clone case is renamed to what it proves (inside-the-repo rejection; the GIT_ALLOW_PROTOCOL guard stays in reference under the old name); the git: remote case puts a fake ssh and the git stand-in on PATH, asserts 'error [source]', the source named, and a recorded clone of host.invalid:client.git. The spec names no wording for a failed fetch, so none is asserted (open: spec gap). (6) stale-roots: per-root catch, stderr report, sweep continues; processExists treats only ESRCH as gone. (7) alz-bin.ts shebangLine refuses a node path with whitespace or over 200 bytes. (8) mise test:acceptance uses npm exec --no. (9) nits: stale R1.7 comments, word-bounded version match (holdsVersion), git-proxy PATH-only comment, in-process runs get TMPDIR=<run root>/tmp (done in test/reference/in-process.ts, no src/ change). (10) .layer skill and rule text updated, alz:build and alz:check run. Not fixed by design: Ctrl-C orphans of detached children, smoke test 12 env.
 
 Review fix round verified by the lead (2026-11-23): `mise run test` 45 files, 1080 passed, 1 expected fail, 1 skipped (1082), 93 s; `mise run lint` and `mise run alz:check` pass; ALZ_BIN=target/release/alz on 25 and 27: 3 passed; no acceptance file spreads process.env except the opt-in smoke test 12. Mutation checks against the pre-fix test/exec.ts: (a) the pid-0 finding is real — running test/reference/exec.test.ts on the old helper killed the caller's whole process group, the lead's shell included; (b) the grandchild-pipe finding did not reproduce — the new case 'fails within the timeout, ... leaves no sleep 30' passes on the old helper in 1 s, because Node's spawnSync closes the child's pipes when its timeout fires. The file-based capture stays (harmless, simpler to reason about), but that case is not a regression test, and the 132 s stall in TASK-54 is still unexplained. Not fixed, recorded: Ctrl-C leaves detached children running; opt-in smoke test 12 passes the parent environment; run-root teardown can still throw if its own root cannot be removed. Spec gap: LAYERING-SPEC names no diagnostic for a failed fetch, so 26 asserts only 'error [source]' and the source; added to TASK-65.
+
+AC #1 verified by the lead (2026-11-23): with ALZ_BIN at a 755 copy of dist/alz-standalone.mjs, mise run test:acceptance passes (701, 1 skipped); the guard finds no acceptance file reaching src/; a run leaves no alz-* folder. R1.8 moved under R6 as TASK-55.7.1 (owner, 2026-11-23). R1 is set Done when its PR merges.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
