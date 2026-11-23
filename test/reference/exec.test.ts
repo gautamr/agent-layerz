@@ -13,6 +13,14 @@ import { tempDir } from "../run-root";
 // The spawn helpers of the acceptance suite (TASK-55.2.7, TASK-54 AC 2): a child that outlives its
 // timeout fails the test at that timeout, naming the command and what is running.
 
+/**
+ * Sleep lengths unique to this run: the survivor checks below list every process on the machine,
+ * and another run of this file (an overlapping suite run) must not look like a survivor.
+ */
+const GRANDCHILD = `31.${process.pid}`;
+const HOLDER = `30.${process.pid}`;
+const BLOCKER = `31.0${process.pid}`;
+
 const PS = [
   "  PID  PPID  PGID STAT ELAPSED COMMAND",
   "  100     1   100 Ss   00:05 /bin/sh -c work",
@@ -57,7 +65,7 @@ describe("a spawned child that outlives its timeout", () => {
   });
 
   it("is killed with its whole group, so no grandchild is left running", async () => {
-    const failure = await spawnCaptured("sh", ["-c", "sleep 31 & wait"], {
+    const failure = await spawnCaptured("sh", ["-c", `sleep ${GRANDCHILD} & wait`], {
       cwd: tempDir("alz-exec-"),
       env: { PATH: process.env.PATH ?? "" },
       timeoutMs: 1000,
@@ -65,12 +73,12 @@ describe("a spawned child that outlives its timeout", () => {
       () => undefined,
       (error: Error) => error,
     );
-    expect(failure?.message).toContain("sleep 31");
+    expect(failure?.message).toContain(`sleep ${GRANDCHILD}`);
     // The kernel takes a moment to reap what the kill ended: look for up to two seconds.
     const survivors = async (tries: number): Promise<string[]> => {
       const rows = tool("ps", ["-ax", "-o", "command"])
         .split("\n")
-        .filter((row) => row.includes("sleep 31"));
+        .filter((row) => row.includes(`sleep ${GRANDCHILD}`));
       if (rows.length === 0 || tries === 0) return rows;
       await new Promise((done) => setTimeout(done, 100));
       return survivors(tries - 1);
@@ -90,7 +98,7 @@ describe("a blocking tool call whose grandchild keeps the output open", () => {
     const started = Date.now();
     const failure = (() => {
       try {
-        capture("sh", ["-c", "sleep 30 & sleep 31"], {
+        capture("sh", ["-c", `sleep ${HOLDER} & sleep ${BLOCKER}`], {
           cwd: tempDir("alz-exec-"),
           env: {},
           timeoutMs: 500,
@@ -101,12 +109,12 @@ describe("a blocking tool call whose grandchild keeps the output open", () => {
       }
     })();
     expect(Date.now() - started).toBeLessThan(5000);
-    expect(failure?.message).toContain('["sh","-c","sleep 30 & sleep 31"]');
+    expect(failure?.message).toContain(`["sh","-c","sleep ${HOLDER} & sleep ${BLOCKER}"]`);
     // The listing was taken before the group kill: the grandchild is in it.
-    expect(failure?.message).toContain("sleep 30");
+    expect(failure?.message).toContain(`sleep ${HOLDER}`);
     const survivors = tool("ps", ["-ax", "-o", "command"])
       .split("\n")
-      .filter((row) => /^\s*(\S*\/)?sleep 30\s*$/.test(row));
+      .filter((row) => row.trim().endsWith(`sleep ${HOLDER}`));
     expect(survivors).toEqual([]);
   });
 });
