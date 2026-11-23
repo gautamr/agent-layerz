@@ -1,11 +1,11 @@
 ---
 id: TASK-55.5.12
 title: 'R4.12: Passthrough files and their protected-variable checks'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T12:46:00Z'
+updated_date: '2026-11-23T14:52:00Z'
 labels:
   - area:rust
   - area:merge
