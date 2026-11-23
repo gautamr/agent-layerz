@@ -709,9 +709,9 @@ describe("§13.18 commit identity", () => {
       const path = `${fakeBin}${delimiter}${proxy.env.PATH}`;
       const remote = await layers(ws, "repo", ["build"], { ...ENV, PATH: path });
       expect(remote.code).toBe(1);
-      // The spec names no wording for a failed fetch. It does class a source problem as a source
-      // error that names the source (§7.13 "Who may declare it"), which is what is asserted; the
-      // TypeScript text ("cannot fetch ...") is not.
+      // §6 "A failed fetch": the error `source` names the source as written. The whole message,
+      // with git's line stripped, is asserted in Rust R3 (TASK-68), since the TypeScript reference
+      // does not strip it.
       expect(remote.stderr).not.toContain("inside the repository");
       expect(remote.stderr).toContain("error [source]");
       expect(remote.stderr).toContain("git:host.invalid:client.git@v1");

@@ -4,7 +4,7 @@ title: parseYaml and parseYamlLimited apply the same alias limit
 status: To Do
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
-updated_date: '2026-11-23T04:24:00Z'
+updated_date: '2026-11-23T04:52:00Z'
 labels:
   - discovered
   - area:spec
@@ -34,4 +34,8 @@ The yaml library's default maxAliasCount is 100, the same as MAX_ALIASES, so par
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R2 (TASK-55.3, YAML with limits and the manifest model). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R3 depends on this task, so it closes within R2.
+
+From TASK-65 (2026-11-23): spec §7.13 'The YAML alias limit' now defines the term as at most 100 aliases per document, counted over the whole document, plus decision-28's depth 64, nodes 20000 and replay 10000 budgets. The reference's yaml maxAliasCount: 100 counts uses per anchor, weighted by the aliases inside the anchored node (node_modules/yaml/dist/nodes/Alias.js), and refuses the 100th use of a plain anchor; SMOKE with yaml 2.9.1: 99 uses of one anchor parse, 100 are refused, 51 + 50 uses of two anchors parse. That counting difference is drift this task carries. Whether serde-saphyr max_aliases: 100 allows 100 or 99 aliases is unverified: R2's test pins the spec's 'at most 100'. Which files get the limits stays this task's.
+
+TASK-65 review (2026-11-23): spec §7.13 'YAML limits' now states the one rule decision-28 (amended) gives. Every YAML file alz reads gets strict UTF-8, the 1 MiB cap and the four budgets: 100 aliases as written, 64 nested collections, 20000 nodes and 10000 replayed events. This covers layer.yaml, frontmatter (cap on the whole file), settings, accounts.yaml and allowed.yaml. So AC #1 is met by TASK-65's text, and what is left here is AC #2 (the Rust entry point) and the drift cases. The drift is listed in the spec. The reference caps only some files, reads U+FFFD and has no depth, node or replay budget. Its maxAliasCount counts per anchor: count starts at 1, weight from Alias.js getAliasCount, max over items, 1 for a scalar. So an anchor on an empty collection is never limited; SMOKE with yaml 2.9.1, 1000 uses of &a [] parse.
 <!-- SECTION:NOTES:END -->

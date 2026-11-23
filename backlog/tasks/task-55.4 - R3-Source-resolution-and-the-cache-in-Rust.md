@@ -4,7 +4,7 @@ title: 'R3: Source resolution and the cache in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T04:24:00Z'
+updated_date: '2026-11-23T04:52:00Z'
 labels:
   - area:rust
   - area:security
@@ -15,6 +15,10 @@ dependencies:
   - TASK-60
   - TASK-61
   - TASK-62
+  - TASK-68
+  - TASK-69
+  - TASK-70
+  - TASK-71
 parent_task_id: TASK-55
 priority: medium
 ordinal: 36390

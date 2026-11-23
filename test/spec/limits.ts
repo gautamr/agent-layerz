@@ -5,8 +5,11 @@
  */
 
 /**
- * §7.13 "No fetch on resolve": a layer read by account resolution with more than 2000 files and
- * folders, or more than 16 MiB in all, is a cache miss (`unreadable`).
+ * §7.13 "No fetch on resolve": a layer read by account resolution with more than 2000 entries, or
+ * more than 16 MiB in all, is a cache miss (`unreadable`). Files, folders, links, other entries
+ * and `.env` files count as entries; the skipped names `.git`, `.DS_Store` and `node_modules`,
+ * everything below them and the layer directory do not. The bytes are those of the files read,
+ * so `.env` files and links add none.
  */
 export const MAX_LAYER_ENTRIES = 2000;
 export const MAX_LAYER_BYTES = 16 * 1024 * 1024;
@@ -15,17 +18,17 @@ export const MAX_LAYER_BYTES = 16 * 1024 * 1024;
 export const MAX_READ_FILE_BYTES = 1024 * 1024;
 
 /**
- * §7.13 "Paths": the YAML alias limit for text read without trust. The spec names the limit but
- * not its number; 100 is the number src/ uses (spec gap, reported in TASK-55.2.2).
+ * §7.13 "YAML limits": at most 100 aliases in a document, counted as written, with
+ * decision-28's depth, node and replay budgets. The TypeScript reference counts uses per anchor instead (reference drift,
+ * TASK-62), so a case that holds for both binaries stays well below or well above 100 aliases
+ * of one anchor.
  */
 export const YAML_ALIAS_LIMIT = 100;
 
 /**
- * §7.13: the environment variables account resolution reads by name. The spec names each one
- * in its text (the two account variables of §7.13's table, their `ALZ_SET_*` markers, and the
- * three XDG locations) but never lists "the variables resolution reads"; the list is the union
- * of those mentions (spec gap, reported in TASK-55.2.2). `__MISE_DIFF` and `DIRENV_DIFF` are
- * checked for existence only and are not read.
+ * §7.13 "Environment": the environment variables whose values account resolution reads by name,
+ * besides `HOME`, which the spec lists too and which is passed as the home directory, not in
+ * this list. `__MISE_DIFF` and `DIRENV_DIFF` are checked for existence only and are not read.
  */
 export const ENV_NAMES: readonly string[] = [
   "CLAUDE_CONFIG_DIR",

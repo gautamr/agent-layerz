@@ -4,14 +4,17 @@ import { sha256Hex } from "./cache";
 
 /**
  * §5.3 "What the content hash covers": the path and content of every regular file of the layer,
- * in code point order, except `.env` files (never read), `.DS_Store`, and anything under `.git`
- * or `node_modules`. Symbolic links and other non-regular entries are not listed; the file mode
- * is not part of the hash.
+ * in code point order (§6 "Name order"), except `.env` files (never read), `.DS_Store`, and
+ * anything under `.git` or `node_modules`. Symbolic links and other non-regular entries are not
+ * listed; the file mode is not part of the hash.
  *
- * The spec does not write the byte layout of what is hashed. This is the layout existing locks
- * use (spec gap, reported in TASK-55.2.2): for each file in order, `<path>`, a NUL, the sha256
- * hex of the file's bytes and a newline, hashed as one text. `.env` files are taken as every
- * file whose name starts with `.env` (§9.1 and §7.6 write `.env*`).
+ * §5.3 "Byte layout": for each file in that order, `<path>`, a NUL, the lowercase sha256 hex of
+ * the file's bytes and a line feed, joined and hashed as one UTF-8 text; the lock stores it as
+ * `sha256:<hex>`. §5.3 "`.env` files": a file whose own name starts with `.env`.
+ *
+ * §5.3 "File names": a layer with a name that is not valid UTF-8 is invalid and has no content
+ * hash. These helpers read names as strings, so they are for layers whose names are valid; the
+ * case of an invalid name is TASK-69's.
  */
 
 const SKIPPED_NAMES: ReadonlySet<string> = new Set([".git", ".DS_Store", "node_modules"]);
