@@ -4,7 +4,7 @@ title: 'R4: Merge rules in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T05:28:00Z'
+updated_date: '2026-11-23T07:30:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -13,6 +13,10 @@ dependencies:
   - TASK-52
   - TASK-53
   - TASK-63
+  - TASK-68
+  - TASK-69
+  - TASK-70
+  - TASK-71
 parent_task_id: TASK-55
 priority: medium
 ordinal: 37390
