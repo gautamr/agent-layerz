@@ -6,7 +6,7 @@ title: >-
   the reference's known drift (owner, supersedes the fixes-only rule of
   decision-21)
 date: '2026-11-23T04:22:00Z'
-status: proposed
+status: accepted
 ---
 ## Context
 
