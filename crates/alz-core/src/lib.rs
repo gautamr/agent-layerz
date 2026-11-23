@@ -4,7 +4,12 @@
 //! environment functions of the standard library (decision-23), and the crate does not depend
 //! on `alz-io`.
 
+pub mod account;
 mod diagnostic;
+pub mod identity;
+pub mod layer;
+pub mod schema;
+pub mod target;
 mod untrusted_text;
 pub mod yaml;
 

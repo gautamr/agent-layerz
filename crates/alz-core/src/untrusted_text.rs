@@ -25,7 +25,7 @@ use self::format_characters::FORMAT_CHARACTERS;
 const QUOTED_KEY_LIMIT: usize = 64;
 
 /// Control characters: C0, DEL and C1 (category Cc), and the line and paragraph separators.
-const fn is_control(character: char) -> bool {
+pub(crate) const fn is_control(character: char) -> bool {
     matches!(
         character,
         '\u{0}'..='\u{1f}' | '\u{7f}'..='\u{9f}' | '\u{2028}' | '\u{2029}'
@@ -33,7 +33,7 @@ const fn is_control(character: char) -> bool {
 }
 
 /// Format characters (category Cf): zero-width, bidirectional controls, soft hyphen and so on.
-fn is_format(character: char) -> bool {
+pub(crate) fn is_format(character: char) -> bool {
     FORMAT_CHARACTERS
         .binary_search_by(|&(first, last)| {
             if last < character {

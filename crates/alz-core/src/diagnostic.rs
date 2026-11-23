@@ -187,7 +187,7 @@ impl fmt::Display for Where {
     }
 }
 
-mod sealed {
+pub(crate) mod sealed {
     /// Only this crate decides which types are printable.
     pub trait Sealed {}
 }

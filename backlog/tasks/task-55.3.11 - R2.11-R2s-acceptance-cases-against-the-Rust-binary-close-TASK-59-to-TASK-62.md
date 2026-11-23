@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
-updated_date: '2026-11-23T05:27:00Z'
+updated_date: '2026-11-23T06:13:00Z'
 labels:
   - area:rust
   - area:test
@@ -40,3 +40,9 @@ This pull request also closes TASK-59, TASK-60, TASK-61 and TASK-62, which depen
 - [ ] #2 mise run test passes with the reference, each new drift case is an expected failure there and names its task
 - [ ] #3 TASK-59, TASK-60, TASK-61 and TASK-62 have every criterion checked with the evidence of this run and go to In Review with this pull request
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R2.5 (2026-11-23): test 29 asserts stderr contains `'account` (leading quote) and the reference's "'account' keys must be target names"; spec §10.1 prints key paths unquoted and the Rust alz reports a bad target key as "unknown field 'cursor' in account". Assert the spec form (e.g. contains `account`), with referenceDrift where the reference fails it. Test 26's `commit_identity` assertion still holds. Open for R5: LayerVersion, Description, SlotName and ForbidPatternText have no rule beyond being YAML text; decide before they reach the AGENTS.md header.
+<!-- SECTION:NOTES:END -->
