@@ -5,4 +5,4 @@ mod entry_name;
 mod location;
 
 pub use entry_name::{CloneKey, DirKey, EntryName, EntryNameError};
-pub use location::{CacheLocation, CacheLocationError};
+pub use location::{CacheBase, CacheLocation, CacheLocationError};

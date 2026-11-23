@@ -96,6 +96,15 @@ fn names_account(folded: &str) -> bool {
         || folded.starts_with(".codex-")
 }
 
+/// Whether `path` is `base` or lies below it, compared per component in Unicode NFC and
+/// lowercased, as the account folders are (decision-37). A caller that asks about a folder it
+/// must keep out, such as the repository, gets the strict answer on a case-insensitive file
+/// system.
+#[must_use]
+pub fn lies_within(path: &AbsolutePath, base: &AbsolutePath) -> bool {
+    Folded::of(path).is_within(&Folded::of(base))
+}
+
 /// The account folders of one machine and one environment: `$HOME` and what is below it by name,
 /// and the folders `CLAUDE_CONFIG_DIR` and `CODEX_HOME` name.
 ///
