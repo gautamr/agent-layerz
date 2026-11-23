@@ -33,6 +33,17 @@ impl AbsolutePath {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// The `/`-separated parts of the path, as written: empty parts (from `//` or a trailing `/`)
+    /// are left out, and `.` and `..` are returned as they are.
+    pub fn components(&self) -> impl Iterator<Item = &str> + '_ {
+        self.0.split('/').filter(|part| !part.is_empty())
+    }
+
+    /// A path from text that the caller has already shown to start with `/` and to hold no NUL.
+    pub(super) const fn from_checked(text: String) -> Self {
+        Self(text)
+    }
 }
 
 impl TryFrom<&str> for AbsolutePath {

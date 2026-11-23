@@ -1,7 +1,7 @@
 //! Lowercase hexadecimal, alz's own (decision-34: there is no hex crate).
 
 /// `bytes` as lowercase hexadecimal, two characters per byte.
-pub(super) fn encode(bytes: &[u8]) -> String {
+pub(crate) fn encode(bytes: &[u8]) -> String {
     bytes
         .iter()
         .flat_map(|byte| [byte >> 4, byte & 0x0f])
@@ -19,7 +19,7 @@ fn nibble(digit: u8) -> Option<u8> {
 
 /// `N` bytes from exactly `2 * N` lowercase hexadecimal characters; anything else, upper case
 /// included, is `None`.
-pub(super) fn decode<const N: usize>(text: &str) -> Option<[u8; N]> {
+pub(crate) fn decode<const N: usize>(text: &str) -> Option<[u8; N]> {
     let digits = text.as_bytes();
     if digits.len() != N.checked_mul(2)? {
         return None;

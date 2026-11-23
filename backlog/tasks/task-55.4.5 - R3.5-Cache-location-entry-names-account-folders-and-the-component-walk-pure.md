@@ -3,11 +3,11 @@ id: TASK-55.4.5
 title: >-
   R3.5: Cache location, entry names, account folders and the component walk,
   pure
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:04:00Z'
+updated_date: '2026-11-23T08:16:00Z'
 labels:
   - area:rust
   - area:security
@@ -36,7 +36,19 @@ Law (proptest, TASK-52 AC #3): for every sequence of answers, no request names a
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 CacheLocation gives ~/.cache/agent-layerz for an unset, empty or relative XDG_CACHE_HOME and <value>/agent-layerz for an absolute one, and is the only cache-location function in the workspace (unit tests; TASK-53 AC #3)
-- [ ] #2 For any answers to its requests, RealPathWalk never requests a path at or below an account folder or at or above HOME, including through planted links and case or Unicode-form variants (proptest; TASK-52 AC #3)
-- [ ] #3 EntryName prints git-<hex>@<sha>, tree2@<tree> and pathref@<hex>-<sha>, and is injective over its inputs (unit and property tests)
+- [x] #1 CacheLocation gives ~/.cache/agent-layerz for an unset, empty or relative XDG_CACHE_HOME and <value>/agent-layerz for an absolute one, and is the only cache-location function in the workspace (unit tests; TASK-53 AC #3)
+- [x] #2 Property test: no answers make the path walk ask about a name inside an account folder (or a configured CLAUDE_CONFIG_DIR or CODEX_HOME folder), and a result at or above HOME or holding a configured folder is refused (TASK-52 AC #3); names above HOME, such as / and /Users, are looked at, since every walk passes through them
+- [x] #3 EntryName prints git-<hex>@<sha>, tree2@<tree> and pathref@<hex>-<sha>, and is injective over its inputs (unit and property tests)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented in an isolated worktree at fa4aaec, merged by the lead (2026-11-23); Cargo.toml line added by hand beside R3.3's rustix change. Implementer's rust:ci and lint exit 0 there; after the merge cargo test -p alz-core gives 359 passed. Lead reworded AC #2 to what a walk can do (names above HOME are looked at; lookups inside account folders are never made; results at or above HOME are refused), matching spec §6 and §9.1. Mutation check: making AccountFolder not count as inside failed the walk proptest and the planted-link test. Open for R3.6 and R6: resolve HOME and CLAUDE_CONFIG_DIR/CODEX_HOME to real paths once and pass them to with_real_home / with_real_configured (macOS /var vs /private/var). Layer-level refusal message constructors are not built here.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+One CacheLocation function computes the layer cache root (an empty or relative XDG_CACHE_HOME counts as unset); EntryName prints and parses git-, tree2@ and pathref@ entries injectively; AccountFolders tells whether a path is inside, at or above an account folder (NFC- and case-folded); and a pure RealPathWalk state machine resolves a path one component at a time, never asking about a name inside an account folder (property test with a mutation check). Adds unicode-normalization (decision-37).
+<!-- SECTION:FINAL_SUMMARY:END -->

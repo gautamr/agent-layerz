@@ -30,6 +30,8 @@ serde-saphyr = { version = "=2.2.0", default-features = false, features = ["dese
 sha2 = { version = "=0.11.1", default-features = false }
 # decision-31: only std, no anyhow in library crates.
 thiserror = { version = "=2.0.21", default-features = false, features = ["std"] }
+# decision-37: NFC only, in alz-core; `std` stays off because alz needs only the iterators.
+unicode-normalization = { version = "=0.1.26", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

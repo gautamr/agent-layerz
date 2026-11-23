@@ -6,8 +6,12 @@ use std::fmt;
 use thiserror::Error;
 
 mod absolute;
+mod walk;
 
 pub use absolute::{AbsolutePath, AbsolutePathError};
+pub use walk::{
+    Entry, LinkTarget, LinkTargetError, Lstat, Name, Readlink, RealPathWalk, Resolved, Step, Stop,
+};
 
 /// A relative path that stays where it is: `/`-separated, with no empty, `.`, `..` or `.git`
 /// segment, no backslash and no NUL. A `.git` segment is compared ignoring ASCII case, and
