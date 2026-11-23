@@ -74,6 +74,7 @@ fn an_error_leaves_no_merged_model_and_keeps_every_diagnostic() {
     let state = Accumulator {
         layers: Vec::new(),
         diagnostics,
+        ..Accumulator::default()
     };
     let found: Merging = state.finish();
     assert!(found.merged().is_none());
@@ -90,6 +91,7 @@ fn a_warning_alone_keeps_the_merged_model() {
             None,
             Message::new("a warning"),
         )),
+        ..Accumulator::default()
     };
     assert!(state.finish().merged().is_some());
 }

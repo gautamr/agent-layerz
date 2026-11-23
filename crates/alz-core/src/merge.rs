@@ -18,11 +18,17 @@
 //! `stack` for the places to add them.
 
 pub mod algebra;
+mod instructions;
 mod placement;
 mod provenance;
+mod rules;
 mod stack;
+#[cfg(test)]
+pub(crate) mod testing;
 
 pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree};
+pub use instructions::InstructionBlock;
 pub use placement::{Placement, Placements};
 pub use provenance::{Action, Contribution, Provenance, Traced};
+pub use rules::{MergedRule, RuleChain, RuleSection};
 pub use stack::{LayerContext, Merged, Merging, merge};

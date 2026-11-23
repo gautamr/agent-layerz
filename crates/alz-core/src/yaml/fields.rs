@@ -187,6 +187,13 @@ impl<'a> Section<'a> {
         }
     }
 
+    /// Reads a mapping that is not a node of its own, such as the frontmatter of a Markdown file,
+    /// as the section at `path`. `at` is where the mapping starts, for a field it lacks.
+    #[must_use]
+    pub const fn of_mapping(mapping: &'a Mapping, path: KeyPath, at: Position) -> Self {
+        Self { mapping, path, at }
+    }
+
     /// Where the section's mapping starts in the file.
     #[must_use]
     pub const fn at(&self) -> Position {
