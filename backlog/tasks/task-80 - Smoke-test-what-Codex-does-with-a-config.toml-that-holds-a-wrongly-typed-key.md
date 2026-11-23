@@ -1,9 +1,11 @@
 ---
 id: TASK-80
 title: Smoke-test what Codex does with a config.toml that holds a wrongly typed key
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@docs-writer'
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-23T18:17:00Z'
 labels:
   - area:docs
   - area:security

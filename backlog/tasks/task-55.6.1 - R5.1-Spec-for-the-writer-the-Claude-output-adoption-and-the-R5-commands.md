@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6.1
 title: 'R5.1: Spec for the writer, the Claude output, adoption and the R5 commands'
-status: To Do
+status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-23T18:08:00Z'
+updated_date: '2026-11-23T18:17:00Z'
 labels:
   - area:rust
   - area:spec

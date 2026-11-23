@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6.2
 title: 'R5.2: File tree, generated header, path globs and protected paths'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
+updated_date: '2026-11-23T18:17:00Z'
 labels:
   - area:rust
   - area:render
