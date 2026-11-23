@@ -10,8 +10,12 @@ paths:
   `test/account-workspace.ts`, and never import `src/`; `test/guards/` enforces it.
 - Assertions follow the spec. Help, usage and version follow decision-26: exit code, which
   stream, and that stdout contains the version; never the full text.
-- TypeScript-only cases (in-process runs, fake terminals, source scans) go in `test/reference/`
-  and are deleted at cutover.
+- TypeScript-only cases (in-process runs, fake terminals, source scans, the install script) go in
+  `test/reference/` and are deleted at cutover. A test that runs anything but the binary under
+  test gets an allow-listed environment (PATH, an isolated HOME, what the tool needs), never
+  `...process.env`, and goes through `test/exec.ts`.
+- To prove that something did not happen, compare `snapshot()` (or `readTree`) before and after,
+  and use `gitProxy()` for "git was never run".
 - Temp folders come from `tempDir()` in `test/run-root.ts`, never from `tmpdir`.
 - Never read or write the real `~/.claude*`, `~/.codex*` or `~/.cache` from a test.
 - Fixtures are inputs: a test copies them first and never edits `test/fixtures/` in place.

@@ -1,4 +1,6 @@
-import { type SpawnSyncOptionsWithStringEncoding, spawn, spawnSync } from "node:child_process";
+import { type SpawnSyncOptions, spawn, spawnSync } from "node:child_process";
+import { closeSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { tmpRoot } from "./run-root";
 
 /**
@@ -59,7 +61,16 @@ function listGroup(pgid: number): string {
   return ps.status === 0 ? groupListing(ps.stdout, pgid) : `ps failed: ${ps.stderr ?? ps.error}`;
 }
 
-function killGroup(pgid: number): void {
+/**
+ * Is this the pid of a child that really started? Node reports `pid: 0` (or no pid) after a failed
+ * start, and the group ids 0 and 1 name our own group and every process: never signal those.
+ */
+export const isStartedPid = (pid: number | undefined): pid is number =>
+  pid !== undefined && Number.isInteger(pid) && pid > 1;
+
+/** Kills a process group; refuses anything that is not the pid of a started child (see `isStartedPid`). */
+export function killGroup(pgid: number | undefined): void {
+  if (!isStartedPid(pgid)) return;
   try {
     process.kill(-pgid, "SIGKILL");
   } catch {
@@ -95,8 +106,8 @@ export function spawnCaptured(
     }
     const pgid = child.pid;
     const timer = setTimeout(() => {
-      const listing = pgid === undefined ? "(no pid)" : listGroup(pgid);
-      if (pgid !== undefined) killGroup(pgid);
+      const listing = isStartedPid(pgid) ? listGroup(pgid) : "(no pid)";
+      killGroup(pgid);
       reject(new Error(timeoutMessage(file, args, Date.now() - started, text(err), listing)));
     }, timeoutMs);
     child.on("error", (error) => {
@@ -105,7 +116,7 @@ export function spawnCaptured(
     });
     child.on("close", (code, signal) => {
       clearTimeout(timer);
-      if (pgid !== undefined) killGroup(pgid);
+      killGroup(pgid);
       if (code === null) {
         reject(
           new Error(
@@ -129,8 +140,13 @@ export interface ToolResult {
  * Runs one of the tests' own tools (git, sh, mkfifo, the install script) to the end. The
  * environment is PATH, then the one given, then TMPDIR under the run root. A signal, a failure to
  * start and the timeout throw with the argv and the child's stderr; on the timeout the message
- * also holds the listing of what is left in the group (the child itself is already dead: this
- * call blocks). A non-zero exit is a result, for the cases that expect one.
+ * also holds the listing of what is left in the group, taken before the group is killed. A
+ * non-zero exit is a result, for the cases that expect one.
+ *
+ * The child's output goes to files under the run root, not to pipes: `spawnSync` waits for the
+ * pipes to close, and a grandchild that keeps them open (a background `sleep`) would hold the call
+ * long after the timeout killed the direct child. With files, the call returns when the child ends.
+ * The group is then listed and killed, so nothing the child left behind survives.
  */
 export function capture(
   file: string,
@@ -139,33 +155,46 @@ export function capture(
 ): ToolResult {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const started = Date.now();
-  // `detached` makes the child a process-group leader, which Node honours in spawnSync although
-  // its type lacks the option.
-  const spawnOptions: SpawnSyncOptionsWithStringEncoding & { detached: true } = {
-    cwd: options.cwd,
-    env: { PATH: process.env.PATH ?? "", ...options.env, TMPDIR: tmpRoot() },
-    input: options.input,
-    stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
-    encoding: "utf8",
-    detached: true,
-    timeout: timeoutMs,
-    killSignal: "SIGKILL",
-  };
-  const result = spawnSync(file, args, spawnOptions);
-  const pgid = result.pid;
-  const timedOut = (result.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT";
-  const listing = timedOut && pgid !== undefined ? listGroup(pgid) : "";
-  if (pgid !== undefined) killGroup(pgid);
-  if (timedOut) {
-    throw new Error(timeoutMessage(file, args, Date.now() - started, result.stderr ?? "", listing));
+  const scratch = mkdtempSync(join(tmpRoot(), "capture-"));
+  const outPath = join(scratch, "stdout");
+  const errPath = join(scratch, "stderr");
+  const outFd = openSync(outPath, "w");
+  const errFd = openSync(errPath, "w");
+  try {
+    // `detached` makes the child a process-group leader, which Node honours in spawnSync although
+    // its type lacks the option.
+    const spawnOptions: SpawnSyncOptions & { detached: true } = {
+      cwd: options.cwd,
+      env: { PATH: process.env.PATH ?? "", ...options.env, TMPDIR: tmpRoot() },
+      input: options.input,
+      stdio: [options.input === undefined ? "ignore" : "pipe", outFd, errFd],
+      detached: true,
+      timeout: timeoutMs,
+      killSignal: "SIGKILL",
+    };
+    const result = spawnSync(file, args, spawnOptions);
+    const timedOut = (result.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT";
+    const listing = timedOut && isStartedPid(result.pid) ? listGroup(result.pid) : "";
+    killGroup(result.pid);
+    const stdout = readFileSync(outPath, "utf8");
+    const stderr = readFileSync(errPath, "utf8");
+    if (timedOut) {
+      throw new Error(timeoutMessage(file, args, Date.now() - started, stderr, listing));
+    }
+    if (result.error) {
+      throw new Error(`${describeArgv(file, args)} failed: ${result.error.message}`);
+    }
+    if (result.status === null) {
+      throw new Error(
+        `${describeArgv(file, args)} ended on signal ${result.signal}\nstderr: ${JSON.stringify(stderr)}`,
+      );
+    }
+    return { status: result.status, stdout, stderr };
+  } finally {
+    closeSync(outFd);
+    closeSync(errFd);
+    rmSync(scratch, { recursive: true, force: true });
   }
-  if (result.error) throw new Error(`${describeArgv(file, args)} failed: ${result.error.message}`);
-  if (result.status === null) {
-    throw new Error(
-      `${describeArgv(file, args)} ended on signal ${result.signal}\nstderr: ${JSON.stringify(result.stderr)}`,
-    );
-  }
-  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
 /** `capture`, for a tool that must succeed: returns its standard output, throws on a non-zero exit. */

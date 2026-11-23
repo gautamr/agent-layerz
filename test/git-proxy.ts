@@ -12,6 +12,10 @@ import { tempDir } from "./run-root";
  * the script. A binary under test is made to find the stand-in with `proxy.env`.
  *
  * Language-neutral: it needs only `/bin/sh` and the environment, so it drives any alz binary.
+ *
+ * It sees only a PATH lookup of `git`: a binary that runs git by an absolute path, or links a git
+ * library (libgit2, gitoxide), bypasses it and "no git was run" proves nothing. The Rust alz must
+ * keep running git as a PATH-resolved subprocess (decision-24), or this proxy is replaced.
  */
 
 export interface GitCall {

@@ -133,3 +133,15 @@ export function snapshot(dir: string): Record<string, string> {
   };
   return Object.fromEntries(walk(dir));
 }
+
+/** The version in package.json: what `--version` must print (decision-26). */
+export const packageVersion = (): string =>
+  (
+    JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as {
+      version: string;
+    }
+  ).version;
+
+/** Does `text` hold `version` as a whole version? `10.1.0` does not hold `0.1.0`. */
+export const holdsVersion = (text: string, version: string): boolean =>
+  new RegExp(`(?<![\\d.])${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\d])`).test(text);

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { run } from "../../src/cli/main";
 import type { Terminal } from "../../src/cli/terminal";
 import type { CliResult, Workspace } from "../helpers";
+import { tmpRoot } from "../run-root";
 
 /**
  * Runs `alz <args>` in `ws.root/dir` inside this process, with an optional fake `Terminal`.
@@ -22,7 +23,14 @@ export async function layersInProcess(
   let stderr = "";
   const code = await run(args, {
     cwd: join(ws.root, dir),
-    env: { HOME: ws.home, PATH: process.env.PATH ?? "", ALZ_CLAUDE_BIN: "/nonexistent", ...env },
+    // TMPDIR is the run root's tmp folder, so a git or sh that alz starts keeps its temp files there.
+    env: {
+      HOME: ws.home,
+      PATH: process.env.PATH ?? "",
+      ALZ_CLAUDE_BIN: "/nonexistent",
+      TMPDIR: tmpRoot(),
+      ...env,
+    },
     stdout: (text) => {
       stdout += text;
     },

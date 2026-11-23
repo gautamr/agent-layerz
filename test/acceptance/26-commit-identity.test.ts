@@ -8,9 +8,10 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { tool } from "../exec";
+import { gitProxy } from "../git-proxy";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
 import { tempDir } from "../run-root";
 
@@ -668,7 +669,8 @@ describe("§13.18 commit identity", () => {
       await expectRejected(ws, "client:layer.yaml", "inside the repository");
     });
 
-    it("keeps a guarded clone from falling back to a local path, even with GIT_ALLOW_PROTOCOL=file", async () => {
+    it("rejects a git: source that names a local path inside the repository, whatever GIT_ALLOW_PROTOCOL says, and writes nothing", async () => {
+      // The guard that drops GIT_ALLOW_PROTOCOL for a remote clone is shown in test/reference.
       const ws = gitFixture();
       bareClientIn(ws, "x:y");
       setStack(ws, ["path:../personal", "git:x:y@v1", "path:./.layer"]);
@@ -690,12 +692,34 @@ describe("§13.18 commit identity", () => {
     it("treats a git: source as remote only when no such local path exists", async () => {
       const ws = gitFixture();
       const stack = ["path:../personal", "git:host.invalid:client.git@v1", "path:./.layer"];
-      // A remote that no folder shadows is not inside the repository, so it is fetched (and
-      // fails here, since the host does not exist).
+      // A remote that no folder shadows is not inside the repository, so git is asked to clone
+      // it. The stand-in records that call; a fake `ssh` first on PATH ends the attempt at once
+      // (alz strips GIT_* variables for cache operations, so none could do it), so nothing
+      // touches the network.
       setStack(ws, stack);
-      const remote = await layers(ws, "repo", ["build"], ENV);
+      const proxy = gitProxy();
+      const fakeBin = tempDir("alz-fake-ssh-");
+      writeFileSync(
+        join(fakeBin, "ssh"),
+        "#!/bin/sh\necho 'fake ssh: no network' >&2\nexit 255\n",
+        {
+          mode: 0o755,
+        },
+      );
+      const path = `${fakeBin}${delimiter}${proxy.env.PATH}`;
+      const remote = await layers(ws, "repo", ["build"], { ...ENV, PATH: path });
       expect(remote.code).toBe(1);
+      // The spec names no wording for a failed fetch. It does class a source problem as a source
+      // error that names the source (§7.13 "Who may declare it"), which is what is asserted; the
+      // TypeScript text ("cannot fetch ...") is not.
       expect(remote.stderr).not.toContain("inside the repository");
+      expect(remote.stderr).toContain("error [source]");
+      expect(remote.stderr).toContain("git:host.invalid:client.git@v1");
+      expect(
+        proxy
+          .calls()
+          .some(({ args }) => args.includes("clone") && args.includes("host.invalid:client.git")),
+      ).toBe(true);
 
       // The same name is inside as soon as the folder git would try first exists.
       bareClientIn(ws, "host.invalid:client.git");

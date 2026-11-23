@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { capture, groupListing, spawnCaptured, timeoutMessage, tool } from "../exec";
+import {
+  capture,
+  groupListing,
+  isStartedPid,
+  killGroup,
+  spawnCaptured,
+  timeoutMessage,
+  tool,
+} from "../exec";
 import { tempDir } from "../run-root";
 
 // The spawn helpers of the acceptance suite (TASK-55.2.7, TASK-54 AC 2): a child that outlives its
@@ -74,6 +82,50 @@ describe("a spawned child that outlives its timeout", () => {
     expect(() =>
       capture("sleep", ["30"], { cwd: tempDir("alz-exec-"), env: {}, timeoutMs: 500 }),
     ).toThrow(/\["sleep","30"\] did not end within/);
+  });
+});
+
+describe("a blocking tool call whose grandchild keeps the output open", () => {
+  it("fails within the timeout, with the argv and a listing taken before the kill, and leaves no sleep 30", () => {
+    const started = Date.now();
+    const failure = (() => {
+      try {
+        capture("sh", ["-c", "sleep 30 & sleep 31"], {
+          cwd: tempDir("alz-exec-"),
+          env: {},
+          timeoutMs: 500,
+        });
+        return undefined;
+      } catch (error) {
+        return error as Error;
+      }
+    })();
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(failure?.message).toContain('["sh","-c","sleep 30 & sleep 31"]');
+    // The listing was taken before the group kill: the grandchild is in it.
+    expect(failure?.message).toContain("sleep 30");
+    const survivors = tool("ps", ["-ax", "-o", "command"])
+      .split("\n")
+      .filter((row) => /^\s*(\S*\/)?sleep 30\s*$/.test(row));
+    expect(survivors).toEqual([]);
+  });
+});
+
+describe("a child that fails to start", () => {
+  it("throws 'failed' and does not signal our own process group", () => {
+    expect(() => capture("/nonexistent", [], { cwd: tempDir("alz-exec-"), env: {} })).toThrow(
+      /failed/,
+    );
+    // Reaching this line means the worker survived a `kill(-0)`.
+  });
+
+  it("refuses a pid that is not a started child", () => {
+    for (const pid of [undefined, 0, 1, -1, 2.5, Number.NaN]) {
+      expect(isStartedPid(pid)).toBe(false);
+    }
+    expect(isStartedPid(4242)).toBe(true);
+    expect(() => killGroup(0)).not.toThrow();
+    expect(() => killGroup(1)).not.toThrow();
   });
 });
 

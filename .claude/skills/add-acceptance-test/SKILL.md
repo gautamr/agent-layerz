@@ -23,8 +23,8 @@ checks the TypeScript reference and the Rust `alz`.
 - Expected output, when comparing whole files: `test/fixtures/NN-<topic>/expected/<path>`,
   read with `expected(name, path)`.
 - A case that only the TypeScript code can show (in-process runs, fake terminals, source
-  scans, resolver internals) goes in `test/reference/`, not here. Those files are deleted at
-  cutover.
+  scans, resolver internals, the install script) goes in `test/reference/`, not here. Those
+  files are deleted at cutover.
 - The spec's formulas (cache names, content hash, limits) are test-side code in `test/spec/`.
 
 ## Helpers (`test/helpers.ts`)
@@ -33,7 +33,8 @@ checks the TypeScript reference and the Rust `alz`.
 - `layers(ws, dir, args, env)` spawns the binary under test with `<args>` in `ws.root/dir` and
   returns `{ code, stdout, stderr }`. `ALZ_CLAUDE_BIN` defaults to a missing binary; point it at a
   fake script in the fixture to test `ls --live` or `doctor`.
-- `readFile`, `exists`, `readTree` (whole directory as path → content, for "nothing changed").
+- `readFile`, `exists`, `readTree` (whole directory as path → content, for "nothing changed"),
+  `snapshot` (the same with kind, mode, link target and unreadable files, links not followed).
 - `test/account-workspace.ts` sets up account-layer cases. Child processes go through
   `test/exec.ts` (`tool`, `capture`, `spawnCaptured`: own process group, 15 s timeout).
 - Temp folders come from `tempDir()` in `test/run-root.ts`, never from `tmpdir`.
@@ -48,7 +49,10 @@ checks the TypeScript reference and the Rust `alz`.
 - Help, usage errors and version follow decision-26: `--version` exits 0 with empty stderr and
   stdout that contains the version; `--help` exits 0 with stdout not empty; a usage error exits
   2 with empty stdout and stderr not empty. Never compare their full text.
-- For a guarantee that something must not happen, take `readTree` before and compare after.
+- For a guarantee that something must not happen, compare before and after: `readTree` (paths
+  and text) for files alone; `snapshot(dir)` (kind, mode, link target, and files that cannot be
+  read) when a link, a mode or an unreadable file could change; `gitProxy()`
+  (`test/git-proxy.ts`) for "git is never run", which sees only a `git` found on PATH.
 - Hooks and commands that contain `${CLAUDE_PROJECT_DIR}` are literal strings: mark them with
   `// biome-ignore lint/suspicious/noTemplateCurlyInString: Claude expands this literal itself.`
 - A test that needs a real Claude login is skipped unless `ALZ_SMOKE_CLAUDE=1`.

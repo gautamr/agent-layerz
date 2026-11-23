@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@architect'
 created_date: '2026-11-22T19:20:00Z'
+updated_date: '2026-11-23T03:24:00Z'
 labels:
   - area:spec
 milestone: m-7
@@ -26,3 +27,9 @@ Found in R1.2 (TASK-55.2.2): the test-side formulas had to read src/ for five th
 - [ ] #1 Each of points 1 to 4 is stated in LAYERING-SPEC, matching the TypeScript reference
 - [ ] #2 The test-side formulas in test/spec/ cite those sections, and their notes no longer say the spec is silent
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From the R1 review (2026-11-23): the spec names no diagnostic (code, wording) for a failed fetch of a remote source; acceptance 26 can assert only 'error [source]' plus the source named. Specify it.
+<!-- SECTION:NOTES:END -->
