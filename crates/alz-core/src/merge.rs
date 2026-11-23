@@ -17,6 +17,7 @@
 //! §7) adds its own state to the fold and its own field to [`Merged`]; see the module docs of
 //! `stack` for the places to add them.
 
+mod agents;
 pub mod algebra;
 mod instructions;
 mod placement;
@@ -26,6 +27,7 @@ mod stack;
 #[cfg(test)]
 pub(crate) mod testing;
 
+pub use agents::{AgentBody, ContextSection, MergedAgent};
 pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree};
 pub use instructions::InstructionBlock;
 pub use placement::{Placement, Placements};

@@ -12,6 +12,7 @@ use crate::stack::ResolvedLayer;
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::Section;
 
+use super::kebab_case::is_kebab_case;
 use super::{place, read_markdown, schema_diagnostics};
 
 /// The fields a rule file knows.
@@ -39,12 +40,7 @@ impl TryFrom<&str> for RuleName {
     type Error = RuleNameError;
 
     fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let kebab = text.split('-').all(|group| {
-            !group.is_empty()
-                && group
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-        });
+        let kebab = is_kebab_case(text);
         if kebab {
             Ok(Self(text.to_owned()))
         } else {

@@ -22,8 +22,9 @@
 use std::collections::BTreeMap;
 
 use crate::diagnostic::Diagnostics;
-use crate::item::{ClaudeExtra, RuleName};
+use crate::item::{AgentName, ClaudeExtra, RuleName};
 use crate::layer::LayerName;
+use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
@@ -82,6 +83,7 @@ pub struct Merged {
     instructions: Vec<Traced<InstructionBlock>>,
     claude_extras: Vec<ClaudeExtra>,
     rules: BTreeMap<RuleName, Traced<MergedRule>>,
+    agents: BTreeMap<AgentName, Traced<MergedAgent>>,
 }
 
 impl Merged {
@@ -110,6 +112,12 @@ impl Merged {
     #[must_use]
     pub const fn rules(&self) -> &BTreeMap<RuleName, Traced<MergedRule>> {
         &self.rules
+    }
+
+    /// The agents by name (§7.2), each with the layers that made it: its base, then each overlay.
+    #[must_use]
+    pub const fn agents(&self) -> &BTreeMap<AgentName, Traced<MergedAgent>> {
+        &self.agents
     }
 }
 
@@ -155,6 +163,7 @@ struct Accumulator {
     layers: Vec<LayerName>,
     instructions: InstructionState,
     rules: RuleState,
+    agents: AgentState,
     diagnostics: Diagnostics,
 }
 
@@ -164,6 +173,7 @@ impl Accumulator {
     fn absorb(self, context: &LayerContext<'_>) -> Self {
         let (instructions, found_instructions) = self.instructions.absorb(context);
         let (rules, found_rules) = self.rules.absorb(context);
+        let (agents, found_agents) = self.agents.absorb(context);
         Self {
             layers: self
                 .layers
@@ -172,10 +182,12 @@ impl Accumulator {
                 .collect(),
             instructions,
             rules,
+            agents,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
-                .merge(found_rules),
+                .merge(found_rules)
+                .merge(found_agents),
         }
     }
 
@@ -190,6 +202,7 @@ impl Accumulator {
                 instructions: blocks,
                 claude_extras,
                 rules: self.rules.finish(),
+                agents: self.agents.finish(),
             },
             self.diagnostics,
         )
