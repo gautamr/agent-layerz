@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6.7
 title: 'R5.7: The repository writer: ownership, no links, the lock last'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
+updated_date: '2026-11-23T23:17:00Z'
 labels:
   - area:rust
   - area:security

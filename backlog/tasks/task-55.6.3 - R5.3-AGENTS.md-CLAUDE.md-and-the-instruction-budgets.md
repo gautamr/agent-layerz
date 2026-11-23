@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.3
 title: 'R5.3: AGENTS.md, CLAUDE.md and the instruction budgets'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T18:31:00Z'
+updated_date: '2026-11-23T23:17:00Z'
 labels:
   - area:rust
   - area:render
