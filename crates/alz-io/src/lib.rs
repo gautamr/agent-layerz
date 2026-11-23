@@ -6,7 +6,10 @@ mod fs;
 mod git;
 
 pub use env::EnvSnapshot;
-pub use fs::{ReadError, ReadOnlyDir};
+pub use fs::{
+    CacheDir, CacheError, Dir, IndexError, Published, ReadError, ReadOnlyDir, RepositoryPaths,
+    TempEntry, WalkError,
+};
 pub use git::{
     Deadlines, GitFailure, GitRunner, GitRunnerError, Launcher, ReadScope, run_if_requested,
 };

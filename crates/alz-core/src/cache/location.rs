@@ -13,7 +13,19 @@ const FOLDER: &str = "agent-layerz";
 /// path is as written, not resolved: a link in it is followed later, one component at a time
 /// (`RealPathWalk`), and the result is checked against the account folders and the repository.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CacheLocation(AbsolutePath);
+pub struct CacheLocation {
+    base: CacheBase,
+    root: AbsolutePath,
+}
+
+/// Which variable put the cache where it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CacheBase {
+    /// An absolute `XDG_CACHE_HOME`.
+    XdgCacheHome,
+    /// `$HOME/.cache`.
+    Home,
+}
 
 /// Neither `XDG_CACHE_HOME` nor `HOME` is an absolute path. The error holds no input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -37,23 +49,34 @@ impl CacheLocation {
         home: Option<&str>,
         xdg_cache_home: Option<&str>,
     ) -> Result<Self, CacheLocationError> {
-        let base = xdg_cache_home
+        let (base, folder) = xdg_cache_home
             .filter(|value| is_absolute(value))
-            .map(str::to_owned)
+            .map(|value| (CacheBase::XdgCacheHome, value.to_owned()))
             .or_else(|| {
-                home.filter(|value| is_absolute(value))
-                    .map(|home| format!("{}/.cache", home.trim_end_matches('/')))
+                home.filter(|value| is_absolute(value)).map(|home| {
+                    (
+                        CacheBase::Home,
+                        format!("{}/.cache", home.trim_end_matches('/')),
+                    )
+                })
             })
             .ok_or(CacheLocationError)?;
-        AbsolutePath::try_from(format!("{}/{FOLDER}", base.trim_end_matches('/')).as_str())
-            .map(Self)
+        AbsolutePath::try_from(format!("{}/{FOLDER}", folder.trim_end_matches('/')).as_str())
+            .map(|root| Self { base, root })
             .map_err(|_not_absolute| CacheLocationError)
     }
 
     /// The cache root.
     #[must_use]
     pub const fn path(&self) -> &AbsolutePath {
-        &self.0
+        &self.root
+    }
+
+    /// Which variable chose the folder: only an absolute `XDG_CACHE_HOME` is refused inside the
+    /// repository (§6 "The layer cache").
+    #[must_use]
+    pub const fn base(&self) -> CacheBase {
+        self.base
     }
 }
 
@@ -65,7 +88,7 @@ fn is_absolute(text: &str) -> bool {
 mod tests {
     use proptest::prelude::{prop_assert_eq, proptest};
 
-    use super::{CacheLocation, CacheLocationError};
+    use super::{CacheBase, CacheLocation, CacheLocationError};
 
     fn root(home: Option<&str>, xdg: Option<&str>) -> String {
         CacheLocation::from_env(home, xdg)
@@ -93,6 +116,14 @@ mod tests {
         );
         assert_eq!(root(None, Some("/var/cache/")), "/var/cache/agent-layerz");
         assert_eq!(root(Some("/h"), Some("/")), "/agent-layerz");
+    }
+
+    #[test]
+    fn the_base_says_which_variable_chose_the_folder() {
+        let base = |home, xdg| CacheLocation::from_env(home, xdg).expect("a root").base();
+        assert_eq!(base(Some("/h"), Some("/c")), CacheBase::XdgCacheHome);
+        assert_eq!(base(Some("/h"), Some("")), CacheBase::Home);
+        assert_eq!(base(Some("/h"), None), CacheBase::Home);
     }
 
     #[test]
