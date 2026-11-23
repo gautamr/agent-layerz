@@ -1,10 +1,11 @@
 ---
 id: TASK-55.5.8
 title: 'R4.8: Hooks with locks'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:27:00Z'
+updated_date: '2026-11-23T13:49:00Z'
 labels:
   - area:rust
   - area:merge
