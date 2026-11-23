@@ -5,13 +5,18 @@
 //! stay in its provenance, marked as replaced. Only the ids in the manifest's `mcp.enable` are
 //! emitted, in the order the manifest lists them, each once. An enabled id that no layer defines
 //! is an `mcp` error, unless a layer's definition of it was refused for a protected variable: that
-//! error was already reported (§7.9).
+//! error was already reported (§7.9). A layer inside the repository that replaces a server
+//! defined by a layer outside it gets an `mcp` warning naming the server and both layers: a
+//! repository can change what an outside layer's server runs, and the people who read the
+//! build should see it.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::item::{McpItems, McpServer, McpServerId};
+use crate::layer::LayerName;
 use crate::merge::algebra::Replace;
+use crate::merge::placement::Placement;
 use crate::merge::provenance::{Action, Traced};
 use crate::merge::stack::LayerContext;
 use crate::stack::Manifest;
@@ -53,6 +58,8 @@ impl MergedMcp {
 pub(super) struct McpState {
     defined: Replace<McpServerId, Traced<McpServer>>,
     refused: BTreeSet<McpServerId>,
+    /// For each id, the most specific layer outside the repository that defined it.
+    outside: BTreeMap<McpServerId, LayerName>,
 }
 
 impl McpState {
@@ -61,6 +68,25 @@ impl McpState {
         let layer = context.layer().meta().name();
         let (items, found) = McpItems::read(context.layer());
         let (servers, refused) = items.into_parts();
+        let placement = context.placement();
+        let replaced_outside: Vec<Diagnostic> = servers
+            .keys()
+            .filter(|_| placement == Placement::Inside)
+            .filter_map(|id| {
+                self.outside
+                    .get(id)
+                    .map(|owner| replaces_outside(id, layer, owner))
+            })
+            .collect();
+        let outside: BTreeMap<McpServerId, LayerName> = match placement {
+            Placement::Outside => servers
+                .keys()
+                .map(|id| (id.clone(), layer.clone()))
+                .fold(self.outside, |known, (id, owner)| {
+                    known.into_iter().chain([(id, owner)]).collect()
+                }),
+            Placement::Inside => self.outside,
+        };
         let arrived: Replace<McpServerId, Traced<McpServer>> = servers
             .into_iter()
             .map(|(id, server)| {
@@ -79,8 +105,9 @@ impl McpState {
             Self {
                 defined: self.defined.merge(arrived),
                 refused: self.refused.into_iter().chain(refused).collect(),
+                outside,
             },
-            found,
+            found.merge(replaced_outside.into_iter().collect()),
         )
     }
 
@@ -108,6 +135,21 @@ impl McpState {
             found,
         )
     }
+}
+
+fn replaces_outside(id: &McpServerId, layer: &LayerName, owner: &LayerName) -> Diagnostic {
+    Diagnostic::warning(
+        Code::Mcp,
+        Some(Where::layer_file(
+            Stripped::from_untrusted(layer.as_str()),
+            Stripped::from_untrusted("mcp.yaml"),
+        )),
+        Message::new("server ")
+            .then(MessagePart::printable(id))
+            .then(" replaces the definition of layer ")
+            .then(MessagePart::printable(owner))
+            .then(", which lies outside the repository"),
+    )
 }
 
 fn not_defined(id: &McpServerId) -> Diagnostic {

@@ -19,17 +19,22 @@
 //!   that is not is a `tool-widen` error naming the agent, the layer and the entry, and the overlay
 //!   is not applied. `allow_widen` in a public layer is a `tool-widen` error too. An overlay
 //!   cannot remove a tool from an agent that has no tool list.
+//! - Strictness: an overlay may only make an agent stricter. Its `permission_mode` is no looser than
+//!   the mode of the agent it refines nor than the permissions floor of the more general layers,
+//!   and `claude.disallowedTools` keeps every entry a more general layer set. An overlay that does
+//!   otherwise is an `agent-overlay` error and is not applied.
 
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart};
+use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::item::{
     AgentBase, AgentDescription, AgentItems, AgentName, AgentOverlay, AgentScalars, NativeFields,
-    OverlayMode, SkillName, ToolGrant, place,
+    NativeValue, OverlayMode, PermissionMode, SkillName, ToolGrant, place,
 };
 use crate::layer::{LayerHeading, LayerMeta, Visibility};
-use crate::merge::algebra::{ListEdit, OrderedSet, widened};
+use crate::merge::algebra::{ListEdit, OrderedSet, Tree, widened};
+use crate::merge::permissions::DeclaredFloor;
 use crate::merge::provenance::{Action, Traced};
 use crate::merge::stack::LayerContext;
 use crate::path::SafeRelPath;
@@ -141,14 +146,90 @@ pub struct MergedAgent {
     body: AgentBody,
 }
 
-/// Why an overlay's tools cannot be applied.
+/// Why an overlay cannot be applied.
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum ToolsRefused {
+enum OverlayRefused {
     /// It removes a tool from an agent that has no tool list, so inherits every tool.
     RemovesFromAllTools,
     /// It leaves entries that no entry of the agent it refines covers, and may not widen.
     Widens(Vec<ToolGrant>),
+    /// It sets a `permission_mode` looser than a bound.
+    LoosensPermissionMode {
+        requested: PermissionMode,
+        bound: Bound,
+    },
+    /// It takes entries out of `claude.disallowedTools`.
+    ShrinksDisallowedTools,
 }
+
+/// What a `permission_mode` may not be looser than.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Bound {
+    /// The mode of the agent the overlay refines.
+    Agent(PermissionMode),
+    /// The permissions floor of the more general layers.
+    Floor(DeclaredFloor),
+}
+
+impl Bound {
+    const fn mode(&self) -> PermissionMode {
+        match self {
+            Self::Agent(mode) => *mode,
+            Self::Floor(floor) => floor.mode(),
+        }
+    }
+}
+
+/// What an overlay loosens, given the agent it refines (when there is one) and the floor above.
+fn loosened(
+    refined: Option<&MergedAgent>,
+    overlay: &AgentOverlay,
+    floor: Option<&DeclaredFloor>,
+) -> Vec<OverlayRefused> {
+    let modes = overlay
+        .scalars()
+        .permission_mode()
+        .copied()
+        .into_iter()
+        .flat_map(|requested| {
+            refined
+                .and_then(|agent| agent.scalars.permission_mode().copied())
+                .map(Bound::Agent)
+                .into_iter()
+                .chain(floor.cloned().map(Bound::Floor))
+                .filter(move |bound| requested < bound.mode())
+                .map(move |bound| OverlayRefused::LoosensPermissionMode { requested, bound })
+        });
+    let shrinks = refined
+        .filter(|agent| shrinks_disallowed_tools(agent, overlay))
+        .map(|_| OverlayRefused::ShrinksDisallowedTools);
+    modes.chain(shrinks).collect()
+}
+
+/// The entries of `claude.disallowedTools` of `agent` that its merge with `overlay` no longer has.
+fn shrinks_disallowed_tools(agent: &MergedAgent, overlay: &AgentOverlay) -> bool {
+    let entries = |fields: &NativeFields| -> Vec<Tree> {
+        fields
+            .of(TargetName::Claude)
+            .and_then(|claude| claude.get(DISALLOWED_TOOLS))
+            .map_or_else(Vec::new, |value| match value {
+                NativeValue::Null => Vec::new(),
+                NativeValue::List(items) => items.iter().map(NativeValue::to_tree).collect(),
+                NativeValue::Bool(_)
+                | NativeValue::Int(_)
+                | NativeValue::Float(_)
+                | NativeValue::Text(_)
+                | NativeValue::Map(_) => vec![value.to_tree()],
+            })
+    };
+    let after = entries(&agent.native.clone().merge(overlay.native().clone()));
+    entries(&agent.native)
+        .iter()
+        .any(|kept| !after.contains(kept))
+}
+
+/// The native field of Claude that lists the tools an agent may not use.
+const DISALLOWED_TOOLS: &str = "disallowedTools";
 
 impl MergedAgent {
     /// The agent a base file defines.
@@ -171,9 +252,16 @@ impl MergedAgent {
 
     /// The agent a `replace` overlay defines when no more general layer has one: the overlay's
     /// edits apply to an agent with nothing. `None` when the overlay has no `description`.
-    fn defined_by_overlay(overlay: &AgentOverlay) -> Option<Result<Self, ToolsRefused>> {
+    fn defined_by_overlay(
+        overlay: &AgentOverlay,
+        floor: Option<&DeclaredFloor>,
+    ) -> Option<Result<Self, Vec<OverlayRefused>>> {
         overlay.description().map(|description| {
-            edited_tools(None, overlay.tools(), overlay.allow_widen()).map(|tools| Self {
+            refusals(
+                loosened(None, overlay, floor),
+                edited_tools(None, overlay.tools(), overlay.allow_widen()),
+            )
+            .map(|tools| Self {
                 file: overlay.path().clone(),
                 name: overlay.extends().clone(),
                 description: description.clone(),
@@ -193,22 +281,29 @@ impl MergedAgent {
     }
 
     /// The agent after an overlay of the layer `meta` describes.
-    fn refined_by(self, overlay: &AgentOverlay, meta: &LayerMeta) -> Result<Self, ToolsRefused> {
-        edited_tools(self.tools.as_ref(), overlay.tools(), overlay.allow_widen()).map(|tools| {
-            Self {
-                file: self.file,
-                name: self.name,
-                description: overlay.description().cloned().unwrap_or(self.description),
-                scalars: self.scalars.merge(overlay.scalars().clone()),
-                tools,
-                skills: overlay.skills().apply(&self.skills),
-                targets: match overlay.targets() {
-                    Some(edit) => Some(edit.apply(&self.targets.unwrap_or_default())),
-                    None => self.targets,
-                },
-                native: self.native.merge(overlay.native().clone()),
-                body: self.body.then(overlay.mode(), overlay.body(), meta),
-            }
+    fn refined_by(
+        self,
+        overlay: &AgentOverlay,
+        meta: &LayerMeta,
+        floor: Option<&DeclaredFloor>,
+    ) -> Result<Self, Vec<OverlayRefused>> {
+        refusals(
+            loosened(Some(&self), overlay, floor),
+            edited_tools(self.tools.as_ref(), overlay.tools(), overlay.allow_widen()),
+        )
+        .map(|tools| Self {
+            file: self.file,
+            name: self.name,
+            description: overlay.description().cloned().unwrap_or(self.description),
+            scalars: self.scalars.merge(overlay.scalars().clone()),
+            tools,
+            skills: overlay.skills().apply(&self.skills),
+            targets: match overlay.targets() {
+                Some(edit) => Some(edit.apply(&self.targets.unwrap_or_default())),
+                None => self.targets,
+            },
+            native: self.native.merge(overlay.native().clone()),
+            body: self.body.then(overlay.mode(), overlay.body(), meta),
         })
     }
 
@@ -274,7 +369,7 @@ fn edited_tools(
     current: Option<&OrderedSet<ToolGrant>>,
     edit: Option<&ListEdit<ToolGrant>>,
     allow_widen: bool,
-) -> Result<Option<OrderedSet<ToolGrant>>, ToolsRefused> {
+) -> Result<Option<OrderedSet<ToolGrant>>, OverlayRefused> {
     let edited = match (current, edit) {
         (current, None) => Ok(current.cloned()),
         (Some(tools), Some(edit)) => Ok(Some(edit.apply(tools))),
@@ -283,7 +378,7 @@ fn edited_tools(
         {
             (true, true) => Ok(None),
             (true, false) => Ok(Some(add.clone())),
-            (false, _) => Err(ToolsRefused::RemovesFromAllTools),
+            (false, _) => Err(OverlayRefused::RemovesFromAllTools),
         },
     }?;
     let wide: Vec<ToolGrant> = edited.as_ref().map_or_else(Vec::new, |result| {
@@ -292,7 +387,20 @@ fn edited_tools(
     if wide.is_empty() || allow_widen {
         Ok(edited)
     } else {
-        Err(ToolsRefused::Widens(wide))
+        Err(OverlayRefused::Widens(wide))
+    }
+}
+
+/// The tools of an overlay when nothing is refused, else every refusal, in the order of the
+/// problems.
+fn refusals(
+    loosened: Vec<OverlayRefused>,
+    tools: Result<Option<OrderedSet<ToolGrant>>, OverlayRefused>,
+) -> Result<Option<OrderedSet<ToolGrant>>, Vec<OverlayRefused>> {
+    match (tools, loosened.is_empty()) {
+        (Ok(tools), true) => Ok(tools),
+        (Ok(_), false) => Err(loosened),
+        (Err(refusal), _) => Err(std::iter::once(refusal).chain(loosened).collect()),
     }
 }
 
@@ -303,6 +411,16 @@ pub(super) struct AgentState(BTreeMap<AgentName, Traced<MergedAgent>>);
 impl AgentState {
     /// The state after one more, more specific, layer: its bases, then its overlays.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
+        self.absorb_under(context, None)
+    }
+
+    /// The state after one more, more specific, layer, whose overlays may not be looser than
+    /// `floor`, the permissions floor of the layers before it.
+    pub(super) fn absorb_under(
+        self,
+        context: &LayerContext<'_>,
+        floor: Option<&DeclaredFloor>,
+    ) -> (Self, Diagnostics) {
         let meta = context.layer().meta();
         let (items, read) = AgentItems::read(context.layer());
         let (agents, found) = items
@@ -317,7 +435,7 @@ impl AgentState {
                 .overlays()
                 .iter()
                 .fold((agents, found), |(agents, found), overlay| {
-                    let (agents, problems) = refine(agents, meta, overlay);
+                    let (agents, problems) = refine(agents, meta, overlay, floor);
                     (agents, found.merge(problems))
                 });
         (Self(agents), found)
@@ -365,14 +483,9 @@ fn define(
     (agents, problem)
 }
 
-/// The agents after an overlay of the layer `meta` describes, and what it found.
-fn refine(
-    mut agents: BTreeMap<AgentName, Traced<MergedAgent>>,
-    meta: &LayerMeta,
-    overlay: &AgentOverlay,
-) -> (BTreeMap<AgentName, Traced<MergedAgent>>, Diagnostics) {
-    let at = || Some(place(meta.name(), overlay.path()));
-    let layer = meta.name().clone();
+/// The errors for the refusals of `overlay`, a file at `at`.
+fn problems(overlay: &AgentOverlay, at: &Where, refusals: Vec<OverlayRefused>) -> Diagnostics {
+    let at = || Some(at.clone());
     let inherits_all = || {
         Diagnostic::error(
             Code::AgentOverlay,
@@ -382,6 +495,54 @@ fn refine(
                 .then(" inherits all tools; give it an explicit tools list before removing one"),
         )
     };
+    refusals
+        .into_iter()
+        .flat_map(|refusal| match refusal {
+            OverlayRefused::RemovesFromAllTools => vec![inherits_all()],
+            OverlayRefused::Widens(entries) => entries
+                .iter()
+                .map(|entry| {
+                    Diagnostic::error(
+                        Code::ToolWiden,
+                        at(),
+                        Message::new("overlay on agent ")
+                            .then(MessagePart::printable(overlay.extends()))
+                            .then(" adds tool ")
+                            .then(Stripped::from_untrusted(&entry.to_string()))
+                            .then(
+                                ", which the agent it refines does not grant; an overlay may \
+                                     only remove or narrow tools (allow_widen: true is accepted \
+                                     in a layer that is not public)",
+                            ),
+                    )
+                })
+                .collect(),
+            OverlayRefused::LoosensPermissionMode { requested, bound } => {
+                vec![loosens_mode(overlay, requested, &bound, at())]
+            }
+            OverlayRefused::ShrinksDisallowedTools => vec![Diagnostic::error(
+                Code::AgentOverlay,
+                at(),
+                Message::new("overlay on agent ")
+                    .then(MessagePart::printable(overlay.extends()))
+                    .then(
+                        " removes entries of claude.disallowedTools that a more general \
+                             layer set; the list only grows down the stack",
+                    ),
+            )],
+        })
+        .collect()
+}
+
+/// The agents after an overlay of the layer `meta` describes, and what it found.
+fn refine(
+    mut agents: BTreeMap<AgentName, Traced<MergedAgent>>,
+    meta: &LayerMeta,
+    overlay: &AgentOverlay,
+    floor: Option<&DeclaredFloor>,
+) -> (BTreeMap<AgentName, Traced<MergedAgent>>, Diagnostics) {
+    let at = || Some(place(meta.name(), overlay.path()));
+    let layer = meta.name().clone();
     if overlay.allow_widen() && meta.visibility() == Visibility::Public {
         return (
             agents,
@@ -392,29 +553,11 @@ fn refine(
             )),
         );
     }
-    let refused = |refusal: ToolsRefused| match refusal {
-        ToolsRefused::RemovesFromAllTools => Diagnostics::new().with(inherits_all()),
-        ToolsRefused::Widens(entries) => entries
-            .iter()
-            .map(|entry| {
-                Diagnostic::error(
-                    Code::ToolWiden,
-                    at(),
-                    Message::new("overlay on agent ")
-                        .then(MessagePart::printable(overlay.extends()))
-                        .then(" adds tool ")
-                        .then(Stripped::from_untrusted(&entry.to_string()))
-                        .then(
-                            ", which the agent it refines does not grant; an overlay may only \
-                             remove or narrow tools (allow_widen: true is accepted in a layer \
-                             that is not public)",
-                        ),
-                )
-            })
-            .collect(),
+    let refused = |refusals: Vec<OverlayRefused>| {
+        problems(overlay, &place(meta.name(), overlay.path()), refusals)
     };
     let found = match (agents.remove(overlay.extends()), overlay.mode()) {
-        (Some(previous), mode) => match previous.value().clone().refined_by(overlay, meta) {
+        (Some(previous), mode) => match previous.value().clone().refined_by(overlay, meta, floor) {
             Ok(agent) => {
                 let action = match mode {
                     OverlayMode::Extend => Action::Extend,
@@ -445,7 +588,7 @@ fn refine(
                     .then(", but no more general layer defines it"),
             )),
         ),
-        (None, OverlayMode::Replace) => match MergedAgent::defined_by_overlay(overlay) {
+        (None, OverlayMode::Replace) => match MergedAgent::defined_by_overlay(overlay, floor) {
             Some(Ok(agent)) => (
                 Some(Traced::new(agent, layer, Action::Define)),
                 Diagnostics::new(),
@@ -468,7 +611,39 @@ fn refine(
     (agents, problems)
 }
 
+/// The error for an overlay whose `permission_mode` is looser than `bound`.
+fn loosens_mode(
+    overlay: &AgentOverlay,
+    requested: PermissionMode,
+    bound: &Bound,
+    at: Option<Where>,
+) -> Diagnostic {
+    let sets = Message::new("overlay on agent ")
+        .then(MessagePart::printable(overlay.extends()))
+        .then(" sets permission_mode '")
+        .then(requested.as_str())
+        .then("', which is looser than ");
+    let message = match bound {
+        Bound::Agent(mode) => sets
+            .then("'")
+            .then(mode.as_str())
+            .then("' of the agent it refines"),
+        Bound::Floor(floor) => sets
+            .then("the permissions floor '")
+            .then(floor.mode().as_str())
+            .then("' set by layer ")
+            .then(MessagePart::printable(floor.by())),
+    };
+    Diagnostic::error(
+        Code::AgentOverlay,
+        at,
+        message.then("; an overlay may only make an agent stricter"),
+    )
+}
+
 #[cfg(test)]
 mod narrowing_tests;
+#[cfg(test)]
+mod overlay_strictness;
 #[cfg(test)]
 mod tests;

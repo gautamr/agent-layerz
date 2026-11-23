@@ -5,7 +5,9 @@
 //! ordered map from [`TargetName`] to [`SettingsTree`], so no key of the layer can name anything
 //! but a target. Each target's value must be a mapping, whose keys must not duplicate a
 //! first-class item (permissions, hooks, MCP, model), and which must not set a protected
-//! variable.
+//! variable. For Codex that also holds below the top level where Codex reads the same setting
+//! again: `features.hooks` and `features.codex_hooks` at any depth, `profile`, and
+//! `approval_policy` and `sandbox_mode` under `profiles.*`.
 //!
 //! A file with a problem gives no item, so a merged model never holds half a file.
 
@@ -133,6 +135,7 @@ const fn reserved(target: TargetName) -> &'static [(&'static str, &'static str)]
             ("model", "models.yaml"),
             ("mcp_servers", "mcp.yaml"),
             ("hooks", "hooks/hooks.yaml"),
+            ("profile", "permissions.yaml"),
             ("approval_policy", "permissions.yaml"),
             ("sandbox_mode", "permissions.yaml"),
         ],
@@ -233,16 +236,31 @@ fn read_file(at: &Where, bytes: &[u8]) -> Result<Option<Settings>, Diagnostics> 
 /// The settings of one target: a mapping, without the keys of a first-class item and without a
 /// protected variable.
 fn read_target(target: TargetName, node: &Node, at: &Where) -> Result<SettingsTree, Diagnostics> {
-    Section::new(node, KeyPath::root().field(target.as_str())).map_err(|problem| {
-        schema_diagnostics(Code::Settings, at, &SchemaError::from(problem).into())
-    })?;
-    let Tree::Map(entries) = tree_of(node) else {
-        return Err(Diagnostics::new());
+    let section =
+        Section::new(node, KeyPath::root().field(target.as_str())).map_err(|problem| {
+            schema_diagnostics(Code::Settings, at, &SchemaError::from(problem).into())
+        })?;
+    let entries = match tree_of(node) {
+        Tree::Map(entries) => entries,
+        Tree::Null
+        | Tree::Bool(_)
+        | Tree::Int(_)
+        | Tree::Float(_)
+        | Tree::Text(_)
+        | Tree::List(_) => {
+            return Err(schema_diagnostics(
+                Code::Settings,
+                at,
+                &SchemaError::NotAMapping(section.at()).into(),
+            ));
+        }
     };
-    let found = refused_keys(target, node, at).merge(match target {
-        TargetName::Claude => env_keys(entries.get("env"), paths::CLAUDE_ENV, at),
-        TargetName::Codex => codex_policies(&entries, Code::Settings, at),
-    });
+    let found = refused_keys(target, node, at)
+        .merge(nested_refusals(target, node, at))
+        .merge(match target {
+            TargetName::Claude => env_keys(entries.get("env"), paths::CLAUDE_ENV, at),
+            TargetName::Codex => codex_policies(&entries, Code::Settings, at),
+        });
     if found.has_errors() {
         Err(found)
     } else {
@@ -260,15 +278,7 @@ fn refused_keys(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
                     .iter()
                     .find(|(reserved_key, _)| reserved_key == name)
                     .map(|(reserved_key, owner)| {
-                        Diagnostic::error(
-                            Code::Settings,
-                            Some(at.clone().at(key.at())),
-                            Message::new(QuotedKey::from_untrusted(&format!(
-                                "{target}.{reserved_key}"
-                            )))
-                            .then(" is set through ")
-                            .then(*owner),
-                        )
+                        reserved_key_error(&format!("{target}.{reserved_key}"), owner, key, at)
                     }),
                 Value::Null
                 | Value::Bool(_)
@@ -284,6 +294,107 @@ fn refused_keys(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
         | Value::Float(_)
         | Value::Text(_)
         | Value::Seq(_) => Diagnostics::new(),
+    }
+}
+
+/// The error for the key `key`, which duplicates the first-class item set through `owner`. `path`
+/// is a fixed key path, never text of the layer: no value and no profile name reaches the output.
+fn reserved_key_error(path: &str, owner: &'static str, key: &Node, at: &Where) -> Diagnostic {
+    Diagnostic::error(
+        Code::Settings,
+        Some(at.clone().at(key.at())),
+        Message::new(QuotedKey::from_untrusted(path))
+            .then(" is set through ")
+            .then(owner),
+    )
+}
+
+/// Where a mapping of Codex settings stands, for the keys Codex reads again below the top level.
+#[derive(Debug, Clone, Copy)]
+enum Level {
+    /// The mapping under `codex`.
+    Top,
+    /// The mapping of `profiles`.
+    Profiles,
+    /// The mapping of one profile.
+    Profile,
+    /// A `features` mapping, with the fixed path that leads to it.
+    Features(&'static str),
+    /// Any other mapping or list.
+    Other,
+}
+
+impl Level {
+    /// The level of the value under `key`.
+    const fn below(self, key: &str) -> Self {
+        match (self, key.as_bytes()) {
+            (Self::Top, b"features") => Self::Features("codex"),
+            (Self::Profile, b"features") => Self::Features("codex.profiles.*"),
+            (Self::Profiles, _) => Self::Profile,
+            (Self::Top, b"profiles") => Self::Profiles,
+            (Self::Features(_) | Self::Other, b"features") => Self::Features("codex.**"),
+            (Self::Top | Self::Profile | Self::Features(_) | Self::Other, _) => Self::Other,
+        }
+    }
+
+    /// The fixed key path and the owner of `key` when it duplicates a first-class item here.
+    /// The top level is checked by [`reserved`].
+    fn reserved(self, key: &str) -> Option<(String, &'static str)> {
+        match (self, key) {
+            (Self::Features(prefix), "hooks" | "codex_hooks") => {
+                Some((format!("{prefix}.features.{key}"), "hooks/hooks.yaml"))
+            }
+            (Self::Profile, "approval_policy" | "sandbox_mode") => {
+                Some((format!("codex.profiles.*.{key}"), "permissions.yaml"))
+            }
+            (Self::Top | Self::Profiles | Self::Profile | Self::Features(_) | Self::Other, _) => {
+                None
+            }
+        }
+    }
+}
+
+/// An error for each key below the top level of the settings of `target` that duplicates a
+/// first-class item (§7.9). Only Codex has such keys.
+fn nested_refusals(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
+    match target {
+        TargetName::Claude => Diagnostics::new(),
+        TargetName::Codex => walk(node, Level::Top, at),
+    }
+}
+
+fn walk(node: &Node, level: Level, at: &Where) -> Diagnostics {
+    match node.value() {
+        Value::Map(mapping) => mapping
+            .entries()
+            .map(|(key, value)| {
+                let name = match key.value() {
+                    Value::Text(name) => Some(name.as_str()),
+                    Value::Null
+                    | Value::Bool(_)
+                    | Value::Int(_)
+                    | Value::Float(_)
+                    | Value::Seq(_)
+                    | Value::Map(_) => None,
+                };
+                name.and_then(|name| level.reserved(name))
+                    .map(|(path, owner)| reserved_key_error(&path, owner, key, at))
+                    .into_iter()
+                    .collect::<Diagnostics>()
+                    .merge(walk(
+                        value,
+                        name.map_or(Level::Other, |name| level.below(name)),
+                        at,
+                    ))
+            })
+            .fold(Diagnostics::new(), Diagnostics::merge),
+        Value::Seq(items) => items
+            .iter()
+            .map(|item| walk(item, Level::Other, at))
+            .fold(Diagnostics::new(), Diagnostics::merge),
+        Value::Null | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) => {
+            Diagnostics::new()
+        }
     }
 }
 

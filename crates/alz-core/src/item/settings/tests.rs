@@ -173,6 +173,7 @@ fn a_key_that_duplicates_a_first_class_item_is_refused_per_target_naming_the_fil
         ("model", "models.yaml"),
         ("mcp_servers", "mcp.yaml"),
         ("hooks", "hooks/hooks.yaml"),
+        ("profile", "permissions.yaml"),
         ("approval_policy", "permissions.yaml"),
         ("sandbox_mode", "permissions.yaml"),
     ];
@@ -282,4 +283,57 @@ fn a_policy_that_is_not_a_mapping_is_a_settings_error_naming_the_key_and_the_fil
             "error [settings] personal:settings.yaml: codex.shell_environment_policy must be a mapping"
         ]
     );
+}
+
+#[test]
+fn a_codex_key_that_duplicates_a_first_class_item_is_refused_at_any_depth() {
+    for (yaml, expected) in [
+        (
+            "codex:\n  features:\n    hooks: false\n",
+            "error [settings] personal:settings.yaml:3:5: 'codex.features.hooks' is set through hooks/hooks.yaml",
+        ),
+        (
+            "codex:\n  features:\n    codex_hooks: false\n",
+            "error [settings] personal:settings.yaml:3:5: 'codex.features.codex_hooks' is set through hooks/hooks.yaml",
+        ),
+        (
+            "codex:\n  profile: work\n",
+            "error [settings] personal:settings.yaml:2:3: 'codex.profile' is set through permissions.yaml",
+        ),
+        (
+            "codex:\n  profiles:\n    work:\n      approval_policy: never\n",
+            "error [settings] personal:settings.yaml:4:7: 'codex.profiles.*.approval_policy' is set through permissions.yaml",
+        ),
+        (
+            "codex:\n  profiles:\n    work:\n      sandbox_mode: danger-full-access\n",
+            "error [settings] personal:settings.yaml:4:7: 'codex.profiles.*.sandbox_mode' is set through permissions.yaml",
+        ),
+        (
+            "codex:\n  profiles:\n    work:\n      features:\n        hooks: false\n",
+            "error [settings] personal:settings.yaml:5:9: 'codex.profiles.*.features.hooks' is set through hooks/hooks.yaml",
+        ),
+        (
+            "codex:\n  other:\n    - features:\n        codex_hooks: false\n",
+            "error [settings] personal:settings.yaml:4:9: 'codex.**.features.codex_hooks' is set through hooks/hooks.yaml",
+        ),
+    ] {
+        assert_eq!(refused(yaml), [expected], "{yaml}");
+    }
+}
+
+#[test]
+fn a_refused_codex_key_never_prints_its_value_or_the_name_of_a_profile() {
+    let found =
+        refused("codex:\n  profiles:\n    sneaky-name:\n      approval_policy: secret-value\n");
+    assert!(found.iter().all(|line| !line.contains("secret-value")));
+    assert!(found.iter().all(|line| !line.contains("sneaky-name")));
+}
+
+#[test]
+fn the_names_of_a_first_class_item_are_ordinary_keys_where_codex_does_not_read_them_as_one() {
+    let settings = only(
+        "claude:\n  features:\n    hooks: true\n  profiles:\n    work:\n      approval_policy: never\ncodex:\n  features:\n    other: true\n  profiles:\n    work:\n      model_reasoning_effort: high\n  hooks_note:\n    approval_policy: x\n",
+    );
+    assert!(settings.of(TargetName::Claude).is_some());
+    assert!(settings.of(TargetName::Codex).is_some());
 }

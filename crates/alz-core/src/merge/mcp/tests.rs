@@ -3,7 +3,7 @@ use proptest::prelude::{prop_assert_eq, proptest};
 
 use crate::item::{McpServerId, Transport};
 use crate::merge::provenance::Action;
-use crate::merge::testing::{layer, layer_from_yaml, lines, merged_with};
+use crate::merge::testing::{layer, layer_from_yaml, lines, merged_placed, merged_with};
 use crate::stack::ResolvedLayer;
 
 // The files of acceptance case 09 (§13.9), read from the fixture itself: the personal layer
@@ -225,4 +225,39 @@ proptest! {
             }
         }
     }
+}
+
+#[test]
+fn a_layer_inside_the_repository_that_replaces_an_outside_server_gets_a_warning_naming_both() {
+    let personal = format!("srv:\n{}", http("https://old.invalid/"));
+    let repo = format!("srv:\n{}", http("https://new.invalid/"));
+    let found = merged_placed(
+        vec![mcp_layer("personal", &personal), mcp_layer("repo", &repo)],
+        &["repo"],
+    );
+    assert_eq!(
+        lines(&found),
+        [
+            "warning [mcp] repo:mcp.yaml: server srv replaces the definition of layer personal, which lies outside the repository"
+        ]
+    );
+    assert!(found.merged().is_some());
+}
+
+#[test]
+fn a_replacement_between_layers_on_one_side_of_the_repository_gives_no_warning() {
+    let first = format!("srv:\n{}", http("https://old.invalid/"));
+    let second = format!("srv:\n{}", http("https://new.invalid/"));
+    for inside in [&[][..], &["personal", "repo"][..]] {
+        let found = merged_placed(
+            vec![mcp_layer("personal", &first), mcp_layer("repo", &second)],
+            inside,
+        );
+        assert_eq!(lines(&found), Vec::<String>::new(), "{inside:?}");
+    }
+    let found = merged_placed(
+        vec![mcp_layer("personal", &first), mcp_layer("repo", &second)],
+        &["personal"],
+    );
+    assert_eq!(lines(&found), Vec::<String>::new());
 }

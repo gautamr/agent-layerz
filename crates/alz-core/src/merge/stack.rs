@@ -282,7 +282,9 @@ impl Accumulator {
     fn absorb(self, context: &LayerContext<'_>) -> Self {
         let (instructions, found_instructions) = self.instructions.absorb(context);
         let (rules, found_rules) = self.rules.absorb(context);
-        let (agents, found_agents) = self.agents.absorb(context);
+        let (agents, found_agents) = self
+            .agents
+            .absorb_under(context, self.permissions.declared_floor().as_ref());
         let (skills, found_skills) = self.skills.absorb(context);
         let (hooks, found_hooks) = self.hooks.absorb(context);
         let (permissions, found_permissions) = self.permissions.absorb(context);
