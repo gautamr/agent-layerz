@@ -1,9 +1,11 @@
 ---
 id: TASK-64
 title: Sort names by Unicode code point everywhere, as the spec says
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-11-22T19:20:00Z'
+updated_date: '2026-11-23T03:44:00Z'
 labels:
   - discovered
   - area:spec
