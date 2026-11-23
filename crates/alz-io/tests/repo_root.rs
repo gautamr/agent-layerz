@@ -479,6 +479,33 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_lock_that_lists_layer_yaml_and_the_layer_folder_with_matching_hashes_deletes_neither() {
+        let place = Place::new();
+        place.write("layer.yaml", "name: x\n");
+        place.write(".layer/x.md", "mine");
+        let previous = previous_lock(&[("layer.yaml", "name: x\n"), (".layer/x.md", "mine")]);
+        let root = place.root();
+        let made = plan(&root, &FileTree::new(), Some(&previous));
+        assert_eq!(made.changes(), []);
+        let applied = root
+            .apply(&made.into_clear().expect("clear"))
+            .expect("applied");
+        assert_eq!(applied.deleted, 0);
+        assert_eq!(place.read("layer.yaml").as_deref(), Some("name: x\n"));
+        assert_eq!(place.read(".layer/x.md").as_deref(), Some("mine"));
+        let refused = plan(
+            &root,
+            &tree(&[(".layer/x.md", "generated")]),
+            Some(&previous),
+        );
+        assert_eq!(
+            reasons(&refused),
+            [(".layer/x.md".to_owned(), CollisionReason::Input)]
+        );
+        assert_eq!(place.read(".layer/x.md").as_deref(), Some("mine"));
+    }
+
     // The property: whatever the repository holds, applying a clear plan changes only the paths
     // the plan names (and the lock), never what is behind a link, and leaves a settled plan.
 

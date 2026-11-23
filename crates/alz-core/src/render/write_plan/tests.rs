@@ -364,6 +364,35 @@ fn the_gitignore_block_is_planned_with_the_text_it_already_holds() {
     );
 }
 
+#[test]
+fn alzs_own_inputs_are_never_deleted_or_written_whatever_the_lock_and_the_hash_say() {
+    let previous = lock_of(&[
+        ("layer.yaml", b"name: x"),
+        (".layer/x.md", b"mine"),
+        (".Layer/y.md", b"mine"),
+    ]);
+    let on_disk = disk(vec![
+        ("layer.yaml", regular("name: x")),
+        (".layer/x.md", regular("mine")),
+        (".Layer/y.md", regular("mine")),
+    ]);
+    let removed = plan(&FileTree::new(), Some(&previous), &on_disk);
+    assert_eq!(removed.changes(), []);
+    let written = plan(
+        &tree(&[("layer.yaml", "x"), (".layer/z.md", "x")]),
+        Some(&previous),
+        &on_disk,
+    );
+    assert_eq!(written.changes(), []);
+    assert_eq!(
+        collision_reasons(&written),
+        [
+            (".layer/z.md".to_owned(), CollisionReason::Input),
+            ("layer.yaml".to_owned(), CollisionReason::Input),
+        ]
+    );
+}
+
 // The property tests: a small universe of paths, every state of the disk.
 
 const PATHS: [&str; 4] = [

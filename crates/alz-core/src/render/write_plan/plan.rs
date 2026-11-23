@@ -9,7 +9,7 @@ use crate::path::SafeRelPath;
 use crate::render::gitignore::{Generated, synced};
 use crate::render::header::has_generated_mark;
 use crate::render::protected::Protected;
-use crate::render::tree::{FileMode, FileTree, GeneratedFile, OutputPath};
+use crate::render::tree::{FileMode, FileTree, GeneratedFile, OutputPath, fold};
 use crate::render::write_plan::disk::{Disk, MAX_COMPARED_BYTES, Observed};
 use crate::untrusted_text::Stripped;
 
@@ -84,6 +84,9 @@ pub enum CollisionReason {
     DiffersOnlyInCase(SafeRelPath),
     /// It must be read as text and is not valid UTF-8.
     NotText,
+    /// It is one of alz's own inputs, `layer.yaml` or a file under `.layer/`, which a build never
+    /// writes whatever a layer ships or a lock lists.
+    Input,
 }
 
 impl fmt::Display for CollisionReason {
@@ -107,6 +110,9 @@ impl fmt::Display for CollisionReason {
                 Stripped::from_untrusted(other.as_str())
             ),
             Self::NotText => formatter.write_str("is not valid UTF-8 text"),
+            Self::Input => formatter.write_str(
+                "is an input of agent-layerz (layer.yaml or a file under .layer/), which a build never writes",
+            ),
         }
     }
 }
@@ -328,6 +334,9 @@ fn make(
     previous: Option<&Lock>,
 ) -> Result<Option<Change>, Collision> {
     let safe = path.as_safe();
+    if is_input(safe) {
+        return Err(collision(safe, CollisionReason::Input));
+    }
     let listed_before =
         |other: &SafeRelPath| previous.is_some_and(|lock| lock.files.contains_key(other));
     if let Some(other) = disk.variant_of(safe).filter(|other| !listed_before(other)) {
@@ -433,7 +442,14 @@ fn covered(protected: &Protected, path: &SafeRelPath) -> bool {
     output(path).is_some_and(|path| protected.covers(&path))
 }
 
-/// The files the writer handles on its own rules.
+/// The inputs of alz that no build writes or deletes, whatever a lock says: the manifest at the
+/// root and everything under `.layer/`, compared after the case folding of §4.3.
+fn is_input(path: &SafeRelPath) -> bool {
+    let key = fold(path);
+    key == "layer.yaml" || key.starts_with(".layer/")
+}
+
+/// The files the lock never lets the writer delete: the lock, `.gitignore` and the inputs.
 fn is_reserved(path: &SafeRelPath) -> bool {
-    *path == *LOCK_PATH || *path == *GITIGNORE_PATH
+    *path == *LOCK_PATH || *path == *GITIGNORE_PATH || is_input(path)
 }
