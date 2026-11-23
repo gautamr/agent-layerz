@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
+updated_date: '2026-11-23T08:20:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -56,3 +57,9 @@ Plan for this step. Fixes TASK-68 (AC #4 and the wiring of AC #1). It uses R3.3,
 - [ ] #2 A cached entry that differs from the lock's content hash, or from a fresh clone when the lock has no entry, stops with the cache error naming the layer and its directory, and a link at the entry name is refused (integration tests)
 - [ ] #3 A failed clone, rev-parse or checkout gives error [source] cannot fetch with the stripped first line, and a failure to read or publish the clone gives error [cache] cannot store (integration tests; TASK-68 AC #4)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R3.3 (2026-11-23, lead): git runs in its own session, so SIGINT to alz does not reach it and alz exiting does not stop a clone. Make the runner kill the call's process group when the call is abandoned (alz interrupted, or a guard dropped), with a test that interrupts alz during a slow clone and finds no git or ssh left.
+<!-- SECTION:NOTES:END -->

@@ -16,6 +16,11 @@ use crate::cli::{Cli, Command};
 use crate::report::Rendered;
 
 fn main() -> ExitCode {
+    // First, before the command line is read: a copy of alz that the git runner started runs git
+    // in a new session and does nothing else (TASK-70).
+    if let Some(exit_code) = alz_io::run_if_requested() {
+        return exit_code;
+    }
     internal_failure::install_hook();
     internal_failure::exit_code_of(run)
 }
