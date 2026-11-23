@@ -1,6 +1,6 @@
 # target-facts.md — verified facts about Claude Code and Codex
 
-**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2)
+**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76)
 **Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c); §7.12/§9.4 commit identity (§10–§11 here); §7.13 account selection, §12 items 10–21 (§12 here)
 **Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155). §12: Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`), mise **2026.9.1**
 **Host:** macOS (Darwin 25.6.0), both installed through Homebrew casks
@@ -378,3 +378,174 @@ Run these in a throwaway folder; none of them reads a credential.
 - **O7 (item 14, `sessions/` and `memories/`).** With `~/.codex-<name>/sessions` a link to the default folder's copy, run one `codex exec`, then `ls -la ~/.codex-<name>`: is the link kept, or replaced by a folder?
 - **O8 (§7.13 'Limit').** Inside a Claude Code session with its sandbox on, and inside a Codex session with its sandbox, try to start a program outside the sandbox that could run `alz account allow` in a terminal the agent does not own: `tmux new-session -d 'alz account allow'` (or `tmux send-keys` to an existing tmux or screen socket), `open -a Terminal` and `open -a iTerm` (LaunchServices) and `osascript -e 'tell application "Terminal" to do script "alz account allow"'`. Note which are blocked. A launcher that works means an agent can open a real terminal, so the terminal and marker checks stop only a direct run (§7.13 'Limit').
 
+
+## 13. Security-relevant native settings keys (TASK-76) — checked 2026-11-23
+
+**Tools:** Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`). These are the keys of the one table in `crates/alz-core/src/item/native_keys.rs` (98 path rows: 60 Claude, 38 Codex), which R4.16 uses for floors and reserved keys. Adapters and `settings.yaml` rules may rely on a key only as recorded here.
+
+### 13.0 Sources and method
+
+- Claude, DOCS: `code.claude.com/docs/en/settings-reference.md` (every key has a Scope, Type and Default line) and `code.claude.com/docs/en/settings.md`, fetched 2026-11-23. **The page describes a Claude Code newer than 2.1.323**: it says the default of `sandbox.autoAllowBashIfSandboxed` changed in v2.1.324. Where the page and the installed tool differ, the row says so.
+- Codex, DOCS: `codex-rs/core/config.schema.json` and `codex-rs/config/src/config_toml.rs` at tag `rust-v0.169.0` (`raw.githubusercontent.com/openai/codex/rust-v0.169.0/...`), and `learn.chatgpt.com/docs/config-file/config-reference`.
+- Claude, SMOKE (type only): a settings file with a wrongly typed value does not load, and `claude -p hi` prints, before the login check, `These settings files did not load … (<key path>): Expected boolean, but received string`. The command needs no login. I wrote a project `.claude/settings.json` in a throwaway folder and ran `CLAUDE_CONFIG_DIR=<empty folder> claude -p hi --max-turns 1`, once with the number `12345` and once with the string `"x"` per key. A key that gives no error for the wrong value is not type-checked by 2.1.323 in a project file. An unknown key (`bogusKey`) gives no error.
+- Codex, SMOKE (type, enum values, load errors): `CODEX_HOME=<empty folder>` with a `config.toml` holding one key, then `codex debug prompt-input hi`. A wrong type exits with `invalid type: integer …, expected a boolean` (or `expected struct …`); a wrong enum value lists the accepted variants. An unknown key (`bogus_key = 1`, and an unknown key inside `[sandbox_workspace_write]`) is **accepted without error**.
+- SMOKE shows that the installed tool enforces the name and the type or values. It does not show the effect. Every **effect**, **default** and **scope** below is DOCS, because it needs a login, a model call or a sandbox run that I did not make. Nothing was written under `~/.claude*` or `~/.codex*`.
+
+Level column: `S` = name and type or values SMOKE, effect DOCS; `D` = DOCS only (the tool does not check the key where I could run it).
+
+### 13.1 Claude — sandbox switches (booleans)
+
+| Key (under `claude:`) | Default | Scope | What it does | Stricter value | Level |
+|---|---|---|---|---|---|
+| `sandbox.enabled` | `false` | any file, with limits on project and local files | Sandboxes Bash commands. Without it commands run unsandboxed. | `true` | S |
+| `sandbox.failIfUnavailable` | `false` | any file, with limits | `true`: Claude exits at startup when `enabled` is `true` but the sandbox cannot start. `false`: commands run unsandboxed. | `true` | S |
+| `sandbox.autoAllowBashIfSandboxed` | `false` from v2.1.324; **`true` before that, so `true` in the installed 2.1.323** | any file | `true`: sandboxed Bash commands run without a permission prompt. `deny` rules and content-scoped `ask` rules still apply. | `false` | S |
+| `sandbox.allowUnsandboxedCommands` | `true` | any file; a managed or `--settings` `false` makes the sandbox "admin-required" | `true`: Claude may retry a blocked command outside the sandbox with `dangerouslyDisableSandbox`. `false`: the parameter is ignored. | `false` | S |
+| `sandbox.enableWeakerNestedSandbox` | `false` | any file, with limits | Linux in an unprivileged container: bind-mounts the existing `/proc`. The page says it reduces security. | `false` | S |
+| `sandbox.enableWeakerNetworkIsolation` | `false` | any file, with limits | macOS: lets sandboxed commands reach `com.apple.trustd.agent`. The page says it opens a possible exfiltration path. | `false` | S |
+| `sandbox.network.allowAllUnixSockets` | `false` | any file, with limits | `true`: every Unix socket (and `AF_VSOCK` on Linux) is reachable. | `false` | S |
+| `sandbox.network.allowLocalBinding` | `false` | any file, with limits | macOS: listen on ports and connect to any localhost port. No effect on Linux or WSL2. | `false` | S |
+
+### 13.2 Claude — sandbox lists and maps
+
+The type of every list is an array. SMOKE: a string or a number is refused (`Expected array`). Claude merges list keys across the settings files it loads, so a later file can append.
+
+| Key | Entries | Default | Scope | What it does | Level |
+|---|---|---|---|---|---|
+| `sandbox.excludedCommands` | command patterns (`Bash(...)` rule syntax) | unset | any file, with limits | Commands that run outside the sandbox. "Not a security boundary" (the page). | S |
+| `sandbox.filesystem.allowWrite` | path strings | unset | any file, with limits | Extra writable paths. | S |
+| `sandbox.filesystem.allowRead` | path strings | unset | any file, with limits | Re-opens reads inside a `denyRead` region. | S |
+| `sandbox.filesystem.denyWrite` | path strings | unset | any file | Blocks writes, also inside writable folders. | S |
+| `sandbox.filesystem.denyRead` | path strings | unset | any file | Blocks reads, for example of credential files. | S |
+| `sandbox.ignoreViolations` | **an object** (a command substring maps to a list of violation substrings; `*` is every command), not a list | unset | any file, with limits | Silences violation reports. The sandbox still blocks the access. SMOKE: `Expected record`. | S |
+| `sandbox.network.allowedDomains` | domains, `*.` wildcards, IP literals, optional `:port` | unset | any file, with limits; managed only when `allowManagedDomainsOnly` is set | Pre-allows outbound hosts. | S |
+| `sandbox.network.deniedDomains` | same syntax | unset | any file | Blocks hosts; wins over `allowedDomains`. | S |
+| `sandbox.network.allowUnixSockets` | socket paths | unset | any file, with limits | macOS only; ignored on Linux and WSL2. | S |
+| `sandbox.network.allowMachLookup` | XPC or Mach service names; a trailing `*` is a prefix, `"*"` alone is all | unset | any file, with limits | macOS: services the sandbox may look up; the sandbox does not confine what they do. | S |
+
+Order notes for the floors: `allowWrite`, `allowRead`, `excludedCommands`, `allowedDomains`, `allowUnixSockets`, `allowMachLookup` and `ignoreViolations` widen what a command may do or hide, so more entries is looser. `denyWrite`, `denyRead` and `deniedDomains` narrow it, so more entries is stricter. This matches the table.
+
+### 13.3 Claude — keys for a user or managed scope, and other reserved keys
+
+SMOKE for the type. The scope is DOCS; I could not observe it, except for `managedMcpServers`, where the tool says: `"managedMcpServers" is only honored from managed settings and was ignored here`.
+
+| Key | Type | Default | Scope (DOCS) | Level |
+|---|---|---|---|---|
+| `sandbox.filesystem.disabled` | boolean; `true` skips filesystem isolation and keeps network isolation | `false` | user or managed | S |
+| `sandbox.allowAppleEvents` | boolean; removes code-execution isolation on macOS | `false` | user or managed | S |
+| `sandbox.allowNestedUserNamespaces` | boolean; Linux and WSL2; needs v2.1.305 or later; "turns off a security boundary" | `false` | user or managed; a `true` in a project file is ignored | S |
+| `sandbox.network.strictAllowlist` | boolean; deny hosts outside the allowlist instead of prompting | `false` | user or managed | S |
+| `sandbox.network.allowManagedDomainsOnly` | boolean; only managed domains count | `false` | managed | S |
+| `sandbox.network.httpProxyPort`, `sandbox.network.socksProxyPort` | **a number** (a local TCP port). Your proxy then filters, and Claude's domain lists no longer apply to that traffic. SMOKE: a string is `Expected number` | unset | any file, unless other sandbox settings limit it | S |
+| `sandbox.credentials` | object (`files`, `envVars`, `allowPlaintextInject`, `awsPairs`, `sigv4`); see also §12 item 16 | unset | any file, parts of it user or managed only | S |
+| `apiKeyHelper` | string, a shell command line that prints the credential; run through `/bin/sh` | unset | any file | S |
+| `autoMode` | object (`environment`, `allow`, `soft_deny`, `hard_deny`, `classifyAllShell`) | unset | user or managed | S |
+| `skipAutoPermissionPrompt` | boolean | unset | user or managed | S |
+| `skipDangerousModePermissionPrompt` | boolean; skips the confirmation before `bypassPermissions` | unset | user, local or managed | S |
+| `allowManagedHooksOnly` | boolean | unset | managed | S |
+| `allowManagedMcpServersOnly` | boolean | `false` | managed | S |
+| `managedMcpServers` | object keyed by server name (`https://` `url` required) | unset | managed; dropped with a warning elsewhere | S (scope also SMOKE) |
+| `allowAllClaudeAiMcps` | boolean; loads claude.ai connectors next to a deployed `managed-mcp.json` | `false` | **managed** | S |
+| `prependPlugins`, `appendPlugins` | arrays of `plugin-name@marketplace-name`: managed plugins whose mods run before or after a user's | unset | user or managed; ignored in project and local files | D (2.1.323 gave no error for a wrong type) |
+| `pluginConfigs` | object: plugin ID to `{ options, mcpServers }` | unset | user or managed | S |
+| `strictKnownMarketplaces`, `blockedMarketplaces` | arrays of marketplace source objects | unset | managed | S |
+| `strictPluginOnlyCustomization` | `true`, or an array from `"skills"`, `"agents"`, `"hooks"`, `"mcp"` | unset | managed | D (2.1.323 gave no error for a wrong type) |
+| `syncClaudeAiPlugins` | boolean; `false` stops the download of plugins synced from the claude.ai account | unset | user, local or managed | S |
+
+### 13.4 Claude — commands, hooks, skills, MCP, plugins, permissions
+
+| Key | Type | Default | Scope | What it does | Level |
+|---|---|---|---|---|---|
+| `statusLine` | object: `type: "command"`, `command`, optional `padding`, `refreshInterval`, `hideVimModeIndicator` | unset | any file | Runs a command to draw the status line. Only the managed value runs when `allowManagedHooksOnly` is on or `disableAllHooks` is set outside managed settings. | S |
+| `fileSuggestion` | object: `type: "command"`, `command` | unset | any file | Runs a command for `@` path completion. | S |
+| `disableAllHooks` | boolean; also turns off the custom status line and file suggestion | unset | any file | See §4. | S |
+| `hooks` | object keyed by hook event; the handler `type` is `command`, `prompt`, `agent`, `http` or `mcp_tool`. SMOKE: a non-object is ignored with a message | unset | any file | Hooks merge across files. | S |
+| `allowedHttpHookUrls` | array of URL patterns, `*` wildcard | unset (any URL allowed) | any file; arrays merge | A covered HTTP hook runs only if its URL matches the merged list. | S |
+| `httpHookAllowedEnvVars` | array of variable names | unset (each hook's own list applies) | any file; arrays merge | Limits which variables an HTTP hook may put into headers. | S |
+| `disableSkillShellExecution` | boolean | unset | any file; a managed `true` cannot be undone | Replaces inline shell blocks in skills and commands with a notice. | S |
+| `allowedMcpServers` | array of objects with **exactly one** key each: `serverName`, `serverCommand` (an argument array, matched exactly) or `serverUrl` (a URL pattern). SMOKE: a non-array is ignored with a message | unset (all allowed); an empty merged list blocks every server users add | any file; entries merge unless `allowManagedMcpServersOnly` | Allowlist of MCP servers. | S |
+| `deniedMcpServers` | same entry shape | unset | any file; always merged, even under `allowManagedMcpServersOnly` | Blocks matching servers wherever they are defined. | S |
+| `disableClaudeAiConnectors` | boolean; a `true` in any file applies, and a project `false` cannot undo a user or managed `true` | `false` | any file | Stops fetching and connecting the claude.ai connectors. | S |
+| `enableAllProjectMcpServers` | boolean | unset | any file; in an untrusted folder the shared project file is ignored | Approves every server of the project `.mcp.json`. | S |
+| `enabledMcpjsonServers`, `disabledMcpjsonServers` | array of server names of `.mcp.json` (the tool also accepted a bare string) | unset | any file; the same trust rule | Approve or reject named servers. | S |
+| `mcpServers` | **not a documented settings key.** The settings reference has no `mcpServers` entry; servers live in `.mcp.json` and `~/.claude.json`. 2.1.323 accepts any value here without a message | n/a | n/a | Whether it has an effect in `settings.json` is unknown. | D |
+| `enabledPlugins` | object: `plugin-name@marketplace-name` to boolean | unset (each plugin follows its `defaultEnabled`) | any file | Turns plugins on or off. SMOKE: `Expected record`. | S |
+| `extraKnownMarketplaces` | object: marketplace name to `{ source, autoUpdate? }` | unset | any file; a project entry is honoured only after the workspace trust dialog | Registers marketplaces for everyone who opens the repository. | S |
+| `model` | string, a model alias or a full model ID | unset | any file | The model every new session uses. | S |
+| `disableAutoMode` | the string `"disable"` only; SMOKE: any other value is `Invalid value. Expected one of: "disable"`. Also accepted as `permissions.disableAutoMode` | unset | any file | Removes auto mode from the cycle; a session that would start in it starts in `default`. | S |
+
+Keys of the `permissions` block. `claude.permissions` is refused as a whole (§7.9); these are recorded because the owner made three of them first-class floor fields of `permissions.yaml`.
+
+| Key | Type | Scope | Level |
+|---|---|---|---|
+| `permissions.disableBypassPermissionsMode` | **the string `"disable"`, not a boolean** (SMOKE). Claude then rejects `--dangerously-skip-permissions` and ignores an agent's `permissionMode: bypassPermissions` | any file | S |
+| `permissions.blockReadsOutsideWorkingDirectories` | boolean. Read, Grep, Glob and LSP refuse paths outside the working directories in every mode. A `true` in any file applies; `false` equals unset | any file | S |
+| `permissions.blockWritesOutsideWorkingDirectories` | boolean. Write, Edit and NotebookEdit refuse such paths; shell commands, MCP tools and hooks are not limited. Same `true` rule | any file | S |
+| `permissions.denyInsteadOfPrompting` | boolean; needs v2.1.319 or later | user, managed or `--settings` | S |
+| `permissions.defaultMode` | one of `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `plan` (SMOKE; the page adds `manual` as an alias of `default`). `auto` and `bypassPermissions` have no effect from project or local files | any file | S |
+| `permissions.additionalDirectories` | array of directory paths | any file | S |
+
+### 13.5 Codex — keys that duplicate first-class items
+
+Name and type are SMOKE (`CODEX_HOME=<empty folder>`); the effect is DOCS. §6.4 to §6.6 hold the rest.
+
+| Key | Type and values | Notes |
+|---|---|---|
+| `model` (top, `profiles.<p>.model`) | string | |
+| `mcp_servers.<id>` | table (`command`, `args`, `url`, `enabled_tools`, `disabled_tools`, `default_tools_approval_mode`, …) | §6.5 |
+| `hooks` | table keyed by event (`PreToolUse`, `PostToolUse`, `SessionStart`, `Stop`, …) plus `state` | §6.4 |
+| `features.hooks`, `features.codex_hooks` (also under `profiles.<p>.features`) | boolean | |
+| `approval_policy` (top and `profiles.<p>`) | The schema lists `on-request`, `never` and a `granular` table. The parser names also `untrusted` and `on-failure`. **`approval_policy = "untrusted"` fails at load: `is no longer supported; remove this setting`** (SMOKE); `on-failure` loads | §6.6 |
+| `sandbox_mode` (top and `profiles.<p>`) | `read-only`, `workspace-write`, `danger-full-access` (SMOKE) | |
+| `profile` | string. **0.169.0 refuses it at load: ``legacy `profile = "p"` config is no longer supported; use `--profile p` with `p.config.toml` instead``** (SMOKE). The `profiles` table is still parsed (accepted, SMOKE); whether `profiles.<p>.*` has an effect is UNVERIFIED | the docs say a project-local `.codex/config.toml` ignores `profile` and `profiles` |
+
+### 13.6 Codex — floors
+
+Name and type or values are SMOKE; the effect is DOCS. A wrong type is refused at load.
+
+| Key | Type and values | Default | Stricter | What it does |
+|---|---|---|---|---|
+| `sandbox_workspace_write.network_access` | boolean | `false` | `false` | Outbound network inside the `workspace-write` sandbox. |
+| `sandbox_workspace_write.writable_roots` | array of absolute paths | `[]` | fewer | Extra writable roots when `sandbox_mode = "workspace-write"`. |
+| `sandbox_workspace_write.exclude_tmpdir_env_var` | boolean | `false` | `true` | Removes `$TMPDIR` from the writable roots. |
+| `sandbox_workspace_write.exclude_slash_tmp` | boolean | `false` | `true` | Removes `/tmp` from the writable roots. |
+| `approvals_reviewer` (top, `profiles.<p>`, `apps.<id>`) | `user`, `auto_review`, `guardian_subagent` (a legacy alias; SMOKE lists all three). The reference page lists `user \| auto_review` | `user` | `user` | Who reviews eligible approval prompts; `auto_review` uses a reviewer subagent. It does not change sandboxing. |
+| `allow_login_shell` | boolean | `true` | `false` | `false`: a request for a login shell is rejected. |
+| `web_search` (top, `profiles.<p>`) | `disabled`, `cached`, `indexed`, `live` (SMOKE) | `cached`; `live` with `--yolo` or a full-access sandbox | `disabled`, then `cached`, `indexed`, `live` | `cached`: an OpenAI-maintained index, no external web access. `indexed`: external access only when gated by the index. `live`: unrestricted. |
+
+### 13.7 Codex — reserved
+
+| Key | Type and values | Level |
+|---|---|---|
+| `auto_review` | table (`policy`, `timeout_ms`, `circuit_break_action`, …); `policy` replaces the reviewer's default policy text | S |
+| `default_permissions` | string. `:read-only`, `:workspace` and `:danger-full-access` are built in; other names need a `[permissions.<name>]` table. SMOKE: **it fails at load with `requires a [permissions] table` without one.** Do not combine it with `sandbox_mode` or `[sandbox_workspace_write]` (DOCS) | S |
+| `permissions` | table of named permission profiles | S |
+| `projects.<path>.trust_level` | `trusted` or `untrusted` (SMOKE). An untrusted project skips project-scoped `.codex/` layers (DOCS) | S |
+| `plugins.<plugin>@<marketplace>`, `plugins._default` | table: `enabled`, `mcp_servers`, `apps`, … | S |
+| `marketplaces.<name>` | table: `source` (a git repository or an absolute local path), `source_type` (`git` or `local`), `ref`, `sparse_paths` | S |
+| `apps.<id>`, `apps._default` | table; `default_tools_approval_mode` is `auto`, `prompt`, `writes` or `approve`; `approvals_reviewer` is also allowed | S |
+| `windows.sandbox` | `elevated`, `unelevated`, `mxc` (SMOKE). The schema also has `windows.allow_mxc` (boolean; `false` blocks both explicit and automatic MXC selection) | S |
+| `notify` | array of strings, a command to run | S |
+| `model_provider` (top, `profiles.<p>`) | string | S |
+| `model_providers.<id>` | table (`name`, `base_url`, `env_key`, `auth`, …) | S |
+| `openai_base_url`; `chatgpt_base_url` (also in `profiles.<p>`) | string | S |
+| `otel` | table (`exporter`, `trace_exporter`, `metrics_exporter`, `log_user_prompt`, …) | S |
+
+DOCS: Codex ignores `openai_base_url`, `chatgpt_base_url`, `apps_mcp_product_sku`, `model_provider`, `model_providers`, `notify`, `profile`, `profiles`, `experimental_realtime_ws_base_url` and `otel` when they stand in a project-local `.codex/config.toml`. So refusing them in `settings.yaml` costs nothing: they would do nothing there.
+
+### 13.8 Corrections the code table needs
+
+Found by TASK-76; `crates/` was not edited.
+
+1. **`codex.tools.web_search` is not a mode.** It is a boolean or a table `{ context_size = "low|medium|high", allowed_domains = [string], location = {…} }` (SMOKE: an integer gives `data did not match any variant of untagged enum WebSearchToolConfigInput`; the source ignores a boolean). The row `codex("tools.web_search", WEB_SEARCH)` makes every table a `Kind` error against a text ladder. Remove it. Replace it with `tools.web_search.allowed_domains` as `NO_ADDITIONS` and `profiles.*.tools.web_search.allowed_domains` likewise. The page says these domain filters are separate from the sandbox's network rules and do not restrict connectors or MCP servers. `context_size` and `location` need no row. That an unset `allowed_domains` means "unrestricted" is implied by the docs, not observed.
+2. **`claude.allowAllClaudeAiMcps` is managed only**, so give it `OUTSIDE_THE_PROJECT`, not the reason "it widens the connector servers past the allowlist of mcp.yaml". The refusal stays.
+3. **`claude.mcpServers` is not a settings key** in the reference. Keep the refusal (the key is accepted without a message), but the spec and the row should not call it a key that Claude reads from settings. For agent frontmatter `mcpServers` is real (§1), so the `AGENT_KEYS` row stands.
+4. **`codex.profile`**: 0.169.0 refuses the key at load, and project config ignores `profile` and `profiles`. Keep the refusal. The row names `permissions.yaml` as the place that sets it; the reason is "removed by Codex", and the profile rows (`profiles.*.approval_policy`, `profiles.*.sandbox_mode`, `profiles.*.features.*`) carry the same caveat.
+5. **Keys of a profile that the table does not cover**: `profiles.*.model_provider`, `profiles.*.chatgpt_base_url` and `profiles.*.windows.sandbox` exist in the schema (SMOKE: accepted) and are not refused. Either add them as reserved rows or reserve `profiles` as a whole (the docs say project config ignores it). Recommended: reserve `profiles` whole; it covers the `profiles.*.…` rows too.
+6. **Keys that run a command and are not in the table**, all "any file" scope, type string (SMOKE): `awsAuthRefresh`, `awsCredentialExport`, `gcpAuthRefresh`, `otelHeadersHelper` (an executable path or a shell command line). Recommended: `RUNS_A_COMMAND`, like `statusLine`.
+7. **Managed- or user-only keys that are not in the table** (DOCS, from the settings index; type not probed): `sandbox.filesystem.allowManagedReadPathsOnly`, `sandbox.ripgrep`, `sandbox.bwrapPath`, `sandbox.socatPath`, `sandbox.network.tlsTerminate`, `processWrapper`, `policyHelper`, `sshHostCommands`, `forceLoginGatewayUrl`, `allowManagedPermissionRulesOnly`, `disableSideloadFlags`. Recommended: `OUTSIDE_THE_PROJECT`. For Codex: `windows` as a whole.
+8. **`permissions.yaml` fields (owner answer 2)**: `disableBypassPermissionsMode` must be written as the string `"disable"`, never `true`; `blockReadsOutsideWorkingDirectories` and `blockWritesOutsideWorkingDirectories` are booleans, and `false` equals unset. `disableAutoMode` is the string `"disable"` too.
+9. **A wrongly typed value costs the file.** For most keys Claude drops the **whole settings file** (`nothing in them is in effect, including hooks and permission rules`). For `hooks`, `allowedMcpServers`, `deniedMcpServers`, `extraKnownMarketplaces` and `managedMcpServers` it ignores that field only and says so. A value that alz writes into `.claude/settings.json` must have the exact type above.
+10. **Defaults that matter for the "stricter" order**: `sandbox.autoAllowBashIfSandboxed` is `true` by default in the installed 2.1.323, so a layer that leaves it unset leaves the prompts off. `sandbox.allowUnsandboxedCommands` is `true` by default.
+
+Counts. Of the 98 rows, all 98 were checked against DOCS; 94 also have a SMOKE type check; 4 are DOCS only (`claude.mcpServers`, `prependPlugins`, `appendPlugins`, `strictPluginOnlyCustomization`, which 2.1.323 does not type-check in a project file). One row is wrong in kind (correction 1), one carries a wrong reason (2), and two need a changed note (3 and 4); corrections 5 to 7 are keys the table lacks. No key is absent from the sources. Every other row matches in name, type and direction of the order.

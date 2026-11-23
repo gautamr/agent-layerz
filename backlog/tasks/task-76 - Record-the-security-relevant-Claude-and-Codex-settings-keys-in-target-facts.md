@@ -4,6 +4,7 @@ title: Record the security-relevant Claude and Codex settings keys in target-fac
 status: To Do
 assignee: []
 created_date: '2026-11-23T16:08:00Z'
+updated_date: '2026-11-23T18:05:00Z'
 labels:
   - area:docs
   - area:security
@@ -21,6 +22,12 @@ R4.16 enforces floors and reserved keys for settings keys most of which are not 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every key of the approved table has a target-facts entry with its source and level
+- [x] #1 Every key of the approved table has a target-facts entry with its source and level
 - [ ] #2 Any key that turns out wrong or renamed is fixed in the R4.16 list and the spec
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Recorded all 98 rows of crates/alz-core/src/item/native_keys.rs in docs/target-facts.md section 13: DOCS for every row, SMOKE (type and enum values, through a temporary CLAUDE_CONFIG_DIR and CODEX_HOME) for 94. Corrections for the table are listed in 13.8 for AC #2 (implementer follow-up): codex tools.web_search is bool-or-table, not a mode; allowAllClaudeAiMcps is managed only; plus missing keys.
+<!-- SECTION:NOTES:END -->
