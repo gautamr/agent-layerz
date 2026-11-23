@@ -1,11 +1,11 @@
 ---
 id: TASK-55.5.11
 title: 'R4.11: MCP servers, the allowlist, models and the secret scan'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:27:00Z'
-updated_date: '2026-11-23T12:39:00Z'
+updated_date: '2026-11-23T14:30:00Z'
 labels:
   - area:rust
   - area:merge
