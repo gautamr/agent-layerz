@@ -3,11 +3,11 @@ id: TASK-55.4.11
 title: >-
   R3.11: R3's acceptance cases against the Rust binary; close TASK-52, 53, 63,
   68-71
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:49:00Z'
+updated_date: '2026-11-23T09:50:00Z'
 labels:
   - area:rust
   - area:resolve
