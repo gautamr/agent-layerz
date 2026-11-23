@@ -166,7 +166,6 @@ const RESERVED_ROWS = [
   "codex: { apps: { a: { default_tools_approval_mode: auto } } }\n",
   "codex: { windows: { sandbox: unelevated } }\n",
   "codex: { profiles: { work: { model_provider: other } } }\n",
-  "claude: { mcpServers: { s: { command: server-bin } } }\n",
   "claude: { awsAuthRefresh: ./refresh.sh }\n",
   "claude: { awsCredentialExport: ./export.sh }\n",
   "claude: { gcpAuthRefresh: ./refresh.sh }\n",
@@ -203,6 +202,14 @@ describe("§13.29 settings.yaml keys with a security meaning", () => {
     const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
     expect(result.stderr).toBe("");
     expect(result.code).toBe(0);
+  });
+
+  it("alz lint --layer refuses claude mcpServers in settings.yaml and names the file", async () => {
+    const ws = fixture("37-settings-targets");
+    plant(ws, SETTINGS, "claude: { mcpServers: { s: { command: server-bin } } }\n");
+    const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("error [settings] personal:settings.yaml");
   });
 
   describe.each(RESERVED_ROWS)("file %j", (text) => {
@@ -276,5 +283,122 @@ describe("§13.29 permissions.yaml floor fields (§7.6)", () => {
     const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("error [permissions] personal:permissions.yaml");
+  });
+});
+
+// §7.9 and §7.2: under `claude:`, settings.yaml and the agent files take only the keys that
+// docs/target-facts.md records with a type, and check the type of each value (TASK-79).
+
+const UNLISTED_SETTINGS_ROWS = [
+  "claude: { notAKeyOfClaudeCode: true }\n",
+  "claude: { sandbox: { notAKeyOfClaudeCode: true } }\n",
+  "claude: { sandbox: { network: { notAKeyOfClaudeCode: [] } } }\n",
+  "claude: { spinnerVerbs: { verbs: [a], notAKeyOfClaudeCode: 1 } }\n",
+];
+
+const WRONG_TYPE_SETTINGS_ROWS = [
+  "claude: { verbose: secret-value }\n",
+  "claude: { language: [secret-value] }\n",
+  "claude: { cleanupPeriodDays: secret-value }\n",
+  "claude: { editorMode: secret-value }\n",
+  "claude: { availableModels: secret-value }\n",
+  "claude: { env: { FOO: 1 } }\n",
+  "claude: { sandbox: { enabled: secret-value } }\n",
+  "claude: { sandbox: { network: { allowedDomains: secret-value } } }\n",
+  "claude: { allowedMcpServers: [secret-value] }\n",
+];
+
+describe("§7.9 the keys and value types of Claude settings", () => {
+  it("settings of the documented types lint clean", async () => {
+    const ws = fixture("37-settings-targets");
+    plant(
+      ws,
+      SETTINGS,
+      "claude: { verbose: true, language: german, cleanupPeriodDays: 30, editorMode: vim, availableModels: [a], env: { FOO: x }, sandbox: { enabled: true, network: { allowedDomains: [example.invalid] } }, allowedMcpServers: [{ serverName: a }] }\n",
+    );
+    const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+    expect(result.stderr).toBe("");
+    expect(result.code).toBe(0);
+  });
+
+  describe.each(UNLISTED_SETTINGS_ROWS)("file %j", (text) => {
+    referenceDrift(
+      "TASK-79",
+      "alz lint --layer refuses a key that Claude Code does not document and names the file",
+      async () => {
+        const ws = fixture("37-settings-targets");
+        plant(ws, SETTINGS, text);
+        const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("error [settings] personal:settings.yaml");
+        expect(result.stderr).toContain("notAKeyOfClaudeCode");
+      },
+    );
+  });
+
+  describe.each(WRONG_TYPE_SETTINGS_ROWS)("file %j", (text) => {
+    referenceDrift(
+      "TASK-79",
+      "alz lint --layer refuses a value of the wrong type, names the file and prints no value",
+      async () => {
+        const ws = fixture("37-settings-targets");
+        plant(ws, SETTINGS, text);
+        const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("error [settings] personal:settings.yaml");
+        expect(result.stderr).not.toContain("secret-value");
+      },
+    );
+  });
+});
+
+const UNLISTED_AGENT_ROWS = ["claude:\n  notAFieldOfClaudeCode: true\n"];
+
+const WRONG_TYPE_AGENT_ROWS = [
+  "claude:\n  maxTurns: secret-value\n",
+  "claude:\n  background: secret-value\n",
+  "claude:\n  color: secret-value\n",
+  "claude:\n  initialPrompt: [secret-value]\n",
+];
+
+describe("§7.2 the fields and value types of an agent's Claude fields", () => {
+  it("an agent with fields of the documented types lints clean", async () => {
+    const ws = fixture("37-settings-targets");
+    plantAgent(
+      ws,
+      "claude:\n  maxTurns: 5\n  background: true\n  color: blue\n  effort: high\n  initialPrompt: Start\n  disallowedTools: [Bash]\n",
+    );
+    const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+    expect(result.stderr).toBe("");
+    expect(result.code).toBe(0);
+  });
+
+  describe.each(UNLISTED_AGENT_ROWS)("native fields %j", (native) => {
+    referenceDrift(
+      "TASK-79",
+      "alz lint --layer refuses a field that Claude Code does not document and names the agent file",
+      async () => {
+        const ws = fixture("37-settings-targets");
+        plantAgent(ws, native);
+        const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("error [agent] personal:agents/helper.md");
+      },
+    );
+  });
+
+  describe.each(WRONG_TYPE_AGENT_ROWS)("native fields %j", (native) => {
+    referenceDrift(
+      "TASK-79",
+      "alz lint --layer refuses a value of the wrong type, names the agent file and prints no value",
+      async () => {
+        const ws = fixture("37-settings-targets");
+        plantAgent(ws, native);
+        const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("error [agent] personal:agents/helper.md");
+        expect(result.stderr).not.toContain("secret-value");
+      },
+    );
   });
 });

@@ -41,7 +41,7 @@ fn a_layer_without_settings_yaml_or_with_an_empty_one_has_no_settings() {
 
 #[test]
 fn the_settings_of_a_file_are_an_ordered_map_keyed_by_target() {
-    let settings = only("codex:\n  b: 1\n  a: [x]\nclaude:\n  z: true\n  env:\n    FOO: x\n");
+    let settings = only("codex:\n  b: 1\n  a: [x]\nclaude:\n  verbose: true\n  env:\n    FOO: x\n");
     let targets: Vec<TargetName> = settings.iter().map(|(target, _)| target).collect();
     assert_eq!(targets, [TargetName::Claude, TargetName::Codex]);
     let codex = settings.of(TargetName::Codex).expect("codex");
@@ -95,7 +95,7 @@ fn a_top_level_key_that_is_not_a_known_target_is_refused_naming_the_file_whateve
 
 #[test]
 fn no_settings_of_a_file_are_read_when_any_top_level_key_is_refused() {
-    let found = refused("claude:\n  a: 1\ncodex:\n  b: 2\nother:\n  c: 3\n");
+    let found = refused("claude:\n  verbose: true\ncodex:\n  b: 2\nother:\n  c: 3\n");
     assert_eq!(
         found,
         ["error [settings] personal:settings.yaml:5:1: unknown field 'other'"]
@@ -105,7 +105,7 @@ fn no_settings_of_a_file_are_read_when_any_top_level_key_is_refused() {
 #[test]
 fn every_unknown_key_is_reported_and_one_that_is_not_text_is_named_by_its_kind() {
     assert_eq!(
-        refused("1: x\nfirst: x\nclaude:\n  a: 1\nsecond: x\n"),
+        refused("1: x\nfirst: x\nclaude:\n  verbose: true\nsecond: x\n"),
         [
             "error [settings] personal:settings.yaml:1:1: an unknown key that is a number",
             "error [settings] personal:settings.yaml:2:1: unknown field 'first'",
@@ -220,7 +220,7 @@ fn a_key_that_target_facts_corrected_is_refused_with_its_own_reason() {
 fn every_reserved_key_of_a_file_is_reported_and_the_other_target_is_not_confused() {
     assert_eq!(
         refused(
-            "claude:\n  hooks: []\n  mcp_servers: x\n  model: y\ncodex:\n  mcpServers: z\n  hooks: []\n"
+            "claude:\n  hooks: []\n  verbose: true\n  model: y\ncodex:\n  mcpServers: z\n  hooks: []\n"
         ),
         [
             "error [settings] personal:settings.yaml:2:3: 'claude.hooks' is set through hooks/hooks.yaml",
@@ -233,7 +233,7 @@ fn every_reserved_key_of_a_file_is_reported_and_the_other_target_is_not_confused
 #[test]
 fn a_reserved_name_below_the_top_of_a_target_is_an_ordinary_key() {
     let settings = only(
-        "claude:\n  env:\n    permissions: x\n  sandbox:\n    hooks: y\ncodex:\n  other:\n    work:\n      model: z\n",
+        "claude:\n  env:\n    permissions: x\n    hooks: y\ncodex:\n  other:\n    work:\n      model: z\n",
     );
     assert!(settings.of(TargetName::Claude).is_some());
     assert!(settings.of(TargetName::Codex).is_some());
@@ -276,15 +276,20 @@ fn a_protected_variable_in_settings_is_refused_and_the_file_gives_no_settings() 
 
 #[test]
 fn a_claude_env_is_not_looked_for_under_codex_and_a_policy_is_not_looked_for_under_claude() {
-    only(
-        "codex:\n  env:\n    HOME: x\nclaude:\n  shell_environment_policy:\n    set:\n      HOME: x\n",
+    only("codex:\n  env:\n    HOME: x\nclaude:\n  env:\n    shell_environment_policy: x\n");
+    // Under Claude a policy is no key of the table, so it is refused as such, not as a variable.
+    assert_eq!(
+        refused("claude:\n  shell_environment_policy:\n    set:\n      HOME: x\n"),
+        [
+            "error [settings] personal:settings.yaml:2:3: 'claude.shell_environment_policy' is not a Claude Code settings key that alz accepts (docs/target-facts.md section 14)"
+        ]
     );
 }
 
 proptest! {
     #[test]
     fn a_top_level_key_is_accepted_exactly_when_it_is_a_target(key in "[A-Za-z_][A-Za-z0-9_]{0,12}") {
-        let (settings, found) = read(&format!("{key}:\n  a: 1\n"));
+        let (settings, found) = read(&format!("{key}:\n  verbose: true\n"));
         if key == "claude" || key == "codex" {
             prop_assert!(settings.is_some());
             prop_assert_eq!(found, Vec::<String>::new());
@@ -348,7 +353,7 @@ fn a_refused_codex_key_never_prints_its_value_or_the_name_of_a_profile() {
 #[test]
 fn the_names_of_a_first_class_item_are_ordinary_keys_where_codex_does_not_read_them_as_one() {
     let settings = only(
-        "claude:\n  features:\n    hooks: true\n  profiles:\n    work:\n      approval_policy: never\ncodex:\n  features:\n    other: true\n  other:\n    work:\n      model_reasoning_effort: high\n  hooks_note:\n    approval_policy: x\n",
+        "claude:\n  env:\n    features: x\n    profiles: y\ncodex:\n  features:\n    other: true\n  other:\n    work:\n      model_reasoning_effort: high\n  hooks_note:\n    approval_policy: x\n",
     );
     assert!(settings.of(TargetName::Claude).is_some());
     assert!(settings.of(TargetName::Codex).is_some());
@@ -427,7 +432,7 @@ fn a_reserved_key_says_why_it_is_not_set() {
 #[test]
 fn a_floor_key_and_a_key_with_a_similar_name_are_read() {
     let settings = only(
-        "claude:\n  sandbox:\n    enabled: true\n    network:\n      allowedDomains: [a.example]\n      httpProxyPortX: 1\n  statusLineX: 1\ncodex:\n  web_search: cached\n  projects:\n    shop:\n      other: 1\n",
+        "claude:\n  sandbox:\n    enabled: true\n    network:\n      allowedDomains: [a.example]\n  env:\n    httpProxyPortX: x\n    statusLineX: x\ncodex:\n  web_search: cached\n  projects:\n    shop:\n      other: 1\n",
     );
     assert!(settings.of(TargetName::Claude).is_some());
     assert!(settings.of(TargetName::Codex).is_some());
@@ -437,6 +442,187 @@ fn a_floor_key_and_a_key_with_a_similar_name_are_read() {
 fn a_reserved_key_is_refused_below_a_list_only_where_the_path_says_so() {
     // A mapping inside a list is not at the path of `sandbox.credentials`.
     only(
-        "claude:\n  other:\n    - credentials: 1\n  sandbox:\n    list:\n      - credentials: 1\n",
+        "codex:\n  other:\n    - trust_level: 1\n  projects:\n    list:\n      - trust_level: 1\n",
+    );
+}
+
+// The types of Claude's settings keys (§7.9, TASK-79).
+
+const UNLISTED: &str =
+    "is not a Claude Code settings key that alz accepts (docs/target-facts.md section 14)";
+
+#[test]
+fn a_value_of_the_wrong_type_is_a_settings_error_naming_the_key_path_and_never_the_value() {
+    for (yaml, expected) in [
+        (
+            "claude:\n  verbose: secret-value\n",
+            "error [settings] personal:settings.yaml:2:12: 'claude.verbose' must be a boolean",
+        ),
+        (
+            "claude:\n  language: [secret-value]\n",
+            "error [settings] personal:settings.yaml:2:13: 'claude.language' must be text",
+        ),
+        (
+            "claude:\n  cleanupPeriodDays: secret-value\n",
+            "error [settings] personal:settings.yaml:2:22: 'claude.cleanupPeriodDays' must be a whole number",
+        ),
+        (
+            "claude:\n  cleanupPeriodDays: 1.5\n",
+            "error [settings] personal:settings.yaml:2:22: 'claude.cleanupPeriodDays' must be a whole number",
+        ),
+        (
+            "claude:\n  feedbackSurveyRate: secret-value\n",
+            "error [settings] personal:settings.yaml:2:23: 'claude.feedbackSurveyRate' must be a number",
+        ),
+        (
+            "claude:\n  editorMode: secret-value\n",
+            "error [settings] personal:settings.yaml:2:15: 'claude.editorMode' must be one of normal, vim",
+        ),
+        (
+            "claude:\n  availableModels: secret-value\n",
+            "error [settings] personal:settings.yaml:2:20: 'claude.availableModels' must be a list whose items are text",
+        ),
+        (
+            "claude:\n  availableModels: [a, {k: secret-value}]\n",
+            "error [settings] personal:settings.yaml:2:24: 'claude.availableModels[]' must be text",
+        ),
+        (
+            "claude:\n  env:\n    FOO: 1\n",
+            "error [settings] personal:settings.yaml:3:10: 'claude.env.*' must be text",
+        ),
+        (
+            "claude:\n  sandbox: secret-value\n",
+            "error [settings] personal:settings.yaml:2:12: 'claude.sandbox' must be a mapping",
+        ),
+        (
+            "claude:\n  sandbox:\n    network:\n      allowLocalBinding: secret-value\n",
+            "error [settings] personal:settings.yaml:4:26: 'claude.sandbox.network.allowLocalBinding' must be a boolean",
+        ),
+        (
+            "claude:\n  attribution: true\n",
+            "error [settings] personal:settings.yaml:2:16: 'claude.attribution' must be a mapping, or the boolean false",
+        ),
+        (
+            "claude:\n  allowedMcpServers:\n    - {serverName: a, serverUrl: b}\n",
+            "error [settings] personal:settings.yaml:3:7: 'claude.allowedMcpServers[]' must be a mapping with exactly one of the keys serverName, serverCommand, serverUrl",
+        ),
+    ] {
+        let found = refused(yaml);
+        assert_eq!(found, [expected], "{yaml}");
+        assert!(found.iter().all(|line| !line.contains("secret-value")));
+    }
+}
+
+#[test]
+fn an_env_that_is_not_a_mapping_is_a_type_error_and_a_variable_error_without_the_value() {
+    let found = refused("claude:\n  env: secret-value\n");
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert_eq!(
+        found[0],
+        "error [settings] personal:settings.yaml:2:8: 'claude.env' must be a mapping whose values are text"
+    );
+    assert!(found.iter().all(|line| !line.contains("secret-value")));
+}
+
+#[test]
+fn a_key_that_the_table_does_not_list_is_a_settings_error_at_any_depth() {
+    for (yaml, expected) in [
+        (
+            "claude:\n  bogusKey: 1\n",
+            "error [settings] personal:settings.yaml:2:3: 'claude.bogusKey'",
+        ),
+        (
+            "claude:\n  sandbox:\n    bogusKey: 1\n",
+            "error [settings] personal:settings.yaml:3:5: 'claude.sandbox.bogusKey'",
+        ),
+        (
+            "claude:\n  sandbox:\n    network:\n      bogusKey: 1\n",
+            "error [settings] personal:settings.yaml:4:7: 'claude.sandbox.network.bogusKey'",
+        ),
+        (
+            "claude:\n  modelSettings:\n    opus:\n      bogusKey: 1\n",
+            "error [settings] personal:settings.yaml:4:7: 'claude.modelSettings.*.bogusKey'",
+        ),
+        (
+            "claude:\n  spinnerTipsOverride:\n    tips:\n      - {id: a, text: b, bogusKey: 1}\n",
+            "error [settings] personal:settings.yaml:4:26: 'claude.spinnerTipsOverride.tips[].bogusKey'",
+        ),
+    ] {
+        assert_eq!(refused(yaml), [format!("{expected} {UNLISTED}")], "{yaml}");
+    }
+}
+
+#[test]
+fn a_key_that_claude_reads_from_a_user_or_managed_scope_only_is_not_accepted() {
+    for key in [
+        "askUserQuestionTimeout",
+        "availableModelsMatch",
+        "spellcheck",
+    ] {
+        assert_eq!(
+            refused(&format!("claude:\n  {key}: x\n")),
+            [format!(
+                "error [settings] personal:settings.yaml:2:3: 'claude.{key}' {UNLISTED}"
+            )]
+        );
+    }
+}
+
+#[test]
+fn a_refused_key_is_reported_once_by_the_table_that_refuses_it_and_not_as_unlisted() {
+    assert_eq!(
+        refused("claude:\n  apiKeyHelper: x\n  sandbox:\n    credentials: 1\n"),
+        [
+            "error [settings] personal:settings.yaml:2:3: 'claude.apiKeyHelper' is not set in settings.yaml: it runs a command and carries a login",
+            "error [settings] personal:settings.yaml:4:5: 'claude.sandbox.credentials' is not set in settings.yaml: it carries or pins a login",
+        ]
+    );
+}
+
+#[test]
+fn a_typed_error_and_a_reserved_key_of_one_file_are_all_reported() {
+    let found = refused("claude:\n  verbose: x\n  disableAllHooks: true\n  bogusKey: 1\n");
+    assert_eq!(found.len(), 3, "{found:?}");
+}
+
+#[test]
+fn every_documented_shape_accepts_a_value_of_its_type() {
+    only(
+        "claude:\n  verbose: true\n  language: german\n  cleanupPeriodDays: 30\n  feedbackSurveyRate: 1\n  skillListingBudgetFraction: 0.5\n  editorMode: vim\n  availableModels: [a, b]\n  env:\n    FOO: x\n  attribution: false\n  allowedMcpServers:\n    - serverName: a\n    - {serverCommand: [a, b]}\n    - {serverUrl: 'https://a.example/*'}\n  sandbox:\n    enabled: true\n    network:\n      allowedDomains: [a.example]\n    ignoreViolations:\n      '*': [/tmp]\n  modelSettings:\n    opus:\n      effortLevel: high\n      autoCompactWindow: auto\n  spinnerTipsOverride:\n    tips: [plain, {id: a, text: b, priority: 1}]\n",
+    );
+    only("claude:\n  attribution:\n    commit: c\n    pr: p\n    sessionUrl: false\n");
+}
+
+#[test]
+fn a_null_is_not_a_value_of_any_typed_key() {
+    assert_eq!(
+        refused("claude:\n  verbose:\n"),
+        ["error [settings] personal:settings.yaml:2:10: 'claude.verbose' must be a boolean"]
+    );
+}
+
+#[test]
+fn codex_settings_are_not_typed_here() {
+    only("codex:\n  anything: [1, {a: b}]\n  verbose: 3\n");
+}
+
+#[test]
+fn a_key_that_an_object_requires_is_a_settings_error_when_it_is_missing() {
+    assert_eq!(
+        refused("claude:\n  spinnerVerbs:\n    verbs: [a]\n"),
+        ["error [settings] personal:settings.yaml:3:5: 'claude.spinnerVerbs.mode' is required"]
+    );
+    assert_eq!(
+        refused("claude:\n  spinnerVerbs: {}\n"),
+        [
+            "error [settings] personal:settings.yaml:2:17: 'claude.spinnerVerbs.verbs' is required",
+            "error [settings] personal:settings.yaml:2:17: 'claude.spinnerVerbs.mode' is required",
+        ]
+    );
+    assert_eq!(
+        refused("claude:\n  spinnerTipsOverride:\n    tips: [{id: a}]\n"),
+        [
+            "error [settings] personal:settings.yaml:3:12: 'claude.spinnerTipsOverride.tips[].text' is required"
+        ]
     );
 }

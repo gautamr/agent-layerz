@@ -14,7 +14,8 @@ use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::Section;
 use crate::yaml::{Mapping, Node, Value};
 
-use super::super::native_keys::AGENT_KEYS;
+use super::super::native_keys::{AGENT_KEYS, Step};
+use super::super::native_types::{CLAUDE_AGENT_FIELDS, Typed};
 use super::super::protected_variable::codex_policies;
 use super::super::schema_diagnostics;
 use super::ordered_tree::{NativeMap, NativeValue};
@@ -126,6 +127,7 @@ fn read_target(
             let fields = map_of(node);
             let found = refused
                 .merge(first_class_keys(target, node, at))
+                .merge(typed_fields(target, node, at))
                 .merge(protected_variables(target, &fields, at));
             if found.has_errors() {
                 Err(found)
@@ -134,6 +136,34 @@ fn read_target(
             }
         })
         .transpose()
+}
+
+/// The problems of the types of a Claude agent's native fields (§7.2): a field that Claude Code
+/// does not read from a subagent's frontmatter, and a value of the wrong type. A key that has a
+/// neutral field, or that duplicates a first-class item, is reported by its own check.
+fn typed_fields(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
+    match target {
+        TargetName::Claude => {
+            let reported = |steps: &[Step<'_>]| match steps {
+                [Step::Key(key)] => {
+                    neutral_keys(target).contains(key)
+                        || AGENT_KEYS
+                            .iter()
+                            .any(|row| row.target() == target && row.key() == *key)
+                }
+                _ => false,
+            };
+            Typed::new(
+                "claude",
+                Code::Agent,
+                at,
+                " is not a field of a subagent's frontmatter that alz accepts (docs/target-facts.md section 14)",
+                &reported,
+            )
+            .check(CLAUDE_AGENT_FIELDS, node)
+        }
+        TargetName::Codex => Diagnostics::new(),
+    }
 }
 
 /// An error for each key of the native fields that duplicates a first-class item: servers and

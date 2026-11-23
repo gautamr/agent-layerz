@@ -146,21 +146,17 @@ fn an_overlay_may_add_to_claude_disallowed_tools_and_keeps_the_earlier_entries()
 
 #[test]
 fn an_overlay_may_not_remove_or_replace_what_a_more_general_layer_disallowed() {
-    for removal in [
-        "claude:\n  disallowedTools: ~",
-        "claude:\n  disallowedTools: Write",
-        "claude:\n  disallowedTools:\n    key: value",
-    ] {
-        let found = merged(stack(DISALLOWED, None, removal));
-        assert_eq!(
-            lines(&found),
-            [
-                "error [agent-overlay] shop-api:agents/a.overlay.md: overlay on agent a removes entries of claude.disallowedTools that a more general layer set; the list only grows down the stack"
-            ],
-            "{removal}"
-        );
-        assert!(found.merged().is_none());
-    }
+    // A value of another type, `~` or a mapping, is refused when the overlay is read (TASK-79).
+    let removal = "claude:\n  disallowedTools: Write";
+    let found = merged(stack(DISALLOWED, None, removal));
+    assert_eq!(
+        lines(&found),
+        [
+            "error [agent-overlay] shop-api:agents/a.overlay.md: overlay on agent a removes entries of claude.disallowedTools that a more general layer set; the list only grows down the stack"
+        ],
+        "{removal}"
+    );
+    assert!(found.merged().is_none());
 }
 
 #[test]

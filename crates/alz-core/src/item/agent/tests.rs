@@ -322,7 +322,7 @@ fn native_fields_that_set_other_variables_are_read() {
     let (items, found) = read(&[(
         "agents/helper.md",
         &helper(
-            "claude:\n  extras: x\ncodex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [HOME, PATH]\n",
+            "claude:\n  effort: low\ncodex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [HOME, PATH]\n",
         ),
     )]);
     assert_eq!(found, Vec::<String>::new());
@@ -377,7 +377,7 @@ fn other_native_keys_with_a_similar_name_are_read() {
     let (items, found) = read(&[(
         "agents/helper.md",
         &helper(
-            "claude:\n  mcpServersX: 1\n  nested:\n    hooks: 1\ncodex:\n  features:\n    hooks: true\n",
+            "claude:\n  maxTurns: 3\ncodex:\n  mcpServersX: 1\n  nested:\n    hooks: 1\n  features:\n    hooks: true\n",
         ),
     )]);
     assert_eq!(found, Vec::<String>::new());
@@ -395,4 +395,109 @@ fn a_native_policy_of_another_type_is_an_agent_error_naming_the_key() {
         ]
     );
     assert_eq!(items.bases().len(), 0);
+}
+
+// The types of the Claude frontmatter fields (§7.2, TASK-79).
+
+#[test]
+fn a_claude_field_of_the_wrong_type_is_an_agent_error_naming_the_key_path_and_never_the_value() {
+    for (native, expected) in [
+        (
+            "claude:\n  maxTurns: secret-value\n",
+            "error [agent] personal:agents/helper.md:5:13: 'claude.maxTurns' must be a whole number",
+        ),
+        (
+            "claude:\n  autoCompactWindow: 1.5\n",
+            "error [agent] personal:agents/helper.md:5:22: 'claude.autoCompactWindow' must be a whole number",
+        ),
+        (
+            "claude:\n  background: secret-value\n",
+            "error [agent] personal:agents/helper.md:5:15: 'claude.background' must be a boolean",
+        ),
+        (
+            "claude:\n  omitClaudeMd: secret-value\n",
+            "error [agent] personal:agents/helper.md:5:17: 'claude.omitClaudeMd' must be a boolean",
+        ),
+        (
+            "claude:\n  effort: secret-value\n",
+            "error [agent] personal:agents/helper.md:5:11: 'claude.effort' must be one of low, medium, high, xhigh, max",
+        ),
+        (
+            "claude:\n  color: secret-value\n",
+            "error [agent] personal:agents/helper.md:5:10: 'claude.color' must be one of red, blue, green, yellow, purple, orange, pink, cyan",
+        ),
+        (
+            "claude:\n  initialPrompt: [secret-value]\n",
+            "error [agent] personal:agents/helper.md:5:18: 'claude.initialPrompt' must be text",
+        ),
+        (
+            "claude:\n  disallowedTools: 12\n",
+            "error [agent] personal:agents/helper.md:5:20: 'claude.disallowedTools' must be text, or a list whose items are text",
+        ),
+        (
+            "claude:\n  experimental:\n    cacheTtl: secret-value\n",
+            "error [agent] personal:agents/helper.md:6:15: 'claude.experimental.cacheTtl' must be one of 5m, 1h",
+        ),
+    ] {
+        let (_, found) = read(&[("agents/helper.md", &helper(native))]);
+        assert_eq!(found.len(), 1, "{native}: {found:?}");
+        assert!(!found[0].contains("secret-value"), "{found:?}");
+        assert_eq!(found, [expected], "{native}");
+        let (_, found) = read(&[("agents/helper.overlay.md", &helper_overlay(native))]);
+        assert_eq!(found.len(), 1, "{native}: {found:?}");
+        assert!(found[0].contains("must be"), "{found:?}");
+        assert!(!found[0].contains("secret-value"), "{found:?}");
+    }
+}
+
+#[test]
+fn a_claude_field_that_claude_code_does_not_read_from_frontmatter_is_an_agent_error() {
+    let (items, found) = read(&[(
+        "agents/helper.md",
+        &helper("claude:\n  maxTurn: 3\n  experimental:\n    other: 1\n"),
+    )]);
+    assert_eq!(
+        found,
+        [
+            "error [agent] personal:agents/helper.md:5:3: 'claude.maxTurn' is not a field of a subagent's frontmatter that alz accepts (docs/target-facts.md section 14)",
+            "error [agent] personal:agents/helper.md:7:5: 'claude.experimental.other' is not a field of a subagent's frontmatter that alz accepts (docs/target-facts.md section 14)",
+        ]
+    );
+    assert_eq!(items.bases().len(), 0);
+}
+
+#[test]
+fn a_neutral_key_and_a_first_class_key_are_reported_by_their_own_checks_only() {
+    let (_, found) = read(&[(
+        "agents/helper.md",
+        &helper("claude:\n  model: x\n  hooks: 1\n  mcpServers: 1\n"),
+    )]);
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert!(found.iter().all(|line| !line.contains("alz accepts")));
+}
+
+#[test]
+fn every_claude_frontmatter_field_accepts_a_value_of_its_type() {
+    let (items, found) = read(&[(
+        "agents/helper.md",
+        &helper(
+            "claude:\n  disallowedTools: [Bash, Write]\n  maxTurns: 5\n  autoCompactWindow: 100000\n  background: true\n  omitClaudeMd: false\n  effort: max\n  color: cyan\n  initialPrompt: Start\n  experimental:\n    cacheTtl: 1h\n",
+        ),
+    )]);
+    assert_eq!(found, Vec::<String>::new());
+    assert_eq!(items.bases().len(), 1);
+    let (_, found) = read(&[(
+        "agents/helper.md",
+        &helper("claude:\n  disallowedTools: Bash, Write\n"),
+    )]);
+    assert_eq!(found, Vec::<String>::new());
+}
+
+#[test]
+fn codex_native_fields_are_not_typed_here() {
+    let (_, found) = read(&[(
+        "agents/helper.md",
+        &helper("codex:\n  anything: [1, {a: b}]\n  maxTurns: x\n"),
+    )]);
+    assert_eq!(found, Vec::<String>::new());
 }
