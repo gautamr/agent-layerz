@@ -2,7 +2,7 @@ use proptest::collection::vec;
 use proptest::prelude::{prop_assert_eq, proptest};
 
 use crate::item::{McpServerId, Transport};
-use crate::merge::provenance::Action;
+use crate::merge::action::Action;
 use crate::merge::testing::{layer, layer_from_yaml, lines, merged_placed, merged_with};
 use crate::stack::ResolvedLayer;
 
@@ -101,7 +101,7 @@ fn the_most_specific_definition_replaces_the_whole_entry_and_the_provenance_mark
         .provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str(), part.action()))
+        .map(|part| (part.layer().as_str(), part.action().clone()))
         .collect();
     assert_eq!(
         history,

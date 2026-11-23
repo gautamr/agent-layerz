@@ -1,5 +1,5 @@
 use crate::item::{ConcreteModel, ModelAlias, Role};
-use crate::merge::provenance::Action;
+use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::stack::ResolvedLayer;
 use crate::target::TargetName;
@@ -107,7 +107,7 @@ fn the_provenance_names_the_layers_that_set_an_alias_a_role_and_the_default() {
         provenance
             .contributions()
             .iter()
-            .map(|part| (part.layer().as_str().to_owned(), part.action()))
+            .map(|part| (part.layer().as_str().to_owned(), part.action().clone()))
             .collect::<Vec<_>>()
     };
     let strong = models.aliases().get(&alias("strong")).expect("strong");

@@ -8,9 +8,8 @@ use proptest::collection::vec;
 use proptest::prelude::{Strategy, prop_assert_eq, proptest};
 
 use crate::item::PassthroughItems;
-use crate::layer::LayerName;
 use crate::merge::Replace;
-use crate::merge::provenance::{Action, Contribution};
+use crate::merge::action::Action;
 use crate::merge::testing::layer;
 
 use super::PassthroughState;
@@ -43,7 +42,7 @@ fn state(name: &str, files: &Files) -> PassthroughState {
     let layer = layer(name, "client", &refs);
     let (items, found) = PassthroughItems::read(&layer);
     assert_eq!(found.error_count(), 0);
-    PassthroughState::of_layer(items, &LayerName::try_from(name).expect("a layer name"))
+    PassthroughState::of_layer(items, &layer)
 }
 
 proptest! {
@@ -124,7 +123,7 @@ proptest! {
                 .provenance()
                 .contributions()
                 .iter()
-                .map(Contribution::action)
+                .map(|part| part.action().clone())
                 .collect();
             actions.first() == Some(&Action::Define)
                 && actions.iter().skip(1).all(|action| *action == Action::Replace)

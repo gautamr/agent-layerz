@@ -1,6 +1,6 @@
 use proptest::prelude::{prop_assert_eq, proptest};
 
-use crate::merge::provenance::Action;
+use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::merge::{InstructionBlock, Merged};
 use crate::stack::ResolvedLayer;
@@ -128,7 +128,7 @@ fn the_removed_block_is_gone_and_the_others_keep_who_made_them() {
                 .provenance()
                 .contributions()
                 .iter()
-                .map(|part| (part.layer().as_str(), part.action()))
+                .map(|part| (part.layer().as_str(), part.action().clone()))
                 .collect()
         })
         .collect();
@@ -190,7 +190,7 @@ fn replace_puts_the_new_block_in_the_place_of_the_layer_that_replaced_it() {
         .provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str(), part.action()))
+        .map(|part| (part.layer().as_str(), part.action().clone()))
         .collect();
     assert_eq!(
         makers,

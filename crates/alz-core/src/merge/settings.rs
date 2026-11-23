@@ -16,8 +16,8 @@ use std::collections::BTreeMap;
 
 use crate::diagnostic::{Diagnostics, Where};
 use crate::item::{Settings, SettingsItems, SettingsTree, loosenings, place};
-use crate::layer::LayerName;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::action::Action;
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::target::TargetName;
 
@@ -34,7 +34,8 @@ impl SettingsState {
         match items.into_file() {
             None => (self, found),
             Some((path, file)) => {
-                let (state, problems) = self.apply(&file, layer, &place(layer, &path));
+                let origin = Origin::new(context.layer(), path.clone());
+                let (state, problems) = self.apply(&file, &origin, &place(layer, &path));
                 (state, found.merge(problems))
             }
         }
@@ -43,12 +44,7 @@ impl SettingsState {
     /// The state after the settings `file` of `layer`, and the problems it makes: each target it
     /// names is deep-merged into what the target had, unless a floor key of the file is looser
     /// than what the more general layers merged, in which case the state is unchanged.
-    pub(super) fn apply(
-        self,
-        file: &Settings,
-        layer: &LayerName,
-        at: &Where,
-    ) -> (Self, Diagnostics) {
+    pub(super) fn apply(self, file: &Settings, origin: &Origin, at: &Where) -> (Self, Diagnostics) {
         let found = file
             .iter()
             .filter_map(|(target, tree)| {
@@ -66,9 +62,9 @@ impl SettingsState {
             let next = match merged.remove(&target) {
                 Some(before) => {
                     let combined = before.value().clone().deep_merge(tree.clone());
-                    before.revised(combined, layer.clone(), Action::Extend)
+                    before.revised(combined, origin.clone(), Action::Extend)
                 }
-                None => Traced::new(tree.clone(), layer.clone(), Action::Define),
+                None => Traced::new(tree.clone(), origin.clone(), Action::Define),
             };
             merged.insert(target, next);
             merged

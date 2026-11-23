@@ -13,9 +13,11 @@ use std::collections::BTreeMap;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::item::{Glob, RuleBase, RuleEdit, RuleExtension, RuleFile, RuleItems, RuleName, place};
 use crate::layer::{LayerHeading, LayerMeta};
+use crate::merge::action::Action;
 use crate::merge::algebra::OrderedSet;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
+use crate::stack::ResolvedLayer;
 use crate::untrusted_text::Stripped;
 
 /// What one extending file adds to a rule: its text and globs, under the heading of its layer.
@@ -157,13 +159,12 @@ pub(super) struct RuleState(BTreeMap<RuleName, Traced<RuleChain>>);
 impl RuleState {
     /// The state after one more, more specific, layer.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
-        let meta = context.layer().meta();
         let (items, read) = RuleItems::read(context.layer());
         let (rules, found) = items
             .files()
             .iter()
             .fold((self.0, read), |(rules, found), file| {
-                let (rules, problem) = apply(rules, meta, file);
+                let (rules, problem) = apply(rules, context.layer(), file);
                 (rules, found.merge(problem.into_iter().collect()))
             });
         (Self(rules), found)
@@ -186,22 +187,29 @@ impl RuleState {
 /// no rule to extend.
 fn apply(
     rules: BTreeMap<RuleName, Traced<RuleChain>>,
-    meta: &LayerMeta,
+    layer: &ResolvedLayer,
     file: &RuleFile,
 ) -> (BTreeMap<RuleName, Traced<RuleChain>>, Option<Diagnostic>) {
-    let layer = meta.name().clone();
+    let meta = layer.meta();
+    let origin = Origin::new(layer, file.path().clone());
     let chain = RuleChain::of(file.edit(), meta);
     let mut rules = rules;
     let (revised, problem) = match (rules.remove(file.name()), file.edit()) {
-        (None, RuleEdit::Replace(_)) => (Some(Traced::new(chain, layer, Action::Define)), None),
+        (None, RuleEdit::Replace(_)) => (Some(Traced::new(chain, origin, Action::Define)), None),
         (None, RuleEdit::Extend(_)) => (None, Some(unresolved(meta, file))),
         (Some(previous), RuleEdit::Replace(_)) => {
             let merged = previous.value().clone().merge(chain);
-            (Some(previous.revised(merged, layer, Action::Replace)), None)
+            (
+                Some(previous.revised(merged, origin, Action::Replace)),
+                None,
+            )
         }
-        (Some(previous), RuleEdit::Extend(_)) => {
+        (Some(previous), RuleEdit::Extend(extension)) => {
             let merged = previous.value().clone().merge(chain);
-            (Some(previous.revised(merged, layer, Action::Extend)), None)
+            (
+                Some(previous.revised(merged, origin, Action::extend_rule(extension))),
+                None,
+            )
         }
     };
     if let Some(rule) = revised {

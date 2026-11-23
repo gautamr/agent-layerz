@@ -1,8 +1,9 @@
 use proptest::prelude::{Strategy, any, prop_assert_eq, proptest};
 
 use crate::item::{Glob, RuleBase, RuleEdit, RuleExtension, RuleName};
+use crate::merge::action::Action;
 use crate::merge::algebra::OrderedSet;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::Traced;
 use crate::merge::testing::{layer, lines, merged};
 use crate::merge::{Merged, MergedRule, RuleChain};
 use crate::stack::ResolvedLayer;
@@ -51,6 +52,10 @@ fn rule<'a>(model: &'a Merged, name: &str) -> &'a Traced<MergedRule> {
         .expect("the rule exists")
 }
 
+fn glob_of(text: &str) -> Glob {
+    Glob::try_from(text).expect("a glob")
+}
+
 fn globs(rule: &MergedRule) -> Vec<String> {
     rule.paths()
         .iter()
@@ -62,7 +67,7 @@ fn makers(rule: &Traced<MergedRule>) -> Vec<(&str, Action)> {
     rule.provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str(), part.action()))
+        .map(|part| (part.layer().as_str(), part.action().clone()))
         .collect()
 }
 
@@ -96,7 +101,15 @@ fn an_extend_rule_appends_a_section_and_unions_the_paths() {
     );
     assert_eq!(
         makers(testing),
-        [("personal", Action::Define), ("shop-api", Action::Extend)]
+        [
+            ("personal", Action::Define),
+            (
+                "shop-api",
+                Action::ExtendRule {
+                    paths: vec![glob_of("e2e/**")]
+                }
+            )
+        ]
     );
     let added: Vec<Vec<&str>> = testing
         .value()
@@ -169,7 +182,12 @@ fn a_rule_defined_again_drops_the_extensions_before_it() {
         makers(found),
         [
             ("personal", Action::Define),
-            ("acme", Action::Extend),
+            (
+                "acme",
+                Action::ExtendRule {
+                    paths: vec![glob_of("y")]
+                }
+            ),
             ("shop-api", Action::Replace)
         ]
     );
@@ -363,4 +381,56 @@ proptest! {
             assert!(all.contains(glob));
         }
     }
+}
+
+const PERSONAL_YAML: &str =
+    include_str!("../../../../../test/fixtures/17-rules/personal/layer.yaml");
+const REPO_YAML: &str =
+    include_str!("../../../../../test/fixtures/17-rules/repo/.layer/layer.yaml");
+
+// Acceptance case 17, explain: the typed contributions give the strings the suite asserts, and
+// the same sources the generated header names.
+#[test]
+fn the_contributions_of_a_rule_give_the_lines_of_alz_explain_of_case_17() {
+    use crate::render::action_word::ActionWord;
+    use crate::render::header::SourceRef;
+
+    let model = merged_model(vec![
+        crate::merge::testing::layer_from_yaml(
+            PERSONAL_YAML,
+            &[
+                ("rules/backend.md", PERSONAL_BACKEND),
+                ("rules/testing.md", PERSONAL_TESTING),
+            ],
+        ),
+        crate::merge::testing::layer_from_yaml(
+            REPO_YAML,
+            &[
+                ("rules/backend.md", REPO_BACKEND),
+                ("rules/testing.md", REPO_TESTING),
+            ],
+        ),
+    ]);
+    let line = |index: usize, part: &crate::merge::Contribution| {
+        format!(
+            "{}. {} — {}",
+            index + 1,
+            SourceRef::of_contribution(part).expect("a source"),
+            ActionWord::new(part.action(), "rule")
+        )
+    };
+    let lines: Vec<String> = rule(&model, "testing")
+        .provenance()
+        .contributions()
+        .iter()
+        .enumerate()
+        .map(|(index, part)| line(index, part))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            "1. personal@1.0.0:rules/testing.md — rule",
+            "2. shop-api:rules/testing.md — extend: paths +[e2e/**]"
+        ]
+    );
 }

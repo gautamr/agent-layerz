@@ -13,11 +13,12 @@ use std::collections::BTreeMap;
 
 use crate::diagnostic::Diagnostics;
 use crate::item::{PassthroughFile, PassthroughItems};
-use crate::layer::LayerName;
+use crate::merge::action::Action;
 use crate::merge::algebra::Replace;
-use crate::merge::provenance::{Action, Provenance, Traced};
+use crate::merge::provenance::{Origin, Provenance, Traced};
 use crate::merge::stack::LayerContext;
 use crate::path::SafeRelPath;
+use crate::stack::ResolvedLayer;
 use crate::target::TargetName;
 
 /// The merged files of each target, by their path inside the target's folder, each with the
@@ -29,15 +30,15 @@ pub type MergedPassthrough = BTreeMap<TargetName, Replace<SafeRelPath, Traced<Pa
 /// it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PathChain {
-    first: LayerName,
-    replacers: Vec<LayerName>,
+    first: Origin,
+    replacers: Vec<Origin>,
     latest: PassthroughFile,
 }
 
 impl PathChain {
-    fn of(file: PassthroughFile, layer: LayerName) -> Self {
+    fn of(file: PassthroughFile, origin: Origin) -> Self {
         Self {
-            first: layer,
+            first: origin,
             replacers: Vec::new(),
             latest: file,
         }
@@ -75,15 +76,16 @@ pub(super) struct PassthroughState(BTreeMap<TargetName, BTreeMap<SafeRelPath, Pa
 
 impl PassthroughState {
     /// The files of one layer: each path has the layer as its only contributor.
-    fn of_layer(items: PassthroughItems, layer: &LayerName) -> Self {
+    fn of_layer(items: PassthroughItems, layer: &ResolvedLayer) -> Self {
         Self(
             items
                 .into_files()
                 .into_iter()
                 .map(|file| {
+                    let origin = Origin::new(layer, file.source().clone());
                     (
                         file.target(),
-                        BTreeMap::from([(file.path().clone(), PathChain::of(file, layer.clone()))]),
+                        BTreeMap::from([(file.path().clone(), PathChain::of(file, origin))]),
                     )
                 })
                 .fold(BTreeMap::new(), |all, (target, files)| {
@@ -104,9 +106,8 @@ impl PassthroughState {
     /// The state after one more, more specific, layer, with the warning of each file it uses and
     /// the problems of the files it holds.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
-        let layer = context.layer().meta().name();
         let (items, found) = PassthroughItems::read(context.layer());
-        (self.merge(Self::of_layer(items, layer)), found)
+        (self.merge(Self::of_layer(items, context.layer())), found)
     }
 
     /// The merged files.

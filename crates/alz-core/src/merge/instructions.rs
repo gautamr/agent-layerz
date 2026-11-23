@@ -13,9 +13,11 @@
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::item::{ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, place};
 use crate::layer::{LayerHeading, LayerMeta};
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::action::Action;
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::path::SafeRelPath;
+use crate::stack::ResolvedLayer;
 use crate::untrusted_text::Stripped;
 
 /// One block of the composed `AGENTS.md`: a file of a layer, under the layer's heading.
@@ -64,14 +66,13 @@ pub(super) struct MergedInstructions {
 impl InstructionState {
     /// The state after one more, more specific, layer.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
-        let meta = context.layer().meta();
         let (items, read) = InstructionItems::read(context.layer());
         let (blocks, found) =
             items
                 .files()
                 .iter()
                 .fold((self.blocks, read), |(blocks, found), file| {
-                    let (blocks, problem) = apply(blocks, meta, file);
+                    let (blocks, problem) = apply(blocks, context.layer(), file);
                     (blocks, found.merge(problem.into_iter().collect()))
                 });
         (
@@ -104,10 +105,11 @@ impl InstructionState {
 /// `remove` has no block to act on.
 fn apply(
     blocks: Vec<Traced<InstructionBlock>>,
-    meta: &LayerMeta,
+    layer: &ResolvedLayer,
     file: &InstructionFile,
 ) -> (Vec<Traced<InstructionBlock>>, Option<Diagnostic>) {
-    let layer = meta.name().clone();
+    let meta = layer.meta();
+    let origin = Origin::new(layer, file.file().clone());
     let block = |body: &str| InstructionBlock {
         heading: LayerHeading::of(meta),
         file: file.file().clone(),
@@ -117,7 +119,7 @@ fn apply(
         InstructionEdit::Add(body) => (
             blocks
                 .into_iter()
-                .chain([Traced::new(block(body), layer, Action::Define)])
+                .chain([Traced::new(block(body), origin, Action::Define)])
                 .collect(),
             None,
         ),
@@ -126,7 +128,7 @@ fn apply(
             match acted_on.into_iter().last() {
                 Some(previous) => (
                     rest.into_iter()
-                        .chain([previous.revised(block(body), layer, Action::Replace)])
+                        .chain([previous.revised(block(body), origin, Action::Replace)])
                         .collect(),
                     None,
                 ),

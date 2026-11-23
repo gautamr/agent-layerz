@@ -11,9 +11,10 @@ use std::fmt;
 use thiserror::Error;
 
 use crate::layer::LayerName;
+use crate::merge::Contribution;
 use crate::path::SafeRelPath;
 use crate::render::tree::OutputPath;
-use crate::stack::ResolvedLayer;
+use crate::stack::{ResolvedLayer, Revision};
 use crate::untrusted_text::Stripped;
 
 /// The mark every generated file carries in its header.
@@ -75,16 +76,22 @@ impl LayerLabel {
     ///
     /// [`SourceRefError`] when the layer's version holds a control or format character or `-->`.
     pub fn of(layer: &ResolvedLayer) -> Result<Self, SourceRefError> {
-        let revision = layer.pin().map_or_else(
-            || {
-                layer
-                    .meta()
-                    .version()
-                    .map(|version| version.as_str().to_owned())
-            },
-            |pin| Some(pin.rev.to_string()),
-        );
-        Self::new(layer.meta().name(), revision.as_deref())
+        Self::new(
+            layer.meta().name(),
+            layer.revision().as_ref().map(Revision::as_str),
+        )
+    }
+
+    /// The label of the layer that made a contribution, from the name and revision it carries.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceRefError`] when the revision holds a control or format character or `-->`.
+    pub fn of_contribution(contribution: &Contribution) -> Result<Self, SourceRefError> {
+        Self::new(
+            contribution.layer(),
+            contribution.revision().map(Revision::as_str),
+        )
     }
 }
 
@@ -118,6 +125,19 @@ impl SourceRef {
     /// [`SourceRefError`] when the path holds a control or format character or `-->`.
     pub fn layer_file(label: LayerLabel, path: SafeRelPath) -> Result<Self, SourceRefError> {
         checked(path.as_str()).map(|()| Self::LayerFile { label, path })
+    }
+}
+
+impl SourceRef {
+    /// The source a contribution names: its layer's label and the layer file.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceRefError`] when the revision or the path holds a control or format character or
+    /// `-->`.
+    pub fn of_contribution(contribution: &Contribution) -> Result<Self, SourceRefError> {
+        LayerLabel::of_contribution(contribution)
+            .and_then(|label| Self::layer_file(label, contribution.file().clone()))
     }
 }
 

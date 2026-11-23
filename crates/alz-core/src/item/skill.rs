@@ -113,11 +113,19 @@ impl fmt::Debug for SkillFile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkillDirectory {
     name: SkillName,
+    folder: SafeRelPath,
     description: SkillDescription,
     files: Vec<SkillFile>,
 }
 
 impl SkillDirectory {
+    /// The skill's folder in the layer, `skills/<name>`: what a header and `alz explain` name as
+    /// its source.
+    #[must_use]
+    pub const fn folder(&self) -> &SafeRelPath {
+        &self.folder
+    }
+
     /// The skill's name, equal to its directory's.
     #[must_use]
     pub const fn name(&self) -> &SkillName {
@@ -190,6 +198,15 @@ pub enum Skill {
 }
 
 impl Skill {
+    /// The layer path the skill is named by as a source: a skill's folder, or the command's file.
+    #[must_use]
+    pub const fn source(&self) -> &SafeRelPath {
+        match self {
+            Self::Directory(directory) => directory.folder(),
+            Self::Command(command) => command.path(),
+        }
+    }
+
     /// The name, which is the identity across layers.
     #[must_use]
     pub const fn name(&self) -> &SkillName {
@@ -417,6 +434,10 @@ fn read_directory(
     if name == directory {
         Ok(Skill::Directory(SkillDirectory {
             name,
+            // The folder is a prefix of `md_path`, so it is a safe path; `md_path` stands in for it
+            // only if that were ever wrong.
+            folder: SafeRelPath::try_from(format!("skills/{folder}").as_str())
+                .unwrap_or_else(|_unsafe| md_path.clone()),
             description,
             files: files
                 .iter()

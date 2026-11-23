@@ -113,3 +113,9 @@ pub(crate) fn lines_but_slots(found: &Merging) -> Vec<String> {
         .filter(|line| !line.starts_with("warning [slot-missing]"))
         .collect()
 }
+
+/// An origin for a unit test: a layer of that name, without a revision, and the file
+/// `layer.yaml`.
+pub(crate) fn origin_of(layer: crate::layer::LayerName) -> crate::merge::Origin {
+    crate::merge::Origin::in_test(layer)
+}

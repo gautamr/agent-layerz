@@ -21,6 +21,20 @@ pub struct Pin {
     pub sha: ObjectId,
 }
 
+/// How a layer is told apart from another of the same name: the pin's `rev` when it has one, else
+/// the layer's `version`. It is untrusted text; a header refuses it when it could leave its
+/// comment ([`crate::render::header::LayerLabel`]).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Revision(String);
+
+impl Revision {
+    /// The text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// One stack entry resolved: where it came from, what `layer.yaml` says and the files it holds,
 /// with the bytes the walk read and the content hash covers.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +83,19 @@ impl ResolvedLayer {
     #[must_use]
     pub const fn contents(&self) -> &LayerContents {
         &self.contents
+    }
+
+    /// The layer's revision: the pin's `rev` when it has one, else its `version`, else nothing.
+    #[must_use]
+    pub fn revision(&self) -> Option<Revision> {
+        self.pin.as_ref().map_or_else(
+            || {
+                self.meta
+                    .version()
+                    .map(|version| Revision(version.as_str().to_owned()))
+            },
+            |pin| Some(Revision(pin.rev.to_string())),
+        )
     }
 
     /// The pin, for a layer that came from git.

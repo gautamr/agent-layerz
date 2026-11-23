@@ -1,6 +1,6 @@
 use crate::item::SettingsTree;
 use crate::merge::Tree;
-use crate::merge::provenance::Action;
+use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::stack::ResolvedLayer;
 use crate::target::TargetName;
@@ -128,7 +128,7 @@ fn a_target_keeps_the_layers_that_set_it() {
         .provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str(), part.action()))
+        .map(|part| (part.layer().as_str(), part.action().clone()))
         .collect();
     assert_eq!(
         parts,

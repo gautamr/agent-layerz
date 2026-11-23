@@ -2,6 +2,7 @@
 //! paths, the lock of a build, the YAML emitter (decision-28) and the stable JSON emitter
 //! (decision-33).
 
+pub mod action_word;
 pub mod glob;
 pub mod header;
 pub mod json;

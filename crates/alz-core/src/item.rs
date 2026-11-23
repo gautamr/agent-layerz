@@ -36,6 +36,7 @@ pub use instruction::{
     ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, InstructionMode,
     InstructionModeError,
 };
+pub use list_edit::{EditSegment, EditSign, WrittenEdit};
 pub use mcp::{McpItems, McpRefusal, McpServer, McpServerId, Transport};
 pub use model::{BlankModelName, ConcreteModel, ModelAlias, ModelItems, Models};
 pub use native_keys::{

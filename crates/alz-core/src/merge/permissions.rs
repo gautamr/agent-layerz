@@ -25,8 +25,9 @@ use crate::item::{
     place,
 };
 use crate::layer::LayerName;
+use crate::merge::action::Action;
 use crate::merge::algebra::{Floor, ListEdit, OrderedSet};
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::untrusted_text::Stripped;
 
@@ -98,7 +99,7 @@ impl RuleList {
 
     /// The list that holds exactly `members`, in their order: a rule that was there keeps its
     /// provenance and a new one is defined by `layer`.
-    fn holding(&self, members: &OrderedSet<PermissionRule>, layer: &LayerName) -> Self {
+    fn holding(&self, members: &OrderedSet<PermissionRule>, origin: &Origin) -> Self {
         Self(
             members
                 .iter()
@@ -107,15 +108,17 @@ impl RuleList {
                         .iter()
                         .find(|held| held.value() == rule)
                         .cloned()
-                        .unwrap_or_else(|| Traced::new(rule.clone(), layer.clone(), Action::Define))
+                        .unwrap_or_else(|| {
+                            Traced::new(rule.clone(), origin.clone(), Action::Define)
+                        })
                 })
                 .collect(),
         )
     }
 
     /// The list after `edit`, which may drop any rule.
-    fn edited(&self, edit: &ListEdit<PermissionRule>, layer: &LayerName) -> Self {
-        self.holding(&edit.apply(&self.members()), layer)
+    fn edited(&self, edit: &ListEdit<PermissionRule>, origin: &Origin) -> Self {
+        self.holding(&edit.apply(&self.members()), origin)
     }
 
     /// The list after `edit` for a list that must not shrink: the rules the edit would drop are
@@ -123,7 +126,7 @@ impl RuleList {
     fn edited_never_shrinking(
         &self,
         edit: &ListEdit<PermissionRule>,
-        layer: &LayerName,
+        origin: &Origin,
     ) -> (Self, Vec<Traced<PermissionRule>>) {
         let members = self.members();
         let next = edit.apply(&members);
@@ -133,7 +136,7 @@ impl RuleList {
             .filter(|held| !next.contains(held.value()))
             .cloned()
             .collect();
-        (self.holding(&members.merge(next), layer), dropped)
+        (self.holding(&members.merge(next), origin), dropped)
     }
 }
 
@@ -208,7 +211,8 @@ impl PermissionState {
         match items.into_file() {
             None => (self, found),
             Some((path, file)) => {
-                let (state, problems) = self.apply(&file, layer, &place(layer, &path));
+                let origin = Origin::new(context.layer(), path.clone());
+                let (state, problems) = self.apply(&file, &origin, &place(layer, &path));
                 (state, found.merge(problems))
             }
         }
@@ -219,20 +223,21 @@ impl PermissionState {
     pub(super) fn apply(
         self,
         file: &Permissions,
-        layer: &LayerName,
+        origin: &Origin,
         at: &Where,
     ) -> (Self, Diagnostics) {
-        let (deny, dropped) = self.deny.edited_never_shrinking(file.deny(), layer);
+        let layer = origin.layer();
+        let (deny, dropped) = self.deny.edited_never_shrinking(file.deny(), origin);
         let found = dropped
             .iter()
             .map(|rule| removed_deny(rule, layer, at))
             .collect::<Diagnostics>();
-        let (mode, held, found_mode) = self.settle_mode(file.default_mode(), layer, at);
-        let (flags, found_flags) = self.settle_flags(file, layer, at);
+        let (mode, held, found_mode) = self.settle_mode(file.default_mode(), origin, at);
+        let (flags, found_flags) = self.settle_flags(file, origin, at);
         (
             Self {
-                allow: self.allow.edited(file.allow(), layer),
-                ask: self.ask.edited(file.ask(), layer),
+                allow: self.allow.edited(file.allow(), origin),
+                ask: self.ask.edited(file.ask(), origin),
                 deny,
                 mode,
                 held,
@@ -247,14 +252,15 @@ impl PermissionState {
     fn settle_flags(
         &self,
         file: &Permissions,
-        layer: &LayerName,
+        origin: &Origin,
         at: &Where,
     ) -> (BTreeMap<FloorFlag, Traced<bool>>, Diagnostics) {
+        let layer = origin.layer();
         FloorFlag::ALL.into_iter().fold(
             (self.flags.clone(), Diagnostics::new()),
             |(mut flags, found), flag| match (file.flag(flag), flags.get(&flag)) {
                 (Some(true), None) => {
-                    flags.insert(flag, Traced::new(true, layer.clone(), Action::Define));
+                    flags.insert(flag, Traced::new(true, origin.clone(), Action::Define));
                     (flags, found)
                 }
                 (Some(false), Some(held)) => {
@@ -271,9 +277,10 @@ impl PermissionState {
     fn settle_mode(
         &self,
         requested: Option<DefaultMode>,
-        layer: &LayerName,
+        origin: &Origin,
         at: &Where,
     ) -> (Option<Traced<PermissionMode>>, Held, Diagnostics) {
+        let layer = origin.layer();
         match requested {
             None => (self.mode.clone(), self.held.clone(), Diagnostics::new()),
             Some(requested) if !self.held.floor.admits(&requested.mode()) => (
@@ -284,9 +291,9 @@ impl PermissionState {
             Some(requested) => (
                 Some(match self.mode.clone() {
                     Some(earlier) => {
-                        earlier.revised(requested.mode(), layer.clone(), Action::Replace)
+                        earlier.revised(requested.mode(), origin.clone(), Action::Replace)
                     }
-                    None => Traced::new(requested.mode(), layer.clone(), Action::Define),
+                    None => Traced::new(requested.mode(), origin.clone(), Action::Define),
                 }),
                 match requested.binding() {
                     Binding::Floor => self.held.clone().raised(requested.mode(), layer),

@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T18:31:00Z'
+updated_date: '2026-11-23T23:14:00Z'
 labels:
   - area:rust
   - area:render
@@ -35,3 +35,9 @@ All YAML through the R2.8 emitter.
 - [ ] #2 A generated agent whose native fields hold the keys 10 and 9 after the fixed fields writes them in source order; the acceptance case is in the suite, marked referenceDrift TASK-66 (TASK-66 AC #2)
 - [ ] #3 An empty tools list and a non-Claude model id are the error claude-agent, and a scoped tool gives the warning tool-scope, each naming the agent and its file (unit tests)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R5.17 (2026-11-24): the reference refuses an agent overlay list string that is only white space ('cannot parse'); the Rust reader accepts it as an edit with no segment. Refuse it as the reference does (stricter, and the same output), with a test.
+<!-- SECTION:NOTES:END -->
