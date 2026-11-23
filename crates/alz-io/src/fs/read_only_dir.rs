@@ -3,12 +3,14 @@
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
+use alz_core::layer::{LayerScan, Purpose};
 use alz_core::path::SafeRelPath;
 use rustix::fs::{self, Mode, OFlags};
 use rustix::io::Errno;
 
 use crate::fs::read_below::read_file_below;
 use crate::fs::read_error::ReadError;
+use crate::fs::scan::scan_layer;
 
 /// A handle on a directory the person named, such as the working directory or `--layer <path>`.
 /// It has no method that writes, creates or removes anything. A name inside it is opened relative
@@ -51,6 +53,14 @@ impl ReadOnlyDir {
     /// `cap` bytes, and [`ReadError::Io`] for any other failure.
     pub fn read_file(&self, path: &SafeRelPath, cap: usize) -> Result<Vec<u8>, ReadError> {
         read_file_below(&self.handle, path, cap)
+    }
+
+    /// Walks the directory as a layer, as [`Dir::scan`](crate::fs::Dir::scan) does: every file is
+    /// opened below the handle and never through a link, and what is wrong with the walk is a
+    /// fact of the scan, never an error.
+    #[must_use]
+    pub fn scan(&self, purpose: Purpose) -> LayerScan {
+        scan_layer(&self.handle, purpose, None)
     }
 }
 

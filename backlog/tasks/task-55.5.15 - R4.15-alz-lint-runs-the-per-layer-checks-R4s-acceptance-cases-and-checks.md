@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T15:13:00Z'
+updated_date: '2026-11-23T15:27:00Z'
 labels:
   - area:rust
   - area:lint
@@ -57,4 +57,6 @@ Spec items from R4.11 (2026-11-23): (a) per-server checks stop at the first fail
 Spec items from R4.12 (2026-11-23): (a) the passthrough warning 'raw passthrough to <path>; consider turning it into a first-class item' and the unknown-folder error text; (b) §7.9's non-ASCII path rule covers any folder of targets/, not only passthrough paths; (c) a .toml that is not valid UTF-8 is refused as unchecked; (d) the TOML text rule reports each distinct protected variable mentioned; (e) a non-mapping, non-list mcpServers (a plugin manifest naming a file) and a JSON root that is not an object are not checked; (f) nested env depth is bounded by the JSON reader's 128 (the reference refused past 32); (g) a refused passthrough file gives errors only (the reference also warned).
 
 Spec items from R4.13 (2026-11-23): (a) add identity and account rows to §10.1's merge table; (b) say which rule each consumer uses: the build reports every refused layer as an error and a refused first layer gives Conflict; account resolution (§7.13) ignores an in-repository declaration (neither wins nor conflicts); (c) a refused first layer with a declaring client gives Conflict, no winner; (d) a layer that cannot be opened counts as inside the repository; (e) the refusal messages keep the reference's wording.
+
+Spec items from R4.14 (2026-11-23): (a) one leak diagnostic per file and entry, per file and secret kind, and one email and one host warning per file, without line numbers (the reference reported per line); (b) patterns match the whole file text ((?m) for ^ and $); (c) binary and non-UTF-8 files are scanned too, read lossily (the reference skipped files with a NUL in the first 8 KiB); (d) layer.yaml is scanned without the forbid_patterns span, removed line-wise with comment-only lines kept; (e) one refusal message for a pattern that does not compile, is too large or nests too deep; (f) only entry 65 is reported past the cap; (g) a refused entry is located at <layer>:layer.yaml; (h) the email and host heuristics are the reference's patterns.
 <!-- SECTION:NOTES:END -->

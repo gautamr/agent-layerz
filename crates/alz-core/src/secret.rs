@@ -94,12 +94,22 @@ impl SecretKind {
     /// The compiled shape, or `None` when the pattern does not compile (a test proves that none
     /// of them fails).
     fn compile(self) -> Option<Regex> {
-        RegexBuilder::new(self.pattern())
-            .size_limit(SIZE_LIMIT)
-            .nest_limit(NEST_LIMIT)
-            .build()
-            .ok()
+        bounded(self.pattern()).ok()
     }
+}
+
+/// Compiles `pattern` with the limits of decision-38: a compiled size of at most [`SIZE_LIMIT`]
+/// and a nesting of at most [`NEST_LIMIT`]. Every pattern alz compiles, the token shapes and a
+/// layer's `forbid_patterns` (§9.2), goes through here.
+///
+/// # Errors
+///
+/// The error of `regex-lite` when the pattern is not valid, is not supported or passes a limit.
+pub(crate) fn bounded(pattern: &str) -> Result<Regex, regex_lite::Error> {
+    RegexBuilder::new(pattern)
+        .size_limit(SIZE_LIMIT)
+        .nest_limit(NEST_LIMIT)
+        .build()
 }
 
 impl fmt::Display for SecretKind {

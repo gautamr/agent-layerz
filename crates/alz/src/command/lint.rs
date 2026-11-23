@@ -4,16 +4,18 @@
 //! The command wires three parts: `alz-io` reads `layer.yaml` and `layer.lock` without following
 //! links and with a size cap and resolves the stack's layers, `alz_core::lint` decides what is
 //! wrong, and [`crate::report`] prints it. It checks what is modelled so far (the schema of a
-//! layer, the stack manifest and lock, and the resolution of the stack's layers); the leak guard
-//! and the rest of the checks arrive with R4 and R5.
+//! layer, the stack manifest and lock, and the resolution of the stack's layers) and the leak
+//! guard of each public layer (§9.2); the rest of the checks arrive with R5.
 
 use std::io::{self, Write};
 use std::path::Path;
 
+use alz_core::layer::{LayerContents, Purpose, ReadLayer, Visibility, scan_verdict};
 use alz_core::lint::{self, LayerLint, LockFile};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
+use alz_core::stack::resolution_failure::layer_unreadable;
 use alz_core::yaml::MAX_BYTES;
-use alz_core::{Diagnostic, Diagnostics, Stripped};
+use alz_core::{Diagnostic, Diagnostics, Stripped, leak_guard};
 use alz_io::{EnvSnapshot, ReadError, ReadOnlyDir, StackResolver, WorkingDirectory};
 
 use crate::cli::LintArgs;
@@ -65,6 +67,7 @@ fn lint(args: &LintArgs, surroundings: Surroundings<'_>) -> Outcome {
 fn lint_layer_in(directory: &Path) -> Outcome {
     let source = given(directory);
     layer_outcome(
+        directory,
         &source,
         read_layer_yaml(directory, &source).map(|bytes| lint::parse_document(&bytes)),
     )
@@ -79,17 +82,24 @@ fn lint_working_directory(surroundings: Surroundings<'_>) -> Outcome {
         Ok(Ok(document)) if lint::is_stack_manifest(&document) => {
             lint_stack(directory, &document, surroundings)
         }
-        read => layer_outcome(&source, read),
+        read => layer_outcome(directory, &source, read),
     }
 }
 
+/// A layer alone: its `layer.yaml`, then, when the layer is public, the leak guard over every file
+/// of the directory (§9.2).
 fn layer_outcome(
+    directory: &Path,
     source: &Stripped,
     read: Result<Result<alz_core::yaml::Node, alz_core::yaml::YamlError>, Diagnostic>,
 ) -> Outcome {
     match read {
         Ok(document) => {
             let linted: LayerLint = lint::layer(source, document);
+            let linted = match guard_of(directory, source, &linted) {
+                Some(found) => linted.with_diagnostics(found),
+                None => linted,
+            };
             Outcome {
                 summary: Some(linted.name().clone()),
                 diagnostics: linted.into_diagnostics(),
@@ -100,6 +110,33 @@ fn layer_outcome(
             summary: Some(source.clone()),
         },
     }
+}
+
+/// The leak guard's findings for a valid public layer in `directory`, or the one problem that kept
+/// its files from being read; `None` for a layer that is invalid or not public.
+fn guard_of(directory: &Path, source: &Stripped, linted: &LayerLint) -> Option<Diagnostics> {
+    let meta = linted
+        .meta()
+        .filter(|meta| meta.visibility() == Visibility::Public)?;
+    Some(read_contents(directory, source).map_or_else(
+        |unreadable| Diagnostics::new().with(unreadable),
+        |contents| leak_guard::check(meta, &contents),
+    ))
+}
+
+/// Every file of the layer in `directory`, read as a build reads it (§6, §7.13): no link is
+/// followed, no file is larger than 16 MiB.
+fn read_contents(directory: &Path, source: &Stripped) -> Result<LayerContents, Diagnostic> {
+    let scan = ReadOnlyDir::open(directory)
+        .map(|opened| opened.scan(Purpose::Build))
+        .map_err(|_unreadable| layer_unreadable(source.clone()))?;
+    scan_verdict(Purpose::Build, scan)
+        .map(|read: ReadLayer| read.into_parts().0)
+        .map_err(|refusal| {
+            refusal
+                .file_name_diagnostic(source.clone())
+                .unwrap_or_else(|| layer_unreadable(source.clone()))
+        })
 }
 
 /// A repository's stack: the manifest and the lock are read first, and when both are valid each
@@ -129,9 +166,14 @@ fn lint_stack(
                 },
                 Ok(resolver) => {
                     let report = resolver.resolve(&files.manifest, files.lock.as_ref());
+                    let guarded = report
+                        .resolved_layers()
+                        .iter()
+                        .map(|layer| leak_guard::check(layer.meta(), layer.contents()))
+                        .fold(Diagnostics::new(), Diagnostics::merge);
                     Outcome {
                         summary: Some(joined(report.names())),
-                        diagnostics: report.diagnostics().clone(),
+                        diagnostics: report.diagnostics().clone().merge(guarded),
                     }
                 }
             }
