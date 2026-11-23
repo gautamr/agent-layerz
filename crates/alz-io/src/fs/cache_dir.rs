@@ -46,6 +46,18 @@ impl RepositoryPaths {
     pub const fn new(as_written: AbsolutePath, real: AbsolutePath) -> Self {
         Self { as_written, real }
     }
+
+    /// The repository's path as written.
+    #[must_use]
+    pub const fn as_written(&self) -> &AbsolutePath {
+        &self.as_written
+    }
+
+    /// The repository's real path.
+    #[must_use]
+    pub const fn real(&self) -> &AbsolutePath {
+        &self.real
+    }
 }
 
 /// A handle on the layer cache root: the only way to reach an entry in it.

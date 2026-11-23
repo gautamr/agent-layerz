@@ -133,6 +133,11 @@ pub enum Code {
     /// A passthrough file, a warning for each use, or a file below a folder of `targets/` that is
     /// not a known target, an error (§7.11, §4.1).
     Passthrough,
+    /// A layer that declares `commit_identity` and may not, or several client layers that do
+    /// (§7.12).
+    Identity,
+    /// A layer that declares `account` and may not, or several client layers that do (§7.13).
+    Account,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -183,6 +188,8 @@ impl Code {
             Self::LeakSecret => "leak-secret",
             Self::ProtectedVariable => "protected-variable",
             Self::Passthrough => "passthrough",
+            Self::Identity => "identity",
+            Self::Account => "account",
             Self::Unresolved => "unresolved",
         }
     }
