@@ -1,9 +1,11 @@
 ---
 id: TASK-76
 title: Record the security-relevant Claude and Codex settings keys in target-facts
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@docs-writer'
 created_date: '2026-11-23T16:08:00Z'
+updated_date: '2026-11-23T17:55:00Z'
 labels:
   - area:docs
   - area:security

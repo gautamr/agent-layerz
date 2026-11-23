@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6
 title: 'R5: Render, Claude adapter and commands in Rust'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T16:16:00Z'
+updated_date: '2026-11-23T17:55:00Z'
 labels:
   - area:rust
 milestone: m-7
