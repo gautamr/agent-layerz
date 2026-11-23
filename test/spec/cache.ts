@@ -15,7 +15,8 @@ export const sha256Hex = (data: string | Uint8Array): string =>
 /**
  * §6: the cache is `$XDG_CACHE_HOME/agent-layerz`, default `~/.cache/agent-layerz`. Only a set,
  * absolute `XDG_CACHE_HOME` is a case here: §7.13 says an empty or relative one counts as unset
- * for account resolution, and §6 does not say it for the build, so that case is not written.
+ * for account resolution, and the same rule for the build is TASK-53's, so that case is not
+ * written.
  */
 export const cacheRoot = (home: string, env: { XDG_CACHE_HOME?: string }): string =>
   join(env.XDG_CACHE_HOME ?? join(home, ".cache"), "agent-layerz");

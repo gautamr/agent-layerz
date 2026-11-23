@@ -4,13 +4,14 @@ title: 'R6: Commit identity and accounts in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T03:26:00Z'
+updated_date: '2026-11-23T04:52:00Z'
 labels:
   - area:rust
   - area:security
 milestone: m-7
 dependencies:
   - TASK-55.6
+  - TASK-72
 parent_task_id: TASK-55
 priority: medium
 ordinal: 39390
