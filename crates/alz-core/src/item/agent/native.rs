@@ -4,13 +4,14 @@
 use std::collections::BTreeMap;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
-use crate::merge::FloatBits;
+use crate::merge::{FloatBits, Tree};
 use crate::schema::SchemaErrors;
 use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::Section;
 use crate::yaml::{Mapping, Node, Value};
 
+use super::super::protected_variable::{ServerField, codex_policies, server_envs};
 use super::super::schema_diagnostics;
 use super::ordered_tree::{NativeMap, NativeValue};
 
@@ -118,13 +119,36 @@ fn read_target(
                     neutral_key(target, key).map(|name| refusal(target, name, at, key))
                 })
                 .collect();
-            if refused.has_errors() {
-                Err(refused)
+            let fields = map_of(node);
+            let found = refused.merge(protected_variables(target, &fields, at));
+            if found.has_errors() {
+                Err(found)
             } else {
-                Ok(map_of(node))
+                Ok(fields)
             }
         })
         .transpose()
+}
+
+/// The problems of the variables a target's native fields set (§7.9): the `env` of each MCP
+/// server, and for Codex any `shell_environment_policy`.
+fn protected_variables(target: TargetName, fields: &NativeMap, at: &Where) -> Diagnostics {
+    let sorted = fields.sorted();
+    match target {
+        TargetName::Claude => server_envs(
+            sorted.get("mcpServers"),
+            ServerField::Claude,
+            Code::Agent,
+            at,
+        ),
+        TargetName::Codex => server_envs(
+            sorted.get("mcp_servers"),
+            ServerField::Codex,
+            Code::Agent,
+            at,
+        )
+        .merge(codex_policies(&sorted, Code::Agent, at)),
+    }
 }
 
 fn mapping_of(node: &Node) -> Option<&Mapping> {
@@ -153,6 +177,11 @@ fn refusal(target: TargetName, key: &str, at: &Where, node: &Node) -> Diagnostic
         Message::new(QuotedKey::from_untrusted(&format!("{target}.{key}")))
             .then(" has a neutral field; set it outside the target map so every target gets it"),
     )
+}
+
+/// The value of a YAML node as a sorted tree.
+pub(in crate::item) fn tree_of(node: &Node) -> Tree {
+    value_of(node).to_tree()
 }
 
 /// The mapping of a YAML node that is a mapping, in document order; empty for any other node,

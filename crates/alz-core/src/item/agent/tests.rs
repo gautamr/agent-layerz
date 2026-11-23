@@ -234,3 +234,154 @@ proptest! {
         let _ = crate::item::list_edit::segments(&text);
     }
 }
+
+// Native fields and the variables no layer may set (§7.9, §7.2).
+
+/// The agent file `helper.md` (or the overlay) whose frontmatter ends with `native`.
+fn helper(native: &str) -> String {
+    format!("---\nname: helper\ndescription: A helper.\n{native}---\nBody\n")
+}
+
+fn helper_overlay(native: &str) -> String {
+    format!("---\nextends: helper\n{native}---\nBody\n")
+}
+
+/// A label, the key path a refusal names, and the native fields written for a variable.
+type NativeForm = (&'static str, &'static str, fn(&str) -> String);
+
+const NATIVE_FORMS: [NativeForm; 4] = [
+    (
+        "claude.mcpServers, map shape",
+        "claude.mcpServers.env",
+        |v| format!("claude:\n  mcpServers:\n    s:\n      env:\n        {v}: x\n"),
+    ),
+    (
+        "claude.mcpServers, list shape",
+        "claude.mcpServers.env",
+        |v| {
+            format!(
+                "claude:\n  mcpServers:\n    - plain-name\n    - s:\n        env:\n          {v}: x\n"
+            )
+        },
+    ),
+    ("codex.mcp_servers", "codex.mcp_servers.env", |v| {
+        format!("codex:\n  mcp_servers:\n    s:\n      env:\n        {v}: x\n")
+    }),
+    (
+        "codex.shell_environment_policy",
+        "codex.shell_environment_policy.set",
+        |v| format!("codex:\n  shell_environment_policy:\n    set:\n      {v}: x\n"),
+    ),
+];
+
+fn protected(path: &str, file: &str, variable: &str) -> String {
+    format!(
+        "error [protected-variable] personal:{file}: {path} names {variable}; no layer may set the variables that choose an account folder or locate alz's files (\u{a7}7.9)"
+    )
+}
+
+#[test]
+fn a_native_field_that_sets_a_protected_variable_is_refused_in_an_agent_and_in_an_overlay() {
+    for (label, path, native) in NATIVE_FORMS {
+        for variable in crate::account::PROTECTED_VARIABLES {
+            let (items, found) = read(&[("agents/helper.md", &helper(&native(variable)))]);
+            assert_eq!(
+                found,
+                [protected(path, "agents/helper.md", variable)],
+                "{label}, {variable}"
+            );
+            assert!(items.bases().is_empty(), "{label}, {variable}");
+            let (items, found) = read(&[(
+                "agents/helper.overlay.md",
+                &helper_overlay(&native(variable)),
+            )]);
+            assert_eq!(
+                found,
+                [protected(path, "agents/helper.overlay.md", variable)],
+                "{label}, {variable}"
+            );
+            assert!(items.overlays().is_empty(), "{label}, {variable}");
+        }
+    }
+}
+
+#[test]
+fn a_native_variable_is_matched_in_any_ascii_case_and_never_printed_as_written() {
+    let (_, found) = read(&[(
+        "agents/helper.md",
+        &helper("claude:\n  mcpServers:\n    s:\n      env:\n        Xdg_Cache_Home: x\n"),
+    )]);
+    assert_eq!(
+        found,
+        [protected(
+            "claude.mcpServers.env",
+            "agents/helper.md",
+            "XDG_CACHE_HOME"
+        )]
+    );
+    assert!(found.iter().all(|line| !line.contains("Xdg_Cache_Home")));
+}
+
+#[test]
+fn a_native_variable_that_is_not_a_plain_name_or_cannot_be_checked_is_refused() {
+    let (_, found) = read(&[(
+        "agents/helper.md",
+        &helper("claude:\n  mcpServers:\n    s:\n      env:\n        \"HOME=/x\": y\n"),
+    )]);
+    assert_eq!(
+        found,
+        [
+            "error [protected-variable] personal:agents/helper.md: claude.mcpServers.env has a key that is not a plain variable name (letters, digits and '_', not starting with a digit) (\u{a7}7.9)"
+        ]
+    );
+    let (_, found) = read(&[(
+        "agents/helper.md",
+        &helper("codex:\n  mcp_servers:\n    s:\n      env: [HOME]\n"),
+    )]);
+    assert_eq!(
+        found,
+        [
+            "error [protected-variable] personal:agents/helper.md: codex.mcp_servers.env is not a mapping, so it cannot be checked (\u{a7}7.9)"
+        ]
+    );
+}
+
+#[test]
+fn native_fields_that_set_other_variables_are_read() {
+    let (items, found) = read(&[(
+        "agents/helper.md",
+        &helper(
+            "claude:\n  mcpServers:\n    s:\n      env:\n        FOO: x\ncodex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [HOME, PATH]\n",
+        ),
+    )]);
+    assert_eq!(found, Vec::<String>::new());
+    assert_eq!(items.bases().len(), 1);
+}
+
+#[test]
+fn a_native_policy_or_server_list_of_another_type_is_an_agent_error_naming_the_key() {
+    for (native, message) in [
+        (
+            "codex:\n  shell_environment_policy: HOME\n",
+            "codex.shell_environment_policy must be a mapping",
+        ),
+        (
+            "codex:\n  mcp_servers: [a]\n",
+            "codex.mcp_servers must be a mapping",
+        ),
+        (
+            "claude:\n  mcpServers: x\n",
+            "claude.mcpServers must be a mapping or a list",
+        ),
+    ] {
+        let (items, found) = read(&[("agents/helper.md", &helper(native))]);
+        assert_eq!(
+            found,
+            [format!(
+                "error [agent] personal:agents/helper.md: {message}"
+            )],
+            "{native}"
+        );
+        assert!(items.bases().is_empty(), "{native}");
+    }
+}

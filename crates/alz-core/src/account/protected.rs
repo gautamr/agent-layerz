@@ -12,12 +12,19 @@ pub const PROTECTED_VARIABLES: [&str; 6] = [
     "XDG_CACHE_HOME",
 ];
 
+/// The protected variable that `name` stands for, ignoring ASCII case (§7.9). The result is one
+/// of the fixed names, never the text that was given, so it can be printed.
+#[must_use]
+pub fn protected_variable(name: &str) -> Option<&'static str> {
+    PROTECTED_VARIABLES
+        .into_iter()
+        .find(|protected| protected.eq_ignore_ascii_case(name))
+}
+
 /// Whether `name` is a protected variable, ignoring ASCII case (§7.9).
 #[must_use]
 pub fn is_protected_name(name: &str) -> bool {
-    PROTECTED_VARIABLES
-        .iter()
-        .any(|protected| protected.eq_ignore_ascii_case(name))
+    protected_variable(name).is_some()
 }
 
 /// The protected variables that `pattern` matches as Codex matches its policy patterns.
@@ -99,6 +106,16 @@ mod tests {
         assert!(is_protected_name("Xdg_State_Home"));
         assert!(!is_protected_name("CODEX_HOME2"));
         assert!(!is_protected_name("HOME\u{212a}"));
+    }
+
+    #[test]
+    fn a_protected_name_is_given_back_in_its_fixed_spelling() {
+        assert_eq!(super::protected_variable("codex_home"), Some("CODEX_HOME"));
+        assert_eq!(
+            super::protected_variable("Xdg_Cache_Home"),
+            Some("XDG_CACHE_HOME")
+        );
+        assert_eq!(super::protected_variable("PATH"), None);
     }
 
     #[test]

@@ -117,6 +117,12 @@ pub enum Code {
     PermissionFloor,
     /// An allow rule that the merged deny list holds too, a warning: deny wins (§7.6).
     PermissionShadowed,
+    /// The schema of `settings.yaml`: a top-level key that is not a target, a target whose value is
+    /// not a mapping, or a key of a first-class item (§7.9).
+    Settings,
+    /// A protected or malformed variable name, or a list or map of variables that cannot be
+    /// checked (§7.9).
+    ProtectedVariable,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -161,6 +167,8 @@ impl Code {
             Self::Permissions => "permissions",
             Self::PermissionFloor => "permission-floor",
             Self::PermissionShadowed => "permission-shadowed",
+            Self::Settings => "settings",
+            Self::ProtectedVariable => "protected-variable",
             Self::Unresolved => "unresolved",
         }
     }

@@ -25,6 +25,7 @@ use crate::yaml::fields::Section;
 use super::list_edit::refine_edit;
 use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
 pub use native::NativeFields;
+pub(in crate::item) use native::tree_of;
 pub use ordered_tree::{NativeMap, NativeValue};
 pub use tool::{McpToolName, NeutralTool, ToolGrant, ToolName, ToolScope};
 pub use vocabulary::{
