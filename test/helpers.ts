@@ -6,10 +6,12 @@ import {
   readdirSync,
   readFileSync,
   readlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { join, relative } from "node:path";
 import { type CliResult, spawnCaptured } from "./exec";
 import { alzBin, tempDir, tmpRoot } from "./run-root";
+import { contentHash } from "./spec/content-hash";
 
 export type { CliResult } from "./exec";
 
@@ -145,3 +147,48 @@ export const packageVersion = (): string =>
 /** Does `text` hold `version` as a whole version? `10.1.0` does not hold `0.1.0`. */
 export const holdsVersion = (text: string, version: string): boolean =>
   new RegExp(`(?<![\\d.])${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\d])`).test(text);
+
+/** One layer of a hand-written `layer.lock`. */
+export interface LockedLayerFixture {
+  name: string;
+  /** The stack entry as written in `layer.yaml`. */
+  source: string;
+  /** The ref the layer was resolved by: a git ref, or the first 12 hex characters of the commit. */
+  rev?: string;
+  /** The commit, 40 or 64 lowercase hexadecimal characters. */
+  sha?: string;
+  /**
+   * The directory whose content hash is recorded (§5.3 "Byte layout"), computed by the spec's
+   * formula in `test/spec/content-hash.ts`. For a git layer it is the repository's work tree: the
+   * hash skips `.git`.
+   */
+  dir?: string;
+  /** A content hash written as it is, in place of the one computed from `dir`. */
+  contentHash?: string;
+}
+
+/**
+ * Writes `<repo>/layer.lock` (§5.3), version 1, so a case that needs a lock needs no build. A
+ * layer's `contentHash` is `sha256:` and the hash of `dir`, unless it is given. The lock has no
+ * generated files, which no command that resolves the stack compares.
+ */
+export function writeLock(
+  ws: Workspace,
+  layerEntries: LockedLayerFixture[],
+  repo = "repo",
+  visibility = "private",
+): void {
+  const hashOf = (dir: string | undefined, given: string | undefined): string => {
+    if (given !== undefined) return given;
+    if (dir === undefined) throw new Error("a locked layer needs a dir or a contentHash");
+    return `sha256:${contentHash(dir)}`;
+  };
+  const layersJson = layerEntries.map(({ dir, contentHash: given, ...entry }) => ({
+    ...entry,
+    contentHash: hashOf(dir, given),
+  }));
+  writeFileSync(
+    join(ws.root, repo, "layer.lock"),
+    JSON.stringify({ lockVersion: 1, visibility, layers: layersJson, files: {} }),
+  );
+}

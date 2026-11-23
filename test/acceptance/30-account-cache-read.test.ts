@@ -189,7 +189,8 @@ describe("§13.20 cache index and cache misses: the pathref@ index (AC 1)", () =
     const tree = treeOf(s, s.v1);
     const file = indexPath(s, s.v1);
     expect(readFileSync(file, "utf8")).toBe(tree);
-    expect(statSync(file).mode & 0o777).toBe(0o644);
+    // The spec fixes no mode for the index: it must not be writable by anyone else.
+    expect(statSync(file).mode & 0o022).toBe(0);
     expect(existsSync(`${s.cache}/${treeEntryName(tree)}`)).toBe(true);
     expect(noIndexTmp(s)).toEqual([]);
 
@@ -836,5 +837,84 @@ describe("§13.20 cache index and cache misses: layers that cannot be found or r
     expect(noIndexTmp(s)).toEqual([]);
     allowClient(s);
     expectMissing(await whichReading(s), "the cache index entry is missing");
+  });
+});
+
+// §13.28: the cases about the pathref@ index and the cache location, through `alz lint`, which
+// resolves the stack and fills the cache the way `alz build` does.
+describe("§13.20 the pathref@ index and the cache location, through alz lint", () => {
+  /** The standard stack, resolved once by lint, which writes the entry and its index. */
+  async function linted(): Promise<Setup> {
+    const s = setup();
+    useStandard(s);
+    const result = await alz(s, ["lint"]);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain("lint ok: ");
+    return s;
+  }
+
+  it("writes the index next to the tree2@ entry, with the tree id, and does not rewrite it", async () => {
+    const s = await linted();
+    const tree = treeOf(s, s.v1);
+    const file = indexPath(s, s.v1);
+    expect(readFileSync(file, "utf8")).toBe(tree);
+    // The spec fixes no mode for the index: it must not be writable by anyone else.
+    expect(statSync(file).mode & 0o022).toBe(0);
+    expect(existsSync(`${s.cache}/${treeEntryName(tree)}`)).toBe(true);
+    expect(noIndexTmp(s)).toEqual([]);
+
+    const before = lstatSync(file);
+    expect((await alz(s, ["lint"])).code).toBe(0);
+    const after = lstatSync(file);
+    expect([after.ino, after.mtimeMs]).toEqual([before.ino, before.mtimeMs]);
+  });
+
+  it.each([
+    ["a tampered file", (file: string) => writeFileSync(file, "garbage")],
+    [
+      "a link",
+      (file: string) => {
+        const other = `${file}.elsewhere`;
+        writeFileSync(other, "0".repeat(40));
+        rmSync(file);
+        symlinkSync(other, file);
+      },
+    ],
+  ])("is rewritten by the next lint when it is %s", async (_label, tamper) => {
+    const s = await linted();
+    const file = indexPath(s, s.v1);
+    tamper(file);
+    expect((await alz(s, ["lint"])).code).toBe(0);
+    expect(lstatSync(file).isFile()).toBe(true);
+    expect(readFileSync(file, "utf8")).toBe(treeOf(s, s.v1));
+  });
+
+  it("fails with the cache error when a directory sits at the index name", async () => {
+    const s = await linted();
+    const file = indexPath(s, s.v1);
+    rmSync(file);
+    mkdirSync(file);
+    const result = await alz(s, ["lint"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("[cache]");
+    expect(result.stderr).toContain("delete it and rebuild");
+    expect(lstatSync(file).isDirectory()).toBe(true);
+    expect(noIndexTmp(s)).toEqual([]);
+  });
+
+  it("warns, and does not fail, when the index entry cannot be written", async () => {
+    if (process.getuid?.() === 0) return; // root ignores the permission this relies on
+    const s = await linted();
+    rmSync(indexPath(s, s.v1));
+    chmodSync(s.cache, 0o555);
+    try {
+      const result = await alz(s, ["lint"]);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout + result.stderr).toContain("warning [cache-index]");
+    } finally {
+      chmodSync(s.cache, 0o755);
+    }
+    expect(existsSync(indexPath(s, s.v1))).toBe(false);
+    expect(noIndexTmp(s)).toEqual([]);
   });
 });
