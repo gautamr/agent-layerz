@@ -4,7 +4,7 @@ title: 'R5: Render, Claude adapter and commands in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T06:32:00Z'
+updated_date: '2026-11-23T06:36:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -35,4 +35,6 @@ decision-30: R5 implements name order (§6) for AGENTS.md, settings.json and .mc
 Architect (2026-11-23, owner answer 6 in TASK-55.3's notes): R3 and R4 are judged by Rust tests plus the cases their CLI can reach, so the suite files they name (16, 24, 28, 30; 02 to 11, 17 to 19, 26, 29) must pass against the Rust binary in R5, together with this task's own command cases.
 
 From TASK-73 (2026-11-23, lead): adoption refuses, before writing, any text the reader would refuse; see TASK-73.
+
+From R2.7 (2026-11-23): serde_json without float_roundtrip (decision-33) can read a float literal up to 1 ulp off where JSON.parse is exact; check before R4/R5 read target JSON with floats.
 <!-- SECTION:NOTES:END -->

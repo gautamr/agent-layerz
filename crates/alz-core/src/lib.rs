@@ -7,7 +7,9 @@
 pub mod account;
 mod diagnostic;
 pub mod identity;
+pub mod json;
 pub mod layer;
+pub mod lock;
 pub mod path;
 pub mod render;
 pub mod schema;

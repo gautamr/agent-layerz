@@ -1,0 +1,226 @@
+[
+  {
+    "name": "null",
+    "input": null,
+    "json": "null\n"
+  },
+  {
+    "name": "true",
+    "input": true,
+    "json": "true\n"
+  },
+  {
+    "name": "false",
+    "input": false,
+    "json": "false\n"
+  },
+  {
+    "name": "integer zero",
+    "input": 0,
+    "json": "0\n"
+  },
+  {
+    "name": "negative integer",
+    "input": -42,
+    "json": "-42\n"
+  },
+  {
+    "name": "large integer",
+    "input": 9007199254740991,
+    "json": "9007199254740991\n"
+  },
+  {
+    "name": "float",
+    "input": 1.5,
+    "json": "1.5\n"
+  },
+  {
+    "name": "negative float",
+    "input": -0.5,
+    "json": "-0.5\n"
+  },
+  {
+    "name": "float below one",
+    "input": 0.000001,
+    "json": "0.000001\n"
+  },
+  {
+    "name": "float with a small exponent",
+    "input": 1e-7,
+    "json": "1e-7\n"
+  },
+  {
+    "name": "float with an exponent and digits",
+    "input": 1.2345e-10,
+    "json": "1.2345e-10\n"
+  },
+  {
+    "name": "whole number above 2^53",
+    "input": 12345678901234567000,
+    "json": "12345678901234567000\n"
+  },
+  {
+    "name": "float at the exponent limit",
+    "input": 1e21,
+    "json": "1e+21\n"
+  },
+  {
+    "name": "float with an exponent and digits above",
+    "input": 1.5e300,
+    "json": "1.5e+300\n"
+  },
+  {
+    "name": "smallest float",
+    "input": 5e-324,
+    "json": "5e-324\n"
+  },
+  {
+    "name": "largest float",
+    "input": 1.7976931348623157e308,
+    "json": "1.7976931348623157e+308\n"
+  },
+  {
+    "name": "empty text",
+    "input": "",
+    "json": "\"\"\n"
+  },
+  {
+    "name": "plain text",
+    "input": "hello",
+    "json": "\"hello\"\n"
+  },
+  {
+    "name": "escapes",
+    "input": "quote \" backslash \\ b \b f \f n \n r \r t \t",
+    "json": "\"quote \\\" backslash \\\\ b \\b f \\f n \\n r \\r t \\t\"\n"
+  },
+  {
+    "name": "control characters",
+    "input": "\u0000\u0001\u001f",
+    "json": "\"\\u0000\\u0001\\u001f\"\n"
+  },
+  {
+    "name": "line separators are not escaped",
+    "input": "a b c",
+    "json": "\"a b c\"\n"
+  },
+  {
+    "name": "non-ascii text",
+    "input": "ü 中 😀 �",
+    "json": "\"ü 中 😀 �\"\n"
+  },
+  {
+    "name": "empty array",
+    "input": [],
+    "json": "[]\n"
+  },
+  {
+    "name": "empty object",
+    "input": {},
+    "json": "{}\n"
+  },
+  {
+    "name": "array of values",
+    "input": [1, "two", null, [], {}, [3]],
+    "json": "[\n  1,\n  \"two\",\n  null,\n  [],\n  {},\n  [\n    3\n  ]\n]\n"
+  },
+  {
+    "name": "nested empties",
+    "input": {
+      "a": [],
+      "b": {},
+      "c": [[]]
+    },
+    "json": "{\n  \"a\": [],\n  \"b\": {},\n  \"c\": [\n    []\n  ]\n}\n"
+  },
+  {
+    "name": "keys are sorted",
+    "input": {
+      "b": 1,
+      "a": 2,
+      "B": 3,
+      "_": 4,
+      "-": 5,
+      "a-b": 6,
+      "a/b": 7
+    },
+    "json": "{\n  \"-\": 5,\n  \"B\": 3,\n  \"_\": 4,\n  \"a\": 2,\n  \"a-b\": 6,\n  \"a/b\": 7,\n  \"b\": 1\n}\n"
+  },
+  {
+    "name": "keys sort by code point",
+    "input": {
+      "é": 1,
+      "e": 2,
+      "z": 3,
+      "中": 4,
+      "�": 5,
+      "￿": 6
+    },
+    "json": "{\n  \"e\": 2,\n  \"z\": 3,\n  \"é\": 1,\n  \"中\": 4,\n  \"�\": 5,\n  \"￿\": 6\n}\n"
+  },
+  {
+    "name": "a numeric looking key next to nothing",
+    "input": {
+      "10": "x"
+    },
+    "json": "{\n  \"10\": \"x\"\n}\n"
+  },
+  {
+    "name": "keys that look like numbers but are not indexes",
+    "input": {
+      "-1": 1,
+      "01": 2,
+      "1.5": 3,
+      "a": 4
+    },
+    "json": "{\n  \"-1\": 1,\n  \"01\": 2,\n  \"1.5\": 3,\n  \"a\": 4\n}\n"
+  },
+  {
+    "name": "keys with escapes",
+    "input": {
+      "a\"b": 1,
+      "a\nb": 2,
+      "a\\b": 3
+    },
+    "json": "{\n  \"a\\nb\": 2,\n  \"a\\\"b\": 1,\n  \"a\\\\b\": 3\n}\n"
+  },
+  {
+    "name": "nested objects",
+    "input": {
+      "z": {
+        "y": {
+          "x": [
+            1,
+            {
+              "b": 1,
+              "a": 2
+            }
+          ]
+        }
+      },
+      "a": null
+    },
+    "json": "{\n  \"a\": null,\n  \"z\": {\n    \"y\": {\n      \"x\": [\n        1,\n        {\n          \"a\": 2,\n          \"b\": 1\n        }\n      ]\n    }\n  }\n}\n"
+  },
+  {
+    "name": "a lock",
+    "input": {
+      "lockVersion": 1,
+      "visibility": "public",
+      "layers": [
+        {
+          "name": "personal",
+          "source": "path:../p",
+          "rev": "v1",
+          "sha": "b8b1dadfa8feded6f6d93583dd449585eaafb9f8",
+          "contentHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "files": {
+        "b.md": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "a/b.md": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    "json": "{\n  \"files\": {\n    \"a/b.md\": \"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\n    \"b.md\": \"sha256:1111111111111111111111111111111111111111111111111111111111111111\"\n  },\n  \"layers\": [\n    {\n      \"contentHash\": \"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\n      \"name\": \"personal\",\n      \"rev\": \"v1\",\n      \"sha\": \"b8b1dadfa8feded6f6d93583dd449585eaafb9f8\",\n      \"source\": \"path:../p\"\n    }\n  ],\n  \"lockVersion\": 1,\n  \"visibility\": \"public\"\n}\n"
+  }
+]

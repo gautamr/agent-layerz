@@ -109,6 +109,20 @@ disallowed-methods = [
     { path = "serde_saphyr::granit_parser::Parser::new_from_fallible_iter_with_options", reason = "YAML events are read only by the yaml::parse pre-pass (decision-28, TASK-62)" },
     { path = "serde_saphyr::with_deserializer_from_reader", reason = "every YAML file goes through yaml::parse (decision-28, TASK-62)" },
     { path = "serde_saphyr::with_deserializer_from_reader_with_options", reason = "every YAML file goes through yaml::parse (decision-28, TASK-62)" },
+    # serde_json parses through json::parse only (decision-33); alz writes JSON with render::json.
+    { path = "serde_json::from_str", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::from_slice", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::from_reader", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::from_value", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_string", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_string_pretty", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_vec", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_vec_pretty", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_writer", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_writer_pretty", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::to_value", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
+    { path = "serde_json::Deserializer::from_slice", reason = "every JSON file goes through json::parse (decision-33)" },
+    { path = "serde_json::Deserializer::from_reader", reason = "every JSON file goes through json::parse (decision-33)" },
 ]
 
 # Types that open or hold an effect handle. Banning the type also stops a value from being named in a
