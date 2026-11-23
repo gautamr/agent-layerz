@@ -239,6 +239,141 @@ fn text_of_only_spaces_and_line_feeds_is_quoted() {
     assert_eq!(written("\n"), "- |+\n  \n");
 }
 
+#[test]
+fn text_with_a_c1_control_character_or_a_unicode_line_separator_is_written_as_escapes() {
+    // TASK-73, reference drift: the reference writes these raw.
+    for (text, escape) in [
+        ("\u{7f}", "\\x7f"),
+        ("\u{80}", "\\x80"),
+        ("\u{85}", "\\N"),
+        ("\u{9f}", "\\x9f"),
+        ("\u{2028}", "\\L"),
+        ("\u{2029}", "\\P"),
+    ] {
+        assert_eq!(written(text), format!("- \"{escape}\"\n"));
+        assert_eq!(written(&format!("a{text}b")), format!("- \"a{escape}b\"\n"));
+        assert_eq!(
+            emit(&value_map(&format!("a{text}b"))),
+            format!("k: \"a{escape}b\"\n")
+        );
+        let as_key =
+            EmitMap::from_entries(vec![(format!("a{text}b"), EmitValue::Int(1))]).expect("one key");
+        assert_eq!(
+            emit(&EmitValue::Map(as_key)),
+            format!("\"a{escape}b\": 1\n")
+        );
+    }
+    // U+00A0 is not one of them: it stays as the reference writes it.
+    assert_eq!(written("a\u{a0}b"), "- a\u{a0}b\n");
+}
+
+#[test]
+fn drift_samples_of_escaped_characters_hold_none_raw_and_the_reference_holds_one() {
+    let raw = |text: &str| {
+        text.chars()
+            .any(|c| matches!(c, '\u{7f}'..='\u{9f}' | '\u{2028}' | '\u{2029}'))
+    };
+    let all = samples();
+    let affected: Vec<&Sample> = all
+        .iter()
+        .filter(|sample| {
+            sample.drift.as_deref() == Some("escaped-characters-the-reference-writes-raw")
+        })
+        .collect();
+    assert!(affected.len() > 40, "only {} samples", affected.len());
+    for sample in affected {
+        let alz = emit(&sample.input);
+        assert!(
+            raw(&sample.yaml),
+            "{}: the reference wrote none raw",
+            sample.name
+        );
+        assert!(!raw(&alz), "{}: alz wrote one raw: {alz:?}", sample.name);
+        // The reader refuses them even escaped (spec section 7.13).
+        assert!(
+            load(&alz).is_none(),
+            "{}: the reader accepted {alz:?}",
+            sample.name
+        );
+    }
+}
+
+#[test]
+fn drift_samples_of_a_space_between_line_feeds_have_one_escaped_space_and_read_back_when_readable()
+{
+    let all = samples();
+    let affected: Vec<&Sample> = all
+        .iter()
+        .filter(|sample| {
+            sample.drift.as_deref() == Some("space-between-line-feeds-in-long-double-quoted-text")
+        })
+        .collect();
+    assert!(affected.len() >= 10, "only {} samples", affected.len());
+    for sample in &affected {
+        let alz = emit(&sample.input);
+        assert!(
+            sample.yaml.contains("\\\\ "),
+            "{}: the reference wrote none",
+            sample.name
+        );
+        assert!(
+            !alz.contains("\\\\ "),
+            "{}: alz wrote one: {alz:?}",
+            sample.name
+        );
+        if !mentions_refused(&sample.input) {
+            assert_eq!(
+                load(&alz).as_ref().map(emit_value_of).as_ref(),
+                Some(&sample.input),
+                "{}: not read back from {alz:?}",
+                sample.name
+            );
+        }
+    }
+    assert!(
+        affected
+            .iter()
+            .any(|sample| !mentions_refused(&sample.input)),
+        "no sample can be read back"
+    );
+}
+
+fn value_map(text: &str) -> EmitValue {
+    EmitValue::Map(
+        EmitMap::from_entries(vec![("k".to_owned(), EmitValue::Text(text.to_owned()))])
+            .expect("one key"),
+    )
+}
+
+#[test]
+fn a_space_between_two_line_feeds_in_long_double_quoted_text_reads_back_as_written() {
+    // TASK-73, reference drift: the reference writes the space as a backslash twice and a space,
+    // which reads back as a backslash. The text ends in a blank after its last line feed, so a
+    // block cannot hold it and it is double-quoted; it has no character that alz's reader
+    // refuses, so it reads back.
+    for tail in ["\n \nb\n ", "\n \n\nb\n ", "\n\n \n \nb\n  ", " \n \nb\n "] {
+        let text = format!("{}{tail}", "a".repeat(40));
+        let value = value_map(&text);
+        let written = emit(&value);
+        assert_eq!(
+            load(&written).as_ref().map(emit_value_of),
+            Some(value),
+            "wrote {written:?}"
+        );
+    }
+}
+
+#[test]
+fn a_space_between_two_line_feeds_is_written_as_one_escaped_space() {
+    // The case of TASK-73 as found: the text holds U+0001, which alz's reader refuses, so only
+    // the bytes are checked. The reference writes `\\ ` where alz writes `\ `.
+    let written = emit(&value_map(&format!("{}\n \nb\u{1}", "a".repeat(40))));
+    assert_eq!(
+        written,
+        format!("k: \"{}\n\n  \\ \n\n  b\\x01\"\n", "a".repeat(40))
+    );
+}
+
 fn refused_char(c: char) -> bool {
     matches!(c, '\u{0}'..='\u{8}' | '\u{b}'..='\u{1f}' | '\u{7f}'..='\u{9f}' | '\u{2028}' | '\u{2029}')
 }
@@ -262,9 +397,30 @@ fn alphabet() -> impl Strategy<Value = char> {
     ])
 }
 
+/// Text of 30 to 50 letters, then a run that puts a space between two line feeds or not, a few
+/// characters, and an ending that is blank after a line feed or not (a block cannot keep that, so
+/// the text is double-quoted). This is where the reference's long double-quoted text and alz's
+/// reader part ways (TASK-73), and where the plain generator seldom reaches.
+fn long_text() -> impl Strategy<Value = String> {
+    (
+        30..50_usize,
+        select(vec!["", "\n \n", "\n \n\n", " \n \n", "\n\n \n \n"]),
+        vec(alphabet(), 0..6),
+        select(vec!["", "\n ", "\n \n ", "\n\t", "\n  "]),
+    )
+        .prop_map(|(letters, middle, chars, end)| {
+            format!(
+                "{}{middle}{}{end}",
+                "a".repeat(letters),
+                chars.into_iter().collect::<String>()
+            )
+        })
+}
+
 fn text() -> impl Strategy<Value = String> {
     prop_oneof![
         vec(alphabet(), 0..10).prop_map(|chars| chars.into_iter().collect::<String>()),
+        long_text(),
         select(vec![
             "true",
             "false",
@@ -338,6 +494,44 @@ proptest! {
         let written = emit(&value);
         let read = load(&written);
         prop_assert_eq!(read.as_ref().map(emit_value_of), Some(value), "wrote {:?}", written);
+    }
+
+    #[test]
+    fn long_text_reads_back_as_written_whatever_its_blanks_and_line_feeds(text in long_text()) {
+        // The case of TASK-73 where the reader accepts the text: a space between line feeds in
+        // long double-quoted text (it ends in blanks after a line feed, which a block cannot keep).
+        let value = value_map(&text);
+        let written = emit(&value);
+        prop_assert_eq!(
+            load(&written).as_ref().map(emit_value_of),
+            Some(value),
+            "wrote {:?}",
+            written
+        );
+    }
+
+    #[test]
+    fn text_with_a_character_alz_escapes_is_written_without_it_raw(
+        before in text(),
+        after in text(),
+        escaped in select(vec!['\u{7f}', '\u{80}', '\u{85}', '\u{9f}', '\u{2028}', '\u{2029}']),
+        inner in emit_values(),
+    ) {
+        // The reader refuses these characters even escaped (spec §7.13), so there is no round trip
+        // to check; the escape keeps them out of the bytes on disk (TASK-73).
+        let text = format!("{before}{escaped}{after}");
+        let entry = EmitMap::from_entries(vec![
+            (text.clone(), EmitValue::Text(text.clone())),
+        ]).expect("one key");
+        let value = EmitValue::Seq(vec![EmitValue::Map(entry), inner]);
+        let written = emit(&value);
+        prop_assert_eq!(
+            written.chars().any(|c| matches!(c, '\u{7f}'..='\u{9f}' | '\u{2028}' | '\u{2029}')),
+            false,
+            "wrote {:?}",
+            written
+        );
+        prop_assert_eq!(load(&written), None, "the reader accepted {:?}", written);
     }
 
     #[test]

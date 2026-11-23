@@ -72,24 +72,75 @@ function sample(cls, name, value, drift) {
   samples.push(drift === undefined ? written : { ...written, drift });
 }
 
+const escapedRaw = /[\u007f-\u009f\u2028\u2029]/;
+const blankBetweenLineFeeds = /\n \n/;
+
+/**
+ * Reference drift of a text (TASK-73): why alz writes it differently from the reference, or
+ * undefined when it does not. `isKey` says the text is a mapping key.
+ *
+ * - U+007F to U+009F, U+2028 and U+2029: the reference writes them raw, alz double-quotes the text
+ *   and escapes them (spec section 10.2, rule 1).
+ * - A space between two line feeds in long double-quoted text: the reference writes a backslash
+ *   twice and a space, which reads back as a backslash. Only a class that holds such text asks for
+ *   this check (`blankBetween`), because whether a text is double-quoted is not decided here; the
+ *   Rust test checks that every sample marked as drift is written differently from the reference.
+ */
+function driftOfText(text, isKey, blankBetween) {
+  if (escapedRaw.test(text)) return "escaped-characters-the-reference-writes-raw";
+  if (
+    blankBetween &&
+    !isKey &&
+    blankBetweenLineFeeds.test(text) &&
+    JSON.stringify(text).length >= 40
+  ) {
+    return "space-between-line-feeds-in-long-double-quoted-text";
+  }
+  return undefined;
+}
+
 /** One scalar class, written as a map value, a map key and a list item. */
-function scalarClass(cls, texts) {
+function scalarClass(cls, texts, { blankBetween = false } = {}) {
   const unique = [...new Set(texts)];
-  sample(cls, "as-values", Object.fromEntries(unique.map((text, index) => [`k${index}`, text])));
+  const keyable = unique.filter((text) => !isIndexKey(text));
+  const firstDrift = (list, isKey) =>
+    list.map((text) => driftOfText(text, isKey, blankBetween)).find((reason) => reason);
+  sample(
+    cls,
+    "as-values",
+    Object.fromEntries(unique.map((text, index) => [`k${index}`, text])),
+    firstDrift(unique, false),
+  );
   // Whole-number keys next to others are left out; each is in a sample of its own below.
   sample(
     cls,
     "as-keys",
-    Object.fromEntries(unique.filter((text) => !isIndexKey(text)).map((text) => [text, "x"])),
+    Object.fromEntries(keyable.map((text) => [text, "x"])),
+    firstDrift(keyable, true),
   );
-  sample(cls, "as-items", unique);
-  sample(cls, "as-nested", {
-    outer: { inner: unique },
-    list: [Object.fromEntries(unique.map((text, index) => [`k${index}`, text]))],
-  });
+  sample(cls, "as-items", unique, firstDrift(unique, false));
+  sample(
+    cls,
+    "as-nested",
+    {
+      outer: { inner: unique },
+      list: [Object.fromEntries(unique.map((text, index) => [`k${index}`, text]))],
+    },
+    firstDrift(unique, false),
+  );
   for (const text of unique) {
-    sample(`${cls}-single`, `value ${JSON.stringify(text)}`, { key: text });
-    sample(`${cls}-single`, `key ${JSON.stringify(text)}`, { [text]: "v" });
+    sample(
+      `${cls}-single`,
+      `value ${JSON.stringify(text)}`,
+      { key: text },
+      driftOfText(text, false, blankBetween),
+    );
+    sample(
+      `${cls}-single`,
+      `key ${JSON.stringify(text)}`,
+      { [text]: "v" },
+      driftOfText(text, true, blankBetween),
+    );
   }
 }
 
@@ -115,7 +166,7 @@ const drifts = {
   // alz's reader refuses text that starts with a byte order mark.
   "byte-order-mark-first": ["\ufeff", "\ufeffa", "\ufeff\ufeff", "\ufeff x"],
   // A block of only spaces and line feeds loses its spaces when read (as a key it is quoted anyway).
-  "blank-multi-line": [" \n", "  \n", "\n \n", " \n\n", "  \n\n  \n"],
+  "blank-multi-line": [" \n", "  \n", "\n \n", " \n\n", "  \n\n  \n", " \n".repeat(20)],
 };
 for (const [name, texts] of Object.entries(drifts)) {
   for (const text of texts) {
@@ -591,6 +642,41 @@ scalarClass("double-quoted-line-breaks", [
   `${"👍".repeat(9)}\nb\u0001`,
   `"${forty}"\n'x'\u0001`,
   `${forty}\\n\n\u0001`,
+]);
+
+// A space between two line feeds in long double-quoted text (TASK-73 drift): the reference writes
+// it as a backslash twice and a space, which reads back as a backslash. The texts are all
+// double-quoted: they hold U+0001, or end in blanks after a line feed, which a block cannot keep.
+// The short ones and the keys are no drift; the Rust test checks the rest differ.
+scalarClass(
+  "double-quoted-blank-between-line-feeds",
+  [
+    `${forty}\n \nb\u0001`,
+    `${forty}\n \n\nb\u0001`,
+    `${forty}\n\n \nb\u0001`,
+    `${forty}\n \n \nb\u0001`,
+    `${forty} \n \nb\u0001`,
+    `${forty}\n  \nb\u0001`,
+    `${forty}\n \n\u0001`,
+    `\u0001${forty}\n \nx`,
+    `${forty}\n \nb\n `,
+    `${forty}\n \n\nb\n `,
+    `${forty}\n\n \nb\n\n `,
+    "a\n \nb\u0001",
+    `${"é".repeat(19)}\n \nb\u0001`,
+  ],
+  { blankBetween: true },
+);
+
+// Long double-quoted text with characters the reference writes raw and alz escapes (TASK-73 drift).
+scalarClass("escaped-characters-in-long-text", [
+  `${forty}\n\u0085x`,
+  `\u2028${forty}\nb`,
+  `${forty}\u2029\nb`,
+  `${forty}\n\u007f`,
+  `\u009f\n${forty}\nx`,
+  `${forty}\n \n\u0085`,
+  `${forty}\u0080\u0081\u0082`,
 ]);
 
 // Keys that need care, and keys at the length that makes the reference write `? key`.
