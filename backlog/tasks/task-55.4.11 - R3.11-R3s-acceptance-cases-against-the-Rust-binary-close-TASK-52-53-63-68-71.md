@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
+updated_date: '2026-11-23T07:59:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -37,7 +38,7 @@ Plan for this step (TASK-55.4, "Acceptance cases R3 must pass against ALZ_BIN").
   - TASK-69: the byte 0xFF, Linux only;
   - TASK-71: credentials.
 - Run: `mise run rust:build`, then `ALZ_BIN=$PWD/target/release/alz mise run test:acceptance` on these files and cases, and `mise run test` with ALZ_BIN unset.
-- Close TASK-52, TASK-53, TASK-63, TASK-68, TASK-69, TASK-70 and TASK-71: check each criterion with this run's evidence (owner Q7 for those that name `alz build`), and move them to In Review with the pull request.
+- Close TASK-52, TASK-53, TASK-63, TASK-68, TASK-69, TASK-70 and TASK-71: check each criterion with this run's evidence (their criteria name the lint twins, owner answer 7; the build and check forms are written into the suite where missing and checked again in R5, TASK-55.6), and move them to In Review with the pull request.
 - Record in TASK-55.4's notes the list of cases and the Rust test behind each case of 16, 24, 28 and 30 (AC #1).
 <!-- SECTION:DESCRIPTION:END -->
 

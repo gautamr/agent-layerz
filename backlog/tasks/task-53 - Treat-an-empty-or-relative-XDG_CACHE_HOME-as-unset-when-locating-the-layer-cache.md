@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T08:16:00Z'
-updated_date: '2026-11-23T04:24:00Z'
+updated_date: '2026-11-23T07:59:00Z'
 labels:
   - discovered
   - area:resolve
@@ -30,9 +30,10 @@ Found while planning TASK-50.10. cacheRoot (src/resolve/cache-paths.ts) uses XDG
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 With XDG_CACHE_HOME set to an empty string, alz build writes the layer cache to ~/.cache/agent-layerz under the fake HOME and creates nothing in the repository (acceptance test comparing the repository tree before and after)
-- [ ] #2 With XDG_CACHE_HOME set to a relative path, alz build ignores it the same way and uses ~/.cache/agent-layerz (acceptance test)
-- [ ] #3 cacheRoot and account resolution compute the cache location with the same helper (unit or acceptance test showing both give the same path for unset, empty, relative and absolute values)
+- [ ] #1 With XDG_CACHE_HOME set to an empty string, alz lint in a repository with a git: layer writes the layer cache to ~/.cache/agent-layerz under the fake HOME and creates nothing in the repository (acceptance lint twin comparing the repository tree before and after, R3.11)
+- [ ] #2 With XDG_CACHE_HOME set to a relative path, alz lint ignores it the same way and uses ~/.cache/agent-layerz (acceptance lint twin, R3.11)
+- [ ] #3 alz lint and account resolution compute the cache location with the same helper, CacheLocation (R3.5) (unit test showing it gives the same path for unset, empty, relative and absolute values)
+- [ ] #4 The alz build forms of AC #1 and AC #2 is in the acceptance suite (written in R3.11 where it is missing) and is checked again against the Rust alz in R5 (TASK-55.6)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -41,4 +42,6 @@ Found while planning TASK-50.10. cacheRoot (src/resolve/cache-paths.ts) uses XDG
 2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust in TASK-55.4, where openat-relative access closes it properly.
 
 Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R3 (TASK-55.4, sources and the cache). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R4 depends on this task, so it closes within R3.
+
+Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged.
 <!-- SECTION:NOTES:END -->
