@@ -9,6 +9,7 @@ mod read_only_dir;
 mod scan;
 mod walk;
 mod walk_error;
+mod write_below;
 
 pub use cache_dir::{CacheDir, Published, RepositoryPaths, TempEntry};
 pub use cache_error::{CacheError, IndexError};

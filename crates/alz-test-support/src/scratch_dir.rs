@@ -132,6 +132,25 @@ impl ScratchDir {
         fs::remove_dir_all(self.join(name))
     }
 
+    /// Removes the file or link `name`; a link is removed as a link, not followed.
+    ///
+    /// # Errors
+    ///
+    /// The error of removing it.
+    pub fn remove_file(&self, name: impl AsRef<Path>) -> io::Result<()> {
+        fs::remove_file(self.join(name))
+    }
+
+    /// The permission bits of `name`, such as `0o644`, links followed.
+    ///
+    /// # Errors
+    ///
+    /// The error of reading its metadata.
+    pub fn mode(&self, name: impl AsRef<Path>) -> io::Result<u32> {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(self.join(name)).map(|meta| meta.permissions().mode() & 0o777)
+    }
+
     /// Renames `from` to `to`, both inside the directory.
     ///
     /// # Errors

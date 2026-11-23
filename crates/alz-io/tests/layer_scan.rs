@@ -18,6 +18,7 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    use alz_core::git::{BlobId, ObjectFormat};
     use alz_core::layer::{LayerRefusal, LayerScan, Purpose, ReadLayer, scan_verdict};
     use alz_core::lock::{ContentHash, LayerFiles};
     use alz_core::path::SafeRelPath;
@@ -234,6 +235,50 @@ mod tests {
         let read = verdict(&machine, Purpose::Build).expect("valid");
         assert_eq!(read.files().len(), 1);
         assert_eq!(scan(&machine, Purpose::Build).listed(), 151);
+    }
+
+    #[test]
+    fn a_walk_against_a_tree_records_blob_ids_executable_bits_and_other_entries() {
+        let machine = layer();
+        machine.write("repo/layer/a.md", "hello\n");
+        machine.write("repo/layer/run.sh", "#!/bin/sh\n");
+        fs::set_permissions(
+            machine.path("repo/layer/run.sh"),
+            fs::Permissions::from_mode(0o755),
+        )
+        .expect("mode set");
+        machine.write("repo/layer/.env.dev", "SECRET=1\n");
+        machine.link("repo/layer/link.md", "a.md");
+
+        let scan = open(&machine).scan_against_tree(Purpose::Build, ObjectFormat::Sha1);
+
+        let facts: Vec<_> = scan
+            .git_files()
+            .iter()
+            .map(|file| (file.path.as_str().to_owned(), file.executable, file.blob))
+            .collect();
+        let blob = |text: &str| BlobId::of(ObjectFormat::Sha1, text.as_bytes()).id();
+        assert_eq!(facts.len(), 2);
+        assert!(facts.contains(&("a.md".to_owned(), false, blob("hello\n"))));
+        assert!(facts.contains(&("run.sh".to_owned(), true, blob("#!/bin/sh\n"))));
+        assert_eq!(scan.other_entries(), 1);
+        assert_eq!(scan.env_files().len(), 1);
+        // The plain walk records none of it.
+        assert_eq!(open(&machine).scan(Purpose::Build).git_files().len(), 0);
+    }
+
+    #[test]
+    fn a_walk_against_a_tree_keeps_the_resolution_limits_where_they_apply() {
+        let machine = layer();
+        many_files(&machine, 2001);
+        let scan = open(&machine).scan_against_tree(Purpose::Resolution, ObjectFormat::Sha1);
+        assert_eq!(
+            scan_verdict(Purpose::Resolution, scan).map(|_| ()),
+            Err(LayerRefusal::TooManyEntries)
+        );
+        // The build has no limit: the same layer is read in full.
+        let scan = open(&machine).scan_against_tree(Purpose::Build, ObjectFormat::Sha1);
+        assert_eq!(scan.git_files().len(), 2001);
     }
 
     #[test]

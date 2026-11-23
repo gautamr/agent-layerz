@@ -10,7 +10,8 @@ use std::io;
 use std::os::fd::OwnedFd;
 use std::os::unix::ffi::OsStrExt;
 
-use alz_core::layer::{LayerScan, NameProblem, Purpose};
+use alz_core::git::{BlobId, ObjectFormat};
+use alz_core::layer::{GitFileFacts, LayerScan, NameProblem, Purpose};
 use alz_core::lock::{FileDigest, is_env_file, is_skipped_name};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
 use rustix::fs::{self, AtFlags, DirEntry, FileType, Mode, OFlags};
@@ -87,19 +88,30 @@ impl Frame {
 }
 
 /// Walks the layer below `root`. Failures are facts of the scan, never errors.
-pub(super) fn scan_layer(root: &OwnedFd, purpose: Purpose) -> LayerScan {
+///
+/// With a `format`, the blob id of each file's bytes and its executable bit are recorded too.
+pub(super) fn scan_layer(
+    root: &OwnedFd,
+    purpose: Purpose,
+    format: Option<ObjectFormat>,
+) -> LayerScan {
     let first = root
         .try_clone()
         .and_then(|handle| Frame::new(handle, Place::Root));
     match first {
-        Ok(frame) => walk(vec![frame], purpose, LayerScan::new()),
+        Ok(frame) => walk(vec![frame], purpose, format, LayerScan::new()),
         Err(_) => LayerScan::new().with_unreadable(),
     }
 }
 
 /// The walk, as a loop over an explicit stack of folders. It performs the system calls, so it
 /// is the shell around the pure facts; the stack keeps its depth off the call stack.
-fn walk(mut stack: Vec<Frame>, purpose: Purpose, mut scan: LayerScan) -> LayerScan {
+fn walk(
+    mut stack: Vec<Frame>,
+    purpose: Purpose,
+    format: Option<ObjectFormat>,
+    mut scan: LayerScan,
+) -> LayerScan {
     loop {
         let Some(frame) = stack.last_mut() else {
             return scan;
@@ -113,7 +125,7 @@ fn walk(mut stack: Vec<Frame>, purpose: Purpose, mut scan: LayerScan) -> LayerSc
                 stack.pop();
             }
             Some(Ok(entry)) => {
-                let (seen, below) = visit(frame, &entry, purpose, scan);
+                let (seen, below) = visit(frame, &entry, purpose, format, scan);
                 scan = seen;
                 if scan.is_past_entry_limit(purpose) {
                     return scan;
@@ -130,6 +142,7 @@ fn visit(
     frame: &Frame,
     entry: &DirEntry,
     purpose: Purpose,
+    format: Option<ObjectFormat>,
     scan: LayerScan,
 ) -> (LayerScan, Option<Frame>) {
     let raw = entry.file_name();
@@ -149,6 +162,7 @@ fn visit(
                 entry,
                 path.and_then(Result::ok),
                 purpose,
+                format,
                 scan.listed_entry(),
             )
         }
@@ -157,6 +171,7 @@ fn visit(
             entry,
             None,
             purpose,
+            format,
             scan.with_name_problem(NameProblem::NotUtf8).listed_entry(),
         ),
     }
@@ -169,13 +184,17 @@ fn visit_named(
     entry: &DirEntry,
     path: Option<SafeRelPath>,
     purpose: Purpose,
+    format: Option<ObjectFormat>,
     scan: LayerScan,
 ) -> (LayerScan, Option<Frame>) {
     match kind_of(frame, entry) {
         Err(_) => (scan.with_unreadable(), None),
-        Ok(Kind::Other) => (scan, None),
+        Ok(Kind::Other) => (scan.with_other_entry(), None),
         Ok(Kind::Directory) => enter(frame, entry, path, scan),
-        Ok(Kind::RegularFile) => (read_or_record(frame, entry, path, purpose, scan), None),
+        Ok(Kind::RegularFile) => (
+            read_or_record(frame, entry, path, purpose, format, scan),
+            None,
+        ),
     }
 }
 
@@ -219,6 +238,7 @@ fn read_or_record(
     entry: &DirEntry,
     path: Option<SafeRelPath>,
     purpose: Purpose,
+    format: Option<ObjectFormat>,
     scan: LayerScan,
 ) -> LayerScan {
     match path {
@@ -228,8 +248,16 @@ fn read_or_record(
         Some(path) => {
             let remaining = remaining_bytes(purpose, &scan);
             match read_file(frame, entry, remaining) {
-                Ok(bytes) => {
+                Ok((bytes, executable)) => {
                     let length = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+                    let scan = match format {
+                        Some(format) => scan.with_git_facts(GitFileFacts {
+                            path: path.clone(),
+                            executable,
+                            blob: BlobId::of(format, &bytes).id(),
+                        }),
+                        None => scan,
+                    };
                     scan.with_file(path, FileDigest::of(&bytes), length)
                 }
                 // One byte past what is left marks the budget as used up.
@@ -255,8 +283,8 @@ fn remaining_bytes(purpose: Purpose, scan: &LayerScan) -> usize {
 
 /// Opens the file relative to the handle of its folder, with `O_NONBLOCK` so that a pipe swapped
 /// in after the listing cannot block the open, checks with `fstat` on that handle that it is a
-/// regular file, and reads at most `cap + 1` bytes.
-fn read_file(frame: &Frame, entry: &DirEntry, cap: usize) -> Result<Vec<u8>, ReadError> {
+/// regular file, and reads at most `cap + 1` bytes. It gives the bytes and the owner-execute bit.
+fn read_file(frame: &Frame, entry: &DirEntry, cap: usize) -> Result<(Vec<u8>, bool), ReadError> {
     let file = fs::openat(
         &frame.handle,
         entry.file_name(),
@@ -268,6 +296,7 @@ fn read_file(frame: &Frame, entry: &DirEntry, cap: usize) -> Result<Vec<u8>, Rea
         Errno::LOOP | Errno::NOTDIR => ReadError::NotRegular,
         other => ReadError::Io(other.into()),
     })?;
-    require_regular(&file)?;
-    read_at_most(File::from(file), cap)
+    let mode = require_regular(&file)?;
+    let executable = mode.contains(Mode::XUSR);
+    read_at_most(File::from(file), cap).map(|bytes| (bytes, executable))
 }

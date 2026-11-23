@@ -64,11 +64,12 @@ fn open_below(directory: &OwnedFd, name: &str, flags: OFlags) -> Result<OwnedFd,
     )
 }
 
-/// The trust check of decision-27: `fstat` on the handle that is read, never on a name.
-pub(super) fn require_regular(file: &OwnedFd) -> Result<(), ReadError> {
+/// The trust check of decision-27: `fstat` on the handle that is read, never on a name. It gives
+/// the permission bits of what it checked.
+pub(super) fn require_regular(file: &OwnedFd) -> Result<Mode, ReadError> {
     let status = fs::fstat(file).map_err(|errno| ReadError::Io(errno.into()))?;
     match FileType::from_raw_mode(status.st_mode) {
-        FileType::RegularFile => Ok(()),
+        FileType::RegularFile => Ok(Mode::from_raw_mode(status.st_mode)),
         FileType::Directory
         | FileType::Symlink
         | FileType::Fifo

@@ -118,7 +118,7 @@ impl GitRunner {
             && completed.status.code() == Some(1)
             && completed.stdout.is_empty()
         {
-            Ok(Outcome::Commit(None))
+            Ok(Outcome::Object(None))
         } else {
             Err(GitFailure::Exited {
                 status: completed.status,
@@ -163,7 +163,29 @@ impl GitRunner {
             scope,
             rev,
         })? {
-            Outcome::Commit(commit) => Ok(commit),
+            Outcome::Object(commit) => Ok(commit),
+            Outcome::Nothing
+            | Outcome::Version(_)
+            | Outcome::Path(_)
+            | Outcome::Prefix(_)
+            | Outcome::Tree(_)
+            | Outcome::Checks(_)
+            | Outcome::Contents(_) => Err(mismatch()),
+        }
+    }
+
+    /// The tree of `commit` in `repository`, or `None` when there is none.
+    ///
+    /// # Errors
+    ///
+    /// The [`GitFailure`] of the call.
+    pub fn rev_parse_tree(
+        &self,
+        repository: &Path,
+        commit: &ObjectId,
+    ) -> Result<Option<ObjectId>, GitFailure> {
+        match self.run(&GitCall::RevParseTree { repository, commit })? {
+            Outcome::Object(tree) => Ok(tree),
             Outcome::Nothing
             | Outcome::Version(_)
             | Outcome::Path(_)
@@ -194,7 +216,7 @@ impl GitRunner {
             Outcome::Path(path) => Ok(path),
             Outcome::Nothing
             | Outcome::Version(_)
-            | Outcome::Commit(_)
+            | Outcome::Object(_)
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
             | Outcome::Checks(_)
@@ -213,7 +235,7 @@ impl GitRunner {
             Outcome::Prefix(prefix) => Ok(prefix),
             Outcome::Nothing
             | Outcome::Version(_)
-            | Outcome::Commit(_)
+            | Outcome::Object(_)
             | Outcome::Path(_)
             | Outcome::Tree(_)
             | Outcome::Checks(_)
@@ -257,7 +279,7 @@ impl GitRunner {
             Outcome::Tree(entries) => Ok(entries),
             Outcome::Nothing
             | Outcome::Version(_)
-            | Outcome::Commit(_)
+            | Outcome::Object(_)
             | Outcome::Path(_)
             | Outcome::Prefix(_)
             | Outcome::Checks(_)
@@ -282,7 +304,7 @@ impl GitRunner {
             Outcome::Checks(checks) => Ok(checks),
             Outcome::Nothing
             | Outcome::Version(_)
-            | Outcome::Commit(_)
+            | Outcome::Object(_)
             | Outcome::Path(_)
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
@@ -307,7 +329,7 @@ impl GitRunner {
             Outcome::Contents(contents) => Ok(contents),
             Outcome::Nothing
             | Outcome::Version(_)
-            | Outcome::Commit(_)
+            | Outcome::Object(_)
             | Outcome::Path(_)
             | Outcome::Prefix(_)
             | Outcome::Tree(_)

@@ -4,6 +4,7 @@ use std::io;
 use std::os::fd::OwnedFd;
 
 use alz_core::account::AccountFolders;
+use alz_core::git::ObjectFormat;
 use alz_core::layer::{LayerScan, Purpose};
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use rustix::fs::{AtFlags, statat};
@@ -73,6 +74,10 @@ impl Dir {
         !name.contains('/') && statat(&self.handle, name, AtFlags::empty()).is_ok()
     }
 
+    pub(super) const fn handle(&self) -> &OwnedFd {
+        &self.handle
+    }
+
     pub(super) const fn from_handle(handle: OwnedFd) -> Self {
         Self { handle }
     }
@@ -115,6 +120,15 @@ impl Dir {
     /// 16 MiB are not yet used up; with [`Purpose::Build`] there is no budget.
     #[must_use]
     pub fn scan(&self, purpose: Purpose) -> LayerScan {
-        scan_layer(&self.handle, purpose)
+        scan_layer(&self.handle, purpose, None)
+    }
+
+    /// Walks the layer as [`scan`](Self::scan) does, and records for each file it reads the blob
+    /// id git computes over its bytes, in `format`, and its owner-execute bit, so that the layer
+    /// can be compared with a git tree (spec §6 "A pinned `path:` layer"). The bytes are hashed
+    /// as they are read, so the id and the content hash describe the same bytes.
+    #[must_use]
+    pub fn scan_against_tree(&self, purpose: Purpose, format: ObjectFormat) -> LayerScan {
+        scan_layer(&self.handle, purpose, Some(format))
     }
 }

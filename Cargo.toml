@@ -27,6 +27,8 @@ serde = { version = "=1.0.229", default-features = false, features = ["std"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
 # decision-28: deserialisation only; the pin is repeated in deny.toml.
 serde-saphyr = { version = "=2.2.0", default-features = false, features = ["deserialize"] }
+# decision-36: SHA-1 only to compute git's own blob ids; alloc, oid and zeroize stay off.
+sha1 = { version = "=0.11.0", default-features = false }
 # decision-34: SHA-256 for content hashes and cache names; alloc, oid and zeroize stay off.
 sha2 = { version = "=0.11.1", default-features = false }
 # decision-31: only std, no anyhow in library crates.

@@ -60,6 +60,8 @@ deny = [
     # reason. cargo-deny prints a warning for a wrapper it does not meet; that is expected until
     # tempfile joins the graph.
     { name = "rustix", wrappers = ["alz-io", "tempfile"], reason = "decision-27: only alz-io depends on rustix; tempfile is the named third-party exception" },
+    # decision-36: only alz-core depends on sha1, to compute git's own object ids.
+    { name = "sha1", wrappers = ["alz-core"], reason = "decision-36: only alz-core depends on sha1" },
     # decision-28: serde-saphyr is pinned exactly. Raise the pin in Cargo.toml and every line here together.
     { name = "serde-saphyr", version = "<2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
     { name = "serde-saphyr", version = ">=2.2.0-0, <2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0; this catches the pre-releases of 2.2.0" },
@@ -83,6 +85,11 @@ deny = ["arbitrary_precision", "float_roundtrip", "preserve_order", "raw_value",
 # decision-34: sha2 without its default features: alz hashes no secrets and needs no ASN.1 object ids.
 [[bans.features]]
 crate = "sha2"
+deny = ["alloc", "oid", "zeroize"]
+
+# decision-36: sha1 without its default features, and only to compute git's own object ids.
+[[bans.features]]
+crate = "sha1"
 deny = ["alloc", "oid", "zeroize"]
 
 [sources]
