@@ -6,6 +6,7 @@ use proptest::prelude::{Strategy, any, prop_assert, proptest};
 use proptest::sample::select;
 
 use crate::diagnostic::{Code, Position, Where};
+use crate::schema::text_list;
 use crate::untrusted_text::Stripped;
 use crate::yaml::fields::{FieldProblem, KeyPath, Section};
 use crate::yaml::{Node, Value, YamlError, YamlErrorKind, YamlText, parse};
@@ -84,6 +85,7 @@ fn an_alias_counts_the_levels_of_its_anchor_where_it_is_used() {
         )
     };
     assert!(load(&used(31)).is_ok());
+    assert_eq!(kind_of(&used(32)), Some(YamlErrorKind::TooDeep));
     assert_eq!(kind_of(&used(33)), Some(YamlErrorKind::TooDeep));
 }
 
@@ -191,6 +193,25 @@ fn a_scalar_of_one_mebibyte_parses_through_the_whole_entry_point() {
     assert_eq!(text.len(), 1_048_576);
     assert!(load(&text).is_ok());
     assert_eq!(kind_of(&format!("{text}x")), Some(YamlErrorKind::TooLarge));
+}
+
+#[test]
+fn an_anchored_scalar_replayed_past_4_mebibytes_is_refused_with_its_own_kind() {
+    // 100 KiB written once; each of the 41 aliases replays it: 42 uses, 4.1 MiB. The file is
+    // 100 KiB, with 41 aliases and 45 nodes, far below every other limit.
+    let scalar = "x".repeat(100 * 1024);
+    let document = |aliases: usize| format!("a: &x {scalar}\nl: [{}]\n", aliases_of("x", aliases));
+    assert!(load(&document(39)).is_ok(), "40 uses, 4000 KiB");
+    assert_eq!(
+        kind_of(&document(41)),
+        Some(YamlErrorKind::TooMuchScalarText)
+    );
+    let error = load(&document(41)).expect_err("too much scalar text");
+    assert_eq!(error.kind().code(), Code::Yaml);
+    assert_eq!(
+        error.to_string(),
+        "more than 4 MiB of scalar text, counting each alias use again"
+    );
 }
 
 // ---- tags ----
@@ -342,6 +363,25 @@ fn a_duplicate_key_is_refused_with_the_key_quoted_and_cut() {
 }
 
 #[test]
+fn a_duplicate_key_is_placed_at_the_second_key_counted_from_1() {
+    assert_eq!(
+        load("a: 1\na: 2\n").expect_err("duplicate").position(),
+        Some(at(2, 1))
+    );
+    assert_eq!(
+        load("m:\n  é: 1\n  é: 2\n")
+            .expect_err("duplicate")
+            .position(),
+        Some(at(3, 3))
+    );
+    // Characters, not bytes: the second key is the 11th character, the 13th byte.
+    assert_eq!(
+        load("é: {é: 1, é: 2}\n").expect_err("duplicate").position(),
+        Some(at(1, 11))
+    );
+}
+
+#[test]
 fn text_that_is_not_yaml_is_a_syntax_error_at_its_position() {
     let error = load("a: [1,\nb: }\n").expect_err("not YAML");
     assert_eq!(error.kind(), &YamlErrorKind::Syntax);
@@ -427,12 +467,12 @@ fn nodes_carry_the_position_they_were_read_at_and_an_alias_use_its_own() {
 
 #[test]
 fn fields_read_text_numbers_and_lists_and_report_paths_without_values() {
-    let node = ok("ref: 1.10\nname: x\nn: 1e3\nm: 2.5\nl: [a, 2]\nbad: [a]\nextra: 1\n");
+    let node = ok("ref: 1.10\nname: x\nn: 1e3\nm: 2.5\nl: [a, 2, true, 3]\nbad: [a]\nextra: 1\n");
     let section = Section::new(&node, KeyPath::root()).expect("a mapping");
     assert_eq!(section.text("name").expect("text"), Some("x"));
     assert_eq!(section.text("missing").expect("absent"), None);
     let error = section.text("ref").expect_err("a number is not text");
-    assert_eq!(error.problem(), &FieldProblem::NotText);
+    assert_eq!(error.problem(), &FieldProblem::NumberNotText);
     assert_eq!(
         error.message().to_string(),
         "ref must be text; put the value in quotes to keep it as text"
@@ -443,16 +483,89 @@ fn fields_read_text_numbers_and_lists_and_report_paths_without_values() {
     );
     assert!(section.whole_number("m").is_err());
     assert!(section.whole_number("name").is_err());
-    let list = section.text_list("l").expect_err("an item is a number");
+    let messages = |field| -> Vec<String> {
+        text_list::<String>(&section, field)
+            .expect_err("a problem")
+            .iter()
+            .map(|error| error.message().to_string())
+            .collect()
+    };
+    // Every item that is not text is reported, not only the first.
     assert_eq!(
-        list.message().to_string(),
-        "l[1] must be text; put the value in quotes to keep it as text"
+        messages("l"),
+        [
+            "l[1] must be text; put the value in quotes to keep it as text",
+            "l[2] must be text",
+            "l[3] must be text; put the value in quotes to keep it as text",
+        ]
     );
     assert_eq!(
-        section.text_list("bad").expect("text list"),
-        Some(vec!["a"])
+        text_list::<String>(&section, "bad").expect("text list"),
+        ["a"]
     );
-    assert!(section.text_list("name").is_err());
+    assert_eq!(messages("name"), ["name must be a list"]);
+    assert_eq!(
+        text_list::<String>(&section, "missing").expect("absent"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn only_a_number_gets_the_hint_to_quote_it() {
+    let node = ok("b: true\nc: [x]\nd: {e: 1}\nf: 1\ng: 1.5\n");
+    let section = Section::new(&node, KeyPath::root()).expect("a mapping");
+    let message = |field| {
+        section
+            .text(field)
+            .expect_err("not text")
+            .message()
+            .to_string()
+    };
+    for field in ["b", "c", "d"] {
+        assert_eq!(message(field), format!("{field} must be text"), "{field}");
+    }
+    for field in ["f", "g"] {
+        assert_eq!(
+            message(field),
+            format!("{field} must be text; put the value in quotes to keep it as text")
+        );
+    }
+}
+
+#[test]
+fn a_float_that_is_whole_but_too_large_is_not_called_not_a_whole_number() {
+    let node = ok("big: 1e300\nhalf: 2.5\nname: x\nmax: 1e38\n");
+    let section = Section::new(&node, KeyPath::root()).expect("a mapping");
+    let message = |field| {
+        section
+            .whole_number(field)
+            .expect_err("refused")
+            .message()
+            .to_string()
+    };
+    assert_eq!(message("big"), "big is a whole number that is too large");
+    assert_eq!(message("half"), "half must be a whole number");
+    assert_eq!(message("name"), "name must be a whole number");
+}
+
+#[test]
+fn a_key_that_is_not_text_is_named_by_its_kind_and_not_quoted() {
+    let node = ok("1: a\ntrue: b\n~: c\nx: d\n");
+    let section = Section::new(&node, KeyPath::root().field("account")).expect("a mapping");
+    let messages: Vec<String> = section
+        .unknown_fields(&[])
+        .iter()
+        .map(|error| error.message().to_string())
+        .collect();
+    assert_eq!(
+        messages,
+        [
+            "an unknown key that is a number in account",
+            "an unknown key that is a boolean in account",
+            "an unknown key that is null in account",
+            "unknown field 'x' in account",
+        ]
+    );
 }
 
 #[test]

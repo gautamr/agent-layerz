@@ -80,7 +80,8 @@ disallowed-methods = [
     { path = "std::io::stdout", reason = "the terminal belongs to the binary and alz-io" },
     { path = "std::io::stderr", reason = "the terminal belongs to the binary and alz-io" },
     # serde-saphyr is a dependency of alz-core only, so this list has no twin in crates/alz/clippy.toml.
-    # Its one call site is `read` in src/yaml/load.rs, which carries the single #[expect] (TASK-62).
+    # Its two call sites carry one #[expect] each: `read` in src/yaml/load.rs (the deserializer) and
+    # the pre-pass in src/yaml/events.rs (the parser) (TASK-62).
     { path = "serde_saphyr::from_slice", reason = "every YAML file goes through yaml::parse (decision-28, TASK-62)" },
     { path = "serde_saphyr::from_slice_multiple", reason = "every YAML file goes through yaml::parse (decision-28, TASK-62)" },
     { path = "serde_saphyr::from_slice_with_options", reason = "every YAML file goes through yaml::parse (decision-28, TASK-62)" },
@@ -122,6 +123,8 @@ disallowed-methods = [
     { path = "serde_json::to_writer_pretty", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
     { path = "serde_json::to_value", reason = "JSON is read by json::parse and written by render::json (decision-33)" },
     { path = "serde_json::Deserializer::from_slice", reason = "every JSON file goes through json::parse (decision-33)" },
+    { path = "serde_json::Deserializer::from_str", reason = "every JSON file goes through json::parse (decision-33)" },
+    { path = "serde_json::Deserializer::new", reason = "every JSON file goes through json::parse (decision-33)" },
     { path = "serde_json::Deserializer::from_reader", reason = "every JSON file goes through json::parse (decision-33)" },
 ]
 

@@ -63,6 +63,8 @@ describe("§13.27 stack entry ref (§5.2, TASK-61)", () => {
     setRef(ws, '"1.10"');
     const result = await layers(ws, "repo", ["lint"]);
     expect(result.stderr).not.toContain("error [manifest]");
+    expect(result.stderr).not.toContain("stack[1].ref");
+    expect([0, 1]).toContain(result.code);
   });
 });
 

@@ -61,9 +61,15 @@ fn a_quoted_ref_that_looks_like_a_number_is_kept_as_written() {
 fn a_ref_that_is_a_list_a_number_or_a_mapping_is_refused_naming_the_entry_and_not_the_value() {
     for line in ["[x]", "1.10", "1", "{a: b}", "true", "[secretref]"] {
         let errors = refused(&entry_with(line));
+        // Only a number gets the hint to quote it (§5.2).
+        let hint = if matches!(line, "1.10" | "1") {
+            "; put the value in quotes to keep it as text"
+        } else {
+            ""
+        };
         assert_eq!(
             messages(&errors),
-            ["stack[0].ref must be text; put the value in quotes to keep it as text"],
+            [format!("stack[0].ref must be text{hint}")],
             "ref: {line}"
         );
         assert!(
@@ -399,7 +405,7 @@ fn every_error_of_one_file_is_reported_in_document_order() {
         [
             "targets[0] must be a target: claude or codex",
             "stack[0].source must start with path:, github: or git:",
-            "stack[0].ref must be text; put the value in quotes to keep it as text",
+            "stack[0].ref must be text",
             "budgets.instructions_max_lines must be a whole number",
             "unknown field 'bogus'",
         ]

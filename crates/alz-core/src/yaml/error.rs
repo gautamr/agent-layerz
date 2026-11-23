@@ -32,6 +32,8 @@ pub enum YamlErrorKind {
     TooManyNodes,
     /// More than 10000 events replayed through aliases.
     TooManyReplayedEvents,
+    /// More than 4 MiB of scalar text, counting each use of an alias again.
+    TooMuchScalarText,
     /// An explicit tag outside the YAML 1.2 core set.
     Tag,
     /// More than one document.
@@ -61,6 +63,7 @@ impl YamlErrorKind {
             | Self::TooDeep
             | Self::TooManyNodes
             | Self::TooManyReplayedEvents
+            | Self::TooMuchScalarText
             | Self::MoreThanOneDocument
             | Self::CyclicAlias
             | Self::UnresolvedAlias
@@ -85,6 +88,9 @@ impl YamlErrorKind {
             Self::TooManyNodes => Message::new("more than 20000 nodes"),
             Self::TooManyReplayedEvents => {
                 Message::new("more than 10000 events replayed through aliases")
+            }
+            Self::TooMuchScalarText => {
+                Message::new("more than 4 MiB of scalar text, counting each alias use again")
             }
             Self::Tag => Message::new("a tag outside the YAML 1.2 core set"),
             Self::MoreThanOneDocument => Message::new("more than one document"),

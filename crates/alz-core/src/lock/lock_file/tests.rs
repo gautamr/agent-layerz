@@ -108,6 +108,22 @@ fn a_sha_that_is_not_an_object_id_is_refused_before_any_value_is_used() {
 }
 
 #[test]
+fn a_git_source_holding_credentials_is_refused_with_or_without_a_ref() {
+    for source in [
+        "git:https://user:FAKETOKEN@github.com/org/repo.git",
+        "git:https://FAKETOKEN@github.com/org/repo",
+        "git:https://user:FAKETOKEN@github.com/org/repo.git@v1",
+    ] {
+        let layer = format!(r#"{{"contentHash":"{HASH}","name":"x","source":"{source}"}}"#);
+        assert_eq!(
+            parse(&lock_with(&layer)),
+            Err(LockError::Invalid(LockField::LayerSource)),
+            "{source}"
+        );
+    }
+}
+
+#[test]
 fn a_content_hash_that_is_not_sha256_and_64_lowercase_hex_is_refused() {
     let upper = HASH.to_uppercase().replace("SHA256", "sha256");
     let short = prefix(HASH, HASH.len() - 1);

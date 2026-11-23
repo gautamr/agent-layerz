@@ -88,6 +88,12 @@ fn credentials_in_a_git_url_are_refused() {
         "git:ssh://git:secret@host/x.git@v1",
         "git:ftp://u:p@host/x.git@v1",
         "git:user:secret@host:o/x.git@v1",
+        // No ref: the last `@` is the credentials' own and must not hide them.
+        "git:https://user:FAKETOKEN@github.com/org/repo.git",
+        "git:https://FAKETOKEN@github.com/org/repo",
+        "git:https://@host/x.git",
+        "git:ssh://git:secret@host/x.git",
+        "git:user:secret@host:o/x.git",
     ] {
         assert_eq!(
             Source::try_from(text),

@@ -43,6 +43,13 @@ pub fn parse(text: &YamlText) -> Result<Node, YamlError> {
         .map_err(|failure| context.failure.take().unwrap_or_else(|| classify(&failure)))
 }
 
+/// The most scalar text a document may hold, counting each use of an alias again: 4 MiB. A file is
+/// at most 1 MiB ([`crate::yaml::MAX_BYTES`]), so its scalars as written never come near it; what
+/// reaches it is aliases replaying large scalars, at most 100 of them. serde-saphyr's default is
+/// 64 MiB, and every replayed scalar becomes a copy in the tree, so the explicit value bounds that
+/// memory to four times the file cap (decision-28 as amended, spec §7.13).
+pub const MAX_SCALAR_BYTES: usize = 4 * 1_048_576;
+
 /// The options of decision-28.
 fn options() -> Options {
     let mut options = Options::default();
@@ -62,6 +69,7 @@ fn options() -> Options {
     budget.max_nodes = MAX_NODES.saturating_add(MAX_REPLAYED_EVENTS);
     // Its alias-to-anchor ratio rule is not in spec §7.13: the spec counts aliases alone.
     budget.enforce_alias_anchor_ratio = false;
+    budget.max_total_scalar_bytes = MAX_SCALAR_BYTES;
     options.budget = Some(budget);
     options
 }
@@ -90,7 +98,10 @@ fn classify(failure: &Error) -> YamlError {
 /// The error and the budget breach are open-ended enums, so the ones alz names are picked out and
 /// every other error is plain syntax.
 fn kind_of(failure: &Error) -> YamlErrorKind {
-    if let Error::DuplicateMappingKey { key, .. } = failure {
+    if let Error::AliasError { error, .. } = failure {
+        // An error found while replaying an alias comes wrapped with where the alias was used.
+        kind_of(error)
+    } else if let Error::DuplicateMappingKey { key, .. } = failure {
         YamlErrorKind::DuplicateKey(key.as_deref().map(QuotedKey::from_untrusted))
     } else if matches!(failure, Error::MultipleDocuments { .. }) {
         YamlErrorKind::MoreThanOneDocument
@@ -119,6 +130,8 @@ fn budget_kind(breach: &BudgetBreach) -> YamlErrorKind {
         YamlErrorKind::TooDeep
     } else if matches!(breach, BudgetBreach::Nodes { .. }) {
         YamlErrorKind::TooManyNodes
+    } else if matches!(breach, BudgetBreach::ScalarBytes { .. }) {
+        YamlErrorKind::TooMuchScalarText
     } else {
         YamlErrorKind::Syntax
     }

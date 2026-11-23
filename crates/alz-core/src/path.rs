@@ -10,7 +10,8 @@ mod absolute;
 pub use absolute::{AbsolutePath, AbsolutePathError};
 
 /// A relative path that stays where it is: `/`-separated, with no empty, `.`, `..` or `.git`
-/// segment, no backslash and no NUL. Its text is valid UTF-8 because a `str` is.
+/// segment, no backslash and no NUL. A `.git` segment is compared ignoring ASCII case, and
+/// `.git.` and `.git ` count as `.git`. Its text is valid UTF-8 because a `str` is.
 ///
 /// A path is one string, not a list of components, so `Ord` is `str`'s: the byte order of the
 /// UTF-8 text, which is the code point order of the spec's name order (§6). `a-b` sorts before
@@ -46,8 +47,16 @@ impl SafeRelPath {
     }
 }
 
+/// Whether the segment names `.git` on a file system that ignores ASCII case (APFS, NTFS) or drops
+/// a trailing dot or space (NTFS): `.git`, `.GIT`, `.git.`, `.git `.
+fn names_git(segment: &str) -> bool {
+    segment
+        .trim_end_matches(['.', ' '])
+        .eq_ignore_ascii_case(".git")
+}
+
 fn is_safe_segment(segment: &str) -> bool {
-    !matches!(segment, "" | "." | ".." | ".git") && !segment.contains(['\\', '\0'])
+    !matches!(segment, "" | "." | "..") && !names_git(segment) && !segment.contains(['\\', '\0'])
 }
 
 impl TryFrom<&str> for SafeRelPath {
@@ -89,6 +98,9 @@ mod tests {
             ".gitignore",
             "a b/ü",
             "a/.git2",
+            ".git.x",
+            ".gitx",
+            "a/.g it",
         ] {
             assert_eq!(path(good).as_str(), good);
         }
@@ -110,6 +122,14 @@ mod tests {
             "a\0b",
             "\\",
             "a/\0",
+            ".GIT",
+            ".Git/config",
+            "a/.gIt",
+            ".git.",
+            ".git ",
+            "a/.GIT./b",
+            ".git. .",
+            "a/.GiT /b",
         ];
         for text in bad {
             assert_eq!(
