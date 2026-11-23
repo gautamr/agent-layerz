@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::item::McpServerId;
 use crate::schema::{
     Checked, SchemaError, SchemaErrors, refine_list, text_list, unknown_fields, zip, zip3,
 };
@@ -48,11 +49,6 @@ macro_rules! free_text {
 free_text! {
     /// An entry of `protected_paths`, a glob the build never touches (§4.5), kept as text.
     ProtectedPattern
-}
-
-free_text! {
-    /// The name of an MCP server in `mcp.enable`, as written.
-    McpName
 }
 
 /// The `options` of the manifest. Both are `true` when the manifest says nothing.
@@ -109,13 +105,13 @@ impl Options {
 }
 
 /// The `mcp.enable` allowlist at `node`.
-fn mcp_enable(node: &Node, path: KeyPath) -> Checked<Vec<McpName>> {
+fn mcp_enable(node: &Node, path: KeyPath) -> Checked<Vec<McpServerId>> {
     let section = Section::new(node, path)?;
     zip(
         unknown_fields(&section, &["enable"]),
-        text_list::<McpName>(&section, "enable"),
+        refine_list::<McpServerId>(&section, "enable"),
     )
-    .map(|((), names)| names)
+    .map(|((), ids)| ids.unwrap_or_default())
 }
 
 /// The field read by `read`, or `default` when the field is absent.
@@ -150,7 +146,7 @@ pub struct Manifest {
     targets: BTreeSet<TargetName>,
     workspace: Workspace,
     protected_paths: Vec<ProtectedPattern>,
-    mcp_enable: Vec<McpName>,
+    mcp_enable: Vec<McpServerId>,
     budgets: Budgets,
     options: Options,
 }
@@ -233,7 +229,7 @@ impl Manifest {
 
     /// The MCP servers that are on, in the order written.
     #[must_use]
-    pub fn mcp_enable(&self) -> &[McpName] {
+    pub fn mcp_enable(&self) -> &[McpServerId] {
         &self.mcp_enable
     }
 

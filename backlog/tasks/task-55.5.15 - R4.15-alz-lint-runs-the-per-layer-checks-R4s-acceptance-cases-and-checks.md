@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T14:25:00Z'
+updated_date: '2026-11-23T14:52:00Z'
 labels:
   - area:rust
   - area:lint
@@ -51,4 +51,6 @@ Spec items from R4.8 (2026-11-23): (a) hook ids: any text with a visible charact
 Spec items from R4.9 (2026-11-23): (a) allow, ask and deny are written as a plain YAML list (adds) or +[..], -[..], [..] edits; allow and ask may drop rules, deny may not; note that a plain list adds here but replaces in §7.2 overlays; (b) the permission modes and their strictness order: bypass_permissions < auto < accept_edits < default < dont_ask < plan; (c) a rule is tool[:pattern] in the neutral tool grammar; an unknown tool or an empty pattern is a permissions error; (d) add the warning code permission-shadowed to §10.1 (a rule in both allow and deny; lead keeps the reference's warning); (e) floor must be a boolean and needs default_mode (floor: false without default_mode is an error too); (f) a default_mode looser than the floor is refused and that layer's mode and floor are ignored; a layer's own floor does not bind its own mode; (g) permission-floor carries no line, permissions file errors do.
 
 Spec items from R4.10 (2026-11-23): (a) a target whose value is null or not a mapping is a settings error; (b) lead: shell_environment_policy, mcpServers and mcp_servers that are not mappings are refused (they can carry environment settings the protected-variable checks must see); (c) protected-variable diagnostics name the file without line and column; (d) a pattern matching several protected variables gives one error per variable; (e) protected names match in any ASCII case and the written text is never printed. Also: the settings and protected-variable cases live in test 24 (fixture 29-account-layer), not in 11, 26 or 29 (mapping in TASK-55.5.10's notes).
+
+Spec items from R4.11 (2026-11-23): (a) per-server checks stop at the first failing step; (b) a command on an http/sse server or a url on a stdio server is ignored; (c) mcp.enable repeats are kept once; (d) a server refused for any reason still gets the 'no layer defines it' error for mcp.enable (the spec names only the protected case); (e) alias, role and concrete model ids are any non-blank text; (f) a models.yaml with any problem gives no item (the reference kept the valid aliases: drift); (g) the credential-assignment secret shape matches JavaScript's whitespace set explicitly; (h) forbid_patterns compile with the same limits as the secret scan (secret::SIZE_LIMIT, NEST_LIMIT).
 <!-- SECTION:NOTES:END -->

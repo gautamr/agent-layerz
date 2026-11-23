@@ -76,7 +76,7 @@ fn an_error_leaves_no_merged_model_and_keeps_every_diagnostic() {
         diagnostics,
         ..Accumulator::default()
     };
-    let found: Merging = state.finish(true);
+    let found: Merging = state.finish(&manifest());
     assert!(found.merged().is_none());
     assert_eq!(found.diagnostics().error_count(), 1);
     assert_eq!(found.diagnostics().warning_count(), 1);
@@ -93,7 +93,7 @@ fn a_warning_alone_keeps_the_merged_model() {
         )),
         ..Accumulator::default()
     };
-    assert!(state.finish(true).merged().is_some());
+    assert!(state.finish(&manifest()).merged().is_some());
 }
 
 proptest! {

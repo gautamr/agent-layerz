@@ -25,6 +25,8 @@ pub(super) mod paths {
     pub(super) const CLAUDE_SERVER_ENV: &str = "claude.mcpServers.env";
     /// The `env` of a server under `codex.mcp_servers`.
     pub(super) const CODEX_SERVER_ENV: &str = "codex.mcp_servers.env";
+    /// The `env_from` of a server of `mcp.yaml`.
+    pub(in crate::item) const MCP_ENV_FROM: &str = "mcp.env_from";
     /// A `shell_environment_policy` under `codex`.
     pub(super) const POLICY: &str = "codex.shell_environment_policy";
     pub(super) const POLICY_SET: &str = "codex.shell_environment_policy.set";
@@ -46,6 +48,18 @@ pub(super) fn env_keys(env: Option<&Tree>, path: &'static str, at: &Where) -> Di
             .collect(),
         Some(_) => unchecked(path, "is not a mapping", at),
     }
+}
+
+/// The problems of the names in an `env_from` list: each must be a plain variable name and none
+/// may be protected.
+pub(super) fn env_from_names<'a>(
+    names: impl IntoIterator<Item = &'a str>,
+    at: &Where,
+) -> Diagnostics {
+    names
+        .into_iter()
+        .filter_map(|name| name_problem(name, paths::MCP_ENV_FROM, at))
+        .collect()
 }
 
 /// The field that holds MCP servers in a target's native fields.

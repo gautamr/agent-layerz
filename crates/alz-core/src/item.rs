@@ -11,6 +11,8 @@ mod hook;
 mod instruction;
 mod kebab_case;
 mod list_edit;
+mod mcp;
+mod model;
 mod permission;
 mod protected_variable;
 mod rule;
@@ -32,6 +34,8 @@ pub use instruction::{
     ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, InstructionMode,
     InstructionModeError,
 };
+pub use mcp::{McpItems, McpRefusal, McpServer, McpServerId, Transport};
+pub use model::{BlankModelName, ConcreteModel, ModelAlias, ModelItems, Models};
 pub use permission::{
     Binding, DefaultMode, PermissionItems, PermissionRefusal, PermissionRule, Permissions,
 };

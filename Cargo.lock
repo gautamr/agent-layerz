@@ -18,6 +18,7 @@ name = "alz-core"
 version = "0.1.0"
 dependencies = [
  "proptest",
+ "regex-lite",
  "serde",
  "serde-saphyr",
  "serde_json",
@@ -476,6 +477,12 @@ name = "regex-automata"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41d60ef07df457506a0a1a2073112eb4aae5733dbd2813c3da77d1b0fd441158"
+
+[[package]]
+name = "regex-lite"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
 
 [[package]]
 name = "regex-syntax"

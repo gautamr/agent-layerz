@@ -120,6 +120,13 @@ pub enum Code {
     /// The schema of `settings.yaml`: a top-level key that is not a target, a target whose value is
     /// not a mapping, or a key of a first-class item (§7.9).
     Settings,
+    /// The schema of `mcp.yaml`: a key that is not a server id, a definition that breaks its
+    /// schema, or an `mcp.enable` entry that no layer defines (§7.7).
+    Mcp,
+    /// The schema of `models.yaml`: an unknown field, or an alias key that is not a target (§7.8).
+    Models,
+    /// A value that looks like a token (§7.7, §9.2).
+    LeakSecret,
     /// A protected or malformed variable name, or a list or map of variables that cannot be
     /// checked (§7.9).
     ProtectedVariable,
@@ -168,6 +175,9 @@ impl Code {
             Self::PermissionFloor => "permission-floor",
             Self::PermissionShadowed => "permission-shadowed",
             Self::Settings => "settings",
+            Self::Mcp => "mcp",
+            Self::Models => "models",
+            Self::LeakSecret => "leak-secret",
             Self::ProtectedVariable => "protected-variable",
             Self::Unresolved => "unresolved",
         }

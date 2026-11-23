@@ -28,6 +28,8 @@ use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::algebra::Replace;
 use crate::merge::hooks::HookState;
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
+use crate::merge::mcp::{McpState, MergedMcp};
+use crate::merge::models::{MergedModels, ModelState};
 use crate::merge::permissions::{MergedPermissions, PermissionState};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
@@ -95,6 +97,8 @@ pub struct Merged {
     hooks: Vec<Traced<Hook>>,
     permissions: MergedPermissions,
     settings: BTreeMap<TargetName, Traced<SettingsTree>>,
+    mcp: MergedMcp,
+    models: MergedModels,
 }
 
 impl Merged {
@@ -160,6 +164,20 @@ impl Merged {
         &self.settings
     }
 
+    /// The MCP servers (§7.7): every definition by id, and the ids of `mcp.enable` that are on,
+    /// in order. Only the enabled servers are emitted.
+    #[must_use]
+    pub const fn mcp(&self) -> &MergedMcp {
+        &self.mcp
+    }
+
+    /// The model routing (§7.8): aliases, roles and the default alias, each with the layers that
+    /// set it.
+    #[must_use]
+    pub const fn models(&self) -> &MergedModels {
+        &self.models
+    }
+
     /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
     /// that says "not defined for this repo", and who asked for it first (§7.3).
     #[must_use]
@@ -215,6 +233,8 @@ struct Accumulator {
     hooks: HookState,
     permissions: PermissionState,
     settings: SettingsState,
+    mcp: McpState,
+    models: ModelState,
     diagnostics: Diagnostics,
 }
 
@@ -229,6 +249,8 @@ impl Accumulator {
         let (hooks, found_hooks) = self.hooks.absorb(context);
         let (permissions, found_permissions) = self.permissions.absorb(context);
         let (settings, found_settings) = self.settings.absorb(context);
+        let (mcp, found_mcp) = self.mcp.absorb(context);
+        let (models, found_models) = self.models.absorb(context);
         Self {
             layers: self
                 .layers
@@ -242,6 +264,8 @@ impl Accumulator {
             hooks,
             permissions,
             settings,
+            mcp,
+            models,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
@@ -250,18 +274,23 @@ impl Accumulator {
                 .merge(found_skills)
                 .merge(found_hooks)
                 .merge(found_permissions)
-                .merge(found_settings),
+                .merge(found_settings)
+                .merge(found_mcp)
+                .merge(found_models),
         }
     }
 
-    fn finish(self, strict_slots: bool) -> Merging {
+    fn finish(self, manifest: &Manifest) -> Merging {
         let MergedInstructions {
             blocks,
             claude_extras,
         } = self.instructions.finish();
         let agents = self.agents.finish();
-        let (MergedSkills { items, stubs }, found_slots) =
-            self.skills.finish(&agents, strict_slots);
+        let (MergedSkills { items, stubs }, found_slots) = self
+            .skills
+            .finish(&agents, manifest.options().strict_slots());
+        let (mcp, found_mcp) = self.mcp.finish(manifest);
+        let (models, found_unresolved) = self.models.finish();
         let shadowed = self.permissions.shadowed();
         Merging::of(
             Merged {
@@ -275,8 +304,14 @@ impl Accumulator {
                 hooks: self.hooks.finish(),
                 permissions: self.permissions.finish(),
                 settings: self.settings.finish(),
+                mcp,
+                models,
             },
-            self.diagnostics.merge(found_slots).merge(shadowed),
+            self.diagnostics
+                .merge(found_slots)
+                .merge(shadowed)
+                .merge(found_mcp)
+                .merge(found_unresolved),
         )
     }
 }
@@ -298,7 +333,7 @@ pub fn merge(stack: &ResolvedStack, manifest: &Manifest, placements: &Placements
         .fold(Accumulator::default(), |state, context| {
             state.absorb(&context)
         })
-        .finish(manifest.options().strict_slots())
+        .finish(manifest)
 }
 
 #[cfg(test)]
