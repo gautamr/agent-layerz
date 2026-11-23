@@ -1,10 +1,10 @@
 ---
 id: TASK-59
 title: YAML errors quote untrusted alias names
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
-updated_date: '2026-11-23T06:52:00Z'
+updated_date: '2026-11-23T07:29:00Z'
 labels:
   - discovered
   - area:security
@@ -40,3 +40,9 @@ Architect (2026-11-23, R2 plan in TASK-55.3): fixed in the Rust model by R2.4 (T
 
 R2.11 evidence (2026-11-23, branch feat/rust-r2-task-55.3): AC1 - test/acceptance/34-yaml-limits.test.ts 'refuses an unresolved alias and never prints its name' passes against ALZ_BIN=target/release/alz: exit 1, error [yaml], the marker is in neither stdout nor stderr; the Rust YAML errors name file, line, column and kind only (spec 7.13 'What else makes a YAML file invalid', R2.4 unit and property tests). AC2 - that same case is the marker test; against the bundled reference it fails (the reference prints 'Unresolved alias ...: secret-marker-9f3a1c'), so it is referenceDrift('TASK-59'), an expected failure with ALZ_BIN unset. Status stays In Progress until the lead moves it after the unit review.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed in the Rust alz in R2 (PR #7, decision-30); the TypeScript reference keeps the bug, and its acceptance cases are marked reference drift.
+<!-- SECTION:FINAL_SUMMARY:END -->

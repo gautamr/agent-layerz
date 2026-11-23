@@ -1,10 +1,10 @@
 ---
 id: TASK-62
 title: parseYaml and parseYamlLimited apply the same alias limit
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
-updated_date: '2026-11-23T06:52:00Z'
+updated_date: '2026-11-23T07:29:00Z'
 labels:
   - discovered
   - area:spec
@@ -44,3 +44,9 @@ Architect (2026-11-23, R2 plan in TASK-55.3): fixed in the Rust model by R2.4 (T
 
 R2.11 evidence (2026-11-23): AC1 - spec 7.13 'YAML limits' states one rule for every YAML file alz reads (1 MiB, strict UTF-8, 100 aliases, depth 64, 20000 nodes, 10000 replayed events) and records the reference's differences. 34-yaml-limits proves each boundary against the Rust alz: 1 MiB lints and 1 MiB + 1 byte is error [yaml]; invalid UTF-8 refused; 100 aliases over three anchors lint and 101 are refused; 20000 nodes lint and 20001 are refused; 10000 replayed events parse and 10001 are refused. Each refusal is referenceDrift TASK-62 (the reference does not enforce it). AC2 - alz-core's clippy.toml bans every serde_saphyr entry point and granit_parser::Parser constructor (disallowed-methods); the only exceptions are the two #[expect] in yaml/events.rs and yaml/load.rs, so yaml::parse is the single entry point. mise run rust:ci exits 0.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed in the Rust alz in R2 (PR #7, decision-30); the TypeScript reference keeps the bug, and its acceptance cases are marked reference drift.
+<!-- SECTION:FINAL_SUMMARY:END -->
