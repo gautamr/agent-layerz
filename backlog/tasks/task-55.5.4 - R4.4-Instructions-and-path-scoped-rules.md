@@ -1,10 +1,11 @@
 ---
 id: TASK-55.5.4
 title: 'R4.4: Instructions and path-scoped rules'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:27:00Z'
+updated_date: '2026-11-23T12:53:00Z'
 labels:
   - area:rust
   - area:merge
