@@ -3,6 +3,7 @@
 //! `alz-io`'s; everything here is a decision over the values it gives.
 
 use crate::diagnostic::Diagnostics;
+use crate::layer::LayerContents;
 use crate::layer::LayerMeta;
 use crate::lock::{LayerFiles, ObjectId};
 use crate::stack::GitRef;
@@ -20,11 +21,13 @@ pub struct Pin {
     pub sha: ObjectId,
 }
 
-/// One stack entry resolved: where it came from, what `layer.yaml` says and which files it holds.
+/// One stack entry resolved: where it came from, what `layer.yaml` says and the files it holds,
+/// with the bytes the walk read and the content hash covers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedLayer {
     source: Source,
     meta: LayerMeta,
+    contents: LayerContents,
     files: LayerFiles,
     pin: Option<Pin>,
 }
@@ -32,11 +35,12 @@ pub struct ResolvedLayer {
 impl ResolvedLayer {
     /// A resolved layer. `pin` is `None` for an unpinned `path:` layer, which is read in place.
     #[must_use]
-    pub const fn new(source: Source, meta: LayerMeta, files: LayerFiles, pin: Option<Pin>) -> Self {
+    pub fn new(source: Source, meta: LayerMeta, contents: LayerContents, pin: Option<Pin>) -> Self {
         Self {
             source,
             meta,
-            files,
+            files: contents.files(),
+            contents,
             pin,
         }
     }
@@ -53,10 +57,18 @@ impl ResolvedLayer {
         &self.meta
     }
 
-    /// The files the content hash covers.
+    /// The files the content hash covers, with the digest of each file's bytes: derived from
+    /// [`ResolvedLayer::contents`], so it is what the lock check covered.
     #[must_use]
     pub const fn files(&self) -> &LayerFiles {
         &self.files
+    }
+
+    /// The files the content hash covers, with the bytes the walk read. The merge reads these
+    /// bytes and never the file system, so it uses exactly what the lock check covered.
+    #[must_use]
+    pub const fn contents(&self) -> &LayerContents {
+        &self.contents
     }
 
     /// The pin, for a layer that came from git.

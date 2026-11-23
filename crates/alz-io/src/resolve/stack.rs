@@ -11,9 +11,9 @@ use std::cell::OnceCell;
 
 use alz_core::account::AccountFolders;
 use alz_core::cache::{CacheLocation, CacheLocationError};
-use alz_core::layer::{LayerMeta, Purpose, ReadLayer, scan_verdict};
+use alz_core::layer::{LayerContents, LayerMeta, Purpose, ReadLayer, scan_verdict};
 use alz_core::lint;
-use alz_core::lock::{LayerFiles, Lock, LockedLayer};
+use alz_core::lock::{Lock, LockedLayer};
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::stack::resolution_failure::{
     env_file_in_layer, layer_directory_not_found, layer_touches_account_folder, layer_unreadable,
@@ -62,7 +62,7 @@ struct Cache {
 /// What a source gave: the directory of the layer and what was seen in it.
 struct Found {
     dir: Dir,
-    files: LayerFiles,
+    contents: LayerContents,
     env_files: Vec<SafeRelPath>,
     pin: Option<Pin>,
     warnings: Diagnostics,
@@ -189,7 +189,7 @@ impl<'a> StackResolver<'a> {
     fn working_tree(&self, dir: &SourceDir, text: &Stripped) -> Result<Found, Diagnostics> {
         let path = self.directory(dir, text)?;
         let opened = Dir::open(&path, &self.folders).map_err(|error| walk_failure(&error, text))?;
-        let (files, env_files) = scan_verdict(Purpose::Build, opened.scan(Purpose::Build))
+        let (contents, env_files) = scan_verdict(Purpose::Build, opened.scan(Purpose::Build))
             .map(ReadLayer::into_parts)
             .map_err(|refusal| {
                 single(
@@ -200,7 +200,7 @@ impl<'a> StackResolver<'a> {
             })?;
         Ok(Found {
             dir: opened,
-            files,
+            contents,
             env_files,
             pin: None,
             warnings: Diagnostics::new(),
@@ -307,7 +307,7 @@ fn walk_failure(error: &WalkError, text: &Stripped) -> Diagnostics {
 fn found_in_cache(layer: FetchedLayer, warnings: Diagnostics) -> Found {
     Found {
         dir: layer.dir,
-        files: layer.files,
+        contents: layer.contents,
         env_files: layer.env_files,
         pin: Some(Pin {
             rev: layer.rev,
@@ -326,23 +326,37 @@ fn read_layer(
 ) -> Result<ResolvedEntry, Diagnostics> {
     let Found {
         dir,
-        files,
+        contents,
         env_files,
         pin,
         warnings,
     } = found;
     let failed = |problems: Diagnostics| warnings.clone().merge(problems);
-    let bytes = SafeRelPath::try_from("layer.yaml")
-        .map_err(|_unsafe| ReadError::Missing)
-        .and_then(|path| dir.read_file(&path, MAX_BYTES))
+    let bytes = layer_yaml_bytes(&dir, &contents)
         .map_err(|error| failed(single(error.into_layer_yaml_diagnostic(text))))?;
-    let meta: LayerMeta = lint::read_layer(text, lint::parse_document(&bytes)).map_err(failed)?;
+    let meta: LayerMeta = lint::read_layer(text, lint::parse_document(bytes)).map_err(failed)?;
     let env_errors: Diagnostics = env_files
         .iter()
         .map(|file| env_file_in_layer(meta.name(), file))
         .collect();
     Ok(ResolvedEntry {
         diagnostics: warnings.merge(env_errors),
-        layer: ResolvedLayer::new(source.clone(), meta, files, pin),
+        layer: ResolvedLayer::new(source.clone(), meta, contents, pin),
     })
+}
+
+/// The bytes of `layer.yaml` the walk read, which the content hash covers: the layer is parsed
+/// from them and never from a second read. A file that the walk did not read is asked about by
+/// name, only to tell a missing file from a link or a folder; nothing it holds is used, so a file
+/// that appeared after the walk counts as missing.
+fn layer_yaml_bytes<'a>(dir: &Dir, contents: &'a LayerContents) -> Result<&'a [u8], ReadError> {
+    let path = SafeRelPath::try_from("layer.yaml").map_err(|_unsafe| ReadError::Missing)?;
+    match contents.get(&path) {
+        Some(bytes) if bytes.len() > MAX_BYTES => Err(ReadError::TooLarge),
+        Some(bytes) => Ok(bytes),
+        None => Err(dir
+            .read_file(&path, MAX_BYTES)
+            .err()
+            .unwrap_or(ReadError::Missing)),
+    }
 }

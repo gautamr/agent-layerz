@@ -74,6 +74,8 @@ pub enum Code {
     DuplicateLayer,
     /// A layer that is more public than one before it in the stack (§3.1, §6 step 2).
     Visibility,
+    /// A Markdown file whose frontmatter block is not closed or is not a mapping (§4.1, §7.13).
+    Frontmatter,
 }
 
 impl Code {
@@ -96,6 +98,7 @@ impl Code {
             Self::Git => "git",
             Self::DuplicateLayer => "duplicate-layer",
             Self::Visibility => "visibility",
+            Self::Frontmatter => "frontmatter",
         }
     }
 }

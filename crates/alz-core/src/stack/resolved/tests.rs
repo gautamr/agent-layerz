@@ -1,9 +1,8 @@
 //! §6 step 2 over resolved layers, and the report of a whole stack.
 
 use crate::diagnostic::Diagnostics;
-use crate::layer::LayerMeta;
+use crate::layer::{LayerContents, LayerMeta};
 use crate::lint::parse_document;
-use crate::lock::LayerFiles;
 use crate::stack::Source;
 use crate::stack::resolved::{
     FailedEntry, ResolvedEntry, ResolvedLayer, ResolvedStack, StackReport,
@@ -16,7 +15,7 @@ fn layer(source: &str, name: &str, visibility: &str) -> ResolvedLayer {
     ResolvedLayer::new(
         Source::try_from(source).expect("a source"),
         LayerMeta::from_yaml(&node).expect("a layer"),
-        LayerFiles::default(),
+        LayerContents::default(),
         None,
     )
 }
@@ -146,4 +145,31 @@ fn an_error_that_did_not_stop_an_entry_still_keeps_the_stack_from_being_valid() 
         ["error [env-file] a:.env: layers must not contain .env files; remove it"]
     );
     assert!(report.stack().is_none());
+}
+
+#[test]
+fn the_files_of_a_resolved_layer_are_derived_from_its_contents() {
+    let yaml = "name: a\nkind: personal\nvisibility: private\n";
+    let contents: LayerContents = [
+        (
+            crate::path::SafeRelPath::try_from("layer.yaml").expect("a path"),
+            yaml.as_bytes().to_vec(),
+        ),
+        (
+            crate::path::SafeRelPath::try_from("instructions/00.md").expect("a path"),
+            b"text".to_vec(),
+        ),
+    ]
+    .into_iter()
+    .collect();
+    let node = parse_document(yaml.as_bytes()).expect("valid YAML");
+    let layer = ResolvedLayer::new(
+        Source::try_from("path:../a").expect("a source"),
+        LayerMeta::from_yaml(&node).expect("a layer"),
+        contents.clone(),
+        None,
+    );
+    assert_eq!(layer.contents(), &contents);
+    assert_eq!(layer.files(), &contents.files());
+    assert_eq!(layer.files().len(), 2);
 }

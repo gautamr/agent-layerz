@@ -12,8 +12,8 @@ use std::path::PathBuf;
 
 use alz_core::cache::{CacheLocation, EntryName};
 use alz_core::git::FetchFailureLine;
-use alz_core::layer::{Purpose, ReadLayer, scan_verdict};
-use alz_core::lock::{ContentHash, Integrity, LayerFiles, LockedLayer, ObjectId, verify};
+use alz_core::layer::{LayerContents, Purpose, ReadLayer, scan_verdict};
+use alz_core::lock::{ContentHash, Integrity, LockedLayer, ObjectId, verify};
 use alz_core::path::SafeRelPath;
 use alz_core::stack::resolution_failure::{
     cache_differs_from_clone, cache_differs_from_lock, cannot_fetch, cannot_store,
@@ -54,8 +54,8 @@ pub struct FetchedLayer {
     pub dir: Dir,
     /// The name of the entry.
     pub entry: EntryName,
-    /// The files the content hash covers.
-    pub files: LayerFiles,
+    /// The files the content hash covers, with the bytes the walk read.
+    pub contents: LayerContents,
     /// The `.env` files that were listed and never opened.
     pub env_files: Vec<SafeRelPath>,
     /// The commit.
@@ -206,12 +206,12 @@ impl<'a> Fetcher<'a> {
         else {
             return Ok(None);
         };
-        let (files, env_files) = self.read(layer, &dir)?;
-        match verify(&files, locked) {
+        let (contents, env_files) = self.read(layer, &dir)?;
+        match verify(&contents.files(), locked) {
             Integrity::Matches => Ok(Some(Self::layer(
                 dir,
                 name,
-                files,
+                contents,
                 env_files,
                 sha,
                 ReadHow::Cached,
@@ -225,7 +225,7 @@ impl<'a> Fetcher<'a> {
     }
 
     /// Reads a layer directory: the §5.3 order of checks decides what a refusal is.
-    fn read(&self, layer: &GitLayer<'_>, dir: &Dir) -> Step<(LayerFiles, Vec<SafeRelPath>)> {
+    fn read(&self, layer: &GitLayer<'_>, dir: &Dir) -> Step<(LayerContents, Vec<SafeRelPath>)> {
         scan_verdict(Purpose::Build, dir.scan(Purpose::Build))
             .map(ReadLayer::into_parts)
             .map_err(|refusal| {
@@ -238,7 +238,7 @@ impl<'a> Fetcher<'a> {
     fn layer(
         dir: Dir,
         entry: EntryName,
-        files: LayerFiles,
+        contents: LayerContents,
         env_files: Vec<SafeRelPath>,
         sha: ObjectId,
         read: ReadHow,
@@ -246,7 +246,7 @@ impl<'a> Fetcher<'a> {
         FetchedLayer {
             dir,
             entry,
-            files,
+            contents,
             env_files,
             sha,
             rev: sha.short_rev(),
@@ -302,7 +302,7 @@ impl<'a> Fetcher<'a> {
             .map_err(fail)?
             .ok_or_else(|| cannot_fetch(Self::source_text(layer), None))?;
         git.checkout(&clone, &commit).map_err(fail)?;
-        let (files, env_files) = self.read(layer, temp.dir())?;
+        let (contents, env_files) = self.read(layer, temp.dir())?;
         let name = EntryName::Git {
             key: layer.origin.key(),
             commit,
@@ -314,14 +314,14 @@ impl<'a> Fetcher<'a> {
             Published::Created(dir) => Ok(Self::layer(
                 dir,
                 name,
-                files,
+                contents,
                 env_files,
                 commit,
                 ReadHow::Fetched,
             )),
             Published::Existing(dir) => {
                 let (existing, existing_env) = self.read(layer, &dir)?;
-                if ContentHash::of(&existing) == ContentHash::of(&files) {
+                if ContentHash::of(&existing.files()) == ContentHash::of(&contents.files()) {
                     Ok(Self::layer(
                         dir,
                         name,

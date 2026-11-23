@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 
 use crate::diagnostic::Diagnostic;
+use crate::layer::contents::LayerContents;
 use crate::layer::scan::{LayerScan, NameProblem, Purpose};
 use crate::lock::LayerFiles;
 use crate::path::SafeRelPath;
@@ -59,19 +60,42 @@ impl From<NameProblem> for LayerRefusal {
     }
 }
 
-/// A scan that passed the checks before the content hash: the files the hash covers, which are
-/// only names the verdict has validated, and the `.env` files that were listed.
+/// A scan that passed the checks before the content hash: the files the hash covers with the
+/// bytes that were read, which are only names the verdict has validated, and the `.env` files
+/// that were listed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadLayer {
+    contents: LayerContents,
     files: LayerFiles,
     env_files: Vec<SafeRelPath>,
 }
 
 impl ReadLayer {
-    /// The files the content hash covers.
+    /// The layer a scan that passed the checks holds.
+    fn of(scan: LayerScan) -> Self {
+        let contents: LayerContents = scan.files.into_iter().collect();
+        Self {
+            files: contents.files(),
+            contents,
+            env_files: scan
+                .env_files
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+        }
+    }
+
+    /// The files the content hash covers, with the digest of the bytes the walk read.
     #[must_use]
     pub const fn files(&self) -> &LayerFiles {
         &self.files
+    }
+
+    /// The files the content hash covers, with the bytes the walk read.
+    #[must_use]
+    pub const fn contents(&self) -> &LayerContents {
+        &self.contents
     }
 
     /// The `.env` files, in code point order. None was opened.
@@ -94,10 +118,11 @@ impl ReadLayer {
         }
     }
 
-    /// The files and the `.env` files, for the build, which reports each `.env` file.
+    /// The files with their bytes and the `.env` files, for the build, which reports each `.env`
+    /// file. The digests are [`LayerContents::files`].
     #[must_use]
-    pub fn into_parts(self) -> (LayerFiles, Vec<SafeRelPath>) {
-        (self.files, self.env_files)
+    pub fn into_parts(self) -> (LayerContents, Vec<SafeRelPath>) {
+        (self.contents, self.env_files)
     }
 }
 
@@ -116,18 +141,7 @@ impl ReadLayer {
 ///
 /// The first of those checks that fails, as a [`LayerRefusal`].
 pub fn scan_verdict(purpose: Purpose, scan: LayerScan) -> Result<ReadLayer, LayerRefusal> {
-    match refusal(purpose, &scan) {
-        Some(refusal) => Err(refusal),
-        None => Ok(ReadLayer {
-            files: scan.files.into_iter().collect(),
-            env_files: scan
-                .env_files
-                .into_iter()
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect(),
-        }),
-    }
+    refusal(purpose, &scan).map_or_else(|| Ok(ReadLayer::of(scan)), Err)
 }
 
 fn refusal(purpose: Purpose, scan: &LayerScan) -> Option<LayerRefusal> {

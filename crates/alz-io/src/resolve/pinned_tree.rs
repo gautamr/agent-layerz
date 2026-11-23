@@ -21,8 +21,8 @@ use alz_core::git::{
     BlobId, EntryDifference, FetchFailureLine, ObjectCheck, ObjectContent, ObjectFormat,
     ObjectKind, TreeEntry, TreeListing, verify_entry,
 };
-use alz_core::layer::{Purpose, ReadLayer, scan_verdict};
-use alz_core::lock::{Integrity, LayerFiles, LockedLayer, ObjectId, verify};
+use alz_core::layer::{LayerContents, Purpose, ReadLayer, scan_verdict};
+use alz_core::lock::{Integrity, LockedLayer, ObjectId, verify};
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::stack::resolution_failure::{
     cache_differs_from_lock, cache_differs_from_tree, cannot_read_pinned, cannot_resolve_ref,
@@ -87,7 +87,7 @@ enum Refusal {
 }
 
 /// What reading one entry gives.
-type Verified = (LayerFiles, Vec<SafeRelPath>);
+type Verified = (LayerContents, Vec<SafeRelPath>);
 
 impl<'a> PinnedTreeReader<'a> {
     /// A reader that uses `cache`, found at `location`, and `git`.
@@ -145,7 +145,7 @@ impl<'a> PinnedTreeReader<'a> {
             && let Some(locked) = layer
                 .locked
                 .filter(|locked| locked.sha.as_ref() == Some(&commit))
-            && verify(&found.files, locked) == Integrity::Differs
+            && verify(&found.contents.files(), locked) == Integrity::Differs
         {
             return Err(cache_differs_from_lock(
                 &locked.name,
@@ -157,7 +157,7 @@ impl<'a> PinnedTreeReader<'a> {
             layer: FetchedLayer {
                 dir: found.dir,
                 entry: name,
-                files: found.files,
+                contents: found.contents,
                 env_files: found.env_files,
                 sha: commit,
                 rev: layer.git_ref.clone(),
@@ -340,9 +340,9 @@ impl<'a> PinnedTreeReader<'a> {
             || cache_differs_from_tree(Self::source_text(layer), tree, self.entry_directory(&name));
         let existing = |dir: Dir| {
             Self::verified(layer, &dir, listing, format)
-                .map(|(files, env_files)| Found {
+                .map(|(contents, env_files)| Found {
                     dir,
-                    files,
+                    contents,
                     env_files,
                     read: ReadHow::Cached,
                 })
@@ -361,7 +361,7 @@ impl<'a> PinnedTreeReader<'a> {
         let temp =
             TempEntry::create(self.cache).map_err(|error| self.cache_failure(layer, error))?;
         self.write_tree(layer, top, &temp, listing, format)?;
-        let (files, env_files) = Self::verified(layer, temp.dir(), listing, format).map_err(
+        let (contents, env_files) = Self::verified(layer, temp.dir(), listing, format).map_err(
             |refusal| match refusal {
                 Refusal::Named(diagnostic) => diagnostic,
                 Refusal::Differs => cannot_read_pinned(
@@ -380,7 +380,7 @@ impl<'a> PinnedTreeReader<'a> {
             Published::Created(dir) => Ok((
                 Found {
                     dir,
-                    files,
+                    contents,
                     env_files,
                     read: ReadHow::Fetched,
                 },
@@ -523,7 +523,7 @@ impl<'a> PinnedTreeReader<'a> {
 /// What reading or writing the entry found.
 struct Found {
     dir: Dir,
-    files: LayerFiles,
+    contents: LayerContents,
     env_files: Vec<SafeRelPath>,
     read: ReadHow,
 }
