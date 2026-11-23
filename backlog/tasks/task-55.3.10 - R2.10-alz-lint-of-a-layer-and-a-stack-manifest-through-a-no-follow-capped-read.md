@@ -3,11 +3,11 @@ id: TASK-55.3.10
 title: >-
   R2.10: alz lint of a layer and a stack manifest, through a no-follow capped
   read
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
-updated_date: '2026-11-23T05:27:00Z'
+updated_date: '2026-11-23T06:37:00Z'
 labels:
   - area:rust
   - area:cli
