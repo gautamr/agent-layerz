@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T17:19:00Z'
-updated_date: '2026-11-23T04:24:00Z'
+updated_date: '2026-11-23T05:31:00Z'
 labels:
   - discovered
   - area:security
@@ -40,4 +40,6 @@ Found while amending decision-24 after the R0 security review; not reproduced ye
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R3 (TASK-55.4); AC #2 reworded from a TypeScript fix to the Rust rule. R4 depends on this task.
+
+Lead (2026-11-23, owner asked the lead to decide): no row in docs/target-facts.md for --end-of-options or the hook environment, since that file holds Claude Code and Codex facts only; these git facts are recorded in decision-24 (including the observed GIT_INDEX_FILE in a pre-commit hook). AC #3's spec text should also name the oldest git that alz supports, at least 2.24, the first with --end-of-options, and what alz does with an older git.
 <!-- SECTION:NOTES:END -->

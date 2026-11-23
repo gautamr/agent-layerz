@@ -4,13 +4,14 @@ title: Cyclic YAML aliases are accepted
 status: To Do
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
-updated_date: '2026-11-23T04:24:00Z'
+updated_date: '2026-11-23T05:19:00Z'
 labels:
   - discovered
   - area:security
   - area:rust
 milestone: m-7
-dependencies: []
+dependencies:
+  - TASK-55.3.11
 references:
   - src/core/yaml.ts
 priority: low
@@ -35,4 +36,6 @@ A self-referencing alias parses into a cyclic object instead of an error. Code t
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R2 (TASK-55.3, YAML with limits and the manifest model). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R3 depends on this task, so it closes within R2.
+
+Architect (2026-11-23, R2 plan in TASK-55.3): fixed in the Rust model by R2.4 (TASK-55.3.4); closed by R2.11 (TASK-55.3.11), which adds the acceptance cases (referenceDrift where the reference fails) and checks these criteria with its run. This task now depends on TASK-55.3.11.
 <!-- SECTION:NOTES:END -->
