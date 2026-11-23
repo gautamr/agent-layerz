@@ -3,11 +3,11 @@ id: TASK-55.4.5
 title: >-
   R3.5: Cache location, entry names, account folders and the component walk,
   pure
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T07:59:00Z'
+updated_date: '2026-11-23T08:04:00Z'
 labels:
   - area:rust
   - area:security
