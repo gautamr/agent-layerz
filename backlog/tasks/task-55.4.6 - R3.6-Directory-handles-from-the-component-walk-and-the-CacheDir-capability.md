@@ -1,11 +1,11 @@
 ---
 id: TASK-55.4.6
 title: 'R3.6: Directory handles from the component walk, and the CacheDir capability'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T07:59:00Z'
+updated_date: '2026-11-23T08:16:00Z'
 labels:
   - area:rust
   - area:security
