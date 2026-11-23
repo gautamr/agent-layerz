@@ -3,10 +3,11 @@
 //! format character and no unstripped source reaches a line. None has a location: the source or
 //! the layer is named in the message, as the spec words each one.
 
-use crate::diagnostic::{Code, Diagnostic, Message};
+use crate::diagnostic::{Code, Diagnostic, Message, Where};
 use crate::git::{FetchFailureLine, ListingRefusal};
 use crate::layer::LayerName;
 use crate::lock::ObjectId;
+use crate::path::SafeRelPath;
 use crate::stack::GitRef;
 use crate::stack::source::CREDENTIALS_MESSAGE;
 use crate::untrusted_text::Stripped;
@@ -215,6 +216,33 @@ pub fn file_name_not_utf8(source: Stripped) -> Diagnostic {
         Message::new("a file or folder name in layer '")
             .then(source)
             .then("' is not valid UTF-8; rename it"),
+    )
+}
+
+/// A layer that the walk could not read, or whose names are not allowed, that is not a build of
+/// the cache (§5.3 "File names"): the working tree of an unpinned `path:` layer.
+#[must_use]
+pub fn layer_unreadable(source: Stripped) -> Diagnostic {
+    Diagnostic::error(
+        Code::Layer,
+        None,
+        Message::new("layer '")
+            .then(source)
+            .then("' holds a file that cannot be read or a name that is not allowed"),
+    )
+}
+
+/// A `.env` file in a layer (§5.3 "`.env` files"): the error `env-file` at `<layer>:<path>`. The
+/// file was listed and never opened.
+#[must_use]
+pub fn env_file_in_layer(layer: &LayerName, file: &SafeRelPath) -> Diagnostic {
+    Diagnostic::error(
+        Code::EnvFile,
+        Some(Where::layer_file(
+            Stripped::from_untrusted(layer.as_str()),
+            Stripped::from_untrusted(file.as_str()),
+        )),
+        Message::new("layers must not contain .env files; remove it"),
     )
 }
 

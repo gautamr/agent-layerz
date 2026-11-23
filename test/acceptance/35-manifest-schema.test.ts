@@ -64,7 +64,10 @@ describe("§13.27 stack entry ref (§5.2, TASK-61)", () => {
     const result = await layers(ws, "repo", ["lint"]);
     expect(result.stderr).not.toContain("error [manifest]");
     expect(result.stderr).not.toContain("stack[1].ref");
-    expect([0, 1]).toContain(result.code);
+    // The manifest is valid, so the stack is resolved (§6): the fixture's repository is no git
+    // repository, so a pinned layer cannot be read, which is a source error and no manifest error.
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("error [source] cannot resolve ref 1.10 for 'path:./.layer'");
   });
 });
 

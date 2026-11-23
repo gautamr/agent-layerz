@@ -70,9 +70,10 @@ pub enum Code {
     /// A git that alz refuses: older than the minimum version, or not started (§6 "Git
     /// subprocesses").
     Git,
-    /// A command that the Rust `alz` does not implement yet. Temporary: it is not in the spec,
-    /// and the phase that ports the command removes it.
-    NotPorted,
+    /// Two layers of the stack with one name (§6 step 2).
+    DuplicateLayer,
+    /// A layer that is more public than one before it in the stack (§3.1, §6 step 2).
+    Visibility,
 }
 
 impl Code {
@@ -93,7 +94,8 @@ impl Code {
             Self::AccountConfig => "account-config",
             Self::AccountAllowed => "account-allowed",
             Self::Git => "git",
-            Self::NotPorted => "not-ported",
+            Self::DuplicateLayer => "duplicate-layer",
+            Self::Visibility => "visibility",
         }
     }
 }

@@ -4,6 +4,7 @@
 
 use thiserror::Error;
 
+use crate::diagnostic::{Code, Diagnostic, Message};
 use crate::path::AbsolutePath;
 
 /// The folder under the cache base that alz owns.
@@ -31,6 +32,20 @@ pub enum CacheBase {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 #[error("cannot locate the layer cache: set HOME or XDG_CACHE_HOME to an absolute path")]
 pub struct CacheLocationError;
+
+impl CacheLocationError {
+    /// The error `cache`, with no location (§6 "The layer cache").
+    #[must_use]
+    pub fn into_diagnostic(self) -> Diagnostic {
+        Diagnostic::error(
+            Code::Cache,
+            None,
+            Message::new(
+                "cannot locate the layer cache: set HOME or XDG_CACHE_HOME to an absolute path",
+            ),
+        )
+    }
+}
 
 impl CacheLocation {
     /// The cache root for the two variables, each as the environment holds it (`None` when it is

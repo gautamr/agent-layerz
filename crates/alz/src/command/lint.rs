@@ -2,9 +2,10 @@
 //! lock of the repository in the working directory.
 //!
 //! The command wires three parts: `alz-io` reads `layer.yaml` and `layer.lock` without following
-//! links and with a size cap, `alz_core::lint` decides what is wrong, and [`crate::report`]
-//! prints it. R2 checks only what R2 models (the schema of a layer, the stack manifest and the
-//! lock); the leak guard and the rest of the checks arrive with R4 and R5.
+//! links and with a size cap and resolves the stack's layers, `alz_core::lint` decides what is
+//! wrong, and [`crate::report`] prints it. It checks what is modelled so far (the schema of a
+//! layer, the stack manifest and lock, and the resolution of the stack's layers); the leak guard
+//! and the rest of the checks arrive with R4 and R5.
 
 use std::io::{self, Write};
 use std::path::Path;
@@ -13,7 +14,7 @@ use alz_core::lint::{self, LayerLint, LockFile};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
 use alz_core::yaml::MAX_BYTES;
 use alz_core::{Diagnostic, Diagnostics, Stripped};
-use alz_io::{ReadError, ReadOnlyDir};
+use alz_io::{EnvSnapshot, ReadError, ReadOnlyDir, StackResolver};
 
 use crate::cli::LintArgs;
 use crate::report::emit_diagnostics;
@@ -25,7 +26,8 @@ const WORKING_DIRECTORY: &str = ".";
 #[derive(Debug)]
 struct Outcome {
     diagnostics: Diagnostics,
-    /// The linted layers' names, for the summary line (§10.1). A stack has none in R2.
+    /// The linted layers' names, for the summary line (§10.1). A stack whose manifest or lock is
+    /// invalid has none: no layer was reached.
     summary: Option<Stripped>,
 }
 
@@ -62,10 +64,7 @@ fn lint_working_directory() -> Outcome {
     let directory = Path::new(WORKING_DIRECTORY);
     let source = given(directory);
     match read_layer_yaml(directory, &source).map(|bytes| lint::parse_document(&bytes)) {
-        Ok(Ok(document)) if lint::is_stack_manifest(&document) => Outcome {
-            diagnostics: lint_stack(directory, &document),
-            summary: None,
-        },
+        Ok(Ok(document)) if lint::is_stack_manifest(&document) => lint_stack(directory, &document),
         read => layer_outcome(&source, read),
     }
 }
@@ -89,14 +88,49 @@ fn layer_outcome(
     }
 }
 
-/// The manifest's and the lock's diagnostics. A lock that cannot be read is reported as a lock
-/// error; a lock that does not exist is no lock.
-fn lint_stack(directory: &Path, manifest: &alz_core::yaml::Node) -> Diagnostics {
-    match read_lock(directory) {
-        Ok(None) => lint::stack_manifest(manifest, LockFile::Absent),
-        Ok(Some(bytes)) => lint::stack_manifest(manifest, LockFile::Bytes(&bytes)),
-        Err(unreadable) => lint::stack_manifest(manifest, LockFile::Unreadable(unreadable)),
+/// A repository's stack: the manifest and the lock are read first, and when both are valid each
+/// entry is resolved (§6) and its `layer.yaml` read, then the stack is validated. A lock that
+/// cannot be read is reported as a lock error; a lock that does not exist is no lock.
+fn lint_stack(directory: &Path, manifest: &alz_core::yaml::Node) -> Outcome {
+    let bytes = read_lock(directory);
+    let lock = match &bytes {
+        Ok(None) => LockFile::Absent,
+        Ok(Some(bytes)) => LockFile::Bytes(bytes),
+        Err(unreadable) => LockFile::Unreadable(unreadable.clone()),
+    };
+    match lint::read_stack(manifest, lock) {
+        Err(diagnostics) => Outcome {
+            diagnostics,
+            summary: None,
+        },
+        Ok(files) => {
+            let env = EnvSnapshot::capture();
+            match StackResolver::in_working_directory(&env) {
+                Err(diagnostic) => Outcome {
+                    diagnostics: Diagnostics::new().with(diagnostic),
+                    summary: None,
+                },
+                Ok(resolver) => {
+                    let report = resolver.resolve(&files.manifest, files.lock.as_ref());
+                    Outcome {
+                        summary: Some(joined(report.names())),
+                        diagnostics: report.diagnostics().clone(),
+                    }
+                }
+            }
+        }
     }
+}
+
+/// The names joined by `, ` (§10.1).
+fn joined(names: &[Stripped]) -> Stripped {
+    Stripped::from_untrusted(
+        &names
+            .iter()
+            .map(Stripped::as_str)
+            .collect::<Vec<_>>()
+            .join(", "),
+    )
 }
 
 fn read_layer_yaml(directory: &Path, source: &Stripped) -> Result<Vec<u8>, Diagnostic> {

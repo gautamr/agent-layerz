@@ -211,7 +211,6 @@ mod tests {
         let run = lint_layer(&directory, "layer");
         assert_eq!(run.code, 1);
         assert!(run.stderr.starts_with("error [layer]"), "{}", run.stderr);
-        assert!(!run.stderr.contains("not-ported"), "{}", run.stderr);
     }
 
     #[test]
@@ -235,37 +234,56 @@ mod tests {
     }
 
     #[test]
-    fn a_valid_manifest_and_lock_stop_at_not_ported_naming_r3() {
+    fn a_valid_manifest_and_lock_resolve_the_stack_and_print_the_summary() {
         let directory = scratch();
-        directory.write("layer.yaml", MANIFEST).expect("written");
-        directory.write("layer.lock", LOCK).expect("written");
-        let run = alz(directory.path(), &["lint"]);
-        assert_eq!(run.code, 1);
-        assert_eq!(run.stderr.lines().count(), 1, "stderr: {}", run.stderr);
-        assert!(
-            run.stderr.starts_with("error [not-ported] layer.yaml: "),
-            "stderr: {}",
-            run.stderr
-        );
-        assert!(run.stderr.contains("R3"), "stderr: {}", run.stderr);
-        assert_eq!(run.stdout, "");
+        directory.make_dir("personal").expect("made");
+        directory.make_dir("repo").expect("made");
+        directory
+            .write("personal/layer.yaml", LAYER)
+            .expect("written");
+        directory
+            .write("repo/layer.yaml", MANIFEST)
+            .expect("written");
+        directory.write("repo/layer.lock", LOCK).expect("written");
+        let run = alz(&directory.path().join("repo"), &["lint"]);
+        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(run.stdout, "lint ok: personal\n");
     }
 
     #[test]
-    fn a_valid_manifest_without_a_lock_also_stops_at_not_ported() {
+    fn a_valid_manifest_without_a_lock_resolves_the_stack_too() {
         let directory = scratch();
-        directory.write("layer.yaml", MANIFEST).expect("written");
-        let run = alz(directory.path(), &["lint"]);
-        assert_eq!(run.code, 1);
-        assert!(
-            run.stderr.starts_with("error [not-ported]"),
-            "{}",
-            run.stderr
-        );
+        directory.make_dir("personal").expect("made");
+        directory.make_dir("repo").expect("made");
+        directory
+            .write("personal/layer.yaml", LAYER)
+            .expect("written");
+        directory
+            .write("repo/layer.yaml", MANIFEST)
+            .expect("written");
+        let run = alz(&directory.path().join("repo"), &["lint"]);
+        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(run.stdout, "lint ok: personal\n");
     }
 
     #[test]
-    fn manifest_errors_are_reported_together_without_not_ported() {
+    fn a_stack_whose_layer_is_missing_is_the_error_source_with_a_summary() {
+        let directory = scratch();
+        directory.make_dir("repo").expect("made");
+        directory
+            .write("repo/layer.yaml", MANIFEST)
+            .expect("written");
+        let run = alz(&directory.path().join("repo"), &["lint"]);
+        assert_eq!(run.code, 1);
+        assert_eq!(
+            run.stderr,
+            "error [source] layer directory not found for 'path:../personal'\n"
+        );
+        assert_eq!(run.stdout, "lint failed: 1 error in path:../personal\n");
+    }
+
+    #[test]
+    fn manifest_errors_are_reported_together() {
         let directory = scratch();
         directory
             .write(
@@ -289,7 +307,6 @@ mod tests {
             "stderr: {}",
             run.stderr
         );
-        assert!(!run.stderr.contains("not-ported"), "stderr: {}", run.stderr);
     }
 
     #[test]
@@ -323,7 +340,6 @@ mod tests {
             "{}",
             run.stderr
         );
-        assert!(!run.stderr.contains("not-ported"), "{}", run.stderr);
     }
 
     #[test]

@@ -16,5 +16,5 @@ pub use git::{
 };
 pub use resolve::{
     FetchedLayer, Fetcher, GitLayer, PinnedLayer, PinnedRead, PinnedTreeReader, ReadHow,
-    locate_git_source,
+    StackResolver, locate_git_source,
 };
