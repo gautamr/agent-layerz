@@ -132,6 +132,7 @@ impl FieldError {
 pub struct Section<'a> {
     mapping: &'a Mapping,
     path: KeyPath,
+    at: Position,
 }
 
 impl<'a> Section<'a> {
@@ -142,7 +143,11 @@ impl<'a> Section<'a> {
     /// [`FieldProblem::NotMapping`] when the node is not a mapping.
     pub fn new(node: &'a Node, path: KeyPath) -> Result<Self, FieldError> {
         match node.value() {
-            Value::Map(mapping) => Ok(Self { mapping, path }),
+            Value::Map(mapping) => Ok(Self {
+                mapping,
+                path,
+                at: node.at(),
+            }),
             Value::Null
             | Value::Bool(_)
             | Value::Int(_)
@@ -154,6 +159,39 @@ impl<'a> Section<'a> {
                 at: node.at(),
             }),
         }
+    }
+
+    /// Where the section's mapping starts in the file.
+    #[must_use]
+    pub const fn at(&self) -> Position {
+        self.at
+    }
+
+    /// The key path of the section.
+    #[must_use]
+    pub const fn path(&self) -> &KeyPath {
+        &self.path
+    }
+
+    /// The key path of a field of this section.
+    #[must_use]
+    pub fn field_path(&self, field: &'static str) -> KeyPath {
+        self.path.field(field)
+    }
+
+    /// The node of the field, `None` when it is absent.
+    #[must_use]
+    pub fn node(&self, field: &str) -> Option<&'a Node> {
+        self.mapping.get(field)
+    }
+
+    /// Where the key `field` is written, `None` when it is absent.
+    #[must_use]
+    pub fn key_position(&self, field: &str) -> Option<Position> {
+        self.mapping
+            .entries()
+            .find(|(key, _)| matches!(key.value(), Value::Text(text) if text == field))
+            .map(|(key, _)| key.at())
     }
 
     /// The error for every key that is not one of `known`, each as a quoted key, in document
