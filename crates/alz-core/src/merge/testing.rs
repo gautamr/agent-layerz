@@ -7,10 +7,20 @@ use crate::merge::{Merging, Placements, merge};
 use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack, Source};
 
-/// A layer called `name` of kind `kind`, with the files `(path, text)`. Every layer is private,
-/// so a stack of them is a valid stack (§3.1).
+/// A layer called `name` of kind `kind`, with the files `(path, text)`. It is private, so a stack
+/// of such layers is a valid stack (§3.1).
 pub(crate) fn layer(name: &str, kind: &str, files: &[(&str, &str)]) -> ResolvedLayer {
-    let yaml = format!("name: {name}\nkind: {kind}\nvisibility: private\n");
+    layer_visible(name, kind, "private", files)
+}
+
+/// A layer like [`layer`] with the visibility `visibility`.
+pub(crate) fn layer_visible(
+    name: &str,
+    kind: &str,
+    visibility: &str,
+    files: &[(&str, &str)],
+) -> ResolvedLayer {
+    let yaml = format!("name: {name}\nkind: {kind}\nvisibility: {visibility}\n");
     let node = parse_document(yaml.as_bytes()).expect("valid YAML");
     ResolvedLayer::new(
         Source::try_from(format!("path:../{name}").as_str()).expect("a source"),

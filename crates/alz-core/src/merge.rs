@@ -12,6 +12,7 @@
 //! | collections are combined | [`OrderedSet`], [`ListEdit`] |
 //! | settings are deep-merged | [`Tree::deep_merge`] |
 //! | security only gets stricter | [`Floor`] |
+//! | an overlay may only narrow a tool | [`covers`] |
 //!
 //! The fold lives in [`merge`]. Each kind of item (instructions, agents, skills, and the rest of
 //! §7) adds its own state to the fold and its own field to [`Merged`]; see the module docs of
@@ -28,7 +29,7 @@ mod stack;
 pub(crate) mod testing;
 
 pub use agents::{AgentBody, ContextSection, MergedAgent};
-pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree};
+pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree, covers, widened};
 pub use instructions::InstructionBlock;
 pub use placement::{Placement, Placements};
 pub use provenance::{Action, Contribution, Provenance, Traced};

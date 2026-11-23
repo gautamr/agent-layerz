@@ -22,6 +22,8 @@ pub enum AgentRefusal {
     Model,
     /// A blank tool entry.
     Tool,
+    /// A tool entry that names no tool of the neutral vocabulary or of an MCP server.
+    UnknownTool,
     /// An `isolation` that is not `none` or `worktree`.
     Isolation,
     /// A `memory` that is not `none`, `project`, `user` or `local`.
@@ -43,6 +45,9 @@ impl AgentRefusal {
                 "must be kebab-case: lower-case letters and digits in groups joined by '-'"
             }
             Self::Description | Self::Role | Self::Model | Self::Tool => "must not be empty",
+            Self::UnknownTool => {
+                "must name a tool: read, write, edit, grep, glob, bash, web_fetch, web_search, agent, notebook_edit, todo_write, skill or an mcp__ tool, then an optional :scope"
+            }
             Self::Isolation => "must be none or worktree",
             Self::Memory => "must be none, project, user or local",
             Self::PermissionMode => {
@@ -148,13 +153,6 @@ text_value! {
 text_value! {
     /// The `model` of an agent: `inherit` or a logical model id of `models.yaml` (§7.8, §7.2).
     ModelId, Model
-}
-
-text_value! {
-    /// One entry of an agent's `tools`, in the neutral vocabulary (`read`, `write:docs/**`, ...).
-    /// It is kept as written: its tool and scope are read, and an unknown tool refused, by the
-    /// narrowing rule (R4.6).
-    ToolEntry, Tool
 }
 
 /// `isolation`: whether the agent runs in its own work tree.

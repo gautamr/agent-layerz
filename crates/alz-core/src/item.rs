@@ -12,8 +12,8 @@ mod rule;
 
 pub use agent::{
     AgentBase, AgentDescription, AgentItems, AgentName, AgentOverlay, AgentRefusal, AgentScalars,
-    Isolation, Memory, ModelId, NativeFields, NativeMap, NativeValue, OverlayMode, PermissionMode,
-    Role, SkillName, ToolEntry,
+    Isolation, McpToolName, Memory, ModelId, NativeFields, NativeMap, NativeValue, NeutralTool,
+    OverlayMode, PermissionMode, Role, SkillName, ToolGrant, ToolName, ToolScope,
 };
 pub use instruction::{
     ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, InstructionMode,

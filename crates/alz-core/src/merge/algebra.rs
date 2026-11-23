@@ -9,11 +9,13 @@
 //!   applying a composition equals applying the edits one after the other.
 //! - [`Tree::deep_merge`]: the left fold of settings. Associative over kind-consistent trees.
 //! - [`Floor`]: a join on an ordered type, so a later value can raise a setting and never lower it.
+//! - [`covers`]: the narrowing preorder on tool entries. Reflexive and transitive.
 
 mod deep_merge;
 mod floor;
 mod last;
 mod list_edit;
+mod narrowing;
 mod ordered_set;
 mod replace;
 
@@ -21,5 +23,6 @@ pub use deep_merge::{FloatBits, Tree};
 pub use floor::Floor;
 pub use last::Last;
 pub use list_edit::ListEdit;
+pub use narrowing::{covers, widened};
 pub use ordered_set::OrderedSet;
 pub use replace::Replace;

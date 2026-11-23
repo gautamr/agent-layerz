@@ -1,4 +1,4 @@
-use crate::item::{AgentName, ModelId, Role, SkillName, ToolEntry};
+use crate::item::{AgentName, ModelId, Role, SkillName, ToolGrant};
 use crate::item::{NativeMap, NativeValue};
 use crate::merge::provenance::{Action, Traced};
 use crate::merge::testing::{layer, lines, merged};
@@ -109,10 +109,15 @@ fn skills(agent: &MergedAgent) -> Vec<&str> {
     agent.skills().iter().map(SkillName::as_str).collect()
 }
 
-fn tools(agent: &MergedAgent) -> Option<Vec<&str>> {
+fn tools(agent: &MergedAgent) -> Option<Vec<String>> {
     agent
         .tools()
-        .map(|tools| tools.iter().map(ToolEntry::as_str).collect())
+        .map(|tools| tools.iter().map(ToolGrant::to_string).collect())
+}
+
+/// The tool entries as the list a merged agent holds.
+fn entries(list: &[&str]) -> Vec<String> {
+    list.iter().map(|entry| (*entry).to_owned()).collect()
 }
 
 /// A stack of a base agent in `personal` and overlays in `acme`.
@@ -143,7 +148,7 @@ fn a_base_a_skills_overlay_and_a_body_overlay_give_one_agent() {
     assert_eq!(value.scalars().role().map(Role::as_str), Some("planning"));
     assert_eq!(
         tools(value),
-        Some(vec!["read", "grep", "glob", "write:docs/**"])
+        Some(entries(&["read", "grep", "glob", "write:docs/**"]))
     );
     // The body of the generated file's expected text is the composed body.
     let composed = value.body().compose();
@@ -536,7 +541,7 @@ fn list_edits_apply_in_stack_order_and_keep_each_item_once_in_first_seen_order()
     ]);
     let value = agent(&model, "a").value();
     assert_eq!(skills(value), ["one", "three", "four"]);
-    assert_eq!(tools(value), Some(vec!["read", "write:docs/adr/**"]));
+    assert_eq!(tools(value), Some(entries(&["read", "write:docs/adr/**"])));
 }
 
 #[test]
