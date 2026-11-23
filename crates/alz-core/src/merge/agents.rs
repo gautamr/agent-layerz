@@ -14,8 +14,11 @@
 //!   any other overlay without a base is `unresolved`.
 //! - Native fields: deep-merged per target ([`NativeFields`]).
 //!
-//! Which tool entries an overlay may add is the narrowing rule of R4.6; here the edits apply as
-//! written, except that an overlay cannot remove a tool from an agent that has no tool list.
+//! - Tools: after an overlay's edit every entry must be covered by an entry of the agent it refines
+//!   ([`covers`]), unless the overlay sets `allow_widen` and its layer is not public; an entry
+//!   that is not is a `tool-widen` error naming the agent, the layer and the entry, and the overlay
+//!   is not applied. `allow_widen` in a public layer is a `tool-widen` error too. An overlay
+//!   cannot remove a tool from an agent that has no tool list.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -23,13 +26,14 @@ use std::fmt;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart};
 use crate::item::{
     AgentBase, AgentDescription, AgentItems, AgentName, AgentOverlay, AgentScalars, NativeFields,
-    OverlayMode, SkillName, ToolEntry, place,
+    OverlayMode, SkillName, ToolGrant, place,
 };
-use crate::layer::{LayerHeading, LayerMeta};
-use crate::merge::algebra::{ListEdit, OrderedSet};
+use crate::layer::{LayerHeading, LayerMeta, Visibility};
+use crate::merge::algebra::{ListEdit, OrderedSet, widened};
 use crate::merge::provenance::{Action, Traced};
 use crate::merge::stack::LayerContext;
 use crate::target::TargetName;
+use crate::untrusted_text::Stripped;
 
 /// The text one overlay added to an agent's body, under the heading of its layer.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,16 +132,21 @@ pub struct MergedAgent {
     name: AgentName,
     description: AgentDescription,
     scalars: AgentScalars,
-    tools: Option<OrderedSet<ToolEntry>>,
+    tools: Option<OrderedSet<ToolGrant>>,
     skills: OrderedSet<SkillName>,
     targets: Option<OrderedSet<TargetName>>,
     native: NativeFields,
     body: AgentBody,
 }
 
-/// An overlay that removes a tool from an agent that has no tool list, so inherits every tool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RemovesFromAllTools;
+/// Why an overlay's tools cannot be applied.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ToolsRefused {
+    /// It removes a tool from an agent that has no tool list, so inherits every tool.
+    RemovesFromAllTools,
+    /// It leaves entries that no entry of the agent it refines covers, and may not widen.
+    Widens(Vec<ToolGrant>),
+}
 
 impl MergedAgent {
     /// The agent a base file defines.
@@ -159,9 +168,9 @@ impl MergedAgent {
 
     /// The agent a `replace` overlay defines when no more general layer has one: the overlay's
     /// edits apply to an agent with nothing. `None` when the overlay has no `description`.
-    fn defined_by_overlay(overlay: &AgentOverlay) -> Option<Result<Self, RemovesFromAllTools>> {
+    fn defined_by_overlay(overlay: &AgentOverlay) -> Option<Result<Self, ToolsRefused>> {
         overlay.description().map(|description| {
-            edited_tools(None, overlay.tools()).map(|tools| Self {
+            edited_tools(None, overlay.tools(), overlay.allow_widen()).map(|tools| Self {
                 name: overlay.extends().clone(),
                 description: description.clone(),
                 scalars: overlay.scalars().clone(),
@@ -180,23 +189,21 @@ impl MergedAgent {
     }
 
     /// The agent after an overlay of the layer `meta` describes.
-    fn refined_by(
-        self,
-        overlay: &AgentOverlay,
-        meta: &LayerMeta,
-    ) -> Result<Self, RemovesFromAllTools> {
-        edited_tools(self.tools, overlay.tools()).map(|tools| Self {
-            name: self.name,
-            description: overlay.description().cloned().unwrap_or(self.description),
-            scalars: self.scalars.merge(overlay.scalars().clone()),
-            tools,
-            skills: overlay.skills().apply(&self.skills),
-            targets: match overlay.targets() {
-                Some(edit) => Some(edit.apply(&self.targets.unwrap_or_default())),
-                None => self.targets,
-            },
-            native: self.native.merge(overlay.native().clone()),
-            body: self.body.then(overlay.mode(), overlay.body(), meta),
+    fn refined_by(self, overlay: &AgentOverlay, meta: &LayerMeta) -> Result<Self, ToolsRefused> {
+        edited_tools(self.tools.as_ref(), overlay.tools(), overlay.allow_widen()).map(|tools| {
+            Self {
+                name: self.name,
+                description: overlay.description().cloned().unwrap_or(self.description),
+                scalars: self.scalars.merge(overlay.scalars().clone()),
+                tools,
+                skills: overlay.skills().apply(&self.skills),
+                targets: match overlay.targets() {
+                    Some(edit) => Some(edit.apply(&self.targets.unwrap_or_default())),
+                    None => self.targets,
+                },
+                native: self.native.merge(overlay.native().clone()),
+                body: self.body.then(overlay.mode(), overlay.body(), meta),
+            }
         })
     }
 
@@ -220,7 +227,7 @@ impl MergedAgent {
 
     /// The tools, `None` when the agent inherits every tool.
     #[must_use]
-    pub const fn tools(&self) -> Option<&OrderedSet<ToolEntry>> {
+    pub const fn tools(&self) -> Option<&OrderedSet<ToolGrant>> {
         self.tools.as_ref()
     }
 
@@ -250,21 +257,31 @@ impl MergedAgent {
 }
 
 /// The tool list after an edit. An agent with no list inherits every tool: an edit that replaces
-/// it or only adds gives it a list, and one that removes cannot say what is left.
+/// it or only adds gives it a list, and one that removes cannot say what is left. Every entry of
+/// the result must be covered by an entry of `current`, unless `allow_widen`.
 fn edited_tools(
-    current: Option<OrderedSet<ToolEntry>>,
-    edit: Option<&ListEdit<ToolEntry>>,
-) -> Result<Option<OrderedSet<ToolEntry>>, RemovesFromAllTools> {
-    match (current, edit) {
-        (current, None) => Ok(current),
-        (Some(tools), Some(edit)) => Ok(Some(edit.apply(&tools))),
+    current: Option<&OrderedSet<ToolGrant>>,
+    edit: Option<&ListEdit<ToolGrant>>,
+    allow_widen: bool,
+) -> Result<Option<OrderedSet<ToolGrant>>, ToolsRefused> {
+    let edited = match (current, edit) {
+        (current, None) => Ok(current.cloned()),
+        (Some(tools), Some(edit)) => Ok(Some(edit.apply(tools))),
         (None, Some(ListEdit::Replace(tools))) => Ok(Some(tools.clone())),
         (None, Some(ListEdit::Adjust { remove, add })) => match (remove.is_empty(), add.is_empty())
         {
             (true, true) => Ok(None),
             (true, false) => Ok(Some(add.clone())),
-            (false, _) => Err(RemovesFromAllTools),
+            (false, _) => Err(ToolsRefused::RemovesFromAllTools),
         },
+    }?;
+    let wide: Vec<ToolGrant> = edited.as_ref().map_or_else(Vec::new, |result| {
+        widened(current, result).into_iter().cloned().collect()
+    });
+    if wide.is_empty() || allow_widen {
+        Ok(edited)
+    } else {
+        Err(ToolsRefused::Widens(wide))
     }
 }
 
@@ -354,6 +371,37 @@ fn refine(
                 .then(" inherits all tools; give it an explicit tools list before removing one"),
         )
     };
+    if overlay.allow_widen() && meta.visibility() == Visibility::Public {
+        return (
+            agents,
+            Diagnostics::new().with(Diagnostic::error(
+                Code::ToolWiden,
+                at(),
+                Message::new("allow_widen is not allowed in a public layer"),
+            )),
+        );
+    }
+    let refused = |refusal: ToolsRefused| match refusal {
+        ToolsRefused::RemovesFromAllTools => Diagnostics::new().with(inherits_all()),
+        ToolsRefused::Widens(entries) => entries
+            .iter()
+            .map(|entry| {
+                Diagnostic::error(
+                    Code::ToolWiden,
+                    at(),
+                    Message::new("overlay on agent ")
+                        .then(MessagePart::printable(overlay.extends()))
+                        .then(" adds tool ")
+                        .then(Stripped::from_untrusted(&entry.to_string()))
+                        .then(
+                            ", which the agent it refines does not grant; an overlay may only \
+                             remove or narrow tools (allow_widen: true is accepted in a layer \
+                             that is not public)",
+                        ),
+                )
+            })
+            .collect(),
+    };
     let found = match (agents.remove(overlay.extends()), overlay.mode()) {
         (Some(previous), mode) => match previous.value().clone().refined_by(overlay, meta) {
             Ok(agent) => {
@@ -374,7 +422,7 @@ fn refine(
                     warning.into_iter().collect(),
                 )
             }
-            Err(RemovesFromAllTools) => (Some(previous), Diagnostics::new().with(inherits_all())),
+            Err(refusal) => (Some(previous), refused(refusal)),
         },
         (None, OverlayMode::Extend) => (
             None,
@@ -391,7 +439,7 @@ fn refine(
                 Some(Traced::new(agent, layer, Action::Define)),
                 Diagnostics::new(),
             ),
-            Some(Err(RemovesFromAllTools)) => (None, Diagnostics::new().with(inherits_all())),
+            Some(Err(refusal)) => (None, refused(refusal)),
             None => (
                 None,
                 Diagnostics::new().with(Diagnostic::error(
@@ -409,5 +457,7 @@ fn refine(
     (agents, problems)
 }
 
+#[cfg(test)]
+mod narrowing_tests;
 #[cfg(test)]
 mod tests;

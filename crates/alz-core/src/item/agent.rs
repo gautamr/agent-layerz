@@ -3,11 +3,13 @@
 //! general layer.
 //!
 //! A file is read into one value, or into diagnostics, and a file with a problem gives no item.
-//! Tool narrowing is not decided here: a tool entry is carried as written (R4.6 reads it).
+//! A tool entry is read into a [`ToolGrant`]; which entries an overlay may add is the narrowing
+//! rule of the merge (spec §7.2).
 
 mod edit;
 mod native;
 mod ordered_tree;
+mod tool;
 mod vocabulary;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
@@ -25,9 +27,10 @@ use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
 use edit::refine_edit;
 pub use native::NativeFields;
 pub use ordered_tree::{NativeMap, NativeValue};
+pub use tool::{McpToolName, NeutralTool, ToolGrant, ToolName, ToolScope};
 pub use vocabulary::{
     AgentDescription, AgentName, AgentRefusal, Isolation, Memory, ModelId, OverlayMode,
-    PermissionMode, Role, SkillName, ToolEntry,
+    PermissionMode, Role, SkillName,
 };
 
 /// The fields of a base.
@@ -126,7 +129,7 @@ pub struct AgentBase {
     name: AgentName,
     description: AgentDescription,
     scalars: AgentScalars,
-    tools: Option<OrderedSet<ToolEntry>>,
+    tools: Option<OrderedSet<ToolGrant>>,
     skills: OrderedSet<SkillName>,
     targets: Option<OrderedSet<TargetName>>,
     native: NativeFields,
@@ -160,7 +163,7 @@ impl AgentBase {
 
     /// The tools, `None` when the agent inherits every tool.
     #[must_use]
-    pub const fn tools(&self) -> Option<&OrderedSet<ToolEntry>> {
+    pub const fn tools(&self) -> Option<&OrderedSet<ToolGrant>> {
         self.tools.as_ref()
     }
 
@@ -198,7 +201,7 @@ pub struct AgentOverlay {
     allow_widen: bool,
     description: Option<AgentDescription>,
     scalars: AgentScalars,
-    tools: Option<ListEdit<ToolEntry>>,
+    tools: Option<ListEdit<ToolGrant>>,
     skills: ListEdit<SkillName>,
     targets: Option<ListEdit<TargetName>>,
     native: NativeFields,
@@ -225,7 +228,7 @@ impl AgentOverlay {
     }
 
     /// `allow_widen: true`, which lets the overlay add a tool in a layer that is not public
-    /// (R4.6 decides).
+    /// (the merge decides).
     #[must_use]
     pub const fn allow_widen(&self) -> bool {
         self.allow_widen
@@ -245,7 +248,7 @@ impl AgentOverlay {
 
     /// The edit of the tools, `None` to keep them.
     #[must_use]
-    pub const fn tools(&self) -> Option<&ListEdit<ToolEntry>> {
+    pub const fn tools(&self) -> Option<&ListEdit<ToolGrant>> {
         self.tools.as_ref()
     }
 
@@ -400,7 +403,7 @@ fn read_base(
         zip(
             zip3(
                 scalars(&section),
-                refine_list::<ToolEntry>(&section, "tools"),
+                refine_list::<ToolGrant>(&section, "tools"),
                 refine_list::<SkillName>(&section, "skills"),
             ),
             refine_list::<TargetName>(&section, "targets"),
@@ -467,7 +470,7 @@ fn read_overlay(
             scalars(&section),
         ),
         zip3(
-            refine_edit::<ToolEntry>(&section, "tools"),
+            refine_edit::<ToolGrant>(&section, "tools"),
             refine_edit::<SkillName>(&section, "skills"),
             refine_edit::<TargetName>(&section, "targets"),
         ),

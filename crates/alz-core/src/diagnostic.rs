@@ -87,6 +87,8 @@ pub enum Code {
     AgentOverlay,
     /// An overlay that replaces the whole body of an agent, a warning (§7.2).
     AgentReplace,
+    /// An overlay that widens a tool, or `allow_widen` in a public layer (§7.2).
+    ToolWiden,
     /// A rule's schema (§7.10).
     Rule,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
@@ -120,6 +122,7 @@ impl Code {
             Self::AgentDuplicate => "agent-duplicate",
             Self::AgentOverlay => "agent-overlay",
             Self::AgentReplace => "agent-replace",
+            Self::ToolWiden => "tool-widen",
             Self::Rule => "rule",
             Self::Unresolved => "unresolved",
         }
