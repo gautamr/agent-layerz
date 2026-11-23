@@ -3,11 +3,11 @@ id: TASK-55.4.8
 title: >-
   R3.8: git: and github: sources: guarded clone, cache entries and lock
   integrity
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:20:00Z'
+updated_date: '2026-11-23T08:35:00Z'
 labels:
   - area:rust
   - area:resolve
