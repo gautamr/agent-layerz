@@ -1,11 +1,11 @@
 ---
 id: TASK-55.2
 title: 'R1: Make the acceptance suite language-neutral'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T03:26:00Z'
+updated_date: '2026-11-23T03:44:00Z'
 labels:
   - area:rust
   - area:test
@@ -152,3 +152,9 @@ Q4. R1.9 changes the repository layer (the add-acceptance-test skill, the tests 
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The acceptance suite is a language-neutral oracle: it spawns the binary under test (ALZ_BIN, else the bundled TypeScript reference) in one temp root per run, never reaches src/ (guarded), bounds every child with a process-group timeout, and asserts help, usage and version in the decision-26 form. TypeScript-only cases live in test/reference/ until cutover; the spec's formulas are test code in test/spec/. A run no longer leaves temp folders behind. The fake-terminal cases wait for TASK-55.7.1 (R6.1). Merged in PR #4 (rebase merge, main f17287f; commit IDs cited in the subtask notes changed with the rebase).
+<!-- SECTION:FINAL_SUMMARY:END -->
