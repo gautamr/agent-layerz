@@ -9,6 +9,9 @@
 //! again: `features.hooks` and `features.codex_hooks` at any depth, and `profile`
 //! and `profiles`, which a project's Codex config does not read.
 //!
+//! For Claude every key and value is also checked against the table of typed keys
+//! ([`CLAUDE_SETTINGS`]): a key that is not in it, and a value of the wrong type, are errors.
+//!
 //! A file with a problem gives no item, so a merged model never holds half a file.
 
 use std::collections::BTreeMap;
@@ -25,6 +28,7 @@ use crate::yaml::{self, Node, Value, YamlText};
 
 use super::agent::tree_of;
 use super::native_keys::{Step, refusal, refusal_error};
+use super::native_types::{CLAUDE_SETTINGS, Typed};
 use super::protected_variable::{codex_policies, env_keys, paths};
 use super::{place, schema_diagnostics};
 
@@ -226,7 +230,9 @@ fn read_target(target: TargetName, node: &Node, at: &Where) -> Result<SettingsTr
         }
     };
     let found = refused_keys(target, node, at).merge(match target {
-        TargetName::Claude => env_keys(entries.get("env"), paths::CLAUDE_ENV, at),
+        TargetName::Claude => {
+            typed_keys(node, at).merge(env_keys(entries.get("env"), paths::CLAUDE_ENV, at))
+        }
         TargetName::Codex => codex_policies(&entries, Code::Settings, at),
     });
     if found.has_errors() {
@@ -234,6 +240,21 @@ fn read_target(target: TargetName, node: &Node, at: &Where) -> Result<SettingsTr
     } else {
         Ok(SettingsTree(entries))
     }
+}
+
+/// An error for each key of Claude's settings that is not in the table of typed keys, and for each
+/// value of the wrong type (§7.9). A key that the table of native keys refuses is reported by
+/// [`refused_keys`], so it is skipped here.
+fn typed_keys(node: &Node, at: &Where) -> Diagnostics {
+    let reported = |steps: &[Step<'_>]| refusal(TargetName::Claude, steps).is_some();
+    Typed::new(
+        "claude",
+        Code::Settings,
+        at,
+        " is not a Claude Code settings key that alz accepts (docs/target-facts.md section 14)",
+        &reported,
+    )
+    .check(CLAUDE_SETTINGS, node)
 }
 
 /// An error for each key of the settings of `target`, at any depth, that the table of native keys

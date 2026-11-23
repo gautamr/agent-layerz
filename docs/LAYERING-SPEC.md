@@ -1047,6 +1047,16 @@ Rules:
   `mcp.yaml` and `hooks.yaml`, so every agent gets the same ones, and the allowlist and the hook
   locks apply to all of them. The TypeScript `alz` passes them through (reference drift,
   TASK-55.5.16).
+
+  Under `claude:` an agent's native fields are typed (TASK-79). The map takes only the
+  frontmatter fields that `docs/target-facts.md` §14.4 records with a type: `disallowedTools`
+  (text or a list of text), `maxTurns` and `autoCompactWindow` (whole numbers), `background` and
+  `omitClaudeMd` (booleans), `effort` and `color` (one of the listed values), `initialPrompt` (text)
+  and `experimental` (a mapping with `cacheTtl`, `5m` or `1h`). Any other key is an `agent` error,
+  and so is a value of another type; the error names the file and the key path, such as
+  `claude.maxTurns`, and never prints the value. A key with a neutral field, and `mcpServers` and
+  `hooks`, are refused as above and not reported twice. `codex:` is not typed. The TypeScript
+  `alz` takes any key and value (reference drift, TASK-79).
 - **Key order of native fields** (TASK-66). Native fields keep the order of the source:
   - A key keeps the place of its first appearance, in stack order.
   - A key that a later layer adds comes after the existing ones.
@@ -1375,6 +1385,28 @@ TypeScript `alz` merges all of them freely and refuses only the first-class keys
 
 **Facts.** An adapter relies on what one of these keys does only once `docs/target-facts.md`
 records it (TASK-76). Until then the table only refuses or constrains the key.
+
+**Typed keys** (TASK-79). Under `claude:`, `settings.yaml` accepts only the keys whose name and
+type `docs/target-facts.md` §14 records, and checks the type of each value before alz writes it.
+One table in alz holds them (§14.2 lists the rows). A type is a boolean, text, a whole
+number, a number, one of a list of texts, a list of one type, a mapping with any text keys and
+values of one type (`env`, `modelOverrides`), a mapping with listed keys (`sandbox` and the
+others, each key optional, and any other key an error at that depth), or one of several types.
+- A key that is not in the table is a `settings` error, at any depth: `'<path>' is not a Claude
+  Code settings key that alz accepts (docs/target-facts.md section 14)`. That covers a misspelt
+  key, and a key that Claude Code reads from a user or managed scope only (§14.3 lists them).
+- A value of another type, `null` included, is a `settings` error: `'<path>' must be …`. The path
+  is the table's, with `*` for a key of a mapping with any keys and `[]` for a list item. The error
+  names the layer and the file and the line and column, and never prints the value; a key that is
+  not in the table is printed as a quoted key. None of that file's settings are merged.
+- The security rules above apply on top. A key they refuse is reported once, by them, and is not
+  in the typed table; a floor key is accepted and typed (a floor never sees a value of another
+  type, because the read refuses it first).
+- The check looks at names and types only. It does not check a number's range, the syntax of a
+  pattern or a path, or whether a key has an effect in a project file.
+- `codex:` has no typed table in this version.
+
+The TypeScript `alz` accepts any key and any value under `claude:` (reference drift, TASK-79).
 
 No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
 `XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or locate alz's own
