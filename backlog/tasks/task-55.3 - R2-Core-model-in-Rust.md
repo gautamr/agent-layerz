@@ -1,11 +1,11 @@
 ---
 id: TASK-55.3
 title: 'R2: Core model in Rust'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T07:24:00Z'
+updated_date: '2026-11-23T07:29:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -26,7 +26,7 @@ doc-5 phase R2: manifest, layer meta, lock, account model, YAML with limits, dia
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The suite's model and lint cases pass against the Rust binary
+- [x] #1 The suite's model and lint cases pass against the Rust binary
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -248,3 +248,9 @@ Recommendation: (b). R2.4 is blocked on this until it is answered.
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The core model is in Rust: untrusted-text classes and typed diagnostics, one YAML entry point with the spec's budgets, validated layer meta, identity, account, stack manifest and account-file types, the lock with typed ids and the content hash in name order, alz's own YAML and JSON writers, and alz lint through a no-follow capped read. TASK-59 to TASK-62 are fixed. Merged in PR #7 (rebase merge).
+<!-- SECTION:FINAL_SUMMARY:END -->

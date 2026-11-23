@@ -1,10 +1,10 @@
 ---
 id: TASK-60
 title: Cyclic YAML aliases are accepted
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
-updated_date: '2026-11-23T06:52:00Z'
+updated_date: '2026-11-23T07:29:00Z'
 labels:
   - discovered
   - area:security
@@ -41,3 +41,9 @@ Architect (2026-11-23, R2 plan in TASK-55.3): fixed in the Rust model by R2.4 (T
 
 R2.11 evidence (2026-11-23): AC1 - 34-yaml-limits 'refuses a cyclic alias' (x: &a [*a]) passes against the Rust alz: exit 1, error [yaml]; reference accepts it (referenceDrift TASK-60). AC2 - spec 7.13 'YAML limits' states at most 64 nested mappings and sequences, counted as aliases expand; enforced by the yaml::parse event pre-pass. AC3 - 34-yaml-limits: 'parses a document nested 64 levels deep' passes in both binaries, 'refuses a document nested 65 levels deep' passes against Rust (error [yaml]) and is referenceDrift TASK-60 (the reference reads it).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed in the Rust alz in R2 (PR #7, decision-30); the TypeScript reference keeps the bug, and its acceptance cases are marked reference drift.
+<!-- SECTION:FINAL_SUMMARY:END -->
