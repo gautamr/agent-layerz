@@ -1,7 +1,7 @@
 ---
 id: TASK-69
 title: A layer file name that is not valid UTF-8 is an error that names the layer
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T04:40:00Z'
 updated_date: '2026-11-23T11:58:00Z'

@@ -1,10 +1,10 @@
 ---
 id: TASK-70
 title: Run git for a remote layer source so that ssh cannot prompt on the terminal
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T04:51:00Z'
-updated_date: '2026-11-23T10:09:00Z'
+updated_date: '2026-11-23T11:58:00Z'
 labels:
   - discovered
   - area:rust

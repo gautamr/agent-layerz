@@ -1,10 +1,10 @@
 ---
 id: TASK-52
 title: 'Never read files inside account folders through a path: layer'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22T07:23:00Z'
-updated_date: '2026-11-23T10:09:00Z'
+updated_date: '2026-11-23T11:58:00Z'
 labels:
   - discovered
   - area:security
