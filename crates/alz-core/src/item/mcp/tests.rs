@@ -203,12 +203,15 @@ fn a_protected_variable_in_env_from_is_refused_and_the_server_is_remembered() {
         let (items, found) = read(&format!("srv:\n{STDIO}  env_from: [{name}]\n"));
         assert!(items.servers().is_empty(), "{name}");
         assert!(items.refused().contains(&id("srv")), "{name}");
-        assert_eq!(found.len(), 1, "{name}: {found:?}");
-        assert!(
-            found[0].starts_with("error [protected-variable] personal:mcp.yaml:"),
-            "{found:?}"
+        // The error names the file without a line and a column (spec 7.9, 10.1).
+        assert_eq!(
+            found,
+            [format!(
+                "error [protected-variable] personal:mcp.yaml: mcp.env_from names {}; no layer may set the variables that choose an account folder or locate alz's files (\u{a7}7.9)",
+                name.to_uppercase()
+            )],
+            "{name}"
         );
-        assert!(found[0].contains("mcp.env_from names "));
     }
 }
 

@@ -13,6 +13,7 @@
 mod forbid;
 mod heuristics;
 mod layer_yaml;
+mod text;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
 use crate::layer::{LayerContents, LayerMeta, Visibility};
@@ -58,12 +59,16 @@ fn file_findings(
     bytes: &[u8],
 ) -> Diagnostics {
     let at = Where::layer_file(layer.clone(), Stripped::from_untrusted(path.as_str()));
-    let text = if path.as_str() == LAYER_YAML {
-        layer_yaml::without_forbid_patterns(bytes)
+    let text = text::decode(bytes);
+    // The patterns are written in `layer.yaml`, so only there are they left out of what they are
+    // matched against. The secret scan and the heuristics read the whole file: a token or an
+    // address in a `forbid_patterns` line, or in a comment after it, is still reported.
+    let matched_text = if path.as_str() == LAYER_YAML {
+        layer_yaml::without_forbid_patterns(&text)
     } else {
-        String::from_utf8_lossy(bytes).into_owned()
+        text.clone()
     };
-    let matched = patterns.matching(&text).map(|number| {
+    let matched = patterns.matching(&matched_text).map(|number| {
         Diagnostic::error(
             Code::LeakForbid,
             Some(at.clone()),

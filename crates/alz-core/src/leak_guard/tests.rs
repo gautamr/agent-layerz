@@ -87,6 +87,25 @@ fn a_pattern_is_matched_against_the_whole_text_of_the_file() {
 }
 
 #[test]
+fn a_line_anchor_matches_at_each_line() {
+    for text in [
+        "first\nacme\nlast\n",
+        "first\r\nacme\r\nlast\r\n",
+        "acme\nlast",
+        "first\nacme",
+    ] {
+        let found = lines("public", &["^acme$".to_owned()], &[("a.md", text)]);
+        assert_eq!(found.len(), 1, "{text:?}: {found:?}");
+    }
+    let found = lines(
+        "public",
+        &["^acme$".to_owned()],
+        &[("a.md", "first\nacme corp\nnot acme\n")],
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
 fn the_patterns_in_layer_yaml_do_not_match_themselves_but_the_rest_of_the_file_does() {
     let (meta, contents) = layer("public", &["shared-secret-word".to_owned()], &[]);
     assert!(check(&meta, &contents).iter().next().is_none());
@@ -278,6 +297,92 @@ fn no_diagnostic_holds_a_refused_entry_or_a_matched_text() {
         found.iter().all(|line| !line.contains("hidden")),
         "{found:?}"
     );
+}
+
+/// What `check` says of a public layer whose `layer.yaml` is `yaml` exactly.
+fn lines_of_yaml(yaml: &str) -> Vec<String> {
+    let meta =
+        LayerMeta::from_yaml(&parse_document(yaml.as_bytes()).expect("YAML")).expect("layer");
+    let contents: LayerContents = [(
+        SafeRelPath::try_from("layer.yaml").expect("path"),
+        yaml.as_bytes().to_vec(),
+    )]
+    .into_iter()
+    .collect();
+    check(&meta, &contents)
+        .iter()
+        .map(ToString::to_string)
+        .collect()
+}
+
+#[test]
+fn a_token_in_a_forbid_patterns_line_is_reported() {
+    let secret = token();
+    let head = "name: shared\nkind: personal\nvisibility: public\nforbid_patterns:\n";
+    let entry = format!("{head}  - '{secret}'\n");
+    let comment = format!("{head}  - acme # {secret}\n");
+    for yaml in [entry, comment] {
+        let found = lines_of_yaml(&yaml);
+        assert!(
+            found
+                .iter()
+                .any(|line| line.starts_with("error [leak-secret] shared:layer.yaml:")),
+            "{found:?}"
+        );
+        assert!(found.iter().all(|line| !line.contains(&secret)));
+    }
+}
+
+#[test]
+fn an_address_or_a_host_in_a_forbid_patterns_line_is_warned_about() {
+    let yaml = "name: shared\nkind: personal\nvisibility: public\nforbid_patterns:\n  - acme # ask dev@acme.io at wiki.corp\n";
+    assert_eq!(
+        lines_of_yaml(yaml),
+        [
+            "warning [leak-email] shared:layer.yaml: contains an email address; check that it may be public",
+            "warning [leak-host] shared:layer.yaml: contains what looks like a private host name; check that it may be public",
+        ]
+    );
+}
+
+#[test]
+fn a_token_in_a_utf16_file_is_found_in_either_byte_order() {
+    let text = format!("- CI: {}\n", token());
+    let little: Vec<u8> = [0xFF, 0xFE]
+        .into_iter()
+        .chain(text.encode_utf16().flat_map(u16::to_le_bytes))
+        .collect();
+    let big: Vec<u8> = [0xFE, 0xFF]
+        .into_iter()
+        .chain(text.encode_utf16().flat_map(u16::to_be_bytes))
+        .collect();
+    for bytes in [little, big] {
+        let (meta, contents) = layer("public", &[], &[("a.md", bytes)]);
+        let found: Vec<String> = check(&meta, &contents)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(
+            found,
+            [
+                "error [leak-secret] shared:a.md: looks like a secret (GitHub token); remove it from the public layer"
+            ]
+        );
+    }
+}
+
+#[test]
+fn a_pattern_is_matched_against_the_decoded_text_of_a_utf16_file() {
+    let bytes: Vec<u8> = [0xFF, 0xFE]
+        .into_iter()
+        .chain("bill acme\n".encode_utf16().flat_map(u16::to_le_bytes))
+        .collect();
+    let (meta, contents) = layer("public", &["acme".to_owned()], &[("a.md", bytes)]);
+    let found: Vec<String> = check(&meta, &contents)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    assert_eq!(found.len(), 1, "{found:?}");
 }
 
 #[test]

@@ -41,6 +41,19 @@ fn a_path_scope_covers_by_whole_segments() {
         ("write", "write", true),
         ("write:docs/**", "edit:docs/a.md", false),
         ("write:docs/a/**", "write:docs/**", false),
+        ("write:**", "write:/etc/passwd", false),
+        ("write:**", "write:~/.ssh/id", false),
+        ("write:**", "write:~", false),
+        ("write:**", "write:C:/Users/a", false),
+        ("write:**", "write:c:x", false),
+        ("write:**", "write:docs\\a.md", false),
+        ("write:docs/**", "write:docs\\..\\a", false),
+        ("write:/etc/**", "write:/etc/passwd", false),
+        ("write:/etc/**", "write:/etc/**", true),
+        ("write:~/**", "write:~/a", false),
+        ("write:~/**", "write:~/**", true),
+        ("write:**", "write:cd:x", true),
+        ("write:**", "write:docs:b", true),
     ];
     for (base, candidate, verdict) in table {
         assert_eq!(
@@ -153,7 +166,10 @@ fn path_scopes() -> impl Strategy<Value = String> {
             Just("**"),
             Just("."),
             Just(".."),
-            Just("")
+            Just(""),
+            Just("~"),
+            Just("C:"),
+            Just("a\\b")
         ],
         1..5,
     )
@@ -168,7 +184,15 @@ fn command_scopes() -> impl Strategy<Value = String> {
             Just(' '),
             Just('*'),
             Just(';'),
+            Just('&'),
             Just('|'),
+            Just('<'),
+            Just('>'),
+            Just('('),
+            Just(')'),
+            Just('`'),
+            Just('\n'),
+            Just('\r'),
             Just('x')
         ],
         0..6,
