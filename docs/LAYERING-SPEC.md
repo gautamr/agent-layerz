@@ -1016,6 +1016,9 @@ Rules:
     only an equal scope, so that covering stays transitive.
   - `docs/**` covers `docs` itself, and `**` covers any path without a `.` or `..` segment.
     Braces are literal text.
+  - A candidate path scope that starts with `~` or `/`, holds a `\`, or starts with a drive
+    letter and `:` (`C:`) is covered only by an equal scope, because it is not a path relative
+    to the repository. The TypeScript `alz` compared it by prefix (reference drift, TASK-55.5).
   - "The base" is the agent that the overlay refines, including the overlays already applied
     to it, so a later overlay cannot widen again what an earlier one narrowed.
   - An overlay that widens is not applied.
@@ -1058,6 +1061,18 @@ Rules:
     TypeScript `alz` uses `agent-overlay` for all of them (reference drift, TASK-55.5.5).
   - An overlay that removes a tool from an agent without a tool list is an `agent-overlay`
     error.
+- **An overlay only makes an agent stricter** (TASK-55.5):
+  - Its `permission_mode` may not be looser, in the order of §7.6, than the mode of the agent it
+    refines, when that agent sets one.
+  - Nor may it be looser than a permissions floor (`floor: true`, §7.6) that a more general
+    layer declared.
+  - Its `claude.disallowedTools` must keep every entry that a more general layer set; it may add
+    entries.
+
+  Otherwise the overlay is an `agent-overlay` error and is not applied. An example message is
+  `overlay on agent <name> sets permission_mode '<mode>', which is looser than '<mode>' of the
+  agent it refines; an overlay may only make an agent stricter`. The TypeScript `alz` takes any
+  mode and any list (reference drift, TASK-55.5).
 
 ### 7.3 Skills
 - Identity is the skill directory name (it must match `name:` in the SKILL.md).
@@ -1184,6 +1199,12 @@ playwright:
 - An id that `mcp.enable` lists twice is enabled once.
 - An id in `mcp.enable` whose definition was refused still gets the "no layer defines it"
   error, unless it was refused for a protected variable (§7.9).
+- A layer inside the repository (§7.12) may replace a server that a layer outside the repository
+  defined. It then gets the warning `server <id> replaces the definition of layer <layer>, which
+  lies outside the repository` (code `mcp`) at its `mcp.yaml`, and the replacement applies. The
+  TypeScript `alz` gives no warning (reference drift, TASK-55.5).
+- A protected or malformed `env_from` entry is a `protected-variable` error. It names the file,
+  without a line and column (§7.9).
 
 ### 7.8 Model routing
 `models.yaml`:
@@ -1234,7 +1255,16 @@ The merge is a deep merge, a left fold in stack order:
 The merged settings are passed through to the target **without validation** beyond a schema
 check where one exists.
 Keys that duplicate a first-class item (permissions, hooks, MCP, model) are rejected, so
-there is only one way to set each thing.
+there is only one way to set each thing. Under `codex:` these are `model`, `mcp_servers`, `hooks`,
+`profile`, `approval_policy` and `sandbox_mode` at the top level. Because they duplicate
+first-class items wherever they stand, some are also reserved below the top level:
+- `hooks` and `codex_hooks` in every `features` mapping: `codex.features`, the `features` of a
+  profile, or one nested anywhere else under `codex:`;
+- `approval_policy` and `sandbox_mode` in each profile (`codex.profiles.<name>`).
+
+Each reserved key is a `settings` error. It names the file and a key path chosen by alz, such as
+`codex.profiles.*.approval_policy`, with `*` for a profile name, and it never prints the value.
+The TypeScript `alz` checks the top level only (reference drift, TASK-55.5).
 
 No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
 `XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or locate alz's own
@@ -2319,12 +2349,20 @@ and `leak-host` for a private host name (ending in `.internal`, `.corp`, `.lan`,
   - one `leak-email` and one `leak-host` warning per file.
 
   The TypeScript `alz` reported each line (reference drift).
-- Patterns are matched against the whole text of the file in multi-line mode, so `^` and `$`
-  match at line ends.
-- Binary and non-UTF-8 files are scanned too, with invalid bytes read as U+FFFD. The TypeScript
-  `alz` skipped a file with a NUL in its first 8 KiB (reference drift).
-- In `layer.yaml`, the lines of the `forbid_patterns` field are left out of the scan, except the
-  lines that hold only a comment.
+- Patterns are matched against the whole text of the file in multi-line mode: `^` and `$` match
+  at the start and end of each line, and a line ends at LF, CR or CR LF.
+- Every file is turned into text before any check:
+  - A file that starts with a UTF-16 byte order mark, little- or big-endian, is decoded as
+    UTF-16.
+  - Any other file is read as UTF-8, with invalid bytes replaced by U+FFFD.
+  - The byte order mark is not part of the text, and every NUL is removed.
+
+  So binary, non-UTF-8 and UTF-16 files are scanned too. The TypeScript `alz` skipped a file with
+  a NUL in its first 8 KiB, which includes most UTF-16 files (reference drift, TASK-55.5).
+- Only the `forbid_patterns` match reads `layer.yaml` without the lines of its
+  `forbid_patterns` field: from the line of its key up to the line before the next key, with the
+  comment lines in that span kept. The secret scan and the email and host heuristics read the
+  whole file (TASK-55.5).
 - A refused entry is located at `<layer>:layer.yaml`.
   - An entry that does not compile, compiles too large or nests too deep gets one message.
   - Past the 64-entry cap, only entry 65 is reported, for it and every later entry.
@@ -2507,7 +2545,7 @@ the file as `<where>`.
 | `hook-locked` | error | disabling a locked hook (§7.5) |
 | `permissions` | error | the schema of `permissions.yaml` (§7.6) |
 | `permission-floor` | error | removing a deny rule of a more general layer, or a `default_mode` looser than a floor (§7.6) |
-| `permission-shadowed` | warning | a rule in both `allow` and `deny` (§7.6) |
+| `permission-shadowed` | warning | a rule in both `allow` and `deny`, without `<where>` (§7.6) |
 | `mcp` | error | a key that is not a server id, a definition's schema, an `mcp.enable` entry that no layer defines (§7.7) |
 | `models` | error, or warning | the schema of `models.yaml`, an alias key that is not a target, an agent model that is not an alias; the warning is an alias without a model for a target (§7.8) |
 | `settings` | error | a top-level key that is not a target, a target value that is not a mapping, a key of a first-class item (§7.9) |
@@ -2525,6 +2563,8 @@ the file as `<where>`.
 A diagnostic found by merging layers, such as `permission-floor`, `hook-locked`, a duplicate id
 or `protected-variable`, names the file without a line and column. A schema error found while
 reading one file adds them where it can.
+`permission-shadowed` is the one merge warning without `<where>`: the allow rule and the deny rule
+can come from different layers, so the message names the rule only.
 
 How values print in these messages:
 - An item name that passed its grammar (an agent, skill, command, rule, hook or server id) is

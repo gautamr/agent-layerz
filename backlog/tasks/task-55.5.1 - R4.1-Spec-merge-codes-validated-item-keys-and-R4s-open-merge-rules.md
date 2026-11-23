@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-23T12:27:00Z'
-updated_date: '2026-11-23T15:33:00Z'
+updated_date: '2026-11-23T17:25:00Z'
 labels:
   - area:rust
   - area:spec
@@ -93,6 +93,20 @@ Architect (2026-11-23), R4 spec pass. I wrote every spec item from R4.4 to R4.14
 - §10.1: the agent row (preload limit dropped), agent-overlay, slot-missing and hooks rows; new rows permission-shadowed, identity and account; a longer unresolved row; the line and column rule.
 - §10.2: key order (TASK-66).
 Checks: mise run lint exit 0. The added lines contain none of the private item's words. TASK-66 AC #1 is checked, with its evidence in TASK-66's notes.
+
+Architect (2026-11-23), spec text for the R4 review fixes (18eba98, 63cc01d), on the branch and not committed. Each place the reference differs is marked reference drift (TASK-55.5).
+- §7.9: the Codex reserved keys at the top level (model, mcp_servers, hooks, profile, approval_policy, sandbox_mode). Also at any depth: hooks and codex_hooks in every features mapping, and approval_policy and sandbox_mode in each profile. Each is a settings error naming the file and an alz-chosen key path (* for a profile name), never the value.
+- §7.2:
+  - A path candidate that starts with ~ or /, holds a backslash or starts with a drive letter and colon is covered only by an equal scope. The shell-operator list already matched the code, so it is unchanged.
+  - New bullet: an overlay only makes an agent stricter. Its permission_mode may not be looser than the refined agent's or a more general floor, and claude.disallowedTools keeps every inherited entry. Otherwise it is an agent-overlay error and the overlay is not applied; the spec quotes the message.
+- §7.7: the warning for a server inside the repository that replaces one outside it (message quoted, at the replacing mcp.yaml, the replacement still applies). An env_from protected-variable error names the file without a line and column.
+- §9.2:
+  - ^ and $ match at each line, ending at LF, CR or CR LF.
+  - Files with a UTF-16 byte order mark (LE or BE) are decoded as UTF-16; other files are read as UTF-8 with U+FFFD for invalid bytes. The byte order mark is dropped, and NULs are removed before any check.
+  - Only the forbid_patterns match skips that field's lines; the secret scan and the heuristics read the whole layer.yaml.
+- §10.1: permission-shadowed is the one merge warning without <where>, in its table row and in the paragraph below the table.
+- CHANGELOG: four bullets: Codex keys at any depth, overlay strictness, the path-scope rule, UTF-16 and multi-line leak checks.
+Checks: mise run lint exit 0. The grep of the spec and CHANGELOG diff for the private items' words found nothing. I did not touch crates/, test/ or TASK-55.5.16.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
