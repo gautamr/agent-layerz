@@ -24,6 +24,7 @@ mod instructions;
 mod placement;
 mod provenance;
 mod rules;
+mod skills;
 mod stack;
 #[cfg(test)]
 pub(crate) mod testing;
@@ -34,4 +35,5 @@ pub use instructions::InstructionBlock;
 pub use placement::{Placement, Placements};
 pub use provenance::{Action, Contribution, Provenance, Traced};
 pub use rules::{MergedRule, RuleChain, RuleSection};
+pub use skills::SlotDemand;
 pub use stack::{LayerContext, Merged, Merging, merge};

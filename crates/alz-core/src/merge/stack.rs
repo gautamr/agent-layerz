@@ -22,13 +22,15 @@
 use std::collections::BTreeMap;
 
 use crate::diagnostic::Diagnostics;
-use crate::item::{AgentName, ClaudeExtra, RuleName};
+use crate::item::{AgentName, ClaudeExtra, RuleName, Skill, SkillName};
 use crate::layer::LayerName;
 use crate::merge::agents::{AgentState, MergedAgent};
+use crate::merge::algebra::Replace;
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
 use crate::merge::rules::{MergedRule, RuleState};
+use crate::merge::skills::{MergedSkills, SkillState, SlotDemand};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
 
 /// What a kind needs to absorb one layer: the layer, where it lies in the stack, the manifest and
@@ -84,6 +86,8 @@ pub struct Merged {
     claude_extras: Vec<ClaudeExtra>,
     rules: BTreeMap<RuleName, Traced<MergedRule>>,
     agents: BTreeMap<AgentName, Traced<MergedAgent>>,
+    skills: Replace<SkillName, Traced<Skill>>,
+    slot_stubs: BTreeMap<SkillName, SlotDemand>,
 }
 
 impl Merged {
@@ -118,6 +122,21 @@ impl Merged {
     #[must_use]
     pub const fn agents(&self) -> &BTreeMap<AgentName, Traced<MergedAgent>> {
         &self.agents
+    }
+
+    /// The skills and commands by name (§7.3, §7.4), each with the layers that defined it. A name
+    /// is one skill's whole directory or one command, from the most specific layer that has it;
+    /// the earlier definitions are in the provenance only.
+    #[must_use]
+    pub const fn skills(&self) -> &Replace<SkillName, Traced<Skill>> {
+        &self.skills
+    }
+
+    /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
+    /// that says "not defined for this repo", and who asked for it first (§7.3).
+    #[must_use]
+    pub const fn slot_stubs(&self) -> &BTreeMap<SkillName, SlotDemand> {
+        &self.slot_stubs
     }
 }
 
@@ -164,6 +183,7 @@ struct Accumulator {
     instructions: InstructionState,
     rules: RuleState,
     agents: AgentState,
+    skills: SkillState,
     diagnostics: Diagnostics,
 }
 
@@ -174,6 +194,7 @@ impl Accumulator {
         let (instructions, found_instructions) = self.instructions.absorb(context);
         let (rules, found_rules) = self.rules.absorb(context);
         let (agents, found_agents) = self.agents.absorb(context);
+        let (skills, found_skills) = self.skills.absorb(context);
         Self {
             layers: self
                 .layers
@@ -183,28 +204,35 @@ impl Accumulator {
             instructions,
             rules,
             agents,
+            skills,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
                 .merge(found_rules)
-                .merge(found_agents),
+                .merge(found_agents)
+                .merge(found_skills),
         }
     }
 
-    fn finish(self) -> Merging {
+    fn finish(self, strict_slots: bool) -> Merging {
         let MergedInstructions {
             blocks,
             claude_extras,
         } = self.instructions.finish();
+        let agents = self.agents.finish();
+        let (MergedSkills { items, stubs }, found_slots) =
+            self.skills.finish(&agents, strict_slots);
         Merging::of(
             Merged {
                 layers: self.layers,
                 instructions: blocks,
                 claude_extras,
                 rules: self.rules.finish(),
-                agents: self.agents.finish(),
+                agents,
+                skills: items,
+                slot_stubs: stubs,
             },
-            self.diagnostics,
+            self.diagnostics.merge(found_slots),
         )
     }
 }
@@ -226,7 +254,7 @@ pub fn merge(stack: &ResolvedStack, manifest: &Manifest, placements: &Placements
         .fold(Accumulator::default(), |state, context| {
             state.absorb(&context)
         })
-        .finish()
+        .finish(manifest.options().strict_slots())
 }
 
 #[cfg(test)]
