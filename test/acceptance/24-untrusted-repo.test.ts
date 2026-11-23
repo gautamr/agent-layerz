@@ -572,6 +572,19 @@ describe("more refusals and controls for policy patterns and TOML text", () => {
   });
 });
 
+/**
+ * A crash is not a diagnostic: an internal failure (a TypeError in the TypeScript reference, a
+ * panic in Rust) exits 70, or prints text that is no diagnostic line. Every stderr line must be
+ * `<level> [<code>] <where>: <message>` (decision-26), and the exit code a handled one.
+ */
+const DIAGNOSTIC_LINE = /^(error|warning|info) \[[a-z0-9-]+\] .+: .+$/;
+
+function expectHandled(result: { code: number; stderr: string }): void {
+  expect([0, 1], `exit code ${result.code}, stderr: ${result.stderr}`).toContain(result.code);
+  const lines = result.stderr.split("\n").filter((line) => line !== "");
+  expect(lines.filter((line) => !DIAGNOSTIC_LINE.test(line))).toEqual([]);
+}
+
 describe("names that are properties of every object", () => {
   it.each([
     ["a passthrough target", "targets/__proto__/constructor"],
@@ -582,8 +595,7 @@ describe("names that are properties of every object", () => {
     const ws = fixture("29-account-layer");
     put(ws, `personal/${file}`, "x\n");
     const result = await layers(ws, "repo", ["build"]);
-    expect(result.stderr).not.toContain("TypeError");
-    expect([0, 1]).toContain(result.code);
+    expectHandled(result);
   });
 
   it.each(["__proto__", "constructor", "toString"])(
@@ -592,7 +604,7 @@ describe("names that are properties of every object", () => {
       const ws = fixture("29-account-layer");
       put(ws, "personal/settings.yaml", `claude:\n  ${name}: x\n`);
       const result = await layers(ws, "repo", ["build"]);
-      expect(result.stderr).not.toContain("TypeError");
+      expectHandled(result);
       expect(result.stderr).not.toContain("is set through");
     },
   );

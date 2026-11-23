@@ -9,6 +9,7 @@ describe("alz CLI", () => {
     );
     const result = await layers(fixture("14-non-destructive"), "repo", ["--version"]);
     expect(result.code).toBe(0);
-    expect(result.stdout).toBe(`${version}\n`);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain(version);
   });
 });

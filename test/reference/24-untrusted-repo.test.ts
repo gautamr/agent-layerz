@@ -5,14 +5,13 @@ import type { Terminal } from "../../src/cli/terminal";
 import { resolveAccounts } from "../../src/resolve/account-resolution";
 import {
   accountFolder,
-  alz,
-  built,
   envFor,
   hubEntry,
   plain,
   remoteStack,
   writeAllowed,
 } from "../account-workspace";
+import { alz, built } from "./account-in-process";
 import { layersInProcess } from "./in-process";
 
 // §7.13 'Who may declare it': once built, resolution ignores a declaration by a layer that may

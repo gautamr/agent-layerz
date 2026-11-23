@@ -7,7 +7,6 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -16,7 +15,6 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { buildSync } from "esbuild";
@@ -26,7 +24,6 @@ import { createTerminal, type Terminal } from "../../src/cli/terminal";
 import { updateAllowed } from "../../src/resolve/account-allow-writer";
 import {
   accountFolder,
-  built,
   envFor,
   hubEntry,
   PERSONAL,
@@ -41,6 +38,8 @@ import {
 import { type TraceCall, tracedAsync } from "../fs-trace";
 import { snapshot } from "../helpers";
 import { importedSpecifiers, SRC, valueImports } from "../import-graph";
+import { tempDir } from "../run-root";
+import { built } from "./account-in-process";
 import { layersInProcess } from "./in-process";
 
 /**
@@ -829,7 +828,7 @@ describe("§13.20 the lock file (AC 1)", () => {
 
   it("is safe across real processes: twelve runs at once leave one sorted entry per root", async () => {
     const s = await ready();
-    const out = mkdtempSync(join(tmpdir(), "alz-driver-"));
+    const out = tempDir("alz-driver-");
     const bundle = `${out}/driver.mjs`;
     buildSync({
       entryPoints: [join(import.meta.dirname, "allow-driver.ts")],

@@ -1,16 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { realpathSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gitProxy, parseGitCalls, resolveOnPath } from "../git-proxy";
+import { tempDir } from "../run-root";
 
 describe("the git stand-in of test/git-proxy.ts", () => {
   const run = (path: string, args: string[], cwd: string): string =>
     execFileSync("git", args, { cwd, env: { PATH: path }, encoding: "utf8" });
 
   it("records the working directory and every argument, then runs the real git", () => {
-    const cwd = realpathSync(mkdtempSync(join(tmpdir(), "alz-proxy-cwd-")));
+    const cwd = realpathSync(tempDir("alz-proxy-cwd-"));
     const proxy = gitProxy();
     expect(proxy.calls()).toEqual([]);
     expect(run(proxy.env.PATH, ["--version"], cwd)).toMatch(/^git version /);

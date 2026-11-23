@@ -1,14 +1,13 @@
-import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
 
 const REPOS = ["repo-a", "repo-b"];
 
 function git(ws: Workspace, args: string[]): void {
-  execFileSync("git", args, {
+  tool("git", args, {
     cwd: `${ws.root}/hub`,
-    stdio: "ignore",
     env: {
       PATH: process.env.PATH ?? "",
       HOME: ws.home,

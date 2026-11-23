@@ -1,16 +1,4 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { buildSync } from "esbuild";
+import { chmodSync, cpSync, existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   accountFolder,
@@ -27,7 +15,8 @@ import {
   useStack,
   writeAllowed,
 } from "../account-workspace";
-import { snapshot } from "../helpers";
+import { tool } from "../exec";
+import { layers, snapshot } from "../helpers";
 
 /**
  * `alz account allow` runs only for a person at a terminal, and this suite spawns no
@@ -137,7 +126,8 @@ describe("§13.20 who may run alz account allow: only a person at a terminal (AC
       const before = snapshot(s.ws.home);
       const result = await allow(s, {}, "repo", [arg]);
       expect(result.code).toBe(2);
-      expect(result.stderr).toContain("usage: alz");
+      expect(result.stdout).toBe("");
+      expect(result.stderr).not.toBe("");
       expect(result.stderr).not.toContain("must be run by a person at a terminal");
       expect(snapshot(s.ws.home)).toEqual(before);
     },
@@ -202,7 +192,7 @@ describe("§13.20 states of allowed.yaml that alz account allow refuses, as acco
       "a FIFO in place of the file",
       (s) => {
         mkdirSync(stateDir(s), { recursive: true, mode: 0o700 });
-        execFileSync("mkfifo", [allowedPath(s)]);
+        tool("mkfifo", [allowedPath(s)]);
         return {};
       },
       "not a regular file",
@@ -424,46 +414,21 @@ describe("§13.20 where allowed.yaml may live, and what a link may point at (dec
 });
 
 describe("§13.20 the real wiring: a pipe is not a terminal", () => {
-  const out = mkdtempSync(join(tmpdir(), "alz-bin-"));
-  const bundle = `${out}/alz.mjs`;
-  /** R1.7 replaces this bundle of the TypeScript entry point with the binary under test (ALZ_BIN). */
-  const bundled = () => {
-    if (!existsSync(bundle)) {
-      buildSync({
-        entryPoints: [join(import.meta.dirname, "../../src/cli/bin.ts")],
-        bundle: true,
-        platform: "node",
-        format: "esm",
-        target: "node22",
-        outfile: bundle,
-        banner: {
-          js: 'import{createRequire}from"node:module";const require=createRequire(import.meta.url);',
-        },
-        logLevel: "silent",
-      });
-    }
-    return bundle;
-  };
-
-  const wirings: [string, { input?: string; stdio?: ("ignore" | "pipe")[] }][] = [
+  // The binary under test (ALZ_BIN, or the reference built for this run) is spawned: its standard
+  // input is the null device, or a pipe that carries text, and never a terminal.
+  const wirings: [string, { input?: string }][] = [
     ["a pipe that carries the account names", { input: "client-a\nclient-a-api\n" }],
-    ["no standard input at all", { stdio: ["ignore", "pipe", "pipe"] }],
+    ["no standard input at all", {}],
   ];
 
   it.each(wirings)("refuses with %s and writes nothing", async (_label, how) => {
     const s = unbuilt();
-    const env = { HOME: s.ws.home, PATH: process.env.PATH ?? "", ...envFor(s) };
     for (const args of [
       ["account", "allow"],
       ["account", "allow", "--remove"],
     ]) {
-      const result = spawnSync(process.execPath, [bundled(), ...args], {
-        cwd: `${s.ws.root}/repo`,
-        env,
-        encoding: "utf8",
-        ...how,
-      });
-      expect(result.status).toBe(1);
+      const result = await layers(s.ws, "repo", args, envFor(s), how);
+      expect(result.code).toBe(1);
       expect(result.stderr).toContain("standard input is not a terminal");
       expect(result.stderr).not.toContain("agent session");
       expect(existsSync(stateDir(s))).toBe(false);

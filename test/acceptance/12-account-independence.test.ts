@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { tool } from "../exec";
 import { fixture, layers, readTree } from "../helpers";
 
 // Re-specified per docs/target-facts.md §8.11: an empty CLAUDE_CONFIG_DIR has no login, so the
@@ -35,7 +35,7 @@ describe("§13.12 account independence", () => {
       const account = `${ws.root}/${name}`;
       mkdirSync(account);
       expect((await layers(ws, "repo", ["build"])).code).toBe(0);
-      const out = execFileSync(
+      const out = tool(
         "claude",
         ["-p", "Reply with OK.", "--output-format", "stream-json", "--verbose", "--max-turns", "1"],
         { cwd: `${ws.root}/repo`, env: { ...process.env, CLAUDE_CONFIG_DIR: account } },

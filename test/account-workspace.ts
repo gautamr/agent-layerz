@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import YAML from "yaml";
-import { fixture, layers, type Workspace } from "./helpers";
+import { tool } from "./exec";
+import { fixture, type Layers, layers, type Workspace } from "./helpers";
 import { gitEntryName } from "./spec/cache";
 import { contentHash } from "./spec/content-hash";
 
@@ -25,9 +25,8 @@ const GIT_ENV = {
 };
 
 export function sh(ws: Workspace, cwd: string, args: string[]): string {
-  return execFileSync("git", ["-c", "commit.gpgsign=false", ...args], {
+  return tool("git", ["-c", "commit.gpgsign=false", ...args], {
     cwd,
-    encoding: "utf8",
     env: { ...GIT_ENV, HOME: ws.home },
   }).trim();
 }
@@ -84,9 +83,23 @@ export function envFor(s: Setup, extra: Record<string, string> = {}): Record<str
   };
 }
 
-export function alz(s: Setup, args: string[], extra: Record<string, string> = {}, dir = "repo") {
-  return layers(s.ws, dir, args, envFor(s, extra));
+/** Runs one command in a set-up workspace, and builds the standard stack, with the given runner. */
+export function withRunner(run: Layers) {
+  const alz = (s: Setup, args: string[], extra: Record<string, string> = {}, dir = "repo") =>
+    run(s.ws, dir, args, envFor(s, extra));
+  /** Builds the standard stack: personal in place, the hub's layer pinned to `ref`, the repo layer. */
+  const built = async (ref = "v1", name = FIXTURE): Promise<Setup> => {
+    const s = setup(name);
+    useStack(s, PERSONAL, ["path:../hub/layer", ref], REPO_LAYER);
+    const result = await alz(s, ["build"]);
+    if (result.code !== 0) throw new Error(`build failed: ${result.stderr}`);
+    return s;
+  };
+  return { alz, built };
 }
+
+/** The runners of the acceptance suite: they spawn the binary under test. */
+export const { alz, built } = withRunner(layers);
 
 function stackYaml(...entries: [source: string, ref?: string][]): string {
   const items = entries
@@ -100,15 +113,6 @@ export const REPO_LAYER: [string] = ["path:./.layer"];
 
 export function useStack(s: Setup, ...entries: [source: string, ref?: string][]): void {
   writeFileSync(`${s.ws.root}/repo/layer.yaml`, stackYaml(...entries));
-}
-
-/** Builds the standard stack: personal in place, the hub's layer pinned to `ref`, the repo layer. */
-export async function built(ref = "v1", name = FIXTURE): Promise<Setup> {
-  const s = setup(name);
-  useStack(s, PERSONAL, ["path:../hub/layer", ref], REPO_LAYER);
-  const result = await alz(s, ["build"]);
-  if (result.code !== 0) throw new Error(`build failed: ${result.stderr}`);
-  return s;
 }
 
 export function configDir(s: Setup): string {

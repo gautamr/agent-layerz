@@ -3,7 +3,8 @@ import { cpSync, existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:
 import { describe, expect, it } from "vitest";
 import { git as runGit } from "../../src/resolve/git";
 import { guardedClone, isInsideRepo } from "../../src/resolve/sources";
-import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
+import { fixture, readFile, readTree, type Workspace } from "../helpers";
+import { layersInProcess } from "./in-process";
 
 // The cases of test/acceptance/26-commit-identity.test.ts that call the TypeScript implementation
 // directly (`isInsideRepo`, `guardedClone`, `git`). Each keeps its name and body; the CLI side of
@@ -57,7 +58,7 @@ function setStack(ws: Workspace, sources: string[]): void {
 async function expectRejected(ws: Workspace, ...messages: string[]): Promise<void> {
   const config = gitConfig(ws);
   const tree = readTree(`${ws.root}/repo`, TREE_IGNORE);
-  const result = await layers(ws, "repo", ["build"], ENV);
+  const result = await layersInProcess(ws, "repo", ["build"], ENV);
   expect(result.code).toBe(1);
   for (const message of messages) expect(result.stderr).toContain(message);
   expect(readTree(`${ws.root}/repo`, TREE_IGNORE)).toEqual(tree);
