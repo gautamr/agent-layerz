@@ -1,10 +1,11 @@
 ---
 id: TASK-55.5.13
 title: 'R4.13: Who may declare: the shared rule of commit_identity and account'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
+updated_date: '2026-11-23T15:04:00Z'
 labels:
   - area:rust
   - area:merge
