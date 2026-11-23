@@ -6,6 +6,7 @@ mod budgets;
 mod entry;
 mod git_ref;
 mod manifest;
+pub mod resolution_failure;
 mod source;
 mod workspace;
 
