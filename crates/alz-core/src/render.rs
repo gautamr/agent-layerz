@@ -5,6 +5,7 @@
 pub mod action_word;
 pub mod glob;
 pub mod header;
+pub mod instructions;
 pub mod json;
 pub mod lock_of;
 pub mod protected;

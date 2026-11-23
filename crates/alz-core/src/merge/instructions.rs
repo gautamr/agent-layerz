@@ -12,7 +12,7 @@
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::item::{ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, place};
-use crate::layer::{LayerHeading, LayerMeta};
+use crate::layer::{ItemPath, LayerHeading, LayerMeta, LayerName};
 use crate::merge::action::Action;
 use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
@@ -24,6 +24,7 @@ use crate::untrusted_text::Stripped;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstructionBlock {
     heading: LayerHeading,
+    origin: Origin,
     file: SafeRelPath,
     body: String,
 }
@@ -34,6 +35,13 @@ impl InstructionBlock {
     #[must_use]
     pub const fn heading(&self) -> &LayerHeading {
         &self.heading
+    }
+
+    /// Where the block comes from: the layer that made it, with its revision, and the file. For a
+    /// block a layer replaced, that is the layer that replaced it.
+    #[must_use]
+    pub const fn origin(&self) -> &Origin {
+        &self.origin
     }
 
     /// The file the block comes from, `instructions/<name>.md`.
@@ -49,18 +57,46 @@ impl InstructionBlock {
     }
 }
 
+/// The Claude-specific text of one layer, `targets/claude/CLAUDE.extra.md` (§7.1), with where it
+/// comes from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergedClaudeExtra {
+    text: ClaudeExtra,
+    origin: Origin,
+}
+
+impl MergedClaudeExtra {
+    /// The layer the text comes from.
+    #[must_use]
+    pub const fn layer(&self) -> &LayerName {
+        self.text.layer()
+    }
+
+    /// The text, trimmed and not empty.
+    #[must_use]
+    pub fn body(&self) -> &str {
+        self.text.body()
+    }
+
+    /// Where the text comes from: the layer, its revision and the file.
+    #[must_use]
+    pub const fn origin(&self) -> &Origin {
+        &self.origin
+    }
+}
+
 /// The state of the fold for instructions: the blocks so far, and the Claude text of each layer.
 #[derive(Debug, Default)]
 pub(super) struct InstructionState {
     blocks: Vec<Traced<InstructionBlock>>,
-    claude_extras: Vec<ClaudeExtra>,
+    claude_extras: Vec<MergedClaudeExtra>,
 }
 
 /// The finished merge: the blocks with their provenance, and the Claude text of each layer.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(super) struct MergedInstructions {
     pub(super) blocks: Vec<Traced<InstructionBlock>>,
-    pub(super) claude_extras: Vec<ClaudeExtra>,
+    pub(super) claude_extras: Vec<MergedClaudeExtra>,
 }
 
 impl InstructionState {
@@ -81,7 +117,14 @@ impl InstructionState {
                 claude_extras: self
                     .claude_extras
                     .into_iter()
-                    .chain(items.claude_extra().cloned())
+                    .chain(items.claude_extra().and_then(|text| {
+                        Origin::of_item(context.layer(), ItemPath::ClaudeExtra).map(|origin| {
+                            MergedClaudeExtra {
+                                text: text.clone(),
+                                origin,
+                            }
+                        })
+                    }))
                     .collect(),
             },
             found,
@@ -112,6 +155,7 @@ fn apply(
     let origin = Origin::new(layer, file.file().clone());
     let block = |body: &str| InstructionBlock {
         heading: LayerHeading::of(meta),
+        origin: origin.clone(),
         file: file.file().clone(),
         body: body.to_owned(),
     };

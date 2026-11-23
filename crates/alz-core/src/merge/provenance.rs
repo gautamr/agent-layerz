@@ -26,6 +26,19 @@ impl Origin {
         }
     }
 
+    /// The origin of the layer's `layer.yaml`, which a commit identity or an account is read from.
+    ///
+    /// # Panics
+    ///
+    /// Never: the literal is a safe relative path.
+    #[must_use]
+    pub fn layer_yaml(layer: &ResolvedLayer) -> Self {
+        Self::new(
+            layer,
+            SafeRelPath::try_from("layer.yaml").expect("layer.yaml is a safe relative path"),
+        )
+    }
+
     /// The origin of the layer's file of kind `item`, such as `mcp.yaml`, when the layer has one.
     #[must_use]
     pub fn of_item(layer: &ResolvedLayer, item: ItemPath<'_>) -> Option<Self> {

@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
+updated_date: '2026-11-23T23:31:00Z'
 labels:
   - area:rust
   - area:render
@@ -37,3 +38,9 @@ Plan for this step: the pure entry point `render(&Merged, &Manifest) -> Rendered
 - [ ] #2 A file a layer ships under a protected path, in any ASCII case, is dropped with the warning protected and is absent from the lock's files (unit tests)
 - [ ] #3 render and lock_of are deterministic and the lock's files map lists exactly the tree's paths with their sha256 (proptest)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R5.3 (2026-11-24): the Rendered build must add AgentsMd::budget_problems(manifest budgets) to the build diagnostics, and when AgentsMd::compose or claude_md returns errors the build writes nothing.
+<!-- SECTION:NOTES:END -->

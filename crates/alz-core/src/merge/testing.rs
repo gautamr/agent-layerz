@@ -3,9 +3,10 @@
 
 use crate::layer::{LayerContents, LayerMeta};
 use crate::lint::parse_document;
+use crate::lock::ObjectId;
 use crate::merge::{Merging, Placement, Placements, merge};
 use crate::path::SafeRelPath;
-use crate::stack::{Manifest, ResolvedLayer, ResolvedStack, Source};
+use crate::stack::{GitRef, Manifest, Pin, ResolvedLayer, ResolvedStack, Source};
 
 /// A layer called `name` of kind `kind`, with the files `(path, text)`. It is private, so a stack
 /// of such layers is a valid stack (§3.1).
@@ -29,6 +30,12 @@ pub(crate) fn layer_visible(
 /// A layer whose `layer.yaml` is `yaml`, with the files `(path, text)`: for a layer that declares
 /// slots, as a fixture's `layer.yaml` does.
 pub(crate) fn layer_from_yaml(yaml: &str, files: &[(&str, &str)]) -> ResolvedLayer {
+    layer_pinned(yaml, files, None)
+}
+
+/// A layer like [`layer_from_yaml`] that came from the pin `rev`, as a stack entry with a `ref`
+/// does: the revision of its headers is `rev` and not its version.
+pub(crate) fn layer_pinned(yaml: &str, files: &[(&str, &str)], rev: Option<&str>) -> ResolvedLayer {
     let node = parse_document(yaml.as_bytes()).expect("valid YAML");
     let meta = LayerMeta::from_yaml(&node).expect("a layer");
     ResolvedLayer::new(
@@ -43,7 +50,10 @@ pub(crate) fn layer_from_yaml(yaml: &str, files: &[(&str, &str)]) -> ResolvedLay
                 )
             })
             .collect::<LayerContents>(),
-        None,
+        rev.map(|rev| Pin {
+            rev: GitRef::try_from(rev).expect("a ref"),
+            sha: ObjectId::try_from("0123456789abcdef0123456789abcdef01234567").expect("a commit"),
+        }),
     )
 }
 

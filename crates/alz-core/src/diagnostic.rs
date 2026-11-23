@@ -144,6 +144,9 @@ pub enum Code {
     Collision,
     /// A generated path that a protected pattern covers, a warning (§4.5).
     Protected,
+    /// An `AGENTS.md` longer than `instructions_max_lines` or `instructions_max_bytes`, its Commits
+    /// section included (§7.1).
+    Budget,
     /// A layer that declares `commit_identity` and may not, or several client layers that do
     /// (§7.12).
     Identity,
@@ -204,6 +207,7 @@ impl Code {
             Self::Passthrough => "passthrough",
             Self::Collision => "collision",
             Self::Protected => "protected",
+            Self::Budget => "budget",
             Self::Identity => "identity",
             Self::Account => "account",
             Self::Unresolved => "unresolved",

@@ -17,6 +17,7 @@
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::layer::{Kind, LayerMeta, LayerName, Visibility};
 use crate::merge::placement::Placement;
+use crate::merge::provenance::Origin;
 use crate::merge::stack::LayerContext;
 use crate::untrusted_text::Stripped;
 
@@ -27,8 +28,8 @@ pub enum Declared<T> {
     None,
     /// One layer's value applies.
     Winner {
-        /// The layer that declared it.
-        layer: LayerName,
+        /// The layer that declared it, and its `layer.yaml`.
+        origin: Origin,
         /// Its whole value.
         value: T,
     },
@@ -41,7 +42,16 @@ impl<T> Declared<T> {
     #[must_use]
     pub const fn winner(&self) -> Option<(&LayerName, &T)> {
         match self {
-            Self::Winner { layer, value } => Some((layer, value)),
+            Self::Winner { origin, value } => Some((origin.layer(), value)),
+            Self::None | Self::Conflict => None,
+        }
+    }
+
+    /// Where the winning value is declared: its layer, the layer's revision and `layer.yaml`.
+    #[must_use]
+    pub const fn origin(&self) -> Option<&Origin> {
+        match self {
+            Self::Winner { origin, .. } => Some(origin),
             Self::None | Self::Conflict => None,
         }
     }
@@ -112,6 +122,7 @@ impl Refused {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Candidate<T> {
     layer: LayerName,
+    origin: Origin,
     is_first: bool,
     kind: Kind,
     visibility: Visibility,
@@ -159,6 +170,7 @@ impl<T: Clone> DeclarerState<T> {
                 .into_iter()
                 .chain(pick(meta).map(|value| Candidate {
                     layer: meta.name().clone(),
+                    origin: Origin::layer_yaml(context.layer()),
                     is_first: context.is_first(),
                     kind: meta.kind().clone(),
                     visibility: meta.visibility(),
@@ -231,7 +243,7 @@ impl<T> Declarations<T> {
                 .chain(firsts)
                 .next()
                 .map_or(Declared::None, |winner| Declared::Winner {
-                    layer: winner.layer,
+                    origin: winner.origin,
                     value: winner.value,
                 })
         };

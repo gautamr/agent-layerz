@@ -1076,7 +1076,9 @@ security can only get stricter.**
   both ends, and a block that is empty after trimming is dropped. The TypeScript `alz` trims with
   JavaScript's `trim`, which also removes U+FEFF (reference drift, TASK-55.5.4).
 - `<Layer kind>` is the layer's `kind` as written, with its first character in upper case
-  (`repo` gives `Repo`). Like the layer's name, it is text from the layer.
+  (`repo` gives `Repo`). Like the layer's name, it is text from the layer, so the Rust `alz` writes
+  it without control and format characters (the class 1 set of §10.1); the TypeScript `alz`
+  writes it as it is (reference drift, TASK-55.6.3).
 
 ### 7.2 Agents
 An agent source is Markdown with YAML frontmatter, written in a **neutral schema**:

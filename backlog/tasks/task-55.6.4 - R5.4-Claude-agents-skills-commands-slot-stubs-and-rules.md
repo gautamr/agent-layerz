@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T23:14:00Z'
+updated_date: '2026-11-23T23:31:00Z'
 labels:
   - area:rust
   - area:render
@@ -40,4 +40,6 @@ All YAML through the R2.8 emitter.
 
 <!-- SECTION:NOTES:BEGIN -->
 From R5.17 (2026-11-24): the reference refuses an agent overlay list string that is only white space ('cannot parse'); the Rust reader accepts it as an edit with no segment. Refuse it as the reference does (stricter, and the same output), with a test.
+
+From R5.3 (2026-11-24): merge/agents.rs prints the layer kind raw in the agent overlay heading; print it stripped as layer/heading.rs LayerHeading now does (spec §7.1, drift TASK-55.6.3).
 <!-- SECTION:NOTES:END -->
