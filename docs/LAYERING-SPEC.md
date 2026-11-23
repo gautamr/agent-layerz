@@ -1035,12 +1035,18 @@ Rules:
 - Two layers defining a **base** (non-overlay) agent with the same name is an error. Use an
   overlay or `mode: replace` instead.
 - **Native fields:** a `claude:` (or `codex:`) map holds target fields the neutral schema does
-  not model, such as `effort`, `maxTurns`, `color` or per-agent `hooks`. They are passed through
+  not model, such as `effort`, `maxTurns` or `color`. They are passed through
   to that target only, and overlays deep-merge them (§7.9's merge). Keys with a neutral field
   are rejected inside the map (code `agent`):
   - in `claude:`: `name`, `description`, `tools`, `model`, `permissionMode`, `skills`,
     `isolation` and `memory`;
   - in `codex:`: `name`, `description`, `model` and `developer_instructions`.
+
+  `claude.mcpServers`, `codex.mcp_servers` and the `hooks` of either target are refused in an
+  agent's or an overlay's native fields (code `agent`). Servers and hooks come only through
+  `mcp.yaml` and `hooks.yaml`, so every agent gets the same ones, and the allowlist and the hook
+  locks apply to all of them. The TypeScript `alz` passes them through (reference drift,
+  TASK-55.5.16).
 - **Key order of native fields** (TASK-66). Native fields keep the order of the source:
   - A key keeps the place of its first appearance, in stack order.
   - A key that a later layer adds comes after the existing ones.
@@ -1168,6 +1174,20 @@ default_mode: default
   an error too).
 - A `default_mode` looser than the floor is refused, and that layer's mode and floor are both
   ignored. A layer's own floor does not bind its own `default_mode`.
+- Three boolean floor fields (TASK-55.5.16):
+  - `disable_bypass_mode` switches off the target's bypass-permissions mode;
+  - `block_reads_outside` blocks reads outside the working directories;
+  - `block_writes_outside` blocks writes outside them.
+
+  Once a layer sets one to `true`, it stays true. A more specific layer that sets it to `false`
+  is a `permission-floor` error that names the field and both layers:
+  `<field> is true as set by layer <layer> and cannot be set to false by layer <layer>`. A field
+  that no layer sets, or that is `false` from the first layer that writes it, is not set. R5's
+  Claude adapter writes them as `permissions.disableBypassPermissionsMode`,
+  `permissions.blockReadsOutsideWorkingDirectories` and
+  `permissions.blockWritesOutsideWorkingDirectories`, once `docs/target-facts.md` records those
+  keys (TASK-76). The TypeScript `alz` has no such fields and refuses them as unknown (reference
+  drift, TASK-55.5.16).
 
 ### 7.7 MCP servers
 `mcp.yaml` defines servers by id:
@@ -1265,6 +1285,85 @@ first-class items wherever they stand, some are also reserved below the top leve
 Each reserved key is a `settings` error. It names the file and a key path chosen by alz, such as
 `codex.profiles.*.approval_policy`, with `*` for a profile name, and it never prints the value.
 The TypeScript `alz` checks the top level only (reference drift, TASK-55.5).
+
+**Security-relevant native keys** (TASK-55.5.16). One table in alz decides, for each target,
+which native keys `settings.yaml` refuses and which may only get stricter down the stack. It is
+the list that the owner approved in TASK-55.5 (2026-11-23), and TASK-76 corrects it.
+
+**Key paths.** A key path names keys from the target's mapping down, joined by `.`. A `*` stands
+for any one key, such as a profile name. A `**` stands for any run of keys or list items, so
+`**.features.hooks` is `hooks` in a `features` mapping wherever it stands. Every key is checked at
+the place its path names, at any depth. A diagnostic prints the table's path, never text of the
+layer.
+
+**First-class keys** are refused with the file that sets them instead
+(`'<path>' is set through <file>`):
+- Claude: `permissions`, `hooks`, `model`, `mcpServers`, `enabledMcpjsonServers`,
+  `disabledMcpjsonServers`, `enableAllProjectMcpServers` and `disableAllHooks`.
+- Codex: `model`, `mcp_servers`, `hooks`, `profile`, `approval_policy` and `sandbox_mode`;
+  `profiles.*.approval_policy` and `profiles.*.sandbox_mode`; `features.hooks`,
+  `features.codex_hooks`, `profiles.*.features.hooks`, `profiles.*.features.codex_hooks`,
+  `**.features.hooks` and `**.features.codex_hooks`.
+
+**Reserved keys** are refused with a reason (`'<path>' is not set in settings.yaml: <reason>`):
+- Claude, a key that runs a command or carries a login: `apiKeyHelper`, `statusLine`,
+  `fileSuggestion` and `sandbox.credentials`.
+- Claude, a key that routes traffic: `sandbox.network.httpProxyPort` and
+  `sandbox.network.socksProxyPort`.
+- Claude, a key that widens connector servers past `mcp.yaml`: `allowAllClaudeAiMcps`.
+- Claude, a plugin source: `enabledPlugins` and `extraKnownMarketplaces`.
+- Claude, a key for a scope alz does not write (user or managed settings):
+  `sandbox.filesystem.disabled`, `sandbox.allowAppleEvents`, `sandbox.allowNestedUserNamespaces`,
+  `sandbox.network.strictAllowlist`, `sandbox.network.allowManagedDomainsOnly`, `autoMode`,
+  `skipAutoPermissionPrompt`, `skipDangerousModePermissionPrompt`, `allowManagedHooksOnly`,
+  `allowManagedMcpServersOnly`, `managedMcpServers`, `prependPlugins`, `appendPlugins`,
+  `pluginConfigs`, `strictKnownMarketplaces`, `blockedMarketplaces`,
+  `strictPluginOnlyCustomization` and `syncClaudeAiPlugins`.
+- Codex, a key whose values have no order: `auto_review`, `default_permissions`, `permissions`,
+  `apps` and `windows.sandbox`.
+- Codex, a plugin source: `plugins` and `marketplaces`.
+- Codex, `projects.*.trust_level`, because a layer must not mark a project as trusted.
+- Codex, a key that runs a program or routes traffic: `notify`, `model_provider`,
+  `model_providers`, `openai_base_url`, `chatgpt_base_url` and `otel`.
+
+**Floor keys** may be set. Once a layer sets one, a more specific layer may only make it
+stricter:
+- A boolean may only be set to its stricter value.
+  - `true` is stricter for Claude `sandbox.enabled`, `sandbox.failIfUnavailable`,
+    `disableSkillShellExecution` and `disableClaudeAiConnectors`, and for Codex
+    `sandbox_workspace_write.exclude_tmpdir_env_var` and `sandbox_workspace_write.exclude_slash_tmp`.
+  - `false` is stricter for Claude `sandbox.autoAllowBashIfSandboxed`,
+    `sandbox.allowUnsandboxedCommands`, `sandbox.enableWeakerNestedSandbox`,
+    `sandbox.enableWeakerNetworkIsolation`, `sandbox.network.allowAllUnixSockets` and
+    `sandbox.network.allowLocalBinding`, and for Codex `sandbox_workspace_write.network_access` and
+    `allow_login_shell`.
+- Ordered text keeps its rank or moves to a stricter one, and a value that is in no rank may not
+  change:
+  - Claude `disableAutoMode`: one rank, `disable`. Once a layer sets it, no more specific layer
+    may change it. While no layer has set it, it is free;
+  - Codex `approvals_reviewer` and `profiles.*.approvals_reviewer`: `auto_review` and
+    `guardian_subagent`, then `user`;
+  - `web_search`, `profiles.*.web_search` and `tools.web_search`: `live`, then `indexed`, then
+    `cached`, then `disabled`.
+- A "no additions" list or mapping gains no entry, list item or mapping key at any depth, that a
+  more general layer did not set. Settings have no removal syntax, so it cannot shrink either.
+  These are Claude `sandbox.excludedCommands`, `sandbox.filesystem.allowWrite`,
+  `sandbox.filesystem.allowRead`, `sandbox.ignoreViolations`, `sandbox.network.allowedDomains`,
+  `sandbox.network.allowUnixSockets`, `sandbox.network.allowMachLookup`, `allowedHttpHookUrls`,
+  `httpHookAllowedEnvVars` and `allowedMcpServers`, and Codex
+  `sandbox_workspace_write.writable_roots`.
+- A "union" list only grows: Claude `sandbox.filesystem.denyWrite`, `sandbox.filesystem.denyRead`,
+  `sandbox.network.deniedDomains` and `deniedMcpServers`.
+
+**When a floor is broken.** A looser value, a forbidden new entry, or a change of kind, `null`
+included, is a `settings` error (`'<path>' is a floor: …`). It names the layer, the file and the
+key path, and none of that file's settings are merged. A key that no more general layer set, or
+that it set to `null`, is free. This departs from the left fold above for these keys only. The
+TypeScript `alz` merges all of them freely and refuses only the first-class keys at the top level
+(reference drift, TASK-55.5.16).
+
+**Facts.** An adapter relies on what one of these keys does only once `docs/target-facts.md`
+records it (TASK-76). Until then the table only refuses or constrains the key.
 
 No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
 `XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or locate alz's own
@@ -2530,7 +2629,7 @@ the file as `<where>`.
 | --- | --- | --- |
 | `frontmatter` | error | a block that is not closed (`frontmatter is not closed with '---'`), a block that is not a mapping (`frontmatter must be a YAML mapping`), a Markdown file without a block that is not valid UTF-8 (§4.1) |
 | `instructions` | error | an instruction file's unknown field or `mode` (§7.1) |
-| `agent` | error | an agent's schema: name (the file stem), description, unknown tool, skill name, `memory`, `permission_mode`, a native key with a neutral field; an overlay's fields other than `extends` and `mode` (§7.2) |
+| `agent` | error | an agent's schema: name (the file stem), description, unknown tool, skill name, `memory`, `permission_mode`, a native key with a neutral field, `mcpServers`, `mcp_servers` or `hooks` in native fields; an overlay's fields other than `extends` and `mode` (§7.2) |
 | `agent-duplicate` | error | a second base definition of an agent (§7.2) |
 | `agent-overlay` | error | an overlay's `extends` (`extends is required` when it is missing) or `mode`, or removing a tool from an agent without a tool list (§7.2) |
 | `agent-replace` | warning | an overlay that replaces the whole body (§7.2) |
@@ -2544,11 +2643,11 @@ the file as `<where>`.
 | `hooks` | error | a hook's schema, an id used twice in one layer or already used (or disabled) by a more general layer, a disable entry with other fields (§7.5) |
 | `hook-locked` | error | disabling a locked hook (§7.5) |
 | `permissions` | error | the schema of `permissions.yaml` (§7.6) |
-| `permission-floor` | error | removing a deny rule of a more general layer, or a `default_mode` looser than a floor (§7.6) |
+| `permission-floor` | error | removing a deny rule of a more general layer, a `default_mode` looser than a floor, or setting a floor field back to `false` (§7.6) |
 | `permission-shadowed` | warning | a rule in both `allow` and `deny`, without `<where>` (§7.6) |
 | `mcp` | error | a key that is not a server id, a definition's schema, an `mcp.enable` entry that no layer defines (§7.7) |
 | `models` | error, or warning | the schema of `models.yaml`, an alias key that is not a target, an agent model that is not an alias; the warning is an alias without a model for a target (§7.8) |
-| `settings` | error | a top-level key that is not a target, a target value that is not a mapping, a key of a first-class item (§7.9) |
+| `settings` | error | a top-level key that is not a target, a target value that is not a mapping, a first-class or reserved native key, a floor key made looser or of another kind (§7.9) |
 | `protected-variable` | error | a protected or malformed variable name (§7.9) |
 | `rule` | error | a rule's schema (§7.10) |
 | `passthrough` | warning, or error | the warning for each passthrough file (§7.11); the error for a folder in `targets/` that is not a known target (§4.1) |
