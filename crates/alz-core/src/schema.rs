@@ -9,8 +9,8 @@ use crate::account::{AccountNameError, AccountShapeError};
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Position, Where};
 use crate::identity::{EmailError, IdentityNameError};
 use crate::item::{
-    AgentRefusal, GlobError, HookRefusal, InstructionModeError, PermissionRefusal, RuleModeError,
-    SkillDescriptionError,
+    AgentRefusal, GlobError, HookRefusal, InstructionModeError, McpRefusal, PermissionRefusal,
+    RuleModeError, SkillDescriptionError,
 };
 use crate::layer::{KindError, LayerNameError, VisibilityError};
 use crate::stack::{BudgetError, GitRefError, SourceError, StackError, WorkspaceDirError};
@@ -63,6 +63,8 @@ pub enum Refusal {
     Hook(HookRefusal),
     /// A rule of `permissions.yaml`.
     Permission(PermissionRefusal),
+    /// A server id of `mcp.yaml` or `mcp.enable`, or a `transport`.
+    Mcp(McpRefusal),
 }
 
 impl Refusal {
@@ -90,6 +92,7 @@ impl Refusal {
             Self::SkillDescription(error) => error.rule(),
             Self::Hook(error) => error.rule(),
             Self::Permission(error) => error.rule(),
+            Self::Mcp(error) => error.rule(),
         }
     }
 }
@@ -125,6 +128,7 @@ refusal_from! {
     SkillDescriptionError => SkillDescription,
     HookRefusal => Hook,
     PermissionRefusal => Permission,
+    McpRefusal => Mcp,
 }
 
 /// One problem of a file against its schema, with the position it is reported at.

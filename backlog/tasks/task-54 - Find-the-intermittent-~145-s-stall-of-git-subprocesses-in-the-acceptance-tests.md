@@ -4,7 +4,7 @@ title: Find the intermittent ~145 s stall of git subprocesses in the acceptance 
 status: To Do
 assignee: []
 created_date: '2026-11-22T09:02:00Z'
-updated_date: '2026-11-23T03:24:00Z'
+updated_date: '2026-11-23T14:39:00Z'
 labels:
   - area:test
   - discovered
@@ -48,4 +48,6 @@ Hypotheses (no experiments run):
 2026-11-23, after R1.7 (TASK-55.2.7): a run no longer leaves alz-* folders, so the folder-count cause (H1) is removed. Two new pieces of evidence: (1) one 132,814 ms stall of the tests' own `git config --local user.name` in 26, with an empty temp folder, despite the 15 s timeout (the synchronous helper blocks the worker, so the kill and listing come late; the ps listing was not kept). (2) The verify-on-stop hook in .layer/hooks/hooks.yaml runs lint and the whole vitest suite at the end of every main-agent turn; seen with ps running alongside a manual `mise run test`, so two full suites can contend for the git subprocesses. Overlapping runs are a candidate cause for the remaining timeouts. AC #2 (fail fast with a clear message) is covered by R1.7's timeout helper.
 
 2026-11-23: the R1 reviewer's theory that spawnSync waits on a grandchild holding the pipes after its timeout did not reproduce (passes on the old helper in 1 s; Node closes the pipes on timeout). The 132 s stall remains unexplained; the overlapping stop-hook suite is the open lead.
+
+2026-11-23 20:01: a stop-hook run of the whole suite (508 s) failed one case: test/reference/32-account-allow.test.ts 'refuses when the layers name no account, and names --remove when this root has an entry' — test/exec.ts capture reported git -c commit.gpgsign=false init --quiet --initial-branch=main 'did not end within 438223 ms and was killed' although its timeout is 15 s; the process-group listing at the kill was empty (nothing left). A Rust implementer's builds and tests ran at the same time. Since spawnSync's timeout did not fire for ~7 min, a paused machine (sleep) is one explanation; another is that spawnSync's timer cannot run while the call blocks in a way the timeout does not cover. Next step: record wall-clock and monotonic time around capture to tell sleep from a hang.
 <!-- SECTION:NOTES:END -->

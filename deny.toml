@@ -62,6 +62,13 @@ deny = [
     { name = "rustix", wrappers = ["alz-io", "tempfile"], reason = "decision-27: only alz-io depends on rustix; tempfile is the named third-party exception" },
     # decision-36: only alz-core depends on sha1, to compute git's own object ids.
     { name = "sha1", wrappers = ["alz-core"], reason = "decision-36: only alz-core depends on sha1" },
+    # decision-38: only alz-core depends on regex-lite, for the leak guard and the secret scan.
+    { name = "regex-lite", wrappers = ["alz-core"], reason = "decision-38: only alz-core depends on regex-lite" },
+    # decision-38: regex-lite is pinned exactly. Raise the pin in Cargo.toml and every line here together.
+    { name = "regex-lite", version = "<0.1.9", reason = "decision-38 pins regex-lite to =0.1.9" },
+    { name = "regex-lite", version = ">=0.1.9-0, <0.1.9", reason = "decision-38 pins regex-lite to =0.1.9; this catches the pre-releases of 0.1.9" },
+    { name = "regex-lite", version = ">0.1.9", reason = "decision-38 pins regex-lite to =0.1.9" },
+    { name = "regex-lite", version = ">=0.1.10-0", reason = "decision-38 pins regex-lite to =0.1.9; this catches the pre-releases of 0.1.10" },
     # decision-28: serde-saphyr is pinned exactly. Raise the pin in Cargo.toml and every line here together.
     { name = "serde-saphyr", version = "<2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
     { name = "serde-saphyr", version = ">=2.2.0-0, <2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0; this catches the pre-releases of 2.2.0" },

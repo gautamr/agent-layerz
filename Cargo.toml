@@ -25,6 +25,9 @@ rustix = { version = "1.1.6", default-features = false, features = ["std", "fs",
 serde = { version = "=1.0.229", default-features = false, features = ["std"] }
 # decision-33: parse only, into alz's own tree; alz writes JSON with its own emitter. A `[bans]` feature rule in deny.toml keeps the other features off.
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
+# decision-38: leak-guard patterns and the secret scan, in alz-core only; std and string, nothing else.
+# The pin is repeated in deny.toml.
+regex-lite = { version = "=0.1.9", default-features = false, features = ["std", "string"] }
 # decision-28: deserialisation only; the pin is repeated in deny.toml.
 serde-saphyr = { version = "=2.2.0", default-features = false, features = ["deserialize"] }
 # decision-36: SHA-1 only to compute git's own blob ids; alloc, oid and zeroize stay off.

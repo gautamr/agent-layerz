@@ -4,8 +4,9 @@
 
 use proptest::prelude::{prop_assert, proptest};
 
+use crate::item::McpServerId;
 use crate::schema::SchemaErrors;
-use crate::stack::{GitRef, Manifest, McpName, ProtectedPattern, Source, StackEntry, WorkspaceDir};
+use crate::stack::{GitRef, Manifest, ProtectedPattern, Source, StackEntry, WorkspaceDir};
 use crate::target::TargetName;
 use crate::yaml::{Node, YamlText, parse};
 
@@ -312,6 +313,47 @@ fn a_workspace_path_that_is_empty_or_not_relative_is_refused_by_field_without_th
 // ---- lists, budgets, options ----
 
 #[test]
+fn an_mcp_enable_entry_outside_the_server_id_grammar_is_a_manifest_error_naming_its_key_path() {
+    let long = "a".repeat(65);
+    for entry in [
+        "__proto__",
+        "_x",
+        "-x",
+        "\"a b\"",
+        "a.b",
+        "\"\"",
+        "\"\u{e9}\"",
+        long.as_str(),
+    ] {
+        let errors = with(&format!("mcp:\n  enable: [good, {entry}]")).expect_err(entry);
+        let printed = printed(&errors);
+        assert!(
+            printed.starts_with("error [manifest] layer.yaml:4:"),
+            "{printed}"
+        );
+        assert!(
+            printed.ends_with(
+                "mcp.enable[1] must be a server id: an ASCII letter or digit, then up to 63 ASCII letters, digits, '_' or '-'"
+            ),
+            "{printed}"
+        );
+        assert_eq!(printed.lines().count(), 1, "{printed}");
+    }
+}
+
+#[test]
+fn an_mcp_enable_entry_that_is_not_text_is_refused_and_the_other_entries_are_still_checked() {
+    let errors = with("mcp:\n  enable: [1, _x, ok]").expect_err("refused");
+    assert_eq!(
+        messages(&errors),
+        [
+            "mcp.enable[0] must be text; put the value in quotes to keep it as text",
+            "mcp.enable[1] must be a server id: an ASCII letter or digit, then up to 63 ASCII letters, digits, '_' or '-'"
+        ]
+    );
+}
+
+#[test]
 fn protected_paths_and_mcp_enable_are_lists_of_text() {
     let manifest =
         with("protected_paths: [a/**, b]\nmcp:\n  enable: [context7, playwright]").expect("valid");
@@ -327,7 +369,7 @@ fn protected_paths_and_mcp_enable_are_lists_of_text() {
         manifest
             .mcp_enable()
             .iter()
-            .map(McpName::as_str)
+            .map(McpServerId::as_str)
             .collect::<Vec<_>>(),
         ["context7", "playwright"]
     );
