@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T14:52:00Z'
+updated_date: '2026-11-23T15:04:00Z'
 labels:
   - area:rust
   - area:lint
@@ -53,4 +53,6 @@ Spec items from R4.9 (2026-11-23): (a) allow, ask and deny are written as a plai
 Spec items from R4.10 (2026-11-23): (a) a target whose value is null or not a mapping is a settings error; (b) lead: shell_environment_policy, mcpServers and mcp_servers that are not mappings are refused (they can carry environment settings the protected-variable checks must see); (c) protected-variable diagnostics name the file without line and column; (d) a pattern matching several protected variables gives one error per variable; (e) protected names match in any ASCII case and the written text is never printed. Also: the settings and protected-variable cases live in test 24 (fixture 29-account-layer), not in 11, 26 or 29 (mapping in TASK-55.5.10's notes).
 
 Spec items from R4.11 (2026-11-23): (a) per-server checks stop at the first failing step; (b) a command on an http/sse server or a url on a stdio server is ignored; (c) mcp.enable repeats are kept once; (d) a server refused for any reason still gets the 'no layer defines it' error for mcp.enable (the spec names only the protected case); (e) alias, role and concrete model ids are any non-blank text; (f) a models.yaml with any problem gives no item (the reference kept the valid aliases: drift); (g) the credential-assignment secret shape matches JavaScript's whitespace set explicitly; (h) forbid_patterns compile with the same limits as the secret scan (secret::SIZE_LIMIT, NEST_LIMIT).
+
+Spec items from R4.12 (2026-11-23): (a) the passthrough warning 'raw passthrough to <path>; consider turning it into a first-class item' and the unknown-folder error text; (b) §7.9's non-ASCII path rule covers any folder of targets/, not only passthrough paths; (c) a .toml that is not valid UTF-8 is refused as unchecked; (d) the TOML text rule reports each distinct protected variable mentioned; (e) a non-mapping, non-list mcpServers (a plugin manifest naming a file) and a JSON root that is not an object are not checked; (f) nested env depth is bounded by the JSON reader's 128 (the reference refused past 32); (g) a refused passthrough file gives errors only (the reference also warned).
 <!-- SECTION:NOTES:END -->

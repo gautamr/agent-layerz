@@ -30,6 +30,7 @@ use crate::merge::hooks::HookState;
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
 use crate::merge::mcp::{McpState, MergedMcp};
 use crate::merge::models::{MergedModels, ModelState};
+use crate::merge::passthrough::{MergedPassthrough, PassthroughState};
 use crate::merge::permissions::{MergedPermissions, PermissionState};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
@@ -99,6 +100,7 @@ pub struct Merged {
     settings: BTreeMap<TargetName, Traced<SettingsTree>>,
     mcp: MergedMcp,
     models: MergedModels,
+    passthrough: MergedPassthrough,
 }
 
 impl Merged {
@@ -178,6 +180,14 @@ impl Merged {
         &self.models
     }
 
+    /// The passthrough files of each target (§7.11), by their path inside the target's folder,
+    /// each with the layers that had the path. The most specific layer's file is the one here; the
+    /// earlier ones are in the provenance only.
+    #[must_use]
+    pub const fn passthrough(&self) -> &MergedPassthrough {
+        &self.passthrough
+    }
+
     /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
     /// that says "not defined for this repo", and who asked for it first (§7.3).
     #[must_use]
@@ -235,6 +245,7 @@ struct Accumulator {
     settings: SettingsState,
     mcp: McpState,
     models: ModelState,
+    passthrough: PassthroughState,
     diagnostics: Diagnostics,
 }
 
@@ -251,6 +262,7 @@ impl Accumulator {
         let (settings, found_settings) = self.settings.absorb(context);
         let (mcp, found_mcp) = self.mcp.absorb(context);
         let (models, found_models) = self.models.absorb(context);
+        let (passthrough, found_passthrough) = self.passthrough.absorb(context);
         Self {
             layers: self
                 .layers
@@ -266,6 +278,7 @@ impl Accumulator {
             settings,
             mcp,
             models,
+            passthrough,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
@@ -276,7 +289,8 @@ impl Accumulator {
                 .merge(found_permissions)
                 .merge(found_settings)
                 .merge(found_mcp)
-                .merge(found_models),
+                .merge(found_models)
+                .merge(found_passthrough),
         }
     }
 
@@ -306,6 +320,7 @@ impl Accumulator {
                 settings: self.settings.finish(),
                 mcp,
                 models,
+                passthrough: self.passthrough.finish(),
             },
             self.diagnostics
                 .merge(found_slots)

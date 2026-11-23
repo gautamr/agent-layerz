@@ -24,6 +24,7 @@ mod hooks;
 mod instructions;
 mod mcp;
 mod models;
+mod passthrough;
 mod permissions;
 mod placement;
 mod provenance;
@@ -39,6 +40,7 @@ pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree, c
 pub use instructions::InstructionBlock;
 pub use mcp::MergedMcp;
 pub use models::{MergedModels, TargetModels};
+pub use passthrough::MergedPassthrough;
 pub use permissions::MergedPermissions;
 pub use placement::{Placement, Placements};
 pub use provenance::{Action, Contribution, Provenance, Traced};
