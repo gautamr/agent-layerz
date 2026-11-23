@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.4
 title: 'R5.4: Claude agents, skills, commands, slot stubs and rules'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T23:31:00Z'
+updated_date: '2026-11-23T23:33:00Z'
 labels:
   - area:rust
   - area:render
