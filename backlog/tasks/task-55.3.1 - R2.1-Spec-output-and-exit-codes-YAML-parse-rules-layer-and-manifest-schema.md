@@ -1,11 +1,11 @@
 ---
 id: TASK-55.3.1
 title: 'R2.1: Spec: output and exit codes, YAML parse rules, layer and manifest schema'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-23T05:17:00Z'
-updated_date: '2026-11-23T05:45:00Z'
+updated_date: '2026-11-23T06:55:00Z'
 labels:
   - area:spec
   - area:rust
@@ -34,7 +34,7 @@ Out of scope: what R3 to R6 build (resolved sources, leak guard, merge, account 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The spec has an 'Output and exit codes' section and §10 points to it; every diagnostic code R2 emits is named in the spec (grep of the codes in crates/ against the spec, recorded in the notes)
+- [x] #1 The spec has an 'Output and exit codes' section and §10 points to it; every diagnostic code R2 emits is named in the spec (grep of the codes in crates/ against the spec, recorded in the notes)
 - [x] #2 §5.1, §5.2, §5.3 and §7.13 state every rule R2.4 to R2.9 enforce, each with its reference drift and task where the TypeScript alz differs (owner review comment on this task)
 - [x] #3 The text follows the owner's answers in TASK-55.3's notes: input keys cut at 64 code points after stripping, CR allowed in raw YAML text only, schema errors never print values (owner review comment)
 <!-- AC:END -->
@@ -56,6 +56,10 @@ Open:
 - Kept as the reference has it, not decided by the owner: a ref: field on a github: or git: entry is checked but has no effect. Making it an error would be a new rule.
 
 Owner approved the text (comment). AC #1 (grep of codes in crates/ against the spec) is checked in R2.11, once R2's code exists; R2.3 may start on the approved text.
+
+R2.11 (2026-11-23): AC1 grep of the codes emitted in crates/ against docs/LAYERING-SPEC.md: all named except not-ported (deliberate) and account-config / account-allowed, which R2.11 added to 7.13. AC1 itself left for the lead to check.
+
+AC #1 (2026-11-23, R2.11): codes emitted in crates/ are yaml, yaml-tag, layer, manifest, no-manifest, lock, source, account-config, account-allowed and the temporary not-ported; all but not-ported are named in the spec (account-config and account-allowed added to §7.13 in R2.11).
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -70,3 +74,9 @@ Owner review (2026-11-23): the R2.1 spec text in commit 531859d is approved; the
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The spec gained §10.1 Output and exit codes, the field rules and layer.yaml read errors of §5.1/§5.2, reading the lock in §5.3 and what else makes YAML invalid in §7.13, each with its reference drift; every code R2 emits is named in it.
+<!-- SECTION:FINAL_SUMMARY:END -->

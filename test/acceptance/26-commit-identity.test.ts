@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { delimiter, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { referenceDrift } from "../drift";
 import { tool } from "../exec";
 import { gitProxy } from "../git-proxy";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
@@ -136,42 +137,45 @@ function commitsSection(who: string, layer: string): string {
 `;
 }
 
+/** Refused `commit_identity` bodies (§7.12 validation), shared by the build and the lint cases. */
+const REFUSED_IDENTITIES: [string, string][] = [
+  ["a newline in the name", identityYaml("Owner\nExample", "owner@example.com")],
+  ["a control character in the name", identityYaml("Owner\u0007", "owner@example.com")],
+  ["a C1 control character in the name", identityYaml("Own\u0085er", "owner@example.com")],
+  ["a line separator in the name", identityYaml("Own\u2028er", "owner@example.com")],
+  ["a zero-width space in the name", identityYaml("Own\u200ber", "owner@example.com")],
+  ["a bidi control in the name", identityYaml("Own\u202eer", "owner@example.com")],
+  ["a soft hyphen in the name", identityYaml("Own\u00ader", "owner@example.com")],
+  ["a name over 128 characters", identityYaml("a".repeat(129), "owner@example.com")],
+  ["an option-like name", identityYaml("--upload-pack=x", "owner@example.com")],
+  ["a name with a leading space", identityYaml(" Owner", "owner@example.com")],
+  ["a name with a trailing space", identityYaml("Owner ", "owner@example.com")],
+  ["a name ending in a period", identityYaml("Owner.", "owner@example.com")],
+  ["a name starting with a period", identityYaml(".Owner", "owner@example.com")],
+  ["a name ending in a comma", identityYaml("Owner,", "owner@example.com")],
+  ["a name ending in a semicolon", identityYaml("Owner;", "owner@example.com")],
+  ["a name ending in a colon", identityYaml("Owner:", "owner@example.com")],
+  ["a name starting with a double quote", identityYaml('"Owner', "owner@example.com")],
+  ["a name ending in an apostrophe", identityYaml("Owner'", "owner@example.com")],
+  ["a name with a backslash", identityYaml("Own\\er", "owner@example.com")],
+  ["a name with a backslash and an apostrophe", identityYaml("Owner\\'x", "owner@example.com")],
+  ["a name with <", identityYaml("Own<er", "owner@example.com")],
+  ["a name with >", identityYaml("Own>er", "owner@example.com")],
+  ["a name with a backtick", identityYaml("Own`er", "owner@example.com")],
+  ["a name that is not a string", identityYaml(12, "owner@example.com")],
+  ["an email that is not a string", identityYaml("Owner", true)],
+  ["an option-like email", identityYaml("Owner", "-x@example.com")],
+  ["an email starting with a period", identityYaml("Owner", ".owner@example.com")],
+  ["an email with a zero-width space", identityYaml("Owner", "owner@exam\u200bple.com")],
+  ["an email without @", identityYaml("Owner", "owner.example.com")],
+  ["an email over 254 characters", identityYaml("Owner", `${"a".repeat(250)}@example.com`)],
+  ["an extra key", `${identityYaml("Owner", "owner@example.com")}  signing_key: abc\n`],
+  ["a missing email", "  name: Owner\n"],
+];
+
 describe("§13.18 commit identity", () => {
   describe("schema (§7.12 validation)", () => {
-    it.each([
-      ["a newline in the name", identityYaml("Owner\nExample", "owner@example.com")],
-      ["a control character in the name", identityYaml("Owner\u0007", "owner@example.com")],
-      ["a C1 control character in the name", identityYaml("Own\u0085er", "owner@example.com")],
-      ["a line separator in the name", identityYaml("Own\u2028er", "owner@example.com")],
-      ["a zero-width space in the name", identityYaml("Own\u200ber", "owner@example.com")],
-      ["a bidi control in the name", identityYaml("Own\u202eer", "owner@example.com")],
-      ["a soft hyphen in the name", identityYaml("Own\u00ader", "owner@example.com")],
-      ["a name over 128 characters", identityYaml("a".repeat(129), "owner@example.com")],
-      ["an option-like name", identityYaml("--upload-pack=x", "owner@example.com")],
-      ["a name with a leading space", identityYaml(" Owner", "owner@example.com")],
-      ["a name with a trailing space", identityYaml("Owner ", "owner@example.com")],
-      ["a name ending in a period", identityYaml("Owner.", "owner@example.com")],
-      ["a name starting with a period", identityYaml(".Owner", "owner@example.com")],
-      ["a name ending in a comma", identityYaml("Owner,", "owner@example.com")],
-      ["a name ending in a semicolon", identityYaml("Owner;", "owner@example.com")],
-      ["a name ending in a colon", identityYaml("Owner:", "owner@example.com")],
-      ["a name starting with a double quote", identityYaml('"Owner', "owner@example.com")],
-      ["a name ending in an apostrophe", identityYaml("Owner'", "owner@example.com")],
-      ["a name with a backslash", identityYaml("Own\\er", "owner@example.com")],
-      ["a name with a backslash and an apostrophe", identityYaml("Owner\\'x", "owner@example.com")],
-      ["a name with <", identityYaml("Own<er", "owner@example.com")],
-      ["a name with >", identityYaml("Own>er", "owner@example.com")],
-      ["a name with a backtick", identityYaml("Own`er", "owner@example.com")],
-      ["a name that is not a string", identityYaml(12, "owner@example.com")],
-      ["an email that is not a string", identityYaml("Owner", true)],
-      ["an option-like email", identityYaml("Owner", "-x@example.com")],
-      ["an email starting with a period", identityYaml("Owner", ".owner@example.com")],
-      ["an email with a zero-width space", identityYaml("Owner", "owner@exam\u200bple.com")],
-      ["an email without @", identityYaml("Owner", "owner.example.com")],
-      ["an email over 254 characters", identityYaml("Owner", `${"a".repeat(250)}@example.com`)],
-      ["an extra key", `${identityYaml("Owner", "owner@example.com")}  signing_key: abc\n`],
-      ["a missing email", "  name: Owner\n"],
-    ])(
+    it.each(REFUSED_IDENTITIES)(
       "rejects %s as a schema error, before build --adopt writes anything",
       async (_label, identity) => {
         const ws = gitFixture();
@@ -187,6 +191,43 @@ describe("§13.18 commit identity", () => {
         expectNoWrongValue(result);
       },
     );
+
+    // An escape that decodes to a control character is a YAML error, not a field error (§7.13).
+    const DECODED_CONTROL = [
+      "a control character in the name",
+      "a C1 control character in the name",
+      "a line separator in the name",
+    ];
+
+    it.each(REFUSED_IDENTITIES.filter(([label]) => !DECODED_CONTROL.includes(label)))(
+      "lint --layer rejects %s as a schema error",
+      async (_label, identity) => {
+        const ws = gitFixture();
+        setIdentity(ws, "personal", identity);
+        const result = await layers(ws, "repo", ["lint", "--layer", "../personal"], ENV);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("error [layer]");
+        expect(result.stderr).toContain("commit_identity");
+        expectNoWrongValue(result);
+      },
+    );
+
+    for (const [label, identity] of REFUSED_IDENTITIES.filter(([name]) =>
+      DECODED_CONTROL.includes(name),
+    )) {
+      referenceDrift(
+        "TASK-55.3",
+        `lint --layer rejects ${label} as a YAML error (§7.13)`,
+        async () => {
+          const ws = gitFixture();
+          setIdentity(ws, "personal", identity);
+          const result = await layers(ws, "repo", ["lint", "--layer", "../personal"], ENV);
+          expect(result.code).toBe(1);
+          expect(result.stderr).toContain("error [yaml]");
+          expectNoWrongValue(result);
+        },
+      );
+    }
 
     it("accepts an apostrophe inside a name", async () => {
       const ws = gitFixture();

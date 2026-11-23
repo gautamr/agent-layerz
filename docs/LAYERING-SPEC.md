@@ -1043,6 +1043,8 @@ account:                       # per target; a target left out is not decided by
   - The entry that applies is the one with the longest real path that is the working directory
     or one of its parents. If it names no account for a target, that target skips the user config
     step; a shorter entry is not tried.
+  - A warning about the shape of this file or one of its entries has the code `account-config`
+    (§10.1).
 - **Allow state** (built, TASK-50.10 and TASK-50.11; decision-16, decision-20). Approvals live in
   `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`, a file only
   `alz account allow` writes. It holds one entry per repository root, sorted by root (name
@@ -1068,6 +1070,8 @@ account:                       # per target; a target left out is not decided by
   a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names is kept, so that the repository fails
   closed (below). A `root` that does not resolve matches nothing. Two entries with the same real root are both ignored, with a warning, so
   that root is not allowed (one warning names both positions).
+  - A warning about the shape of this file or one of its entries has the code `account-allowed`
+    (§10.1).
 - **Both files** (built, TASK-50.10; writing `allowed.yaml`, TASK-50.11, decision-20). alz ignores
   `accounts.yaml` or `allowed.yaml`, with a warning, when its real path is inside the current
   repository, when the user does not own it, when group or others can write it or its
