@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T13:49:00Z'
+updated_date: '2026-11-23T14:01:00Z'
 labels:
   - area:rust
   - area:lint
@@ -45,4 +45,6 @@ Spec items from R4.5 (2026-11-23, lead accepts the choices): (a) the keys that h
 Spec items from R4.6 (2026-11-23): (a) a base path scope whose segments other than the last end in ** covers only an equal scope (keeps covers transitive); (b) the neutral tool vocabulary (the reference's 12 names) plus any name starting mcp__; anything else is an agent error, also inside -[..]; an empty scope (write:) is accepted as written; (c) 'the base' is the agent the overlay refines; a later overlay cannot re-widen what an earlier one narrowed; (d) a refused overlay is not applied; (e) allow_widen in a public layer is an error even without a tools edit or a base; (f) docs/** covers docs itself, ** covers any path without a dot segment, braces are literal.
 
 Spec items from R4.7 (2026-11-23): (a) drop 'too many preloaded skills' from §10.1's agent code (lead: no limit in the spec or the reference); (b) command frontmatter: description required, argument_hint optional, any other field a command error; (c) provides_slots is checked by lint only (R4.15 calls SkillItems::check_provided); a requires_slots entry that is not a skill name is a slot error in build and lint; (d) slot-missing is located at <layer>:layer.yaml for requires_slots and at the agent's defining file for a preload; (e) a command and a skill with one name in one layer: the command is dropped with one error; (f) SKILL.md frontmatter other than name and description is not checked.
+
+Spec items from R4.8 (2026-11-23): (a) hook ids: any text with a visible character, printed as a quoted key; (b) timeout: a positive whole number of seconds (the reference accepted fractions: drift; no fixture or layer uses one); (c) on_fail defaults to warn; (d) native events: target claude or codex, name ^[A-Z][A-Za-z]+$, a native hook lists only its own target, targets: [] is an error; (e) match.tools: bare neutral tools or mcp__ tools, no scope; (f) a disabled id stays taken (redefining it later is a hooks error), disabling a hook of the same layer or one already disabled is unresolved, a duplicate id in one layer is a hooks error; (g) merge diagnostics carry no line and column; reader errors do.
 <!-- SECTION:NOTES:END -->

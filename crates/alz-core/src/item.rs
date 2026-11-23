@@ -6,6 +6,7 @@
 //! so a merged model never holds a half-read file.
 
 mod agent;
+mod hook;
 mod instruction;
 mod kebab_case;
 mod rule;
@@ -15,6 +16,11 @@ pub use agent::{
     AgentBase, AgentDescription, AgentItems, AgentName, AgentOverlay, AgentRefusal, AgentScalars,
     Isolation, McpToolName, Memory, ModelId, NativeFields, NativeMap, NativeValue, NeutralTool,
     OverlayMode, PermissionMode, Role, SkillName, ToolGrant, ToolName, ToolScope,
+};
+pub use hook::{
+    CommandLine, Hook, HookAction, HookEntry, HookId, HookItems, HookRefusal, HookScript, HookTool,
+    LifecycleEvent, Lock, Matcher, NativeEvent, NativeEventName, NeutralEvent, OnFail, Seconds,
+    ToolFilter, ToolMoment, Trigger,
 };
 pub use instruction::{
     ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, InstructionMode,

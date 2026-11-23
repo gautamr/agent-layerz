@@ -9,7 +9,8 @@ use crate::account::{AccountNameError, AccountShapeError};
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Position, Where};
 use crate::identity::{EmailError, IdentityNameError};
 use crate::item::{
-    AgentRefusal, GlobError, InstructionModeError, RuleModeError, SkillDescriptionError,
+    AgentRefusal, GlobError, HookRefusal, InstructionModeError, RuleModeError,
+    SkillDescriptionError,
 };
 use crate::layer::{KindError, LayerNameError, VisibilityError};
 use crate::stack::{BudgetError, GitRefError, SourceError, StackError, WorkspaceDirError};
@@ -58,6 +59,8 @@ pub enum Refusal {
     Agent(AgentRefusal),
     /// The `description` of a skill or a command.
     SkillDescription(SkillDescriptionError),
+    /// A field of a hook.
+    Hook(HookRefusal),
 }
 
 impl Refusal {
@@ -83,6 +86,7 @@ impl Refusal {
             Self::RuleMode(error) => error.rule(),
             Self::Agent(error) => error.rule(),
             Self::SkillDescription(error) => error.rule(),
+            Self::Hook(error) => error.rule(),
         }
     }
 }
@@ -116,6 +120,7 @@ refusal_from! {
     RuleModeError => RuleMode,
     AgentRefusal => Agent,
     SkillDescriptionError => SkillDescription,
+    HookRefusal => Hook,
 }
 
 /// One problem of a file against its schema, with the position it is reported at.

@@ -105,6 +105,11 @@ pub enum Code {
     SlotCommand,
     /// A rule's schema (§7.10).
     Rule,
+    /// A hook's schema, an id that a more general layer already uses, or a disable entry with
+    /// other fields (§7.5).
+    Hooks,
+    /// A locked hook that a more specific layer disables (§7.5).
+    HookLocked,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -144,6 +149,8 @@ impl Code {
             Self::SlotMissing => "slot-missing",
             Self::SlotCommand => "slot-command",
             Self::Rule => "rule",
+            Self::Hooks => "hooks",
+            Self::HookLocked => "hook-locked",
             Self::Unresolved => "unresolved",
         }
     }

@@ -22,10 +22,11 @@
 use std::collections::BTreeMap;
 
 use crate::diagnostic::Diagnostics;
-use crate::item::{AgentName, ClaudeExtra, RuleName, Skill, SkillName};
+use crate::item::{AgentName, ClaudeExtra, Hook, RuleName, Skill, SkillName};
 use crate::layer::LayerName;
 use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::algebra::Replace;
+use crate::merge::hooks::HookState;
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
@@ -88,6 +89,7 @@ pub struct Merged {
     agents: BTreeMap<AgentName, Traced<MergedAgent>>,
     skills: Replace<SkillName, Traced<Skill>>,
     slot_stubs: BTreeMap<SkillName, SlotDemand>,
+    hooks: Vec<Traced<Hook>>,
 }
 
 impl Merged {
@@ -130,6 +132,13 @@ impl Merged {
     #[must_use]
     pub const fn skills(&self) -> &Replace<SkillName, Traced<Skill>> {
         &self.skills
+    }
+
+    /// The hooks that stand, in stack order and then file order (§7.5), each with the layer that
+    /// defined it. A hook that a layer disabled is not here; a locked hook is always here.
+    #[must_use]
+    pub fn hooks(&self) -> &[Traced<Hook>] {
+        &self.hooks
     }
 
     /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
@@ -184,6 +193,7 @@ struct Accumulator {
     rules: RuleState,
     agents: AgentState,
     skills: SkillState,
+    hooks: HookState,
     diagnostics: Diagnostics,
 }
 
@@ -195,6 +205,7 @@ impl Accumulator {
         let (rules, found_rules) = self.rules.absorb(context);
         let (agents, found_agents) = self.agents.absorb(context);
         let (skills, found_skills) = self.skills.absorb(context);
+        let (hooks, found_hooks) = self.hooks.absorb(context);
         Self {
             layers: self
                 .layers
@@ -205,12 +216,14 @@ impl Accumulator {
             rules,
             agents,
             skills,
+            hooks,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
                 .merge(found_rules)
                 .merge(found_agents)
-                .merge(found_skills),
+                .merge(found_skills)
+                .merge(found_hooks),
         }
     }
 
@@ -231,6 +244,7 @@ impl Accumulator {
                 agents,
                 skills: items,
                 slot_stubs: stubs,
+                hooks: self.hooks.finish(),
             },
             self.diagnostics.merge(found_slots),
         )
