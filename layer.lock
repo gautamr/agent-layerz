@@ -11,7 +11,7 @@
     ".claude/agents/domain-review.md": "sha256:3d0e6c51181f0c25b75c63e052f32415d3fe02763ddc0ee3d32d37536c3b8088",
     ".claude/agents/engineering-manager.md": "sha256:8b71f9f4be8dcff5c4642b5f4d40033cffeacb6e702fadc1babc649e5866a7af",
     ".claude/agents/frontend-engineer.md": "sha256:ade24752f39daae4cf60c608afc9ae02c46a3f4fdf66b34605c63f07d3b01755",
-    ".claude/agents/implementer.md": "sha256:721cd21029887b6ea12a1379e21695e9f48c8ec90975fd66a5e45eb43c62c670",
+    ".claude/agents/implementer.md": "sha256:f09b87dd865d49a03ee11bb51c2364d672121632bfa8bcd41cef593cf45ddefd",
     ".claude/agents/platform-engineer.md": "sha256:763ef6d47b58e9ba029f02f0ecaf3b94de25faa7e2f40522d3727ad0d37ddfd9",
     ".claude/agents/qa-engineer.md": "sha256:e26409581b2a4f2c629b31e0910d9d49ff6c7c25e290560ed6158ad3a5144425",
     ".claude/agents/release-engineer.md": "sha256:e22f05431b4d01cb20c0b51954c503b149888a7998d066bc5ff44a41a7276851",
@@ -26,9 +26,9 @@
     ".claude/rules/docs.md": "sha256:444e92ea2c4394addd7f1fe0e2e77ba0777953bc8581a9b4b2d391ddfd23de03",
     ".claude/rules/rust.md": "sha256:f28953a8273f1b5d282edf3288d2062893136f79ac4d4ec5feafbca08974faa3",
     ".claude/rules/src.md": "sha256:52192a4587b6f87c24a62db3d669f165c124dc036b00985972f9315b420331f8",
-    ".claude/rules/tests.md": "sha256:52edb9ed77eaf0d98fbac06d1c0805ff151bb778facbe580c2a9fd7e707edf79",
+    ".claude/rules/tests.md": "sha256:fde22158969298c57d15a7fd7134f4d869ce61d1fea2c125422b9e42096505fc",
     ".claude/settings.json": "sha256:c469fe5ff8c7ff23eb0f6f963d85703e420c7bd1fc45df2a45c1397f16b7d971",
-    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:b31d10ad5c8c90a519f34c6eae31a55bf71875f1d012047f2d343cd50cb6e8ee",
+    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:02ffbdcf4564e27417993568eacb2b1cb54e529360a1d104e78e78b8ded80aea",
     ".claude/skills/board-conventions/SKILL.md": "sha256:2d16a3a2799071228b0de6f3247136052df527c74836acc9792de72c08dabad7",
     ".claude/skills/bug-triage/SKILL.md": "sha256:7eb46777524add34d53b400c44b70554c9693e66654316359c303307e4533708",
     ".claude/skills/bug/SKILL.md": "sha256:87cccba116416a0fe116b17b95d980736a8d685bb87359d7a527304b4565fe48",
@@ -66,7 +66,7 @@
     ".claude/skills/triage/SKILL.md": "sha256:1eb144a6c119fcb7a90e07f6d0efbad4b2bc65194c84fb68c52c0675558e1cb1",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:374cd95f6ddd986c5cae722204733e46d289f554775c2cf1e42ae53322668bd0",
+    "AGENTS.md": "sha256:f5bf4658a733486c66d5927cc42f0d58917be55507af8078d474fc37516dc97b",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
@@ -78,7 +78,7 @@
       "source": "path:../agent-layerz-personal"
     },
     {
-      "contentHash": "sha256:1e2d63733cc68b394896a9e27e6d55c8aa94a3496e808a7870edfbb3b0e27877",
+      "contentHash": "sha256:5c90cb68b803f3cfb829e5f1a5037d238e7dde1bcb1298ed21422f93cf7b171c",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

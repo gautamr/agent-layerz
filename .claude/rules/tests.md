@@ -4,7 +4,14 @@ paths:
   - test/**
 ---
 
-- Acceptance tests follow the add-acceptance-test skill: copied fixture, isolated `HOME`,
-  assertions on exit code, message and files on disk.
+- Acceptance tests (`test/acceptance/`) follow the add-acceptance-test skill: copied fixture,
+  isolated `HOME`, assertions on exit code, message and files on disk. They spawn the binary
+  under test (`ALZ_BIN`, else the TypeScript reference) only through `test/helpers.ts` and
+  `test/account-workspace.ts`, and never import `src/`; `test/guards/` enforces it.
+- Assertions follow the spec. Help, usage and version follow decision-26: exit code, which
+  stream, and that stdout contains the version; never the full text.
+- TypeScript-only cases (in-process runs, fake terminals, source scans) go in `test/reference/`
+  and are deleted at cutover.
+- Temp folders come from `tempDir()` in `test/run-root.ts`, never from `tmpdir`.
 - Never read or write the real `~/.claude*`, `~/.codex*` or `~/.cache` from a test.
 - Fixtures are inputs: a test copies them first and never edits `test/fixtures/` in place.
