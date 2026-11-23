@@ -1,15 +1,14 @@
 ---
 id: TASK-55.6.1
 title: 'R5.1: Spec for the writer, the Claude output, adoption and the R5 commands'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T18:31:00Z'
+updated_date: '2026-11-23T22:54:00Z'
 labels:
   - area:rust
   - area:spec
-  - needs:owner-approval
 milestone: m-7
 dependencies: []
 parent_task_id: TASK-55.6
@@ -33,7 +32,7 @@ Out of scope: Codex output (TASK-18), §9.4 identity behaviour (R6).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 docs/LAYERING-SPEC.md states every rule listed in this task's description, each owner answer of TASK-55.6 included (spec diff, reviewed)
+- [x] #1 docs/LAYERING-SPEC.md states every rule listed in this task's description, each owner answer of TASK-55.6 included (spec diff, reviewed)
 - [x] #2 §10.1 lists each new diagnostic code with its level and what raises it, and §10 quotes every R5 message the acceptance suite asserts (spec diff checked against grep of test/acceptance)
 - [x] #3 CHANGELOG.md names the user-facing changes and the minor bump at cutover; mise run lint exits 0
 <!-- AC:END -->
@@ -83,4 +82,12 @@ Architect (2026-11-24, R5.1 additions asked by the coordinator after R5.2 was co
 - §10.1 already lists the codes collision and protected (my first pass).
 - CHANGELOG: the accent folding, the wider header rule, and ? above U+FFFF.
 Checks: mise run lint exit 0; the leak grep over the uncommitted docs, CHANGELOG and decision diff found 0 private-task terms.
+
+Owner approved the R5 spec (2026-11-24) as committed in 4592b6f.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The R5 spec is in docs/LAYERING-SPEC.md: header and ownership rules (the mark, or the lock plus a matching hash), links and non-regular files as collisions, NFD and ASCII case folding, refused file names and header sources, the glob syntax, the Claude output per item, the R5 codes and the output of build, check, diff, ls, explain, doctor and init; decision-33 amended for float_roundtrip. Owner approved.
+<!-- SECTION:FINAL_SUMMARY:END -->
