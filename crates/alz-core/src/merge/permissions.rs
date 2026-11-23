@@ -1,0 +1,305 @@
+//! The merge of permissions (spec §7.6).
+//!
+//! `allow`, `ask` and `deny` are lists of rules, combined across layers in stack order, a rule once
+//! ([`OrderedSet`]). A layer may edit a list with `-[..]` and `[..]` as well as add to it, but
+//! never the `deny` list of a more general layer: a deny rule that an edit would drop is a
+//! `permission-floor` error that names the layer, the rule and the layer that set it, and the rule
+//! stays. So the `deny` list only ever grows, which is the "security only gets stricter" law for
+//! rules.
+//!
+//! `default_mode` is the most specific one set, but a layer's mode must be at least as strict as
+//! the strictest mode that a more general layer declared with `floor: true` ([`Floor`]). A mode
+//! that is looser is a `permission-floor` error, and the layer's mode and floor are then ignored.
+//! A floor binds the layers after the one that declares it, never that layer's own mode.
+
+use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
+use crate::item::{
+    Binding, DefaultMode, PermissionItems, PermissionMode, PermissionRule, Permissions, place,
+};
+use crate::layer::LayerName;
+use crate::merge::algebra::{Floor, ListEdit, OrderedSet};
+use crate::merge::provenance::{Action, Traced};
+use crate::merge::stack::LayerContext;
+use crate::untrusted_text::Stripped;
+
+/// The merged permissions: what the renderer writes to the targets' permission settings.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MergedPermissions {
+    allow: Vec<Traced<PermissionRule>>,
+    ask: Vec<Traced<PermissionRule>>,
+    deny: Vec<Traced<PermissionRule>>,
+    default_mode: Option<Traced<PermissionMode>>,
+    floor: Option<PermissionMode>,
+}
+
+impl MergedPermissions {
+    /// The rules that are allowed, in stack order then file order.
+    #[must_use]
+    pub fn allow(&self) -> &[Traced<PermissionRule>] {
+        &self.allow
+    }
+
+    /// The rules that ask first.
+    #[must_use]
+    pub fn ask(&self) -> &[Traced<PermissionRule>] {
+        &self.ask
+    }
+
+    /// The rules that are denied: every deny rule of every layer, and no layer removed one.
+    #[must_use]
+    pub fn deny(&self) -> &[Traced<PermissionRule>] {
+        &self.deny
+    }
+
+    /// The `default_mode` of the most specific layer that set one.
+    #[must_use]
+    pub const fn default_mode(&self) -> Option<&Traced<PermissionMode>> {
+        self.default_mode.as_ref()
+    }
+
+    /// The strictest mode a layer declared with `floor: true`: the merged `default_mode` is never
+    /// looser.
+    #[must_use]
+    pub const fn floor(&self) -> Option<PermissionMode> {
+        self.floor
+    }
+}
+
+/// The rules of one list, in order, each with the layer that put it there.
+#[derive(Debug, Clone, Default)]
+struct RuleList(Vec<Traced<PermissionRule>>);
+
+impl RuleList {
+    fn members(&self) -> OrderedSet<PermissionRule> {
+        self.0.iter().map(|rule| rule.value().clone()).collect()
+    }
+
+    /// The list that holds exactly `members`, in their order: a rule that was there keeps its
+    /// provenance and a new one is defined by `layer`.
+    fn holding(&self, members: &OrderedSet<PermissionRule>, layer: &LayerName) -> Self {
+        Self(
+            members
+                .iter()
+                .map(|rule| {
+                    self.0
+                        .iter()
+                        .find(|held| held.value() == rule)
+                        .cloned()
+                        .unwrap_or_else(|| Traced::new(rule.clone(), layer.clone(), Action::Define))
+                })
+                .collect(),
+        )
+    }
+
+    /// The list after `edit`, which may drop any rule.
+    fn edited(&self, edit: &ListEdit<PermissionRule>, layer: &LayerName) -> Self {
+        self.holding(&edit.apply(&self.members()), layer)
+    }
+
+    /// The list after `edit` for a list that must not shrink: the rules the edit would drop are
+    /// kept, and returned too, so the caller can report them.
+    fn edited_never_shrinking(
+        &self,
+        edit: &ListEdit<PermissionRule>,
+        layer: &LayerName,
+    ) -> (Self, Vec<Traced<PermissionRule>>) {
+        let members = self.members();
+        let next = edit.apply(&members);
+        let dropped = self
+            .0
+            .iter()
+            .filter(|held| !next.contains(held.value()))
+            .cloned()
+            .collect();
+        (self.holding(&members.merge(next), layer), dropped)
+    }
+}
+
+/// The strictest floor declared so far, and the layer that declared it.
+#[derive(Debug, Clone, Default)]
+struct Held {
+    floor: Floor<PermissionMode>,
+    by: Option<LayerName>,
+}
+
+impl Held {
+    /// The floor after `layer` declared `mode` as one: only a stricter mode raises it, so the
+    /// first layer to declare the strictest mode stays the one named.
+    fn raised(self, mode: PermissionMode, layer: &LayerName) -> Self {
+        if self.floor.get() < Some(&mode) {
+            Self {
+                floor: self.floor.merge(Floor::at(mode)),
+                by: Some(layer.clone()),
+            }
+        } else {
+            self
+        }
+    }
+}
+
+/// The state of the fold for permissions.
+#[derive(Debug, Clone, Default)]
+pub(super) struct PermissionState {
+    allow: RuleList,
+    ask: RuleList,
+    deny: RuleList,
+    mode: Option<Traced<PermissionMode>>,
+    held: Held,
+}
+
+impl PermissionState {
+    /// The state after one more, more specific, layer.
+    pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
+        let layer = context.layer().meta().name();
+        let (items, found) = PermissionItems::read(context.layer());
+        match items.into_file() {
+            None => (self, found),
+            Some((path, file)) => {
+                let (state, problems) = self.apply(&file, layer, &place(layer, &path));
+                (state, found.merge(problems))
+            }
+        }
+    }
+
+    /// The state after the permissions `file` of `layer`, and the problems it makes. The `deny`
+    /// list and the floor of the state are never lower than before, whatever the file says.
+    pub(super) fn apply(
+        self,
+        file: &Permissions,
+        layer: &LayerName,
+        at: &Where,
+    ) -> (Self, Diagnostics) {
+        let (deny, dropped) = self.deny.edited_never_shrinking(file.deny(), layer);
+        let found = dropped
+            .iter()
+            .map(|rule| removed_deny(rule, layer, at))
+            .collect::<Diagnostics>();
+        let (mode, held, found_mode) = self.settle_mode(file.default_mode(), layer, at);
+        (
+            Self {
+                allow: self.allow.edited(file.allow(), layer),
+                ask: self.ask.edited(file.ask(), layer),
+                deny,
+                mode,
+                held,
+            },
+            found.merge(found_mode),
+        )
+    }
+
+    /// The mode and the floor after `layer` sets `requested`: unchanged, with an error, when the
+    /// mode is looser than the floor.
+    fn settle_mode(
+        &self,
+        requested: Option<DefaultMode>,
+        layer: &LayerName,
+        at: &Where,
+    ) -> (Option<Traced<PermissionMode>>, Held, Diagnostics) {
+        match requested {
+            None => (self.mode.clone(), self.held.clone(), Diagnostics::new()),
+            Some(requested) if !self.held.floor.admits(&requested.mode()) => (
+                self.mode.clone(),
+                self.held.clone(),
+                Diagnostics::new().with(looser_than_floor(requested.mode(), &self.held, layer, at)),
+            ),
+            Some(requested) => (
+                Some(match self.mode.clone() {
+                    Some(earlier) => {
+                        earlier.revised(requested.mode(), layer.clone(), Action::Replace)
+                    }
+                    None => Traced::new(requested.mode(), layer.clone(), Action::Define),
+                }),
+                match requested.binding() {
+                    Binding::Floor => self.held.clone().raised(requested.mode(), layer),
+                    Binding::Free => self.held.clone(),
+                },
+                Diagnostics::new(),
+            ),
+        }
+    }
+
+    /// A warning for each allow rule that the deny list holds too: the rule has no effect, because
+    /// deny wins. It has no place, as the rule may come from any layer.
+    pub(super) fn shadowed(&self) -> Diagnostics {
+        let denied = self.deny.members();
+        self.allow
+            .0
+            .iter()
+            .filter(|rule| denied.contains(rule.value()))
+            .map(|rule| {
+                Diagnostic::warning(
+                    Code::PermissionShadowed,
+                    None,
+                    Message::new("allow rule '")
+                        .then(Stripped::from_untrusted(&rule.value().to_string()))
+                        .then("' is also denied; deny wins"),
+                )
+            })
+            .collect()
+    }
+
+    /// The merged permissions.
+    pub(super) fn finish(self) -> MergedPermissions {
+        MergedPermissions {
+            allow: self.allow.0,
+            ask: self.ask.0,
+            deny: self.deny.0,
+            default_mode: self.mode,
+            floor: self.held.floor.get().copied(),
+        }
+    }
+}
+
+/// The layer that first put a rule in its list.
+fn set_by(rule: &Traced<PermissionRule>) -> Option<&LayerName> {
+    rule.provenance()
+        .contributions()
+        .first()
+        .map(crate::merge::provenance::Contribution::layer)
+}
+
+fn removed_deny(rule: &Traced<PermissionRule>, layer: &LayerName, at: &Where) -> Diagnostic {
+    let named = Message::new("deny rule '")
+        .then(Stripped::from_untrusted(&rule.value().to_string()))
+        .then("'");
+    let message = set_by(rule)
+        .map_or(named.clone(), |owner| {
+            named
+                .clone()
+                .then(" is set by layer ")
+                .then(MessagePart::printable(owner))
+        })
+        .then(" and cannot be removed by layer ")
+        .then(MessagePart::printable(layer));
+    Diagnostic::error(Code::PermissionFloor, Some(at.clone()), message)
+}
+
+fn looser_than_floor(
+    mode: PermissionMode,
+    held: &Held,
+    layer: &LayerName,
+    at: &Where,
+) -> Diagnostic {
+    let message = Message::new("default_mode '")
+        .then(mode.as_str())
+        .then("' is looser than the floor '")
+        .then(held.floor.get().map_or("", |floor| floor.as_str()))
+        .then("'");
+    let message = held
+        .by
+        .as_ref()
+        .map_or(message.clone(), |owner| {
+            message
+                .clone()
+                .then(" set by layer ")
+                .then(MessagePart::printable(owner))
+        })
+        .then(" and cannot be set by layer ")
+        .then(MessagePart::printable(layer));
+    Diagnostic::error(Code::PermissionFloor, Some(at.clone()), message)
+}
+
+#[cfg(test)]
+mod laws;
+#[cfg(test)]
+mod tests;

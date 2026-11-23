@@ -7,7 +7,7 @@ use crate::schema::{Checked, Refusal, SchemaError, all, refine_node};
 use crate::yaml::Value;
 use crate::yaml::fields::{KeyPath, Section};
 
-use super::vocabulary::AgentRefusal;
+use super::AgentRefusal;
 
 /// What one segment does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +62,9 @@ fn unquoted(item: &str) -> &str {
         .unwrap_or(item)
 }
 
-/// The edit of a list that the field `field` of an overlay says, `None` when it is absent.
+/// The edit of a list that the field `field` says, `None` when it is absent. A YAML list is the
+/// edit `from_list` makes of its items: a replacement for an overlay, an addition for the lists
+/// of `permissions.yaml`. A string is a sequence of segments.
 ///
 /// # Errors
 ///
@@ -70,6 +72,7 @@ fn unquoted(item: &str) -> &str {
 pub(super) fn refine_edit<T>(
     section: &Section<'_>,
     field: &'static str,
+    from_list: fn(OrderedSet<T>) -> ListEdit<T>,
 ) -> Checked<Option<ListEdit<T>>>
 where
     T: Eq + Clone + for<'a> TryFrom<&'a str>,
@@ -91,7 +94,7 @@ where
                     all(items
                         .into_iter()
                         .map(|(item_path, item)| refine_node::<T>(item_path, item)))
-                    .map(|items| ListEdit::Replace(items.into_iter().collect()))
+                    .map(|items| from_list(items.into_iter().collect()))
                 })
                 .transpose(),
         },

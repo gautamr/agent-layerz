@@ -204,8 +204,10 @@ impl TryFrom<&str> for Memory {
     }
 }
 
-/// `permission_mode`: the vocabulary of the reference, which the spec does not list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// `permission_mode` and `default_mode`: the vocabulary of the reference, which the spec does not
+/// list. The order is the strictness, loosest first, so a stricter mode is a larger one and
+/// `bypass_permissions` is the loosest (spec §7.6 uses it for the permission floor).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PermissionMode {
     /// `bypass_permissions`.
     BypassPermissions,
@@ -219,6 +221,21 @@ pub enum PermissionMode {
     DontAsk,
     /// `plan`.
     Plan,
+}
+
+impl PermissionMode {
+    /// The word the neutral vocabulary writes.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::BypassPermissions => "bypass_permissions",
+            Self::Auto => "auto",
+            Self::AcceptEdits => "accept_edits",
+            Self::Default => "default",
+            Self::DontAsk => "dont_ask",
+            Self::Plan => "plan",
+        }
+    }
 }
 
 impl TryFrom<&str> for PermissionMode {

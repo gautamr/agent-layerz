@@ -24,7 +24,12 @@ fn set(items: &[&str]) -> OrderedSet<SkillName> {
 fn edit_of(field: &str) -> Result<Option<ListEdit<SkillName>>, Vec<String>> {
     let doc = MarkdownDoc::parse(format!("---\n{field}\n---\n").as_bytes())
         .map_err(|error| vec![format!("{error:?}")])?;
-    super::refine_edit::<SkillName>(&doc.front().section(), "skills").map_err(|errors| {
+    crate::item::list_edit::refine_edit::<SkillName>(
+        &doc.front().section(),
+        "skills",
+        crate::merge::ListEdit::Replace,
+    )
+    .map_err(|errors| {
         errors
             .iter()
             .map(|error| error.message().to_string())
@@ -226,6 +231,6 @@ proptest! {
 
     #[test]
     fn no_text_makes_the_segment_reader_panic(text in any::<String>()) {
-        let _ = super::edit::segments(&text);
+        let _ = crate::item::list_edit::segments(&text);
     }
 }
