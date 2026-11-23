@@ -9,6 +9,8 @@ mod agent;
 mod hook;
 mod instruction;
 mod kebab_case;
+mod list_edit;
+mod permission;
 mod rule;
 mod skill;
 
@@ -25,6 +27,9 @@ pub use hook::{
 pub use instruction::{
     ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, InstructionMode,
     InstructionModeError,
+};
+pub use permission::{
+    Binding, DefaultMode, PermissionItems, PermissionRefusal, PermissionRule, Permissions,
 };
 pub use rule::{
     Glob, GlobError, RuleBase, RuleEdit, RuleExtension, RuleFile, RuleItems, RuleMode,

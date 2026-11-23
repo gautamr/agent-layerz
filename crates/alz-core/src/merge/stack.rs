@@ -28,6 +28,7 @@ use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::algebra::Replace;
 use crate::merge::hooks::HookState;
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
+use crate::merge::permissions::{MergedPermissions, PermissionState};
 use crate::merge::placement::{Placement, Placements};
 use crate::merge::provenance::Traced;
 use crate::merge::rules::{MergedRule, RuleState};
@@ -90,6 +91,7 @@ pub struct Merged {
     skills: Replace<SkillName, Traced<Skill>>,
     slot_stubs: BTreeMap<SkillName, SlotDemand>,
     hooks: Vec<Traced<Hook>>,
+    permissions: MergedPermissions,
 }
 
 impl Merged {
@@ -139,6 +141,13 @@ impl Merged {
     #[must_use]
     pub fn hooks(&self) -> &[Traced<Hook>] {
         &self.hooks
+    }
+
+    /// The permissions (§7.6): the `allow`, `ask` and `deny` rules combined across layers, and the
+    /// `default_mode`. Every deny rule of every layer is in it.
+    #[must_use]
+    pub const fn permissions(&self) -> &MergedPermissions {
+        &self.permissions
     }
 
     /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
@@ -194,6 +203,7 @@ struct Accumulator {
     agents: AgentState,
     skills: SkillState,
     hooks: HookState,
+    permissions: PermissionState,
     diagnostics: Diagnostics,
 }
 
@@ -206,6 +216,7 @@ impl Accumulator {
         let (agents, found_agents) = self.agents.absorb(context);
         let (skills, found_skills) = self.skills.absorb(context);
         let (hooks, found_hooks) = self.hooks.absorb(context);
+        let (permissions, found_permissions) = self.permissions.absorb(context);
         Self {
             layers: self
                 .layers
@@ -217,13 +228,15 @@ impl Accumulator {
             agents,
             skills,
             hooks,
+            permissions,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
                 .merge(found_rules)
                 .merge(found_agents)
                 .merge(found_skills)
-                .merge(found_hooks),
+                .merge(found_hooks)
+                .merge(found_permissions),
         }
     }
 
@@ -235,6 +248,7 @@ impl Accumulator {
         let agents = self.agents.finish();
         let (MergedSkills { items, stubs }, found_slots) =
             self.skills.finish(&agents, strict_slots);
+        let shadowed = self.permissions.shadowed();
         Merging::of(
             Merged {
                 layers: self.layers,
@@ -245,8 +259,9 @@ impl Accumulator {
                 skills: items,
                 slot_stubs: stubs,
                 hooks: self.hooks.finish(),
+                permissions: self.permissions.finish(),
             },
-            self.diagnostics.merge(found_slots),
+            self.diagnostics.merge(found_slots).merge(shadowed),
         )
     }
 }

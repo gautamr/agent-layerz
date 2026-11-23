@@ -6,7 +6,6 @@
 //! A tool entry is read into a [`ToolGrant`]; which entries an overlay may add is the narrowing
 //! rule of the merge (spec §7.2).
 
-mod edit;
 mod native;
 mod ordered_tree;
 mod tool;
@@ -23,8 +22,8 @@ use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 use crate::yaml::fields::Section;
 
+use super::list_edit::refine_edit;
 use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
-use edit::refine_edit;
 pub use native::NativeFields;
 pub use ordered_tree::{NativeMap, NativeValue};
 pub use tool::{McpToolName, NeutralTool, ToolGrant, ToolName, ToolScope};
@@ -470,9 +469,9 @@ fn read_overlay(
             scalars(&section),
         ),
         zip3(
-            refine_edit::<ToolGrant>(&section, "tools"),
-            refine_edit::<SkillName>(&section, "skills"),
-            refine_edit::<TargetName>(&section, "targets"),
+            refine_edit::<ToolGrant>(&section, "tools", ListEdit::Replace),
+            refine_edit::<SkillName>(&section, "skills", ListEdit::Replace),
+            refine_edit::<TargetName>(&section, "targets", ListEdit::Replace),
         ),
     )
     .map_err(|errors| schema_diagnostics(Code::Agent, &at, &errors));

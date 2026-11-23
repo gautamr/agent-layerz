@@ -110,6 +110,13 @@ pub enum Code {
     Hooks,
     /// A locked hook that a more specific layer disables (§7.5).
     HookLocked,
+    /// The schema of `permissions.yaml` (§7.6).
+    Permissions,
+    /// A deny rule of a more general layer that a more specific layer removes, or a `default_mode`
+    /// looser than a floor (§7.6).
+    PermissionFloor,
+    /// An allow rule that the merged deny list holds too, a warning: deny wins (§7.6).
+    PermissionShadowed,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -151,6 +158,9 @@ impl Code {
             Self::Rule => "rule",
             Self::Hooks => "hooks",
             Self::HookLocked => "hook-locked",
+            Self::Permissions => "permissions",
+            Self::PermissionFloor => "permission-floor",
+            Self::PermissionShadowed => "permission-shadowed",
             Self::Unresolved => "unresolved",
         }
     }
