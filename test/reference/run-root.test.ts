@@ -8,12 +8,17 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { capture } from "../exec";
 import { tempDir } from "../run-root";
-import { buildReference, checkedAlzBin } from "../setup/alz-bin";
+import {
+  buildReference,
+  checkedAlzBin,
+  MAX_SHEBANG_PATH_BYTES,
+  shebangLine,
+} from "../setup/alz-bin";
 import { removeTree } from "../setup/remove-tree";
-import { ROOT_PREFIX, removeStaleRoots } from "../setup/stale-roots";
+import { processExists, ROOT_PREFIX, removeStaleRoots } from "../setup/stale-roots";
 
 // The run root and the binary the acceptance suite spawns (TASK-55.2.7).
 
@@ -91,6 +96,76 @@ describe("stale run roots are removed, and only those", () => {
   });
 });
 
+describe("a stale root that cannot be removed", () => {
+  it("is reported on stderr and does not stop the sweep of the others", () => {
+    const temp = tempDir("alz-stale-");
+    const stuck = root(temp, "a-stuck", DEAD);
+    const fine = root(temp, "b-fine", DEAD);
+    const reports: string[] = [];
+    const removed = removeStaleRoots(
+      temp,
+      uid,
+      () => false,
+      (path) => {
+        if (path === stuck) throw new Error("EACCES: permission denied");
+        removeTree(path);
+      },
+      (message) => reports.push(message),
+    );
+    expect(removed).toEqual([`${ROOT_PREFIX}b-fine`]);
+    expect(existsSync(fine)).toBe(false);
+    expect(existsSync(stuck)).toBe(true);
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toContain(stuck);
+    expect(reports[0]).toContain("EACCES");
+  });
+
+  it("is written to the standard error stream by default", () => {
+    const temp = tempDir("alz-stale-");
+    root(temp, "stuck", DEAD);
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const removed = removeStaleRoots(
+        temp,
+        uid,
+        () => false,
+        () => {
+          throw new Error("EBUSY");
+        },
+      );
+      expect(removed).toEqual([]);
+      expect(write).toHaveBeenCalledWith(expect.stringContaining("EBUSY"));
+    } finally {
+      write.mockRestore();
+    }
+  });
+});
+
+describe("does a process exist", () => {
+  const killFailing = (code: string) =>
+    vi.spyOn(process, "kill").mockImplementation(() => {
+      throw Object.assign(new Error(code), { code });
+    });
+
+  it.each([
+    ["ESRCH", false],
+    ["EPERM", true],
+    ["EINVAL", true],
+    ["EIO", true],
+  ])("kill failing with %s: exists is %s", (code, exists) => {
+    const spy = killFailing(code);
+    try {
+      expect(processExists(4242)).toBe(exists);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("finds this process", () => {
+    expect(processExists(process.pid)).toBe(true);
+  });
+});
+
 describe("removing a tree", () => {
   it("removes a folder that has a mode 000 folder in it", () => {
     const dir = tempDir("alz-remove-");
@@ -100,6 +175,35 @@ describe("removing a tree", () => {
     chmodSync(locked, 0o000);
     removeTree(dir);
     expect(existsSync(dir)).toBe(false);
+  });
+});
+
+describe("the shebang of the reference binary", () => {
+  it("is #! and the node path", () => {
+    expect(shebangLine("/usr/local/bin/node")).toBe("#!/usr/local/bin/node");
+    expect(shebangLine(process.execPath)).toBe(`#!${process.execPath}`);
+  });
+
+  it.each([
+    ["a space", "/Users/some one/bin/node"],
+    ["a tab", "/opt/a\tb/node"],
+    ["a newline", "/opt/a\nb/node"],
+  ])("refuses a node path with %s", (_label, path) => {
+    expect(() => shebangLine(path)).toThrow(/contains whitespace/);
+  });
+
+  it("refuses a node path longer than the limit, counted in bytes, and accepts one at it", () => {
+    const at = `/${"a".repeat(MAX_SHEBANG_PATH_BYTES - 1)}`;
+    expect(shebangLine(at)).toBe(`#!${at}`);
+    expect(() => shebangLine(`${at}a`)).toThrow(/longer than 200 bytes/);
+    // Two bytes each: 101 of them are 202 bytes with the slash, over the limit by bytes, not characters.
+    expect(() => shebangLine(`/${"é".repeat(101)}`)).toThrow(/longer than 200 bytes/);
+  });
+
+  it("stops buildReference before it bundles anything", () => {
+    const dir = tempDir("alz-shebang-");
+    expect(() => buildReference(dir, "/a b/node")).toThrow(/#! line cannot hold it/);
+    expect(existsSync(join(dir, "alz"))).toBe(false);
   });
 });
 

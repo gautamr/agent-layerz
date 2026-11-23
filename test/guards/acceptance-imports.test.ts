@@ -1,5 +1,5 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REPO, reachableModules } from "../import-graph";
 import { tempDir } from "../run-root";
@@ -15,7 +15,9 @@ import { tempDir } from "../run-root";
  * acceptance suite began to spawn the binary under test: a file that reaches src/ again fails.
  *
  * A second guard keeps the acceptance suite out of the shared temp folder: every temp folder is
- * made with `tempDir` from test/run-root.ts, under the run root, which teardown removes.
+ * made with `tempDir` from test/run-root.ts, under the run root, which teardown removes. It is
+ * discipline, not a boundary: it finds the word `tmpdir` and nothing else, so it misses
+ * `process.env.TMPDIR`, a literal `/tmp` and any other route to a shared folder. Review catches those.
  */
 
 const ACCEPTANCE = "test/acceptance";
@@ -25,11 +27,12 @@ const IMPORT_GRAPH = "test/import-graph.ts";
 const reachesImplementation = (reached: string): boolean =>
   reached.startsWith("src/") || reached === IMPORT_GRAPH || reached.startsWith("<");
 
+/** Every `.ts` file under test/acceptance, subfolders included (vitest includes `test/acceptance/**`). */
 const acceptanceFiles = (root: string): string[] =>
-  readdirSync(join(root, ACCEPTANCE))
-    .filter((name) => name.endsWith(".ts"))
-    .sort()
-    .map((name) => `${ACCEPTANCE}/${name}`);
+  readdirSync(join(root, ACCEPTANCE), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+    .map((entry) => relative(root, join(entry.parentPath, entry.name)).split(sep).join("/"))
+    .sort();
 
 const violators = (root: string): string[] =>
   acceptanceFiles(root).filter((file) =>
@@ -115,6 +118,41 @@ describe("the acceptance suite does not reach src/", () => {
         expect(mismatch(root, [])).toEqual({ unlisted: [CONTROL_FILE], stale: [] });
       });
     }
+
+    it("finds an import indented by leading whitespace", () => {
+      const root = repoWith({
+        ...SRC_MODULE,
+        [CONTROL_FILE]:
+          'if (true) {\n  import type { X } from "../../src/x";\n}\n  export { x } from "../../src/x";\n',
+      });
+      expect(violators(root)).toEqual([CONTROL_FILE]);
+    });
+
+    it("finds an indented value import and an indented side-effect import", () => {
+      for (const line of ['  import { x } from "../../src/x";', '\timport "../../src/x";']) {
+        const root = repoWith({ ...SRC_MODULE, [CONTROL_FILE]: `${line}\n` });
+        expect(violators(root)).toEqual([CONTROL_FILE]);
+      }
+    });
+
+    it("finds an absolute specifier that resolves under the repository's src/", () => {
+      const root = repoWith({ ...SRC_MODULE, [CONTROL_FILE]: "" });
+      writeFileSync(join(root, CONTROL_FILE), `import { x } from "${join(root, "src/x")}";\n`);
+      expect(violators(root)).toEqual([CONTROL_FILE]);
+      writeFileSync(join(root, CONTROL_FILE), `import { x } from "${join(root, "src/x.ts")}";\n`);
+      expect(violators(root)).toEqual([CONTROL_FILE]);
+    });
+
+    it("finds a violator in a subfolder of test/acceptance", () => {
+      const nested = `${ACCEPTANCE}/deep/er/nested.test.ts`;
+      const root = repoWith({
+        ...SRC_MODULE,
+        [nested]: 'import { x } from "../../../../src/x";\n',
+        [`${ACCEPTANCE}/clean.test.ts`]: "export const c = 1;\n",
+      });
+      expect(acceptanceFiles(root)).toEqual([`${ACCEPTANCE}/clean.test.ts`, nested]);
+      expect(violators(root)).toEqual([nested]);
+    });
 
     it("does not flag a file that reaches only packages and test helpers", () => {
       const root = repoWith({

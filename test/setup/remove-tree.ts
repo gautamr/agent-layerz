@@ -12,7 +12,10 @@ function reopen(path: string): void {
   }
 }
 
-/** Removes a folder and everything in it, links included and never followed. */
+/**
+ * Removes a folder and everything in it, links included and never followed. Throws when a second
+ * try after `reopen` still cannot remove it; a caller that must go on catches per folder.
+ */
 export function removeTree(path: string): void {
   try {
     rmSync(path, { recursive: true, force: true });

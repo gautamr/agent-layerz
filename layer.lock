@@ -26,9 +26,9 @@
     ".claude/rules/docs.md": "sha256:444e92ea2c4394addd7f1fe0e2e77ba0777953bc8581a9b4b2d391ddfd23de03",
     ".claude/rules/rust.md": "sha256:f28953a8273f1b5d282edf3288d2062893136f79ac4d4ec5feafbca08974faa3",
     ".claude/rules/src.md": "sha256:52192a4587b6f87c24a62db3d669f165c124dc036b00985972f9315b420331f8",
-    ".claude/rules/tests.md": "sha256:fde22158969298c57d15a7fd7134f4d869ce61d1fea2c125422b9e42096505fc",
+    ".claude/rules/tests.md": "sha256:aaa09ff30ee94396bb1a7f0af3c58dadd6b019f9246d4f3cc557b02e7517a486",
     ".claude/settings.json": "sha256:c469fe5ff8c7ff23eb0f6f963d85703e420c7bd1fc45df2a45c1397f16b7d971",
-    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:02ffbdcf4564e27417993568eacb2b1cb54e529360a1d104e78e78b8ded80aea",
+    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:4f3e48032b48333db4f3809a44c83e61e3061d80f31881c72062f72f1809aa28",
     ".claude/skills/board-conventions/SKILL.md": "sha256:2d16a3a2799071228b0de6f3247136052df527c74836acc9792de72c08dabad7",
     ".claude/skills/bug-triage/SKILL.md": "sha256:7eb46777524add34d53b400c44b70554c9693e66654316359c303307e4533708",
     ".claude/skills/bug/SKILL.md": "sha256:87cccba116416a0fe116b17b95d980736a8d685bb87359d7a527304b4565fe48",
@@ -78,7 +78,7 @@
       "source": "path:../agent-layerz-personal"
     },
     {
-      "contentHash": "sha256:5c90cb68b803f3cfb829e5f1a5037d238e7dde1bcb1298ed21422f93cf7b171c",
+      "contentHash": "sha256:8110e6ceadb41d755042d46af85201356c15ebf2044e18b373ec0c3d9ba7041e",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

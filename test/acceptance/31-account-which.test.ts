@@ -44,8 +44,8 @@ import { YAML_ALIAS_LIMIT } from "../spec/limits";
  *      equal before and after, in kind, mode, content and link target;
  *  (c) no git: a `git` stand-in first on PATH records its calls, and none is made.
  *
- * The usage cases and the control-character cases keep their assertions; R1.7 rewrites the usage
- * ones in the decision-26 form.
+ * The usage cases follow the decision-26 form (exit 2, empty stdout, stderr not empty); the
+ * control-character cases keep their assertions.
  */
 
 /** Everything alz may have written to: the fake HOME and the workspace. */
@@ -628,7 +628,7 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
   describe("a FIFO where a file should be: alz does not wait for a writer and reports the file as unreadable", () => {
     // `alz account which` runs in the shell hook, so a pipe swapped in for either file must not
     // hang every prompt. The check is that the command ends and says what it could not read; the
-    // case runs under the suite's time limit, which R1.7 makes a real one by spawning the binary.
+    // case runs under the helper's time limit (15 s): the binary is spawned, so a hang fails it.
     const unreadable = "(ignored: it is not a regular file of at most 1 MiB that can be read)";
 
     it("does not hang on a FIFO at the accounts.yaml path, and ignores it", async () => {

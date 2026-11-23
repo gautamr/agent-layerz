@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 export const SRC = join(import.meta.dirname, "../src");
 
@@ -8,13 +8,13 @@ export function importedSpecifiers(text: string): string[] {
   const found: string[] = [];
   // `import x from "y"`, `export { x } from "y"`; a type-only import is erased and does not count.
   const named =
-    /^(?:import|export)\s+(type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+))?\s+from\s+["']([^"']+)["']/gm;
+    /^[ \t]*(?:import|export)\s+(type\s+)?(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+))?\s+from\s+["']([^"']+)["']/gm;
   for (const [, typeOnly, specifier] of text.matchAll(named)) {
     if (!typeOnly && specifier) found.push(specifier);
   }
   // `import "y"`, `import("y")`, `require("y")`.
   const others = [
-    /^import\s+["']([^"']+)["']/gm,
+    /^[ \t]*import\s+["']([^"']+)["']/gm,
     /\bimport\(\s*["'`]([^"'`]+)["'`]\s*\)/g,
     /\brequire\(\s*["'`]([^"'`]+)["'`]\s*\)/g,
   ];
@@ -59,8 +59,8 @@ export const REPO = join(import.meta.dirname, "..");
  */
 export function referencedSpecifiers(text: string): string[] {
   const typeOnly =
-    /^(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+))?\s+from\s+["']([^"']+)["']/gm;
-  const exportStar = /^export\s+\*\s+from\s+["']([^"']+)["']/gm;
+    /^[ \t]*(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+))?\s+from\s+["']([^"']+)["']/gm;
+  const exportStar = /^[ \t]*export\s+\*\s+from\s+["']([^"']+)["']/gm;
   const mocks = /\bvi\.(?:mock|doMock|importActual|importMock)\(\s*["'`]([^"'`]+)["'`]/g;
   const extra = [typeOnly, exportStar, mocks].flatMap((pattern) =>
     [...text.matchAll(pattern)].flatMap(([, specifier]) => (specifier ? [specifier] : [])),
@@ -68,9 +68,9 @@ export function referencedSpecifiers(text: string): string[] {
   return [...importedSpecifiers(text), ...extra];
 }
 
-/** The file a relative specifier names from `file`: as written, `.ts`, or a directory `index.ts`. */
+/** The file a relative or absolute specifier names from `file`: as written, `.ts`, or a directory `index.ts`. */
 function resolveRelative(file: string, specifier: string): string {
-  const base = join(file, "..", specifier);
+  const base = resolve(dirname(file), specifier);
   const isFile = (path: string) => existsSync(path) && statSync(path).isFile();
   return [base, `${base}.ts`, join(base, "index.ts")].find(isFile) ?? `${base}.ts`;
 }
@@ -89,7 +89,9 @@ export function reachableModules(entry: string, root: string = REPO): Set<string
     seen.add(file);
     if (!file.endsWith(".ts") || !existsSync(file)) return;
     for (const specifier of referencedSpecifiers(readFileSync(file, "utf8"))) {
-      if (!specifier.startsWith(".")) {
+      // An absolute specifier is a path: follow it like a relative one, so one that names a file
+      // under src/ is reported as `src/...`. Only a package or a `<dynamic ...>` stays as written.
+      if (!specifier.startsWith(".") && !isAbsolute(specifier)) {
         found.add(specifier);
         continue;
       }

@@ -4,7 +4,7 @@ title: Find the intermittent ~145 s stall of git subprocesses in the acceptance 
 status: To Do
 assignee: []
 created_date: '2026-11-22T09:02:00Z'
-updated_date: '2026-11-23T03:02:00Z'
+updated_date: '2026-11-23T03:24:00Z'
 labels:
   - area:test
   - discovered
@@ -46,4 +46,6 @@ Hypotheses (no experiments run):
 2026-11-23 evidence for H1 (temp folder size): with 17,630 alz-* folders in $TMPDIR a full run took 2,128 s with 25 tests timing out at 20 s across 9 files (all TestTimeoutError, no assertion failures); git --version, init and commit each took 10-20 ms outside the suite. After deleting the folders the same tree passed in 58 s (958 passed). One run then left ~950 new folders. Next: R1.7 removes the per-run root; if the stall does not return once folders no longer pile up, close this with H1 as the cause.
 
 2026-11-23, after R1.7 (TASK-55.2.7): a run no longer leaves alz-* folders, so the folder-count cause (H1) is removed. Two new pieces of evidence: (1) one 132,814 ms stall of the tests' own `git config --local user.name` in 26, with an empty temp folder, despite the 15 s timeout (the synchronous helper blocks the worker, so the kill and listing come late; the ps listing was not kept). (2) The verify-on-stop hook in .layer/hooks/hooks.yaml runs lint and the whole vitest suite at the end of every main-agent turn; seen with ps running alongside a manual `mise run test`, so two full suites can contend for the git subprocesses. Overlapping runs are a candidate cause for the remaining timeouts. AC #2 (fail fast with a clear message) is covered by R1.7's timeout helper.
+
+2026-11-23: the R1 reviewer's theory that spawnSync waits on a grandchild holding the pipes after its timeout did not reproduce (passes on the old helper in 1 s; Node closes the pipes on timeout). The 132 s stall remains unexplained; the overlapping stop-hook suite is the open lead.
 <!-- SECTION:NOTES:END -->

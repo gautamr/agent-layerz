@@ -5,13 +5,16 @@ import { removeTree } from "./remove-tree";
 /** Every run root is named `alz-suite-<random>` and lies directly in the temp folder. */
 export const ROOT_PREFIX = "alz-suite-";
 
-/** Is a process with this pid running? A process we may not signal still exists (EPERM). */
+/**
+ * Is a process with this pid running? Only ESRCH says it is gone: EPERM (a process we may not
+ * signal) and any other error leave it alive, so a root is never swept on a doubt.
+ */
 export function processExists(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
   }
 }
 
@@ -49,13 +52,32 @@ export function isStaleRoot(
   return pid !== undefined && !alive(pid);
 }
 
-/** Removes the stale roots in `temp`, and nothing else. Returns the names it removed. */
+const reportOnStderr = (message: string): void => {
+  process.stderr.write(`${message}\n`);
+};
+
+/**
+ * Removes the stale roots in `temp`, and nothing else. A root that cannot be removed (another
+ * user's mode 000 folder, a busy file system) is reported through `report`, by default on stderr,
+ * and the sweep goes on: leftovers of an old run never stop a new one. Returns the names it
+ * removed. The loop performs effects, one removal per root, so it is a loop.
+ */
 export function removeStaleRoots(
   temp: string,
   uid: number = process.getuid?.() ?? -1,
   alive: (pid: number) => boolean = processExists,
+  remove: (path: string) => void = removeTree,
+  report: (message: string) => void = reportOnStderr,
 ): string[] {
-  const stale = readdirSync(temp).filter((name) => isStaleRoot(temp, name, uid, alive));
-  for (const name of stale) removeTree(join(temp, name));
-  return stale;
+  const removed: string[] = [];
+  for (const name of readdirSync(temp).filter((entry) => isStaleRoot(temp, entry, uid, alive))) {
+    try {
+      remove(join(temp, name));
+      removed.push(name);
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      report(`alz test setup: could not remove the stale run root ${join(temp, name)}: ${why}`);
+    }
+  }
+  return removed;
 }

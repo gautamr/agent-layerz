@@ -16,7 +16,7 @@ run = "npm test"
 
 [tasks."test:acceptance"]
 description = "Run the acceptance suite against ALZ_BIN (an absolute path), or the TypeScript reference when unset"
-run = "npx vitest run --project acceptance"
+run = "npm exec --no -- vitest run --project acceptance"
 
 [tasks.lint]
 description = "Biome check and TypeScript type check"
