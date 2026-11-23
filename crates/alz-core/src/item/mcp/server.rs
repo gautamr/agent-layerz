@@ -23,6 +23,12 @@ const VALUE_FIELDS: [&str; 2] = ["env", "headers"];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TransportKind {
     Stdio,
+    Url(UrlTransport),
+}
+
+/// The `transport` of a server that is reached by a URL.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UrlTransport {
     Http,
     Sse,
 }
@@ -33,8 +39,8 @@ impl TryFrom<&str> for TransportKind {
     fn try_from(text: &str) -> Result<Self, Self::Error> {
         match text {
             "stdio" => Ok(Self::Stdio),
-            "http" => Ok(Self::Http),
-            "sse" => Ok(Self::Sse),
+            "http" => Ok(Self::Url(UrlTransport::Http)),
+            "sse" => Ok(Self::Url(UrlTransport::Sse)),
             _ => Err(McpRefusal::Transport),
         }
     }
@@ -209,7 +215,7 @@ pub(super) fn read_server(
     match kind {
         TransportKind::Stdio => {
             let command = needed("command", command)?;
-            let env_from = env_names(&env_from, &section, at)?;
+            let env_from = env_names(&env_from, at)?;
             Ok(McpServer {
                 transport: Transport::Stdio {
                     command,
@@ -218,13 +224,13 @@ pub(super) fn read_server(
                 },
             })
         }
-        TransportKind::Http | TransportKind::Sse => {
+        TransportKind::Url(url_transport) => {
             let url = needed("url", url)?;
             if env_from.is_empty() {
                 Ok(McpServer {
-                    transport: match kind {
-                        TransportKind::Http => Transport::Http { url },
-                        TransportKind::Stdio | TransportKind::Sse => Transport::Sse { url },
+                    transport: match url_transport {
+                        UrlTransport::Http => Transport::Http { url },
+                        UrlTransport::Sse => Transport::Sse { url },
                     },
                 })
             } else {
@@ -240,12 +246,8 @@ pub(super) fn read_server(
 }
 
 /// The names of `env_from` as variable names, or the problem of the names that are protected or
-/// not plain names.
-fn env_names(
-    names: &[String],
-    section: &Section<'_>,
-    at: &Where,
-) -> Result<Vec<EnvVarName>, Rejected> {
+/// not plain names. The problem names the file without a line and a column (§7.9, §10.1).
+fn env_names(names: &[String], at: &Where) -> Result<Vec<EnvVarName>, Rejected> {
     match names
         .iter()
         .map(|name| EnvVarName::try_from(name.as_str()))
@@ -254,8 +256,7 @@ fn env_names(
         Ok(parsed) if parsed.iter().all(|name| name.protected().is_none()) => Ok(parsed),
         Ok(_) | Err(_) => Err(Rejected::ProtectedVariable(env_from_names(
             names.iter().map(String::as_str),
-            &at.clone()
-                .at(section.key_position("env_from").unwrap_or(section.at())),
+            at,
         ))),
     }
 }

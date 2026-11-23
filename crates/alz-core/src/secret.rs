@@ -99,7 +99,9 @@ impl SecretKind {
 }
 
 /// Compiles `pattern` with the limits of decision-38: a compiled size of at most [`SIZE_LIMIT`]
-/// and a nesting of at most [`NEST_LIMIT`]. Every pattern alz compiles, the token shapes and a
+/// and a nesting of at most [`NEST_LIMIT`], in multi-line mode: `^` and `$` match at the start and
+/// the end of each line, a line ending in a line feed, a carriage return or both (spec §9.2). The
+/// token shapes use no anchor, so the mode changes nothing for them. Every pattern alz compiles, the token shapes and a
 /// layer's `forbid_patterns` (§9.2), goes through here.
 ///
 /// # Errors
@@ -107,6 +109,8 @@ impl SecretKind {
 /// The error of `regex-lite` when the pattern is not valid, is not supported or passes a limit.
 pub(crate) fn bounded(pattern: &str) -> Result<Regex, regex_lite::Error> {
     RegexBuilder::new(pattern)
+        .multi_line(true)
+        .crlf(true)
         .size_limit(SIZE_LIMIT)
         .nest_limit(NEST_LIMIT)
         .build()

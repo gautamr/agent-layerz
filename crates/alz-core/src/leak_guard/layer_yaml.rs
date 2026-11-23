@@ -7,16 +7,15 @@ use crate::yaml::{Node, Value};
 /// The field whose lines are left out.
 const FIELD: &str = "forbid_patterns";
 
-/// The text of `bytes`, read lossily, without the lines of the `forbid_patterns` field: from the
+/// `text`, the decoded `layer.yaml`, without the lines of the `forbid_patterns` field: from the
 /// line of its key up to the line before the next key. Comment lines in that span stay, because
 /// a comment is not a pattern. When the key does not stand on lines of its own (a mapping written
 /// on one line) nothing is left out, so the patterns are then matched against themselves and
 /// refused, which errs on the side of the guard.
-pub(super) fn without_forbid_patterns(bytes: &[u8]) -> String {
-    let text = String::from_utf8_lossy(bytes);
-    match field_lines(bytes) {
-        Some((first, after)) => kept(&text, first, after),
-        None => text.into_owned(),
+pub(super) fn without_forbid_patterns(text: &str) -> String {
+    match field_lines(text) {
+        Some((first, after)) => kept(text, first, after),
+        None => text.to_owned(),
     }
 }
 
@@ -34,8 +33,8 @@ fn kept(text: &str, first: u32, after: u32) -> String {
 
 /// The line of the key and the line of the next one (`u32::MAX` for the last), when the key stands
 /// alone on its line among the keys of the document.
-fn field_lines(bytes: &[u8]) -> Option<(u32, u32)> {
-    let document = parse_document(bytes).ok()?;
+fn field_lines(text: &str) -> Option<(u32, u32)> {
+    let document = parse_document(text.as_bytes()).ok()?;
     let Value::Map(mapping) = document.value() else {
         return None;
     };
@@ -73,7 +72,7 @@ mod tests {
     use super::without_forbid_patterns;
 
     fn text(yaml: &str) -> String {
-        without_forbid_patterns(yaml.as_bytes())
+        without_forbid_patterns(yaml)
     }
 
     #[test]

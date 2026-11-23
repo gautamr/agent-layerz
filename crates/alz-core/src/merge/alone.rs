@@ -13,7 +13,6 @@ use crate::merge::passthrough::PassthroughState;
 use crate::merge::permissions::PermissionState;
 use crate::merge::rules::RuleState;
 use crate::merge::settings::SettingsState;
-use crate::merge::skills::SkillState;
 use crate::merge::stack::LayerContext;
 use crate::stack::ResolvedLayer;
 
@@ -26,7 +25,8 @@ pub fn check_alone(layer: &ResolvedLayer) -> Diagnostics {
     let context = LayerContext::alone(layer);
     let (_, instructions) = InstructionState::default().absorb(&context);
     let (_, agents) = AgentState::default().absorb(&context);
-    let (_, skills) = SkillState::default().absorb(&context);
+    let (provided, skills) = SkillItems::read(layer);
+    let provided_found = provided.check_provided(layer.meta());
     let (_, rules) = RuleState::default().absorb(&context);
     let (_, hooks) = HookState::default().absorb(&context);
     let (permissions, found_permissions) = PermissionState::default().absorb(&context);
@@ -34,7 +34,6 @@ pub fn check_alone(layer: &ResolvedLayer) -> Diagnostics {
     let (_, models) = ModelState::default().absorb(&context);
     let (_, settings) = SettingsState::default().absorb(&context);
     let (_, passthrough) = PassthroughState::default().absorb(&context);
-    let (provided, _) = SkillItems::read(layer);
     instructions
         .merge(agents)
         .merge(skills)
@@ -46,7 +45,7 @@ pub fn check_alone(layer: &ResolvedLayer) -> Diagnostics {
         .merge(models)
         .merge(settings)
         .merge(passthrough)
-        .merge(provided.check_provided(layer.meta()))
+        .merge(provided_found)
         .into_iter()
         .filter(|diagnostic| diagnostic.code() != Code::Unresolved)
         .collect()

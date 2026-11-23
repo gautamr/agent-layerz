@@ -8,7 +8,9 @@
 //! The rule compares by what a scope means, not by its text:
 //!
 //! - a path scope compares whole segments, split at `/`, so `docs/**` covers `docs/adr/**` and
-//!   `docs/a.md` and never `docs-private/a.md`, and `*` never crosses a `/`;
+//!   `docs/a.md` and never `docs-private/a.md`, and `*` never crosses a `/`; a scope that starts
+//!   with `~` or `/`, holds a `\` or starts with a drive such as `C:` is covered only by an equal
+//!   scope;
 //! - a command scope may end in `*`, and the part that `*` stands for may not hold a shell
 //!   operator, so `mise run *` covers `mise run test` and never `mise run a; b`.
 
@@ -51,22 +53,37 @@ fn scope_covers(base: &ToolScope, candidate: &ToolScope) -> bool {
 }
 
 /// A path base whose last segment is `**` covers a candidate whose segments, compared whole and as
-/// written, start with the base's other segments, when the candidate has no `.` or `..` segment.
+/// written, start with the base's other segments, when the candidate has no `.` or `..` segment
+/// and is not written from somewhere else than the base's root: a candidate that starts with `~` or
+/// `/`, holds a `\`, or starts with a drive such as `C:` means a place that the segments do not
+/// show, so only an equal scope covers it.
 ///
 /// A base whose other segments end in `**` too (`docs/**/**`) covers only an equal scope: the
 /// rule as written would make it cover `docs/**`, which covers `docs/a`, which it does not cover
 /// itself, and a covering relation must be transitive.
-fn path_covers(base: &str, candidate: &str) -> bool {
+fn path_covers(base: &str, candidate_text: &str) -> bool {
     let base: Vec<&str> = base.split('/').collect();
-    let candidate: Vec<&str> = candidate.split('/').collect();
+    let candidate: Vec<&str> = candidate_text.split('/').collect();
     base.split_last().is_some_and(|(last, others)| {
         *last == "**"
+            && !names_another_root(candidate_text)
             && others.last() != Some(&"**")
             && candidate
                 .iter()
                 .all(|segment| !matches!(*segment, "." | ".."))
             && candidate.starts_with(others)
     })
+}
+
+/// Whether a path scope starts at the home folder (`~`), at a root (`/`) or at a drive (`C:`), or
+/// uses the Windows separator, so that its segments do not tell where it points.
+fn names_another_root(scope: &str) -> bool {
+    let mut chars = scope.chars();
+    let drive = matches!(
+        (chars.next(), chars.next()),
+        (Some(letter), Some(':')) if letter.is_ascii_alphabetic()
+    );
+    drive || scope.starts_with(['~', '/']) || scope.contains('\\')
 }
 
 /// A command base that ends in `*` covers a candidate that starts with the base's text before its
