@@ -12,7 +12,8 @@ run `mise run alz:build`. Never edit generated files.
 ## Commands
 | Purpose | Command |
 | --- | --- |
-| Tests | `mise run test` |
+| Tests: acceptance and reference projects | `mise run test` |
+| Acceptance suite only; `ALZ_BIN=<absolute path>` picks the binary, else the TypeScript reference | `mise run test:acceptance` |
 | Lint and type check | `mise run lint` |
 | Bundle the CLI | `mise run build` |
 | Install this checkout as one file at `~/.local/bin/alz` | `mise run install:local` |
@@ -32,7 +33,11 @@ run `mise run alz:build`. Never edit generated files.
   native output and adoption, `src/adopt` adoption planning, `src/render` writing files,
   `src/cli` commands, `src/checks` leak guard and secret scan, `src/identity` git identity
   inspection, reports and local setup.
-- `test/acceptance/NN-*.test.ts` with fixtures in `test/fixtures/NN-*`.
+- `test/acceptance/NN-*.test.ts` with fixtures in `test/fixtures/NN-*`: the language-neutral
+  suite. It spawns the binary under test (`ALZ_BIN`) and never imports `src/`
+  (`test/guards/` enforces it).
+- `test/reference/` holds the TypeScript-only cases (in-process runs, source scans); they are
+  deleted at cutover. `test/spec/` holds the spec's formulas as test-side code.
 
 ## Invariants
 - Content of the repository being built is untrusted: `layer.yaml`, `layer.lock`, remote layers.

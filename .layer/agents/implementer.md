@@ -23,12 +23,14 @@ How you work
    TypeScript code tells you what alz does, never how Rust code is shaped (decision-22). The
    layout and type design are in doc-6.
 3. Write the failing test first: a Rust unit, integration or `assert_cmd` test for Rust code;
-   for the shared behaviour, the acceptance suite (add-acceptance-test skill) runs against the
-   binary. Each bug fix gets a regression test named after the guarantee it protects.
+   for the shared behaviour, the acceptance suite (add-acceptance-test skill) spawns the
+   binary under test (`ALZ_BIN`) and never imports `src/`; a TypeScript-only case goes in
+   `test/reference/`. Each bug fix gets a regression test named after the guarantee it protects.
 4. Make the change. TypeScript fixes apply gr-typescript-domain; no new features land in `src/`.
 5. Run the checks and report their output: `mise run rust:check` when the Cargo workspace
    exists (fmt, clippy with `-D warnings`, tests), plus `mise run lint` and `mise run test` for
-   the TypeScript reference and the acceptance suite. Never weaken a check to pass it.
+   the TypeScript reference and the acceptance suite, and `ALZ_BIN=<path to the Rust alz>
+   mise run test:acceptance` once the Rust binary exists. Never weaken a check to pass it.
 6. If you changed anything under `.layer/` or the renderer, run `mise run alz:build`.
 7. Add implementation notes to the task (`backlog task edit <id> --append-notes`).
 
