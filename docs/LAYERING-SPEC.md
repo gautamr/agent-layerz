@@ -287,10 +287,14 @@ lowercase hexadecimal characters makes the lock invalid, and the build stops bef
 path is built from it.
 
 **What the content hash covers.** The path and content of every regular file of the layer, in
-code point order, except `.env` files (never read), `.DS_Store`, and anything under `.git` or
-`node_modules`. Symbolic links and other non-regular entries are not listed. The file mode is
-not part of the hash, so the hash alone does not notice a changed executable bit. Its format
-does not change, so existing locks stay valid.
+code point order (name order, §6), except `.env` files (never read), `.DS_Store`, and anything
+under `.git` or `node_modules`. Symbolic links and other non-regular entries are not listed.
+The file mode is not part of the hash, so the hash alone does not notice a changed executable
+bit. Its format does not change, so existing locks stay valid. One exception: the TypeScript
+`alz` orders the files by UTF-16 unit (decision-30 leaves it unchanged), so for a layer with two
+paths whose first difference is a character above U+FFFF in one and a character in
+U+E000–U+FFFF in the other, the Rust `alz` computes a different hash from the one the
+TypeScript `alz` wrote into its lock.
 
 **Cache integrity.** When a layer is read from the layer cache (§6), the lock has an entry for
 the same `source`, and that entry's `sha` equals the commit just resolved, the layer's content
@@ -398,6 +402,20 @@ entry (§6) or an entry whose content is not what the lock recorded.
 The build is **pure and deterministic**: the same inputs give byte-identical outputs
 (sorted keys, stable ordering, no timestamps in file bodies).
 
+**Name order.** Wherever alz sorts names, paths or keys, it compares them by Unicode code
+point (TASK-64). This covers a layer's files and its content hash (§5.3), filename order
+(§7.1), the keys of every JSON object alz writes, `layer.lock` included, and the entries of
+the allow state (§7.13). The first position where two strings differ decides: the string with
+the smaller code point there sorts first, and a string that is a prefix of the other sorts
+first. A path is one `/`-separated string, not a list of components, so `a-b` sorts before
+`a/b` (`-` is U+002D, `/` is U+002F). There is no locale, case folding or Unicode
+normalization, and a key made of digits is a string like any other: `10` sorts before `9`,
+and `-x` before `5`. This is the order of the strings' UTF-8 bytes, which is Rust's `str`
+order. It is not UTF-16 code unit order, which JavaScript's default `sort()` and `<` use: that
+order puts a character above U+FFFF before one in U+E000–U+FFFF, and the TypeScript `alz`
+sorts that way (reference drift, decision-30). A name or key that holds a lone surrogate, for
+example from a YAML `"\uD800"` escape, has no UTF-8 form and is an error.
+
 ---
 
 ## 7. Merge rules
@@ -406,7 +424,8 @@ General rule: **the more specific layer wins on conflicts, collections are combi
 security can only get stricter.**
 
 ### 7.1 Instructions
-- Concatenate all `instructions/*.md` in stack order, then by filename within a layer.
+- Concatenate all `instructions/*.md` in stack order, then by filename within a layer (name
+  order, §6).
 - Each layer's block is wrapped in `## <Layer kind>: <layer name>`.
 - A layer may **suppress** a block from a more general layer: `instructions/<same-filename>`
   with frontmatter `mode: replace` replaces it, and `mode: remove` drops it.
@@ -858,7 +877,8 @@ account:                       # per target; a target left out is not decided by
     step; a shorter entry is not tried.
 - **Allow state** (built, TASK-50.10 and TASK-50.11; decision-16, decision-20). Approvals live in
   `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`, a file only
-  `alz account allow` writes. It holds one entry per repository root, sorted by root:
+  `alz account allow` writes. It holds one entry per repository root, sorted by root (name
+  order, §6):
 
   ```yaml
   # written by alz account allow; deleting the file withdraws every approval
@@ -1868,6 +1888,10 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     declaration made by the repository's own layer is refused by `alz account allow`, an
     external client layer's source is shown quoted before the prompt, and a hub directory whose
     name holds ESC prints no control character.
+25. **Name order** (TASK-64, `test/acceptance/33-name-order.test.ts`): instruction files `z.md`,
+    `｡.md` (U+FF61) and `😀.md` (U+1F600) give `AGENTS.md` blocks in that order; the
+    layer's content hash in `layer.lock` lists its files in that order (§5.3); `.claude/settings.json`
+    keys `-x`, `10`, `9`, `a`, `｡`, `😀` appear in that order; `alz check` then passes.
 
 ---
 
