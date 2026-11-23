@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T12:03:00Z'
+updated_date: '2026-11-23T12:09:00Z'
 labels:
   - area:rust
   - area:security
@@ -414,4 +414,6 @@ AC #1 mapping correction (2026-11-23): the 28 count line is 33 guarantees = 27 c
 AC #1 gaps closed (tests only, crates/alz/tests/stack_lint.rs, lint twin of 28-cache-integrity): two_git_repositories_whose_flattened_paths_are_equal_are_kept_in_separate_entries; an_entry_of_the_older_tree_format_is_ignored_and_the_layer_is_written_again (also asserts the stale tree@ entry is left untouched); a_cached_layer_yaml_that_was_tampered_with_is_the_cache_error_and_is_never_quoted; a_cached_entry_without_its_layer_yaml_is_the_cache_error. All four passed at first run; mise run rust:ci exit 0. Not committed.
 
 Lead (2026-11-23): AC #1 checked — the mapping notes give a Rust test for every resolution case of tests 16, 24, 28 and 30, the four gaps now covered by stack_lint.rs (equal flattened paths, older tree@ entries, tampered layer.yaml never quoted, entry without layer.yaml); build, merge, account-which and init cases belong to R4–R6. AC #2: every lint twin passes against target/release/alz (R3.11 and after the review fixes). AC #3: the spec Limits narrowed in R3.1 (§7.13, §9.1). R3 is set Done when PR #8 merges.
+
+2026-11-23: PR #8 CI flaked once on ubuntu (git_runner a_git_at_2_30_is_accepted_and_asked_for_its_version_once at 4124a4e); green before and after (ba79e69). Tracked as a discovered task; the assertion now prints the refusal.
 <!-- SECTION:NOTES:END -->
