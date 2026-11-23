@@ -1,10 +1,11 @@
 ---
 id: TASK-55.5.5
 title: 'R4.5: Agents, overlays and native fields'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:27:00Z'
+updated_date: '2026-11-23T13:09:00Z'
 labels:
   - area:rust
   - area:merge
