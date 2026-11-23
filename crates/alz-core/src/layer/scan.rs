@@ -10,7 +10,7 @@
 
 mod verdict;
 
-use crate::lock::{FileDigest, ObjectId};
+use crate::lock::ObjectId;
 use crate::path::SafeRelPath;
 
 pub use verdict::{LayerRefusal, ReadLayer, scan_verdict};
@@ -100,7 +100,7 @@ pub struct GitFileFacts {
 pub struct LayerScan {
     listed: usize,
     name_problem: Option<NameProblem>,
-    files: Vec<(SafeRelPath, FileDigest)>,
+    files: Vec<(SafeRelPath, Vec<u8>)>,
     env_files: Vec<SafeRelPath>,
     git_files: Vec<GitFileFacts>,
     other_entries: usize,
@@ -134,13 +134,15 @@ impl LayerScan {
         }
     }
 
-    /// The scan after a regular file was read in full: its path, the digest of its bytes and how
-    /// many bytes were read.
+    /// The scan after a regular file was read in full: its path and the bytes that were read. The
+    /// scan keeps them, so that the hash and the merge cover the same content.
     #[must_use]
-    pub fn with_file(self, path: SafeRelPath, digest: FileDigest, length: u64) -> Self {
-        let bytes = self.bytes.saturating_add(length);
+    pub fn with_file(self, path: SafeRelPath, content: Vec<u8>) -> Self {
+        let bytes = self
+            .bytes
+            .saturating_add(u64::try_from(content.len()).unwrap_or(u64::MAX));
         let mut files = self.files;
-        files.push((path, digest));
+        files.push((path, content));
         Self {
             files,
             bytes,

@@ -322,7 +322,7 @@ mod tests {
         );
         assert!(!world.scratch.exists(world.name(&entry.join(".git"))));
         assert_eq!(
-            read.layer.files,
+            read.layer.contents.files(),
             LayerFiles::from_contents(
                 [
                     (".gitattributes", "*.md text eol=crlf\n"),
@@ -567,7 +567,7 @@ mod tests {
             sha: Some(sha),
             content_hash: hash,
         };
-        let good = locked(commit, ContentHash::of(&first.layer.files));
+        let good = locked(commit, ContentHash::of(&first.layer.contents.files()));
         let read = world
             .resolve_in(&world.hub(), "layer", "main", Some(&good))
             .expect("matches");
@@ -629,7 +629,7 @@ mod tests {
         let read = world.resolve("main").expect("resolved");
 
         assert_eq!(
-            read.layer.files,
+            read.layer.contents.files(),
             LayerFiles::from_contents([(rel("AGENTS.md"), b"hello\n".as_slice())])
         );
         let entry = world.entry(tree);

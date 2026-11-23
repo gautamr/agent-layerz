@@ -384,7 +384,7 @@ exit $status
             fetched.rev.as_str(),
             sha.to_string().chars().take(12).collect::<String>()
         );
-        assert_eq!(fetched.files, files(LAYER));
+        assert_eq!(fetched.contents.files(), files(LAYER));
         assert_eq!(fetched.env_files, [rel(".env.dev")]);
         let entry = world.entry_path(&source, sha);
         assert!(world.is_file(&entry.join("layer.yaml")));
@@ -404,7 +404,7 @@ exit $status
         let first = world
             .fetch(&source, None, &Setup::default())
             .expect("fetched");
-        let pin = locked(&source, sha, &first.files);
+        let pin = locked(&source, sha, &first.contents.files());
         // With the source gone, only the cache can answer.
         world.remove_bare_copy();
 
@@ -415,7 +415,7 @@ exit $status
         assert_eq!(again.read, ReadHow::Cached);
         assert_eq!(again.sha, sha);
         assert_eq!(again.rev, sha.short_rev());
-        assert_eq!(again.files, first.files);
+        assert_eq!(again.contents.files(), first.contents.files());
     }
 
     #[test]
@@ -433,7 +433,7 @@ exit $status
 
         assert_eq!(fetched.read, ReadHow::Fetched);
         assert_eq!(fetched.sha, pinned);
-        assert_eq!(fetched.files, files(LAYER));
+        assert_eq!(fetched.contents.files(), files(LAYER));
         assert!(world.is_dir(&world.entry_path(&source, pinned)));
         assert!(!world.exists(&world.entry_path(&source, moved)));
     }
@@ -471,7 +471,7 @@ exit $status
         let fetched = world.fetch(source, None, &setup).expect("fetched");
 
         assert_eq!(fetched.sha, sha);
-        assert_eq!(fetched.files, files(LAYER));
+        assert_eq!(fetched.contents.files(), files(LAYER));
         let name = EntryName::Git {
             key: alz_core::cache::CloneKey::of("ssh://example.invalid/team/layer.git"),
             commit: sha,
@@ -489,7 +489,7 @@ exit $status
         let first = world
             .fetch(&source, None, &Setup::default())
             .expect("fetched");
-        let pin = locked(&source, sha, &first.files);
+        let pin = locked(&source, sha, &first.contents.files());
         let entry = world.entry_path(&source, sha);
         world.put(&entry.join("a.md"), "tampered\n");
         world.remove_bare_copy();
@@ -514,7 +514,7 @@ exit $status
         let first = world
             .fetch(&source, None, &Setup::default())
             .expect("fetched");
-        let pin = locked(&source, sha, &first.files);
+        let pin = locked(&source, sha, &first.contents.files());
         world.put(&world.entry_path(&source, sha).join("extra.md"), "x");
 
         let message = error_text(world.fetch(&source, Some(&pin), &Setup::default()));
@@ -533,7 +533,7 @@ exit $status
         let first = world
             .fetch(&source, None, &Setup::default())
             .expect("fetched");
-        let pin = locked(&source, sha, &first.files);
+        let pin = locked(&source, sha, &first.contents.files());
         let entry = world.entry_path(&source, sha);
         world.rename(&entry, &world.path("elsewhere"));
         world.link(&entry, &world.path("elsewhere"));
@@ -575,7 +575,7 @@ exit $status
             .fetch(&source, None, &Setup::default())
             .expect("equal");
         assert_eq!(same.sha, sha);
-        assert_eq!(same.files, files(LAYER));
+        assert_eq!(same.contents.files(), files(LAYER));
 
         let entry = world.entry_path(&source, sha);
         world.put(&entry.join("a.md"), "tampered\n");

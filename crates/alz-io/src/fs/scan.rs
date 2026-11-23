@@ -12,7 +12,7 @@ use std::os::unix::ffi::OsStrExt;
 
 use alz_core::git::{BlobId, ObjectFormat};
 use alz_core::layer::{GitFileFacts, LayerScan, MAX_FILE_BYTES, NameProblem, Purpose};
-use alz_core::lock::{FileDigest, is_env_file, is_skipped_name};
+use alz_core::lock::{is_env_file, is_skipped_name};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
 use rustix::fs::{self, AtFlags, DirEntry, FileType, Mode, OFlags};
 use rustix::io::Errno;
@@ -249,7 +249,6 @@ fn read_or_record(
             let remaining = remaining_bytes(purpose, &scan);
             match read_file(frame, entry, remaining) {
                 Ok((bytes, executable)) => {
-                    let length = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
                     let scan = match format {
                         Some(format) => scan.with_git_facts(GitFileFacts {
                             path: path.clone(),
@@ -258,7 +257,7 @@ fn read_or_record(
                         }),
                         None => scan,
                     };
-                    scan.with_file(path, FileDigest::of(&bytes), length)
+                    scan.with_file(path, bytes)
                 }
                 // In resolution one byte past what is left marks the budget as used up; in the build
                 // there is no budget, so a file past the cap of one file is itself unreadable.

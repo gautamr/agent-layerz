@@ -2,7 +2,7 @@ use proptest::prelude::{Just, Strategy, any, prop_assert_eq, prop_assert_ne, pro
 
 use super::{LayerScan, NameProblem, Purpose};
 use crate::layer::{LayerRefusal, scan_verdict};
-use crate::lock::{ContentHash, FileDigest};
+use crate::lock::ContentHash;
 use crate::path::SafeRelPath;
 use crate::untrusted_text::Stripped;
 
@@ -21,7 +21,7 @@ fn entries(count: usize) -> LayerScan {
 enum Fact {
     Entries(usize),
     Name(NameProblem),
-    File(&'static str, u64),
+    File(&'static str),
     EnvFile(&'static str),
     OverBudget,
     Unreadable,
@@ -31,9 +31,7 @@ fn apply(scan: LayerScan, fact: &Fact) -> LayerScan {
     match fact {
         Fact::Entries(count) => (0..*count).fold(scan, |scan, _| scan.listed_entry()),
         Fact::Name(problem) => scan.with_name_problem(*problem),
-        Fact::File(name, length) => {
-            scan.with_file(path(name), FileDigest::of(name.as_bytes()), *length)
-        }
+        Fact::File(name) => scan.with_file(path(name), name.as_bytes().to_vec()),
         Fact::EnvFile(name) => scan.with_env_file(path(name)),
         Fact::OverBudget => scan.with_bytes(16 * MIB + 1),
         Fact::Unreadable => scan.with_unreadable(),
@@ -56,8 +54,7 @@ fn any_fact() -> impl Strategy<Value = Fact> {
         .prop_map(Fact::Entries),
         Just(Fact::Name(NameProblem::NotUtf8)),
         Just(Fact::Name(NameProblem::NotSafe)),
-        proptest::sample::select(vec!["a.md", "b/c.md", "z"])
-            .prop_flat_map(|name| (0..40_u64).prop_map(move |length| Fact::File(name, length))),
+        proptest::sample::select(vec!["a.md", "b/c.md", "z"]).prop_map(Fact::File),
         proptest::sample::select(vec![".env", "a/.envrc"]).prop_map(Fact::EnvFile),
         Just(Fact::OverBudget),
         Just(Fact::Unreadable),
@@ -95,7 +92,7 @@ fn a_layer_with_a_name_that_is_not_valid_utf8_is_a_cache_miss_layer_invalid_in_r
     // TASK-69 AC #2: the verdict that account resolution uses.
     let scan = entries(3)
         .with_name_problem(NameProblem::NotUtf8)
-        .with_file(path("layer.yaml"), FileDigest::of(b"x"), 1);
+        .with_file(path("layer.yaml"), b"x".to_vec());
     assert_eq!(
         scan_verdict(Purpose::Resolution, scan),
         Err(LayerRefusal::NameNotUtf8)
@@ -184,7 +181,7 @@ fn a_name_that_is_not_utf8_wins_over_one_that_is_not_safe() {
 #[test]
 fn the_env_check_follows_the_content_hash_and_is_the_last_refusal() {
     let scan = LayerScan::new()
-        .with_file(path("a.md"), FileDigest::of(b"a"), 1)
+        .with_file(path("a.md"), b"a".to_vec())
         .with_env_file(path("sub/.env.dev"))
         .with_env_file(path(".env"));
     let read = scan_verdict(Purpose::Resolution, scan).expect("passes the checks before the hash");
@@ -198,9 +195,9 @@ fn the_env_check_follows_the_content_hash_and_is_the_last_refusal() {
 #[test]
 fn a_layer_without_env_files_gives_the_files_the_hash_covers() {
     let scan = LayerScan::new()
-        .with_file(path("b.md"), FileDigest::of(b"b"), 1)
-        .with_file(path("a.md"), FileDigest::of(b"a"), 1)
-        .with_file(path("node_modules/x"), FileDigest::of(b"x"), 1);
+        .with_file(path("b.md"), b"b".to_vec())
+        .with_file(path("a.md"), b"a".to_vec())
+        .with_file(path("node_modules/x"), b"x".to_vec());
     let files = scan_verdict(Purpose::Resolution, scan)
         .expect("passes")
         .without_env_files()
