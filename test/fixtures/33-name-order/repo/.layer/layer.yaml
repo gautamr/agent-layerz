@@ -1,0 +1,4 @@
+name: name-order-repo
+kind: repo
+visibility: private
+version: 1.0.0
