@@ -464,6 +464,140 @@ mod tests {
         );
     }
 
+    // --- AC #1: what the cache holds, and what it must never trust ------------------------------
+
+    #[test]
+    fn two_git_repositories_whose_flattened_paths_are_equal_are_kept_in_separate_entries() {
+        let world = World::new();
+        // `acme-corp/layer` and `acme/corp/layer` flatten to the same name.
+        let sha_a = world.commit(
+            "remotes/acme-corp/layer",
+            &[(
+                "layer.yaml",
+                "name: alpha\nkind: client\nvisibility: private\n",
+            )],
+        );
+        let sha_b = world.commit(
+            "remotes/acme/corp/layer",
+            &[(
+                "layer.yaml",
+                "name: beta\nkind: client\nvisibility: private\n",
+            )],
+        );
+        world.manifest(&format!(
+            "stack:\n  - source: git:{}@main\n",
+            world.path("remotes/acme-corp/layer").display()
+        ));
+        let first = world.alz();
+        assert_eq!((first.code, first.stdout.as_str()), (0, "lint ok: alpha\n"));
+        world.manifest(&format!(
+            "stack:\n  - source: git:{}@main\n",
+            world.path("remotes/acme/corp/layer").display()
+        ));
+        let second = world.alz();
+        assert_eq!(
+            (second.code, second.stdout.as_str()),
+            (0, "lint ok: beta\n")
+        );
+
+        let names = world.cache_names();
+        let split: Vec<(&str, &str)> = names
+            .iter()
+            .map(|name| name.split_once('@').expect("a key and a commit"))
+            .collect();
+        assert_eq!(split.len(), 2, "{names:?}");
+        assert!(
+            split.iter().all(|(key, _)| key.starts_with("git-")),
+            "{names:?}"
+        );
+        assert_ne!(
+            split[0].0, split[1].0,
+            "one key for two repositories: {names:?}"
+        );
+        let mut commits: Vec<String> = split.iter().map(|(_, sha)| (*sha).to_owned()).collect();
+        commits.sort();
+        let mut expected = vec![sha_a.to_string(), sha_b.to_string()];
+        expected.sort();
+        assert_eq!(commits, expected);
+    }
+
+    #[test]
+    fn an_entry_of_the_older_tree_format_is_ignored_and_the_layer_is_written_again() {
+        let world = World::new();
+        world.commit("work", &[("layer.yaml", LAYER)]);
+        let tree = world.git(&world.path("work"), &["rev-parse", "HEAD^{tree}"]);
+        // A stale entry of the old format, with content that differs from the tree.
+        let stale = format!("xdg/agent-layerz/tree@{tree}/layer.yaml");
+        world.put(&stale, "name: stale\n");
+        world.manifest("stack:\n  - source: path:../work\n    ref: main\n");
+
+        let run = world.alz();
+
+        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(run.stdout, "lint ok: team\n");
+        let current = format!("xdg/agent-layerz/tree2@{tree}/layer.yaml");
+        assert_eq!(world.scratch.read_text(&current).expect("written"), LAYER);
+        assert_eq!(
+            world.scratch.read_text(&stale).expect("left alone"),
+            "name: stale\n"
+        );
+    }
+
+    /// A repository whose `git:` layer is cached and locked; gives the entry's path under the root.
+    fn cached_and_locked_git_layer(world: &World) -> String {
+        let sha = world.commit("work", &[("layer.yaml", LAYER)]);
+        let source = format!("git:file://{}@main", world.path("work").display());
+        world.manifest(&format!("stack:\n  - source: {source}\n"));
+        assert_eq!(world.alz().code, 0);
+        world.lock(vec![locked(&source, Some(sha), &[("layer.yaml", LAYER)])]);
+        let names = world.cache_names();
+        assert_eq!(names.len(), 1, "{names:?}");
+        assert_eq!(world.alz().code, 0);
+        format!("xdg/agent-layerz/{}", names[0])
+    }
+
+    #[test]
+    fn a_cached_layer_yaml_that_was_tampered_with_is_the_cache_error_and_is_never_quoted() {
+        let world = World::new();
+        let entry = cached_and_locked_git_layer(&world);
+        world.put(&format!("{entry}/layer.yaml"), "name: [SECRET-MARKER\n");
+
+        let run = world.alz();
+
+        assert_eq!(run.code, 1);
+        assert!(
+            run.stderr.starts_with("error [cache] cached layer 'team'"),
+            "{}",
+            run.stderr
+        );
+        assert!(
+            !format!("{}{}", run.stdout, run.stderr).contains("SECRET-MARKER"),
+            "{}{}",
+            run.stdout,
+            run.stderr
+        );
+    }
+
+    #[test]
+    fn a_cached_entry_without_its_layer_yaml_is_the_cache_error() {
+        let world = World::new();
+        let entry = cached_and_locked_git_layer(&world);
+        world
+            .scratch
+            .remove_file(format!("{entry}/layer.yaml"))
+            .expect("removed");
+
+        let run = world.alz();
+
+        assert_eq!(run.code, 1);
+        assert!(
+            run.stderr.starts_with("error [cache] cached layer 'team'")
+                && run.stderr.contains("delete that directory"),
+            "{}",
+            run.stderr
+        );
+    }
+
     // --- AC #2 and the refusals before any access ------------------------------------------------
 
     /// A `git` in front of the real one that records that it was run.

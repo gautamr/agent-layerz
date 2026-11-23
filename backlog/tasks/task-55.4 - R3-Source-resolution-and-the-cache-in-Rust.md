@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T11:48:00Z'
+updated_date: '2026-11-23T12:03:00Z'
 labels:
   - area:rust
   - area:security
@@ -25,9 +25,9 @@ doc-5 phase R3: path:, git: and github: sources with the guarded clone, the cach
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Rust tests cover path:, git: and github: resolution with the guarded clone and its explicit child environment, the cache layout and integrity checks and the openat reads, and each case of tests 16, 24, 28 and 30 about them has a Rust test with the same verdict or a reachable CLI case (list in the notes)
-- [ ] #2 The cases of tests 16, 24, 28 and 30 that alz lint can reach (stack mode now resolves the layers, and R2's error [not-ported] is gone) pass against the Rust binary; the rest of those files pass by R5 (TASK-55.6)
-- [ ] #3 The spec Limits that openat closes are narrowed
+- [x] #1 Rust tests cover path:, git: and github: resolution with the guarded clone and its explicit child environment, the cache layout and integrity checks and the openat reads, and each case of tests 16, 24, 28 and 30 about them has a Rust test with the same verdict or a reachable CLI case (list in the notes)
+- [x] #2 The cases of tests 16, 24, 28 and 30 that alz lint can reach (stack mode now resolves the layers, and R2's error [not-ported] is gone) pass against the Rust binary; the rest of those files pass by R5 (TASK-55.6)
+- [x] #3 The spec Limits that openat closes are narrowed
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -343,4 +343,75 @@ Implementer (R3 review fixes, git/credentials/supervision; uncommitted):
 - #7: deadline 10 s, pids in one file by rename, zombies count as dead, running_as_root() skip for 3 chmod tests. #8: EnvSnapshot and WorkingDirectory captured once in main.
 - Acceptance: 24 gets scp-like and helper cases (helper cases referenceDrift TASK-55.4). Spec: 5.2 Transports/Credentials, 6 environment/Which git/abandoned calls, 7.12.
 Checks: mise run rust:ci exit 0; mise run lint ok.
+
+AC #1 mapping (2026-11-23). Read-only mapping at 4bc5132; no code changed. Abbreviations: PT=alz/tests/pinned_tree.rs, GS=alz/tests/git_sources.rs, SL=alz/tests/stack_lint.rs, GR=alz/tests/git_runner.rs, LINT=alz/tests/lint.rs, CD=alz-io/tests/cache_dir.rs, DH=alz-io/tests/directory_handles.rs, LS=alz-io/tests/layer_scan.rs, SRC=alz-core/src/stack/source/tests.rs, STK=alz-core/src/stack/tests.rs, LF=alz-core/src/lock/lock_file/tests.rs, EN=alz-core/src/cache/entry_name.rs (unit), INT=alz-core/src/lock/integrity.rs (unit). Crate prefix is crates/. "build form" = the same case through alz build: the resolution part is the lint twin, the output/lock/no-write part is R5 (task 55.6). Account which, init, doctor are R6 (55.7) unless stated.
+Guarded clone, explicit child env, version floor, deadlines, no transport helper: GR::git_gets_a_cleared_environment_plus_the_child_environment_of_its_operation, a_remote_clone_runs_no_transport_helper_even_when_the_users_configuration_allows_it, a_remote_clone_never_widens_the_users_allowed_protocols_to_a_transport_helper, a_local_clone_copies_the_objects_and_never_hard_links_them_to_the_source, a_git_below_2_30_is_refused_..., a_call_past_its_deadline_is_killed_with_its_whole_process_group_ssh_included. path:/git:/github: resolution: PT (pinned path:), GS (git:), SL::a_git_layer_from_a_file_url..., a_git_layer_at_a_local_path..., a_github_layer_is_cloned_through_the_users_git_configuration, an_unpinned_path_layer_is_read_in_place...; openat reads: DH, LS, alz-io/src/fs unit tests.
+== 16-hub.test.ts (7 cases)
+hub lint: each repo resolves path:../hub/layer at layer-v0.1.0 -> alz/SL::a_pinned_path_layer_is_read_from_the_cache_and_checked_against_the_lock (tag ref, tree2@ entry, summary) + PT::a_ref_and_the_commit_sha_name_the_same_entry
+hub lint: commits and edits after the tag do not change the verdict -> alz/SL::a_pinned_path_layer_is_read_from_the_cache_and_checked_against_the_lock (working-tree edit after the tag ignored) + PT::a_docs_commit_moves_the_commit_but_not_the_tree_and_the_entry_is_still_verified. Thin: no case where a layer.yaml committed (invalid) after the tag is ignored; same mechanism, tree read at the commit.
+hub lint: a ref the hub does not have is an error [source] -> alz/PT::a_ref_the_layer_did_not_exist_at_and_a_directory_outside_a_repository_cannot_be_resolved + PT::the_pinned_layer_... line 682 "cannot resolve ref pinned for 'path:" + alz-core/src/stack/resolution_failure.rs unit (line 374). Thin: no alz-binary test of this message; acceptance with ALZ_BIN covers it.
+hub build: each repo resolves at tag and grants the hub dir -> R5 (resolution covered by the lint twin; additionalDirectories, AGENTS.md, lock rev are output)
+hub build: commits/edits after the tag do not change the build -> R5 (resolution covered by the lint twin)
+hub build: a ref the hub does not have fails -> R5 (resolution covered by the lint twin)
+doctor warns about CLAUDE.md at the client root -> R6 (doctor)
+== 24-untrusted-repo.test.ts (10 in-scope case groups, 23 later-phase cases)
+refuses a lock that lists a path outside the repo, deletes nothing [build] -> R5 (no-delete); the parse is alz-core/LF::a_file_entry_that_is_not_a_safe_path_with_a_hash_is_refused
+refuses a lock whose layer sha is not a commit id [build] -> R5; parse is alz-core/LF::a_sha_that_is_not_an_object_id_is_refused_before_any_value_is_used + alz-core/src/lock/object_id.rs unit ("../../../etc/passwd")
+never passes git:--upload-pack... / github:...@--upload-pack... to git [build] -> R5; lint twin below
+rejects a manifest ref that git would read as an option [build] -> R5; lint twin below
+lint: refuses a lock whose layer sha is not a commit id -> alz-core/LF::a_sha_that_is_not_an_object_id_is_refused_before_any_value_is_used (+ LINT::an_invalid_lock_with_a_valid_manifest_is_the_error_lock, which uses lockVersion 2, not a bad sha). Thin: no alz lint binary test with a bad sha.
+lint: never passes %s to git as an option (git: and github: rows) -> alz-core/SRC::other_malformed_sources_are_refused_with_their_own_reason (git:-oProxy=x -> UrlStartsWithDash; github:...@--upload-pack=touch -> InvalidRef) + alz-core/stack/git_ref.rs unit. Thin: no binary test with the exact "git:--upload-pack=touch PWNED@v1" and PWNED unseen; SL::an_invalid_manifest_stops_before_any_layer_is_resolved only uses a list ref.
+lint: rejects a manifest ref that git would read as an option -> alz-core/STK::a_ref_that_breaks_the_rule_is_refused_naming_the_entry_and_not_the_value ("--upload-pack=touch", "-x") + STK::a_ref_pins_a_path_source_and_is_checked_but_dropped_on_other_sources
+credentials in a git: source, lint x6 sources (referenceDrift TASK-71) -> alz/SL::a_source_with_credentials_is_refused_before_git_or_the_cache_and_the_token_is_never_printed (the same six sources, git spy, no cache made) + SRC::credentials_in_a_git_url_are_refused, a_password_in_a_scp_like_address_is_refused_whatever_follows_it, STK::a_git_source_with_credentials_is_the_error_source_without_a_location_or_the_token. Build x6 -> R5.
+does not refuse a user name alone for credentials (4 rows) -> alz/SL::a_user_name_without_a_password_is_not_refused_as_credentials (same four plus one) + SRC::a_user_name_alone_is_accepted_in_ssh_and_scp_like_urls; "cannot fetch '<source>'" text: GS::a_clone_that_fails_is_cannot_fetch_with_the_first_line_of_git_s_standard_error
+transport helper (3 rows, referenceDrift TASK-55.4), lint -> alz/SL::a_transport_helper_url_is_a_manifest_error_and_git_never_runs (ext and https:: rows; token not printed) + SRC::a_transport_helper_url_is_refused_before_anything_else (all three incl. git:::x). Thin: the empty-helper row has no binary test, and the stack tree is not compared before and after. Build x3 -> R5.
+account declaration by a layer that may not (lines 241-478, 5 cases), variable/passthrough/policy/names/MCP/one-report cases (479-803), refused declaration at resolution (805-868), hostile directory name from build and account which (869) -> R4/R5/R6 (merge/checks/build/account which), no Rust test needed for AC #1
+== 28-cache-integrity.test.ts (33 guarantees, each twice: build and lint; the lint twin has 30)
+git cache keys: never share a key between two URLs -> alz-core/EN::a_github_clone_is_named_after_the_hash_of_its_url_and_the_commit (SHA-256 vector) + the_same_clone_at_another_commit_is_another_entry; github URL: alz-core/src/stack/origin.rs unit
+git cache keys: two repos with equal flattened paths in separate entries (build, lint) -> none: no test resolves two different git: sources and compares their entries; only the key hash is unit-tested. Add a GS test with two sources whose paths flatten the same.
+git cache keys: a lock for one URL never reads another URL's entry (build, lint) -> alz-core/INT::the_lock_pins_a_source_by_the_sha_of_its_own_entry (lock lookup by source) + EN key per URL; none at the binary level (a lock for B holding A's sha).
+cached content: untouched entry builds/resolves without error -> GS::a_layer_the_lock_pins_is_read_from_the_cache_without_cloning_again (build/check/diff are R5)
+edited cached git layer names layer and entry -> GS::an_entry_that_differs_from_the_lock_stops_with_the_cache_error_before_any_git_call + SL::a_cached_git_layer_is_checked_against_the_lock_and_read_without_git_when_it_matches
+file added to a cached git layer -> GS::a_file_added_to_a_cached_entry_is_a_difference_too
+builds again once the edited entry is deleted -> GS::a_pin_the_cache_lacks_is_cloned_at_the_pinned_commit_though_the_ref_moved (missing entry, pin: clone again); no test of the exact delete-then-rebuild sequence
+compares an existing entry with a fresh clone when the lock has no entry -> GS::an_existing_entry_is_compared_with_a_fresh_clone_when_the_lock_has_no_entry
+accepts an untouched entry when the lock has no entry -> same test (the first half) and GS::a_git_layer_is_cloned_once_into_its_entry_with_the_twelve_character_rev
+tampered layer.yaml gives the cache error and is never quoted -> none: every tamper test edits a.md; no test edits layer.yaml (invalid YAML marker) in a cached entry, and none checks it is not parsed before the check.
+cache entry that is a link -> GS::an_entry_that_is_a_link_is_refused_with_and_without_a_lock + PT::an_entry_that_is_a_link_is_the_cache_error_and_is_never_followed + CD::an_entry_that_is_a_link_or_not_a_folder_is_never_followed
+cached pinned path: layer edited / untouched entry rebuilds -> PT::an_entry_that_was_tampered_with_is_refused_on_every_read, PT::the_lock_is_checked_for_an_entry_read_from_the_cache_when_it_pins_the_commit
+unpinned path: layer is a working tree, not checked -> alz/SL::an_unpinned_path_layer_is_read_in_place_and_never_checked_against_the_lock
+pinned path: tampered entry after the commit moved but the tree did not; untouched after a docs commit -> PT::a_docs_commit_moves_the_commit_but_not_the_tree_and_the_entry_is_still_verified
+pinned path: refuses an entry with an extra file / missing file / link / changed executable bit -> PT::an_entry_that_was_tampered_with_is_refused_on_every_read (5 rows: changed file, extra, missing, mode, link)
+pinned path: never uses another layer's entry for a submodule at the layer path -> PT::a_link_or_a_submodule_at_the_layer_path_is_a_ref_that_cannot_be_resolved
+pinned path: writes the tree's own bytes whatever attributes the working repo has -> PT::a_pinned_layer_is_written_to_its_tree_entry_from_the_committed_blobs (a .gitattributes with eol=crlf in the tree, working tree edited) + PT::the_blob_id_alz_computes_is_the_one_git_hash_object_computes. Thin: no test sets the repository's own .git/info/attributes or core.autocrlf.
+older tree@ entries are ignored and the layer is written again as tree2@ -> none: no Rust test plants a tree@<id> folder.
+skips links and submodule entries in the tree and expects them absent (then a link added to the entry is a change) -> PT::a_link_or_a_submodule_inside_the_tree_is_skipped_and_not_written + the link row of the tamper test
+ignores .DS_Store and node_modules not in the tree -> PT::skipped_names_in_an_entry_are_ignored_unless_the_tree_has_them
+names that differ only by case or Unicode form, quoted without ESC -> PT::two_names_equal_after_nfc_and_lowercasing_are_refused_before_a_write (no test of ESC removal in this message was checked)
+file name not in NFC is built and checked again -> PT::a_name_that_is_not_in_nfc_is_written_and_verified_in_nfc
+tree whose blobs the repository lacks, cache not read -> PT::a_repository_that_lacks_the_blobs_is_an_error_and_writes_nothing
+replace refs ignored when an entry is written -> PT::a_replace_ref_does_not_swap_what_is_written
+tampered entry with no layer.yaml gives the cache error -> none: no test deletes layer.yaml from a cached entry (the missing-file row removes docs/b.md).
+layer.yaml must be a regular file, never a link -> LINT::a_layer_yaml_that_is_a_link_is_refused_and_never_read + LS::a_link_is_counted_and_never_followed_or_hashed + DH::a_link_inside_the_layer_is_never_followed_by_a_read
+init: lint refuses a tampered cached layer -> SL::a_cached_git_layer_is_checked_against_the_lock_and_read_without_git_when_it_matches; init sets no identity from a tampered layer / sets it from an untouched one -> R6
+untrusted lock: sha not a commit id before any cache path is built -> alz-core/LF::a_sha_that_is_not_an_object_id_is_refused_before_any_value_is_used + object_id.rs unit; the entry name is typed (EntryName), so no path is built from text
+untrusted lock: refuses a lock with a numeric sha / non-string source / null contentHash / non-string name / bad name (5 rows) -> alz-core/LF::a_document_of_the_wrong_shape_is_refused_naming_the_field_and_no_value (bad name, bad source), a_content_hash_that_is_not_sha256_and_64_lowercase_hex_is_refused, a_sha_that_is_not_an_object_id...; numeric sha and non-string name are not row-for-row checked; binary [lock] verdict: LINT::an_invalid_lock_with_a_valid_manifest_is_the_error_lock
+== 30-account-cache-read.test.ts (57 cases: 4 covered, 6 build-form R5, 47 account which R6)
+lint twin: writes the index next to tree2@ with the tree id, not group/other writable, no tmp left -> PT::the_index_is_written_once_rewritten_when_it_differs_and_never_removed + CD::the_index_is_written_through_an_exclusive_temporary_file_and_a_rename (mode 0600, no tmp). Thin: "does not rewrite" (same inode and mtime on the second run) is not asserted anywhere.
+lint twin: rewritten by the next lint when tampered file / link (2 rows) -> PT::the_index_is_written_once_rewritten_when_it_differs_and_never_removed + CD::a_folder_at_the_index_name_is_the_cache_error_and_a_link_there_is_replaced_not_followed + CD::only_a_regular_file_of_one_lowercase_object_id_is_an_index
+lint twin: cache error when a directory sits at the index name -> PT::a_folder_at_the_index_name_is_the_cache_error (+ CD::...a_folder_at_the_index_name...)
+lint twin: warning [cache-index] when the index entry cannot be written, no failure -> PT::an_index_that_cannot_be_written_is_a_warning_and_the_layer_still_resolves + CD::a_cache_that_cannot_be_written_is_the_cache_index_warning
+build forms (index written by build; every command that resolves writes it; rewritten by next build x2 rows; build cache error at the index name; output and lock unchanged whether index kept or rebuilt; build warns when the index cannot be written) -> R5 (the library part is the lint twins above)
+all other cases ("(through alz account which)": the pathref@ index read, misses on lock/entry/sha/hash/limits/links, fails closed on account-folder and ".." sources, declaration winners, layers inside the repo read only to warn, the git stand-in proof) -> R6. Note for R6: the read-only cache read with the lock check and miss reasons has no Rust code yet (only the write-side index, read_index and the openat primitives in alz-io); only read_index (CD) and the walk limits (LS) exist.
+== counts
+16: 3 covered (lint twins), 0 gap, 4 later phase (3 build forms R5, doctor R6); 2 thin spots
+24: 6 covered (3 lint twins, credentials/lint, no-refuse, transport/lint), 0 gap, 4 build-only cases R5 plus the build halves of credentials and transport, 23 later (R4/R5/R6); 4 thin spots
+28: 33 guarantees: 24 covered, 5 gap (flattened-paths keys, older tree@ format, tampered layer.yaml cache error, entry with no layer.yaml, repository-attributes variant as thin), 2 init cases R6, 2 partial (lock for another URL at binary level, delete-then-rebuild)
+30: 4 covered (lint twins), 0 gap, 6 R5, 47 R6
+
+AC #1 mapping correction (2026-11-23): the 28 count line is 33 guarantees = 27 covered (4 of them with a thin spot: repo-level attributes, a lock for another URL at binary level, delete-then-rebuild, ESC in the case-clash message), 4 gap (two repos with equal flattened paths; older tree@ entry; tampered layer.yaml in a cached entry; cached entry with no layer.yaml), 2 R6 (init). In the 16 hub note, the 'cannot resolve ref pinned for path:' line is at PT line 682, in the test on a pinned layer whose ref cannot be resolved (name not recorded here).
+
+AC #1 gaps closed (tests only, crates/alz/tests/stack_lint.rs, lint twin of 28-cache-integrity): two_git_repositories_whose_flattened_paths_are_equal_are_kept_in_separate_entries; an_entry_of_the_older_tree_format_is_ignored_and_the_layer_is_written_again (also asserts the stale tree@ entry is left untouched); a_cached_layer_yaml_that_was_tampered_with_is_the_cache_error_and_is_never_quoted; a_cached_entry_without_its_layer_yaml_is_the_cache_error. All four passed at first run; mise run rust:ci exit 0. Not committed.
+
+Lead (2026-11-23): AC #1 checked — the mapping notes give a Rust test for every resolution case of tests 16, 24, 28 and 30, the four gaps now covered by stack_lint.rs (equal flattened paths, older tree@ entries, tampered layer.yaml never quoted, entry without layer.yaml); build, merge, account-which and init cases belong to R4–R6. AC #2: every lint twin passes against target/release/alz (R3.11 and after the review fixes). AC #3: the spec Limits narrowed in R3.1 (§7.13, §9.1). R3 is set Done when PR #8 merges.
 <!-- SECTION:NOTES:END -->
