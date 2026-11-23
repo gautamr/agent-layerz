@@ -1,11 +1,11 @@
 ---
 id: TASK-55.4
 title: 'R3: Source resolution and the cache in Rust'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T12:09:00Z'
+updated_date: '2026-11-23T12:12:00Z'
 labels:
   - area:rust
   - area:security
@@ -417,3 +417,9 @@ Lead (2026-11-23): AC #1 checked — the mapping notes give a Rust test for ever
 
 2026-11-23: PR #8 CI flaked once on ubuntu (git_runner a_git_at_2_30_is_accepted_and_asked_for_its_version_once at 4124a4e); green before and after (ba79e69). Tracked as a discovered task; the assertion now prints the refusal.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Source resolution and the layer cache are in Rust: a cleaned git environment and a GitRunner with typed calls, the 2.30 floor, deadlines and no terminal; https and ssh only for remote sources, --no-local for local ones; one cache location with owner-checked roots and temp entries; a no-follow component walk that never looks inside an account folder; the layer walk with its budgets and check order; git:/github: sources cloned once and pinned by the lock; pinned path: layers written from blobs and verified; and alz lint for a whole stack. Merged in PR #8 (rebase merge).
+<!-- SECTION:FINAL_SUMMARY:END -->

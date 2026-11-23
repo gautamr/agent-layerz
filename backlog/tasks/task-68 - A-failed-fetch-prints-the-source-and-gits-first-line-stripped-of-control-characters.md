@@ -3,10 +3,10 @@ id: TASK-68
 title: >-
   A failed fetch prints the source and git's first line stripped of control
   characters
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-23T04:40:00Z'
-updated_date: '2026-11-23T11:59:00Z'
+updated_date: '2026-11-23T12:12:00Z'
 labels:
   - discovered
   - area:rust
@@ -44,3 +44,9 @@ R3.11 (2026-11-23): AC1 and AC3 checked. Test 26 lint twins pass against the Rus
 
 Lead (2026-11-23): AC #2 reworded: the ESC/CR/U+202E case is an ordinary case, since the reference strips those too (test/acceptance/26-commit-identity.test.ts 'prints no ESC, CR or U+202E from git's line, which is not split at the CR', and the whole remote message at ≈972); the control-only line is the drift case. AC #4: crates/alz/tests/git_sources.rs a_cache_root_made_read_only_before_the_publish_is_cannot_store and a_clone_that_cannot_be_read_is_cannot_store_and_not_cannot_fetch (rust:ci green on 4bc5132, PR #8 CI green).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed in the Rust alz in R3 (PR #8, decision-30); the TypeScript reference keeps the bug, and its acceptance cases are marked reference drift where it fails them.
+<!-- SECTION:FINAL_SUMMARY:END -->

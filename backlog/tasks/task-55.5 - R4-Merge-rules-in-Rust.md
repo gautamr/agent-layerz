@@ -1,10 +1,11 @@
 ---
 id: TASK-55.5
 title: 'R4: Merge rules in Rust'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T11:58:00Z'
+updated_date: '2026-11-23T12:12:00Z'
 labels:
   - area:rust
 milestone: m-7
