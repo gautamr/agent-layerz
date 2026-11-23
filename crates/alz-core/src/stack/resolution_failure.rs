@@ -201,7 +201,7 @@ pub fn pinned_tree_refused(refusal: ListingRefusal, source: Stripped) -> Diagnos
             None,
             Message::new("the git tree of layer '")
                 .then(source)
-                .then("' lists two paths that one file system would merge (equal after Unicode normalisation and case folding); rename one"),
+                .then("' lists two paths that one file system would merge (equal after Unicode normalisation and lowercasing); rename one"),
         ),
     }
 }

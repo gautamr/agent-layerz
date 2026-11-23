@@ -7,7 +7,7 @@ use alz_core::account::AccountFolders;
 use alz_core::git::ObjectFormat;
 use alz_core::layer::{LayerScan, Purpose};
 use alz_core::path::{AbsolutePath, SafeRelPath};
-use rustix::fs::{AtFlags, statat};
+use rustix::fs::{AtFlags, FileType, statat};
 
 use crate::fs::read_below::read_file_below;
 use crate::fs::read_error::ReadError;
@@ -67,11 +67,15 @@ impl Dir {
         }
     }
 
-    /// Whether `name`, a single name and not a path, exists in this directory, following a link
-    /// the way a test for existence does. Only the answer is used, never what it names.
+    /// Whether `name`, a single name and not a path, is a regular file in this directory. The name
+    /// is looked up relative to the handle with `lstat`, so a link is never followed and is not a
+    /// regular file. Only the answer is used, never what the name holds.
     #[must_use]
-    pub fn contains(&self, name: &str) -> bool {
-        !name.contains('/') && statat(&self.handle, name, AtFlags::empty()).is_ok()
+    pub fn holds_regular_file(&self, name: &str) -> bool {
+        !name.contains('/')
+            && statat(&self.handle, name, AtFlags::SYMLINK_NOFOLLOW).is_ok_and(|status| {
+                FileType::from_raw_mode(status.st_mode) == FileType::RegularFile
+            })
     }
 
     pub(super) const fn handle(&self) -> &OwnedFd {
@@ -117,7 +121,8 @@ impl Dir {
     /// a fact of the scan, and [`scan_verdict`](alz_core::layer::scan_verdict) decides.
     ///
     /// With [`Purpose::Resolution`] the walk stops at entry 2001 and a file is read only while
-    /// 16 MiB are not yet used up; with [`Purpose::Build`] there is no budget.
+    /// 16 MiB are not yet used up; with [`Purpose::Build`] there is no budget in all, but a file of
+    /// more than 16 MiB is unreadable.
     #[must_use]
     pub fn scan(&self, purpose: Purpose) -> LayerScan {
         scan_layer(&self.handle, purpose, None)

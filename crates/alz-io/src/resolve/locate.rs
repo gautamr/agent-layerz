@@ -34,7 +34,8 @@ fn probe(path: &AbsolutePath, folders: &AccountFolders) -> Probe {
 }
 
 /// A path that is not a folder may still be a file, such as a `.bundle`: its folder is walked and
-/// the name is looked up there.
+/// the name is looked up there, relative to the folder's handle and without following a link. Only
+/// a regular file counts; a link, a pipe or a device is absent.
 fn probe_file(path: &AbsolutePath, folders: &AccountFolders) -> Probe {
     let text = path.as_str().trim_end_matches('/');
     let Some((parent, name)) = text.rsplit_once('/') else {
@@ -44,7 +45,7 @@ fn probe_file(path: &AbsolutePath, folders: &AccountFolders) -> Probe {
         return Probe::Absent;
     };
     match Dir::open_with_real_path(&parent, folders) {
-        Ok((folder, real)) if folder.contains(name) => {
+        Ok((folder, real)) if folder.holds_regular_file(name) => {
             let joined = format!("{}/{name}", real.as_str().trim_end_matches('/'));
             AbsolutePath::try_from(joined.as_str()).map_or(Probe::Absent, Probe::Found)
         }

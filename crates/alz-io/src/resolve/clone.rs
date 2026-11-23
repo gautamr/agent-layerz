@@ -176,10 +176,11 @@ impl<'a> Fetcher<'a> {
     /// such; anything else is that the clone cannot be stored.
     fn cache_failure(&self, layer: &GitLayer<'_>, error: CacheError) -> Diagnostic {
         match error {
-            CacheError::EntryNotDirectory(_) | CacheError::EntryVanished(_) => {
-                error.into_diagnostic(self.location)
-            }
+            CacheError::EntryNotDirectory(_)
+            | CacheError::EntryNotOwned(_)
+            | CacheError::EntryVanished(_) => error.into_diagnostic(self.location),
             CacheError::TouchesAccountFolder
+            | CacheError::NotPrivate
             | CacheError::InsideRepository
             | CacheError::Unusable(_)
             | CacheError::TempEntryReplaced

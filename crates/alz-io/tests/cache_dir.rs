@@ -227,6 +227,50 @@ mod tests {
     }
 
     #[test]
+    fn a_cache_root_that_group_or_others_can_write_is_refused_and_one_that_they_can_only_read_is_not()
+     {
+        for (mode, refused) in [
+            (0o700, false),
+            (0o755, false),
+            (0o750, false),
+            (0o770, true),
+            (0o775, true),
+            (0o757, true),
+            (0o777, true),
+        ] {
+            let machine = Machine::new();
+            machine.make_dirs("other/c/agent-layerz");
+            set_mode(&machine, "other/c/agent-layerz", mode);
+            let opened = open(&machine, Some("other/c"));
+            match (refused, opened) {
+                (true, Err(CacheError::NotPrivate)) | (false, Ok(_)) => {}
+                (_, other) => panic!("{mode:o}: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_refused_cache_root_is_the_error_cache_with_the_spec_text() {
+        let machine = Machine::new();
+        machine.make_dirs("other/c/agent-layerz");
+        set_mode(&machine, "other/c/agent-layerz", 0o775);
+        let error = open(&machine, Some("other/c")).expect_err("refused");
+        assert_eq!(
+            error
+                .into_diagnostic(&location(&machine, Some("other/c")))
+                .to_string(),
+            format!(
+                "error [cache] the layer cache at {}/other/c/agent-layerz is not owned by you or can be written by group or others; fix its owner and mode, or set XDG_CACHE_HOME to another folder",
+                machine
+                    .path("")
+                    .to_str()
+                    .expect("text")
+                    .trim_end_matches('/')
+            )
+        );
+    }
+
+    #[test]
     fn an_entry_that_is_a_link_or_not_a_folder_is_never_followed() {
         let machine = Machine::new();
         let cache = open(&machine, Some("other/c")).expect("opened");

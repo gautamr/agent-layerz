@@ -89,6 +89,14 @@ fn fold(name: &str) -> String {
         .collect()
 }
 
+/// Whether `name`, one entry of `$HOME`, names an account folder: `.claude`, `.claude.json`,
+/// `.codex`, `.claude-*` or `.codex-*`, compared in Unicode NFC and lowercased (decision-37). A
+/// caller that lists `$HOME` uses it to pick the entries to look at (spec §9.1).
+#[must_use]
+pub fn names_account_folder(name: &str) -> bool {
+    names_account(&fold(name))
+}
+
 /// Whether a component, already folded, names an account folder below `$HOME`.
 fn names_account(folded: &str) -> bool {
     matches!(folded, ".claude" | ".codex" | ".claude.json")

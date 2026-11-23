@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use alz_core::account::AccountFolders;
 use alz_core::cache::{CacheLocation, DirKey, EntryName};
 use alz_core::git::{
     BlobId, EntryDifference, FetchFailureLine, ObjectCheck, ObjectContent, ObjectFormat,
@@ -25,12 +26,12 @@ use alz_core::lock::{Integrity, LayerFiles, LockedLayer, ObjectId, verify};
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::stack::resolution_failure::{
     cache_differs_from_lock, cache_differs_from_tree, cannot_read_pinned, cannot_resolve_ref,
-    cannot_store, pinned_tree_refused,
+    cannot_store, layer_touches_account_folder, pinned_tree_refused,
 };
 use alz_core::stack::{GitRef, Source};
 use alz_core::{Diagnostic, Level, Stripped};
 
-use crate::fs::{CacheDir, CacheError, Dir, Published, TempEntry};
+use crate::fs::{CacheDir, CacheError, Dir, Published, ReadError, TempEntry, WalkError};
 use crate::git::{GitFailure, GitRunner, ReadScope};
 use crate::resolve::clone::{FetchedLayer, ReadHow};
 
@@ -48,6 +49,9 @@ pub struct PinnedLayer<'a> {
     /// The real path of the layer's directory, as the component walk found it. The index entry is
     /// keyed by it.
     pub real_dir: &'a AbsolutePath,
+    /// The account folders (spec §9.1). The repository top that git reports is walked against them
+    /// before git reads anything there.
+    pub folders: &'a AccountFolders,
     /// The lock's entry for this source, when it has one. Its content hash is checked when the
     /// layer is read from the cache for the commit it pins.
     pub locked: Option<&'a LockedLayer>,
@@ -116,6 +120,7 @@ impl<'a> PinnedTreeReader<'a> {
             .git
             .show_toplevel(directory)
             .map_err(|failure| Self::before_tree(layer, &failure))?;
+        Self::keep_out_of_account_folders(layer, &top)?;
         let prefix = self
             .git
             .show_prefix(directory)
@@ -160,6 +165,29 @@ impl<'a> PinnedTreeReader<'a> {
             },
             warnings,
         })
+    }
+
+    /// The top of the repository is where git is run from and what it reads, and `core.worktree`
+    /// or a `.git` file can put it anywhere: it is walked, one component at a time, against the
+    /// account folders, so a top at one, in one, at the home folder or above it is refused before
+    /// git is asked for anything else (spec §6 "Layers in or around an account folder").
+    fn keep_out_of_account_folders(layer: &PinnedLayer<'_>, top: &Path) -> Step<()> {
+        let path = top
+            .to_str()
+            .and_then(|text| AbsolutePath::try_from(text).ok())
+            .ok_or_else(|| Self::unresolvable(layer))?;
+        match Dir::open_with_real_path(&path, layer.folders) {
+            Ok(_) => Ok(()),
+            Err(WalkError::Refused(_)) => {
+                Err(layer_touches_account_folder(Self::source_text(layer)))
+            }
+            Err(
+                WalkError::Missing
+                | WalkError::NotADirectory
+                | WalkError::TooManyLinks
+                | WalkError::Io(_),
+            ) => Err(Self::unresolvable(layer)),
+        }
     }
 
     fn source_text(layer: &PinnedLayer<'_>) -> Stripped {
@@ -226,10 +254,11 @@ impl<'a> PinnedTreeReader<'a> {
 
     fn cache_failure(&self, layer: &PinnedLayer<'_>, error: CacheError) -> Diagnostic {
         match error {
-            CacheError::EntryNotDirectory(_) | CacheError::EntryVanished(_) => {
-                error.into_diagnostic(self.location)
-            }
+            CacheError::EntryNotDirectory(_)
+            | CacheError::EntryNotOwned(_)
+            | CacheError::EntryVanished(_) => error.into_diagnostic(self.location),
             CacheError::TouchesAccountFolder
+            | CacheError::NotPrivate
             | CacheError::InsideRepository
             | CacheError::Unusable(_)
             | CacheError::TempEntryReplaced
@@ -441,13 +470,25 @@ impl<'a> PinnedTreeReader<'a> {
                 .file_name_diagnostic(Self::source_text(layer))
                 .map_or(Refusal::Differs, Refusal::Named)
         })?;
+        // A skipped name that cannot be read as a regular file is absent from the entry, which
+        // `verify_entry` reports as a difference; a read that failed for any other reason says
+        // nothing about the entry and is a failed read, never a difference.
         let skipped: BTreeMap<SafeRelPath, ObjectId> = listing
             .skipped()
-            .filter_map(|(path, _)| {
-                dir.read_file(path, SKIPPED_FILE_CAP)
-                    .ok()
-                    .map(|bytes| (path.clone(), BlobId::of(format, &bytes).id()))
+            .map(|(path, _)| match dir.read_file(path, SKIPPED_FILE_CAP) {
+                Ok(bytes) => Ok(Some((path.clone(), BlobId::of(format, &bytes).id()))),
+                Err(ReadError::Missing | ReadError::NotRegular | ReadError::TooLarge) => Ok(None),
+                Err(ReadError::Io(_)) => Err(Refusal::Named(cannot_read_pinned(
+                    Self::source_text(layer),
+                    layer.git_ref,
+                    Some(Stripped::from_untrusted(
+                        "a file of the entry cannot be read",
+                    )),
+                ))),
             })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
             .collect();
         verify_entry(listing, &scan, &skipped)
             .map_err(|_difference: EntryDifference| Refusal::Differs)?;

@@ -21,12 +21,17 @@ const MAX_ENTRIES: usize = 2000;
 /// The most bytes of files account resolution reads in all, 16 MiB (§7.13).
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
 
-/// Why a layer is walked. Account resolution has budgets; the build has none (§7.13).
+/// The most bytes of one file a walk reads, 16 MiB, in the build too (§5.3 "Cache integrity"): a
+/// file of more bytes is unreadable.
+pub const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Why a layer is walked. Account resolution has budgets in all; the build caps each file at
+/// [`MAX_FILE_BYTES`] and has no other limit (§7.13).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Purpose {
     /// Account resolution (R6): the walk stops at entry 2001 and reads at most 16 MiB.
     Resolution,
-    /// `alz build` and the commands that rebuild: no limit.
+    /// `alz build` and the commands that rebuild: no budget in all, but no file over 16 MiB.
     Build,
 }
 
