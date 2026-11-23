@@ -15,6 +15,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 alz-test-support.workspace = true
+proptest.workspace = true
 
 [lints]
 workspace = true

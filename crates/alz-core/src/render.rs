@@ -3,10 +3,12 @@
 //! (decision-33).
 
 pub mod action_word;
+pub mod gitignore;
 pub mod glob;
 pub mod header;
 pub mod json;
 pub mod lock_of;
 pub mod protected;
 pub mod tree;
+pub mod write_plan;
 pub mod yaml;

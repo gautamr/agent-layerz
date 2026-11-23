@@ -8,8 +8,8 @@ mod resolve;
 
 pub use env::{EnvSnapshot, WorkingDirectory};
 pub use fs::{
-    CacheDir, CacheError, Dir, IndexError, Published, ReadError, ReadOnlyDir, RepositoryPaths,
-    TempEntry, WalkError,
+    Applied, CacheDir, CacheError, Dir, IndexError, Published, ReadError, ReadOnlyDir, RepoError,
+    RepoRoot, RepositoryPaths, TempEntry, WalkError,
 };
 pub use git::{
     Deadlines, GitFailure, GitRunner, GitRunnerError, Launcher, ReadScope, run_if_requested,

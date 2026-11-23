@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T23:17:00Z'
+updated_date: '2026-11-23T23:31:00Z'
 labels:
   - area:rust
   - area:security
@@ -36,3 +36,9 @@ Plan for this step (§4.3, §4.5, decision-27).
 - [ ] #3 An entry of the previous lock alone never makes a file deletable or overwritable beyond what R5.1's §4.3 allows (unit tests with a lock naming files alz did not write)
 - [ ] #4 The .gitignore block matches the reference's bytes and replaces a legacy block (unit tests)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementer (R5.7, branch feat/rust-r5.7-writer). Design: pure plan in alz-core render/write_plan (plan_writes over FileTree, Lock, previous Lock, Disk, Protected; ClearPlan only exists without collisions, so apply cannot run with one) and render/gitignore (synced); effects in alz-io fs/repo_root (RepoRoot::observe / apply, rustix only, no unsafe). Plan said workspace.rs; kept to new files render/write_plan*.rs per the coordination note. Evidence: AC1: alz-io tests/repo_root.rs (link at path with a lock entry holding the target's hash, link above a path, a folder turned into a link after the plan -> RepoError::Changed and outside untouched, FIFO/folder/FIFO-as-parent/FIFO in managed folder refused without blocking, managed folder walk never enters a link, case-variant name) and write_plan unit tests. AC2: write_plan tests property 'planning again after the plan is applied gives no changes' (pure simulation) and alz-io proptest 'applying a plan changes only the paths it names' (real files, snapshot diff of repo + outside folder, then replan settled and a second apply is a no-op). AC3: unit tests 'a lock entry with another hash does not make an unmarked file alz's own', 'a file the lock lists is deleted only when it is alz's own', 'a lock entry never deletes a protected path or the lock', property 'a change only names a path that is absent or alz's own'. AC4: render/gitignore tests (new block, separator, byte-for-byte outside text, legacy block replaced, block removed, no-end block, idempotent; an empty tree keeps the blank line the reference writes). Also: temp+rename test (failure at the second write leaves first file complete, no temp file, no lock), modes 0644/0755, lock written last and only when changed, deletes only owned files with empty folders pruned and root kept. Checks: mise run rust:ci green (fmt, clippy -D warnings, tests, doc, msrv, deny, audit); mise run lint green. Spec: new paragraph 'What the writer compares' in section 4.3 (1 MiB comparison cap, managed-folder walk, case-variant rule, reserved layer.lock/.gitignore never deleted, non-UTF-8 .gitignore, Changed error). Open: a lock listing any file with its matching hash lets a build delete it (owner rule); consider also refusing layer.yaml/.layer paths. fsync of the folder after rename not done. Pipeline wiring and message rendering (Display of CollisionReason is the spec text) belong to R5.8.
+<!-- SECTION:NOTES:END -->
