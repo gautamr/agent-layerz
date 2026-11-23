@@ -3,10 +3,11 @@ id: TASK-55.3.9
 title: >-
   R2.9: accounts.yaml and allowed.yaml shapes as account values with per-entry
   warnings
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
+updated_date: '2026-11-23T06:25:00Z'
 labels:
   - area:rust
   - area:accounts

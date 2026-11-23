@@ -1,11 +1,11 @@
 ---
 id: TASK-55.3.7
 title: 'R2.7: layer.lock, object ids and the content hash in name order, stable JSON'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
-updated_date: '2026-11-23T05:27:00Z'
+updated_date: '2026-11-23T06:25:00Z'
 labels:
   - area:rust
   - area:cache
