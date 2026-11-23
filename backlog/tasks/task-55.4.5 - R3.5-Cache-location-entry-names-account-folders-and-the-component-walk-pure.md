@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
+updated_date: '2026-11-23T07:59:00Z'
 labels:
   - area:rust
   - area:security
@@ -22,7 +23,7 @@ ordinal: 106390
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Plan for this step. Fixes TASK-53 (AC #3) and the core of TASK-52 (AC #3), as pure code. It needs the unicode-normalization decision (Q3).
+Plan for this step. Fixes TASK-53 (AC #3) and the core of TASK-52 (AC #3), as pure code. It adds unicode-normalization =0.1.26 with default features off, per decision-37.
 - alz-core `cache/location.rs`: `CacheLocation::from_env(home, xdg_cache_home)`. Unset, empty or relative means `<home>/.cache/agent-layerz`; absolute means `<value>/agent-layerz`. HOME follows the rule of §7.13 "Paths" (R6 shares it). This is the one function that lint, build and account resolution call.
 - `cache/entry_name.rs`: `CloneKey` (the sha256 of the clone argument), `EntryName` and its `Display`.
 - `account/folders.rs`: `AccountFolders::from_env(home, CLAUDE_CONFIG_DIR, CODEX_HOME)`: `~/.claude`, `~/.claude.json`, `~/.codex`, `~/.claude-*`, `~/.codex-*` and the two named folders. `touches(&AbsolutePath)` says whether a path is one of them, lies inside one, or is `$HOME` or above, comparing each component in NFC and lowercased (TASK-52's note).

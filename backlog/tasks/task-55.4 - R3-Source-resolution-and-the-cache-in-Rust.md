@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T07:54:00Z'
+updated_date: '2026-11-23T08:03:00Z'
 labels:
   - area:rust
   - area:security
@@ -77,9 +77,9 @@ alz-core, pure:
   - `FetchFailureLine::from_stderr(&[u8]) -> Option<Stripped>`, steps 1 to 5 of §6 "A failed fetch" (TASK-68);
   - `TreeListing::parse` of `ls-tree -r -z`: each path must be UTF-8 (TASK-69) and a `SafeRelPath`; links and submodules are skipped; paths equal after NFC and lowercasing are refused;
   - `TreeEntryCheck`, which compares a scanned entry with the listing: NFC names, executable bit, no extra file, skipped names;
-  - `BlobId::of`: `blob <len>\0` plus the bytes, hashed with SHA-1 or SHA-256 to match the commit's id.
+  - `BlobId::of`: `blob <len>\0` plus the bytes, hashed with SHA-1 (sha1, decision-36) or SHA-256 to match the commit's id.
 - `account/folders.rs` + `path/walk.rs`:
-  - `AccountFolders` from HOME, CLAUDE_CONFIG_DIR and CODEX_HOME; `touches()` compares per component in NFC, lowercased.
+  - `AccountFolders` from HOME, CLAUDE_CONFIG_DIR and CODEX_HOME; `touches()` compares per component in NFC (unicode-normalization, decision-37), lowercased.
   - `RealPathWalk`, a sans-IO state machine that resolves a path one component at a time. It asks `Lstat(prefix)` or `Readlink(prefix)`, and refuses a prefix that is `$HOME` or above, lies in an account folder or holds one, before it asks anything about it (TASK-52).
 - `diagnostic.rs`:
   - codes `source`, `cache`, `cache-index` (a warning), `layer`, `env-file`, and `git` for the version floor;
@@ -94,7 +94,7 @@ alz-io, effects:
   - Links and other entries are listed but never read, and a `.env` name is never opened.
   - Files are opened with `O_NONBLOCK` and must show `S_ISREG` on `fstat`. Bytes are counted as they are read.
 - `fs/cache_dir.rs`: `CacheDir`, the capability for the cache root.
-  - It is opened or created through the walk, with `mkdirat` mode 0700 for each missing component, and refused inside an account folder (TASK-52).
+  - It is opened or created through the walk, with `mkdirat` mode 0700 for each missing component, and refused inside an account folder (TASK-52) or, for an absolute XDG_CACHE_HOME, inside the repository (answer 6).
   - `entry(&EntryName) -> Option<Dir>`: a link or a non-directory at that name is the cache error.
   - `TempEntry` is `.tmp-<pid>-<n>`, made with an exclusive `mkdirat` 0700 and removed on drop. `publish` uses a `renameat` that does not replace. When the name exists, that entry is checked like a cached one.
   - The index is written and read through a temporary file and a rename. A failed write is a `cache-index` warning; a directory at the index name is the cache error.
@@ -111,7 +111,7 @@ alz, the binary:
 
 ### Capabilities: how alz-io runs git
 
-`GitRunner::new(&EnvSnapshot)` runs `git version` once and refuses a git below the floor (owner Q4). Account resolution and the shell hook never get a `GitRunner`, so they cannot run git (decision-24).
+`GitRunner::new(&EnvSnapshot)` runs `git version` once and refuses a git below 2.30 with error [git] naming the found and the minimum version (owner answer 4). Account resolution and the shell hook never get a `GitRunner`, so they cannot run git (decision-24).
 
 A call is a typed `GitCall`, never strings from the caller. Its operands are `GitRef`, `ObjectId`, `CloneArg` and `SafeRelPath`, so an operand git could read as an option does not type-check:
 - `Clone { guard, arg, into: &TempEntry }`: `clone --quiet -- <arg> <temp>`;
@@ -123,27 +123,27 @@ A call is a typed `GitCall`, never strings from the caller. Its operands are `Gi
 `--` comes only before paths.
 
 The environment: `env_clear()`, then exactly what `child_environment` returns:
-- the snapshot without GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_NAMESPACE and GIT_CEILING_DIRECTORIES, for every cache and clone operation (TASK-63). The GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT/KEY_n/VALUE_n removal is owner Q2.
+- the snapshot without GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_NAMESPACE and GIT_CEILING_DIRECTORIES, for every cache and clone operation (TASK-63). It also removes GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT and every GIT_CONFIG_KEY_n and GIT_CONFIG_VALUE_n (owner answer 2).
 - a remote clone: no GIT_ALLOW_PROTOCOL, and `-c protocol.file.allow=never`;
 - every call: GIT_TERMINAL_PROMPT=0;
 - every tree read: GIT_NO_REPLACE_OBJECTS=1 and GIT_NO_LAZY_FETCH=1.
 
 Everything else passes unchanged, so ssh agents, proxies, GIT_SSH_COMMAND and credential configuration keep working. git is found through the child's PATH, which `test/git-proxy.ts` needs.
 
-No terminal (TASK-70; owner Q1, recommended option b):
+No terminal (TASK-70; owner answer 1):
 1. `GitRunner` starts `current_exe()` with a fixed internal first argument.
 2. That child is not a process-group leader. It calls `rustix::process::setsid()`, a safe function in rustix 1.1.6 that needs the `process` feature, which decision-27 already allows.
 3. It then becomes git through `CommandExt::exec`, which is also safe.
 
-git and ssh then run in a new session with no controlling terminal, so they cannot open /dev/tty. There is no unsafe code, and the user's `core.sshCommand` is untouched. std's `CommandExt::setsid` is still unstable in 1.100.0 (feature process_setsid, issue 105376, read in the toolchain's std source).
+git and ssh then run in a new session with no controlling terminal, so they cannot open /dev/tty. There is no unsafe code, and the user's `core.sshCommand` is untouched. ssh's graphical askpass stays allowed, since it does not use the terminal. std's `CommandExt::setsid` is still unstable in 1.100.0 (feature process_setsid, issue 105376, read in the toolchain's std source).
 
 Standard input is null except for `cat-file --batch`. stdout and stderr are read on two threads, each with a cap: stdout per operation, stderr its first 64 KiB.
 
-A deadline per call is a `GitRunner` parameter (owner Q5). When it passes, `rustix::process::kill_process_group` ends the whole session's group, ssh included. The exit status is checked, and stderr is never printed except as the TASK-68 line.
+A deadline per call is a `GitRunner` parameter: the binary uses 10 minutes for a clone and 2 minutes for any other call (owner answer 5), and Rust tests pass short ones. When it passes, `rustix::process::kill_process_group` ends the whole session's group, ssh included. The exit status is checked, and stderr is never printed except as the TASK-68 line.
 
 ### Cache layout and integrity (§5.3, §6; entry names unchanged)
 
-- **Root**: `CacheLocation` (TASK-53), opened as a `CacheDir`. It is refused when it lies in an account folder or holds one (TASK-52). The cache inside the repository is owner Q6.
+- **Root**: `CacheLocation` (TASK-53), opened as a `CacheDir`. It is refused when it lies in an account folder or holds one (TASK-52). An absolute XDG_CACHE_HOME inside the repository is refused with error [cache], a link in the root's own path is followed with each prefix checked, and missing folders are created with mode 0700 (owner answer 6).
 - **`git:` and `github:`**, entry `git-<sha256(clone arg)>@<commit>`:
   1. When the lock pins this source and the entry exists, it must be a real directory. Its content hash is checked against the lock before `layer.yaml` is read.
   2. Otherwise alz clones into a `TempEntry`, guarded when the source is remote, then runs `rev-parse` of `<lock sha or ref>^{commit}` (an `ObjectId`) and checks the commit out.
@@ -212,8 +212,8 @@ Every case in those files passes by R5 (TASK-55.6).
 
 ### Spec changes in the same PR (R3.1)
 
-- §6, a new paragraph "Git subprocesses": argument arrays, `--end-of-options`, the environment rule with the names it removes (TASK-63 AC #3), the git floor and what an older git gives (Q4), no terminal (TASK-70 AC #1), the deadline (Q5), and the hook case as reference drift.
-- §6: an empty or relative XDG_CACHE_HOME counts as unset for every command (TASK-53), not only for resolution (§7.13).
+- §6, a new paragraph "Git subprocesses": argument arrays, `--end-of-options`, the environment rule with the names it removes (TASK-63 AC #3), git 2.30 or later with error [git] below it (answer 4), no terminal through the self re-exec and setsid (TASK-70 AC #1, answer 1), the deadlines (answer 5), and the hook case as reference drift.
+- §6: an empty or relative XDG_CACHE_HOME counts as unset for every command (TASK-53), not only for resolution (§7.13). An absolute one inside the repository is refused, a link in the root's own path is followed, and missing folders are created with mode 0700 (answer 6).
 - §6 and §9.1: every command that resolves the stack refuses, before it opens anything there:
   - a `path:` layer whose real directory is `$HOME` or above, lies in an account folder, or holds one;
   - a cache root in an account folder.
@@ -233,7 +233,7 @@ Every case in those files passes by R5 (TASK-55.6).
 
 ### Subtasks
 
-R3.1 to R3.11 (TASK-55.4.1 to TASK-55.4.11), in order. Each description is that step's plan. The owner questions are in the notes.
+R3.1 to R3.11 (TASK-55.4.1 to TASK-55.4.11), in order. Each description is that step's plan. The owner's answers (2026-11-23) are in the notes; decision-36 and decision-37 record answer 3. The criteria of TASK-52, 53, 63, 69 and 71 name the lint twins (answer 7).
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -325,4 +325,8 @@ Sub-question: with no terminal, OpenSSH may run an SSH_ASKPASS program (a graphi
 **Recommendation: a).** The owner or the lead rewords the criteria, since agents do not change them.
 
 Owner answers (2026-11-23): (1) TASK-70: alz re-runs itself with an internal argument; that child calls rustix's safe setsid() and then runs git, so neither git nor ssh has a controlling terminal; the user's ssh command is untouched and ssh's graphical askpass stays allowed. (2) Cache and clone git calls drop GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT and its GIT_CONFIG_KEY_n/VALUE_n pairs. (3) sha1 =0.11.0 and unicode-normalization =0.1.26 approved, one decision each. (4) Refuse git below 2.30 with error [git] naming the found and minimum version. (5) Deadlines: 10 minutes for a clone, 2 minutes for other git calls, a GitRunner parameter; on expiry the process group is killed and the fetch fails. (6) Cache root: empty or relative XDG_CACHE_HOME is unset; an absolute one inside the repository is refused; a link in the cache root's own path is followed; a missing root is created with mode 0700. (7) TASK-52, 53, 63, 69 and 71 may close in R3 with lint twins of their build/check cases; the lead rewords their criteria; the build forms are checked again in R5.
+
+Architect (2026-11-23): the owner's answers are folded into the plan and into subtasks R3.1, R3.2, R3.3, R3.5, R3.6, R3.9 and R3.11. Answer 3 is recorded as decision-36 (sha1 =0.11.0) and decision-37 (unicode-normalization =0.1.26), both accepted. Answer 7: the criteria of TASK-52, 53, 63, 69 and 71 now name the lint twins, and each task's last criterion says that the build or check form is checked again in R5 (TASK-55.6), and the account-resolution forms in R6 (TASK-55.7). R3.1's spec text is written, uncommitted, on the branch.
+
+Architect (2026-11-23): the owner's answers are folded into the plan and into subtasks R3.1, R3.2, R3.3, R3.5, R3.6, R3.9 and R3.11. Answer 3 is recorded as decision-36 (sha1 =0.11.0) and decision-37 (unicode-normalization =0.1.26), both accepted. Answer 7: the criteria of TASK-52, 53, 63, 69 and 71 now name the lint twins, and each task's last criterion says that the build or check form is checked again in R5 (TASK-55.6), and the account-resolution forms in R6 (TASK-55.7). R3.1's spec text is written, uncommitted, on the branch.
 <!-- SECTION:NOTES:END -->

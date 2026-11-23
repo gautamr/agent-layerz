@@ -462,7 +462,8 @@ entry (§6) or an entry whose content is not what the lock recorded.
 1. Read `layer.yaml` from the repo and resolve each `source` to a local directory at the
    pinned revision (using the lock unless `alz update` is run).
    A layer read from the cache is checked against the lock (§5.3). The cache is
-   `$XDG_CACHE_HOME/agent-layerz` (default `~/.cache/agent-layerz`). A `github:` or `git:` layer
+   `$XDG_CACHE_HOME/agent-layerz` (default `~/.cache/agent-layerz`), located as "The layer
+   cache" below says. A `github:` or `git:` layer
    is the directory `git-<sha256 of what is cloned, in hex>@<commit sha>`, where what is cloned
    is the remote URL exactly as it is passed to git (for `github:owner/repo`,
    `https://github.com/owner/repo.git`), or for a local repository its canonical absolute path.
@@ -472,6 +473,58 @@ entry (§6) or an entry whose content is not what the lock recorded.
    a fresh clone: when the lock has no entry to check it against, the build clones the commit,
    compares the two content hashes, discards the clone and stops with the "delete that directory"
    error on a difference. A cache entry must be a real directory, never a link.
+
+   **The layer cache** (TASK-52, TASK-53). Every command that resolves the stack (the list in
+   §5.3 "Cache integrity") locates the cache in the same way, with the same function as account
+   resolution (§7.13):
+   - It is `$XDG_CACHE_HOME/agent-layerz` when `XDG_CACHE_HOME` is an absolute path. An empty
+     or relative value counts as unset, as the XDG Base Directory specification says.
+   - Otherwise it is `$HOME/.cache/agent-layerz`, with `HOME` as §7.13 "Environment" defines
+     it. If that is not an absolute path either, the command stops with the error `cache`, no
+     location, and the message
+     `cannot locate the layer cache: set HOME or XDG_CACHE_HOME to an absolute path`.
+   - A link in the cache root's own path is followed, because the person chose that path.
+     alz resolves the path one component at a time and checks each resolved prefix before it
+     looks at the next one (§9.1).
+   - A cache root that touches an account folder (§9.1) is refused before anything in it is
+     looked at. The error is `cache`, no location, with the message `the layer cache at <dir>
+     touches an account folder or the home folder; set XDG_CACHE_HOME to another folder`.
+   - An absolute `XDG_CACHE_HOME` that puts the cache root inside the repository being built,
+     compared both as written and as real paths, is refused. The error is `cache`, no
+     location, with the message `the layer cache at <dir> lies inside the repository; set
+     XDG_CACHE_HOME to a folder outside it`.
+   - Each missing folder of the cache root is created with mode `0700`. An existing folder
+     keeps its mode.
+
+   `<dir>` is stripped as in every diagnostic (decision-26, class 1). The entries inside the
+   cache are never followed through a link (above).
+
+   The TypeScript `alz` differs (reference drift, TASK-52, TASK-53):
+   - it uses `XDG_CACHE_HOME` whenever the variable is set, so an empty value puts the cache in
+     the working directory;
+   - it refuses neither a cache inside the repository nor one in an account folder;
+   - it creates missing folders with mode `0777` minus the umask.
+
+   **Layers in or around an account folder** (TASK-52). Every command that resolves the stack
+   finds the directory of a `path:` layer, pinned or not, and of a local `git:` source, from the
+   path as written:
+   - relative to the repository root;
+   - one component at a time;
+   - following each link itself;
+   - checking each resolved prefix before it looks at the next one.
+
+   A directory that touches an account folder (§9.1) stops the command before any name in it
+   is looked at, and before git runs there, whether or not a link planted in the repository
+   leads to it. The error is `source`, no location, with the message `layer '<source>' touches
+   an account folder or the home folder; alz never reads there`. `<source>` is stripped.
+
+   Files inside a layer, a cache entry or a temporary clone are then opened relative to the
+   folder that holds them, never through a link. Each check of type and size is made with
+   `fstat` on the handle that is read (decision-27), so a name swapped for a link or a pipe
+   between two calls cannot change what was checked.
+
+   The TypeScript `alz` resolves the path with `realpath` and makes no such check in these
+   commands, so it opens the files of such a layer (reference drift, TASK-52).
 
    **A failed fetch** (TASK-65). Three git steps can fail for a `github:` or `git:` source: the
    clone, `git rev-parse` of the ref as a commit (of the lock's `sha` when the lock has an entry
@@ -489,10 +542,11 @@ entry (§6) or an entry whose content is not what the lock recorded.
    `<source>` is stripped as in step 3. Git's standard error carries what the remote and the
    transport (for example `ssh`) wrote, so it is untrusted. Nothing else of git's standard
    output or standard error is printed. Git and the programs it starts, such as `ssh`, never
-   prompt: alz runs them so that they cannot reach the terminal, because alz could neither see
-   nor sanitise what they write there. A key with a passphrase therefore has to be in an agent,
-   and a host whose key is not yet known fails the fetch with the message above (TASK-70; the
-   TypeScript `alz` leaves `ssh` able to prompt, reference drift).
+   prompt: alz runs them so that they cannot reach the terminal ("Git subprocesses" below),
+   because alz could neither see nor sanitise what they write there. A key with a passphrase
+   therefore has to be in an agent, and a host whose key is not yet known fails the fetch with
+   the message above (TASK-70; the TypeScript `alz` leaves `ssh` able to prompt, reference
+   drift).
 
    Once git has succeeded, a failure to read the clone or an existing entry for the hash
    comparison above, or to move the clone into the cache, is not a fetch failure:
@@ -508,6 +562,64 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - it ends the message with `: ` when there is no line;
    - it reports the read and move failures above as `cannot fetch` with nothing after the
      colon.
+
+   **Git subprocesses** (TASK-63, TASK-70; decision-24). Every git call that resolves a source
+   (`clone`, `rev-parse`, `checkout`, `ls-tree`, `cat-file`) runs the `git` found on `PATH`, with
+   an argument list and no shell. A revision follows `--end-of-options`, and `--` comes only
+   before paths. Refs and object ids are validated before they are used (§5.2, §5.3).
+   - **Version.** alz needs git 2.30 or later, the first version whose `rev-parse` accepts
+     `--end-of-options`.
+     - Before the first git call of a command, and only when a source needs git, alz runs
+       `git version`.
+     - A version below 2.30 stops the command with the error `git`, no location, and the
+       message `alz needs git 2.30 or later; found <version>`. `<version>` is the version
+       git printed, stripped.
+     - Output that does not read as `git version <major>.<minor>…` gives
+       `an unreadable version` in place of `<version>`, and a git that cannot be started gives
+       `found none`.
+     - The note on 2.44 (`GIT_NO_LAZY_FETCH`, below) still applies, and so does the advice to
+       use 2.45.1 or later when a local `git:` source may be an untrusted repository
+       (`docs/target-facts.md` §11).
+   - **Environment.** Each call gets alz's own environment with these changes and no others:
+     - Removed: `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+       `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, `GIT_NAMESPACE` and
+       `GIT_CEILING_DIRECTORIES`, which point git at another repository. Also removed:
+       `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` and every `GIT_CONFIG_KEY_<n>` and
+       `GIT_CONFIG_VALUE_<n>`, which carry the `-c` options of a parent git.
+     - Set: `GIT_TERMINAL_PROMPT=0`.
+     - A clone of a source classed as a remote also loses `GIT_ALLOW_PROTOCOL` and is given
+       `-c protocol.file.allow=never` (§7.12).
+     - Every call that reads a pinned layer's tree also sets `GIT_NO_REPLACE_OBJECTS=1` and
+       `GIT_NO_LAZY_FETCH=1` (below).
+
+     A git hook receives `GIT_INDEX_FILE` and, in a linked worktree, `GIT_DIR`. So when alz
+     runs from a hook, these calls never read or write the user's index or repository. The
+     user's git configuration files, credential helpers, `url.<base>.insteadOf` rules and ssh
+     settings keep working. Calls on the repository being built (§9.4) are not part of this
+     rule; their environment is §9.4's.
+   - **No terminal.** Git and the programs it starts never reach the terminal.
+     - alz starts git through a copy of itself, run with an internal argument that is not
+       part of the command-line interface. The copy starts a new session (`setsid`) and then
+       runs git, so git and `ssh` have no controlling terminal and cannot open `/dev/tty`.
+     - Standard input is the null device, except for the batch calls whose input alz writes.
+     - The user's `core.sshCommand` and `GIT_SSH_COMMAND` are left as they are.
+     - An `ssh` agent keeps working, and so does a graphical `SSH_ASKPASS` program, which does
+       not use the terminal.
+   - **Deadlines.** A clone may run for 10 minutes, and any other git call for 2 minutes. When
+     a call runs longer, alz ends git's whole process group, `ssh` included, and the step
+     fails:
+     - for a `github:` or `git:` source, with `cannot fetch '<source>': git did not finish
+       within <n> seconds`, where `<n>` is 600 or 120;
+     - for a pinned `path:` layer, with `cannot read '<source>' at <ref>: git did not finish
+       within <n> seconds`.
+   - Only the machine-readable output that each call asks for is read from git's standard
+     output. Its standard error is read only as "A failed fetch" says.
+
+   The TypeScript `alz` differs (reference drift, TASK-63, TASK-70):
+   - it passes its whole environment to these calls, except `GIT_ALLOW_PROTOCOL` on a guarded
+     clone;
+   - it leaves `ssh` able to prompt on the terminal;
+   - it sets no deadline and checks no version.
 
    A pinned `path:` layer is `tree2@<git tree id>`, where the tree is the layer's directory at the
    commit. The prefix is the format version: entries named `tree@<id>`, written by older versions
@@ -1322,7 +1434,13 @@ account:                       # per target; a target left out is not decided by
   `layer.yaml` with the same validation as `build`. A layer under the repository root as
   written is inside. For any other `path:` layer or local `git:` source, whether it is inside is
   decided from its real path, and one that does not resolve is a cache miss
-  (`layer-directory-missing`), never a layer to skip. It reads from:
+  (`layer-directory-missing`), never a layer to skip. The real path is found one component at a
+  time, as §6 "Layers in or around an account folder" says: each resolved prefix is checked
+  before the next component is looked at, so no name inside an account folder is `lstat`ed,
+  read as a link or opened, even through a link planted in the repository. The TypeScript
+  `alz` computes the real path with `realpath` and checks it afterwards. A planted link
+  therefore makes it `lstat` and `readlink` names inside an account folder before it refuses,
+  though it opens nothing there (reference drift, TASK-52). It reads from:
   - a `github:` or `git:` layer outside the repository: its cache entry for the commit the
     lock pins;
   - a `path:` layer outside the repository with a `ref`: the cache entry named by the cache
@@ -1352,7 +1470,10 @@ account:                       # per target; a target left out is not decided by
   has exactly one entry for the source. Resolution checks each layer outside the repository
   against the lock's content hash (§5.3), which covers every file of the layer, with
   `verifyCachedLayer`, before `layer.yaml` is parsed, and a mismatch counts as a cache miss.
-  Each file is read once, never through a link, and the bytes hashed are the bytes parsed. A
+  Each file is read once, never through a link, and the bytes hashed are the bytes parsed. It is
+  opened relative to the folder that holds it, and its type and size are checked with `fstat`
+  on the handle that is read (decision-27), so a name swapped between two calls cannot change
+  what was checked. A
   layer with more than 2000 entries, or more than 16 MiB in all, is a cache miss
   (`unreadable`); `alz build` has no such limit. The entries are the names the walk lists in
   the layer directory and in each folder below it: files, folders, links, other entries and
@@ -1741,9 +1862,20 @@ alz also reads the hand-written user config
 `${XDG_CONFIG_HOME:-~/.config}/agent-layerz/accounts.yaml`, which it never writes. Neither
 command opens a file inside an account folder or touches a login. The cache index that
 the commands resolving the stack write for pinned `path:` layers (§7.13 "No fetch on
-resolve") lives in the layer cache, so it is no exception. Account resolution treats a
-repository root, cache or layer directory that lies inside an account folder, or contains
-one, as a cache miss and opens nothing in it.
+resolve") lives in the layer cache, so it is no exception.
+
+A path *touches an account folder* when it is `$HOME` or above it, lies inside an account
+folder, or contains one, a folder that `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names included.
+Names are compared one component at a time after Unicode NFC normalisation and lowercasing, so
+a case or form variant of `~/.claude-x` counts (TASK-52).
+- Account resolution treats a repository root, cache or layer directory that touches an
+  account folder as a cache miss, and opens nothing in it.
+- Every command that resolves the stack refuses such a layer directory or cache root (§6 "The
+  layer cache" and "Layers in or around an account folder").
+
+Both find real paths one component at a time, and check each resolved prefix before they look
+at the next one. So no name inside an account folder is looked at, even through a link
+(decision-27).
 
 ### 9.2 Leak guard
 For layers with `visibility: public`:
@@ -2380,6 +2512,25 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     - `alz lint` in a repository refuses `ref: [x]` and `ref: 1.10` with `manifest`, naming
       `stack[<n>].ref` and printing neither value, and gets past `ref: "1.10"`;
     - `alz lint --layer` refuses `version: 1.10` with `layer`, naming `version`.
+28. **Sources and the layer cache through `alz lint`** (TASK-55.4; TASK-52, TASK-53, TASK-63,
+    TASK-68, TASK-69, TASK-71). These are lint twins in tests 16, 24, 26, 28 and 30, which
+    run `alz lint` in the repository where the build cases run `alz build`. Where a case needs
+    a lock, the suite writes one.
+    - The cases about sources and the cache get the same verdicts through `alz lint` as through
+      `alz build`.
+    - With `XDG_CACHE_HOME` empty or relative, the cache is `~/.cache/agent-layerz` under the
+      fake home, and the repository tree is unchanged.
+    - A `path:` layer at the fake home, or reached through a link into `~/.claude-x`, is refused
+      before anything in it is opened, and so is a cache root inside an account folder.
+    - Run as a pre-commit hook in a main checkout and in a linked worktree, `alz lint` leaves
+      the index and the repository byte-identical.
+    - A failed fetch prints `cannot fetch '<source>': <line>` in full. A fake `ssh` that writes
+      ESC, CR and U+202E leaves none of them in the output.
+    - A layer holding a name with the byte 0xFF is the error `layer`, on Linux only.
+    - A `git:` source with credentials is the error `source`, and the token appears nowhere.
+
+    The cases the TypeScript `alz` fails are marked as reference drift (`test/drift.ts`). Their
+    `alz build` and `alz check` forms are checked against the Rust `alz` in R5 (TASK-55.6).
 
 ---
 

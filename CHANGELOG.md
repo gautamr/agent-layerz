@@ -8,6 +8,25 @@ All notable changes to agent-layerz are recorded here. The format follows
 
 ### Changed
 
+- The Rust `alz` resolves layer sources more strictly than the TypeScript `alz`, as
+  `docs/LAYERING-SPEC.md` §6 ("The layer cache", "Layers in or around an account folder", "Git
+  subprocesses") and §9.1 say (TASK-52, TASK-53, TASK-63, TASK-70). What changes when a
+  repository moves to the Rust `alz`:
+  - Git runs without a terminal, so `ssh` cannot ask for a key's passphrase or confirm a new
+    host key. Add the key to an `ssh` agent and the host to `known_hosts` first. A graphical
+    askpass program still works.
+  - Git 2.30 or later is required.
+  - A clone that runs longer than 10 minutes fails, and so does any other git call that runs
+    longer than 2 minutes.
+  - For its cache and clone calls, alz run from a git hook ignores `GIT_DIR`, `GIT_INDEX_FILE`
+    and the other variables that point git at a repository, and the `-c` options of the git
+    that started the hook.
+  - An empty or relative `XDG_CACHE_HOME` is ignored, and an absolute one that puts the cache
+    inside the repository is refused. Missing cache folders are created with mode `0700`.
+  - A layer folder or cache folder that is the home folder or above it, lies inside an account
+    folder or holds one is refused.
+
+  The layer format, the lock format and the generated files do not change.
 - The Rust `alz` sorts names, paths and keys by Unicode code point everywhere, as
   `docs/LAYERING-SPEC.md` (§6, name order) says (TASK-64). The TypeScript `alz` sorts by UTF-16
   unit, which puts a character above U+FFFF, such as most emoji, before one in U+E000–U+FFFF:

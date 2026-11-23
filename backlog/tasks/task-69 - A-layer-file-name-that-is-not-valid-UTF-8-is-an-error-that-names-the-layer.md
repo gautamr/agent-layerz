@@ -4,7 +4,7 @@ title: A layer file name that is not valid UTF-8 is an error that names the laye
 status: To Do
 assignee: []
 created_date: '2026-11-23T04:40:00Z'
-updated_date: '2026-11-23T04:52:00Z'
+updated_date: '2026-11-23T07:59:00Z'
 labels:
   - discovered
   - area:rust
@@ -26,14 +26,17 @@ Found in TASK-65. Spec §5.3 'File names' says every name the walk of a layer li
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 alz build on a layer holding a file or folder named with the byte 0xFF exits 1 with error [layer] naming the layer's source, and stderr holds no byte 0xFF and no U+FFFD (acceptance test, run where the file system accepts the name, skipped elsewhere, marked referenceDrift)
-- [ ] #2 Account resolution of such a layer outside the repository is a cache miss layer-invalid (acceptance test 30 or a Rust unit test)
+- [ ] #1 alz lint in a repository whose stack holds a layer with a file or folder named with the byte 0xFF exits 1 with error [layer] naming the layer's source, and stderr holds no byte 0xFF and no U+FFFD (acceptance lint twin, run where the file system accepts the name, skipped elsewhere, marked referenceDrift, R3.11)
+- [ ] #2 The resolution verdict that account resolution uses (scan_verdict with Purpose::Resolution, R3.7) counts such a layer outside the repository as a cache miss layer-invalid (Rust unit test)
 - [ ] #3 A pinned path: layer whose git tree lists a path that is not valid UTF-8 is refused before anything is written (Rust test)
 - [ ] #4 The order of checks in spec §5.3 'File names' holds: in resolution too many entries (unreadable) wins over an invalid name (layer-invalid), which wins over the content hash and .env; in the build the name error comes before the cache integrity check and env-file (Rust tests)
+- [ ] #5 The alz build form of AC #1 is in the acceptance suite (written in R3.11 where it is missing) and is checked again against the Rust alz in R5 (TASK-55.6); the account-resolution form of AC #2 is checked in R6 (TASK-55.7)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 TASK-65 review (2026-11-23): the spec now quotes the message ('a file or folder name in layer <source> is not valid UTF-8; rename it', code layer, no location) and the order of checks. Reference: resolution gives unreadable (ENOENT through readRegularFileWithId, src/resolve/reader-load.ts:57 and the catch at 74). For a pinned tree, src/resolve/tree-cache.ts:90 decodes ls-tree -r -z with U+FFFD and reads blobs by id, so it probably writes and hashes the U+FFFD name (not run).
+
+Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged.
 <!-- SECTION:NOTES:END -->

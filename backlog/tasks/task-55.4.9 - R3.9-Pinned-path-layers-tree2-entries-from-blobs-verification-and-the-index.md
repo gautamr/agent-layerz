@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
+updated_date: '2026-11-23T07:59:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -22,7 +23,7 @@ ordinal: 110390
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Plan for this step. Fixes TASK-69 (AC #3). It needs the sha1 decision (Q3) for SHA-1 blob ids and unicode-normalization for NFC.
+Plan for this step. Fixes TASK-69 (AC #3). It adds sha1 =0.11.0 with default features off (decision-36) for SHA-1 blob ids, and uses unicode-normalization (decision-37) for NFC.
 - alz-core:
   - `git/tree.rs`: `TreeListing::parse(ls-tree -r -z bytes)`:
     - mode, type, id and path;
