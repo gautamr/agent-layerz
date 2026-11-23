@@ -1,11 +1,11 @@
 ---
 id: TASK-55.4.10
 title: 'R3.10: Stack<Resolved> and stack-mode alz lint, without [not-ported]'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T08:49:00Z'
+updated_date: '2026-11-23T09:19:00Z'
 labels:
   - area:rust
   - area:resolve
