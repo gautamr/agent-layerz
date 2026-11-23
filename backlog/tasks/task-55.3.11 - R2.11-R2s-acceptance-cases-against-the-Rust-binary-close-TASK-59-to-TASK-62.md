@@ -1,11 +1,11 @@
 ---
 id: TASK-55.3.11
 title: 'R2.11: R2''s acceptance cases against the Rust binary; close TASK-59 to TASK-62'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:18:00Z'
-updated_date: '2026-11-23T06:13:00Z'
+updated_date: '2026-11-23T06:46:00Z'
 labels:
   - area:rust
   - area:test
