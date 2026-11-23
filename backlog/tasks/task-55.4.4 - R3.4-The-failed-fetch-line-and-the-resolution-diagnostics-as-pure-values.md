@@ -1,10 +1,11 @@
 ---
 id: TASK-55.4.4
 title: 'R3.4: The failed-fetch line and the resolution diagnostics as pure values'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
+updated_date: '2026-11-23T08:04:00Z'
 labels:
   - area:rust
   - area:security
