@@ -11,7 +11,6 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { run } from "../src/cli/main";
-import type { Terminal } from "../src/cli/terminal";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
 
@@ -43,7 +42,6 @@ export async function layers(
   dir: string,
   args: string[],
   env: Record<string, string> = {},
-  terminal?: Terminal,
 ): Promise<CliResult> {
   let stdout = "";
   let stderr = "";
@@ -56,7 +54,6 @@ export async function layers(
     stderr: (text) => {
       stderr += text;
     },
-    terminal,
   });
   return { code, stdout, stderr };
 }

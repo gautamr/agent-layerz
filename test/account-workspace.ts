@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import YAML from "yaml";
-import type { Terminal } from "../src/cli/terminal";
 import { fixture, layers, type Workspace } from "./helpers";
 import { gitEntryName } from "./spec/cache";
 import { contentHash } from "./spec/content-hash";
@@ -85,14 +84,8 @@ export function envFor(s: Setup, extra: Record<string, string> = {}): Record<str
   };
 }
 
-export function alz(
-  s: Setup,
-  args: string[],
-  extra: Record<string, string> = {},
-  dir = "repo",
-  terminal?: Terminal,
-) {
-  return layers(s.ws, dir, args, envFor(s, extra), terminal);
+export function alz(s: Setup, args: string[], extra: Record<string, string> = {}, dir = "repo") {
+  return layers(s.ws, dir, args, envFor(s, extra));
 }
 
 function stackYaml(...entries: [source: string, ref?: string][]): string {

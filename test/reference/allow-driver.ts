@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { updateAllowed } from "../src/resolve/account-allow-writer";
+import { updateAllowed } from "../../src/resolve/account-allow-writer";
 
 /**
  * Run by test 32 in separate processes (bundled with esbuild): waits for a start file so that
