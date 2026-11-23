@@ -1,7 +1,7 @@
 ---
 id: TASK-55.5.15
 title: 'R4.15: alz lint runs the per-layer checks; R4''s acceptance cases and checks'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
