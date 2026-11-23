@@ -1359,11 +1359,13 @@ account:                       # per target; a target left out is not decided by
   - at most 100 aliases (`*name`) in a document, counted as they are written in the text, not
     as they expand;
   - at most 64 mappings and sequences nested inside one another: a document that is one scalar
-    has none, and `a: [x]` has two;
+    has none, and `a: [x]` has two. Depth is counted in the tree as aliases expand it, so an
+    alias at depth d of a node h levels deep reaches d + h;
   - at most 20000 nodes (scalars, aliases, mappings and sequences) in a document;
   - at most 10000 parse events replayed through aliases. Each scalar, each alias and the start
     and end of each mapping or sequence is one event, so each use of an alias of a large node
-    costs that node's size.
+    costs that node's size. An alias inside that node costs one event plus the size of its own
+    anchor's node, each time the outer node is replayed.
 
   decision-28 names the serde-saphyr options, not how they count. R2 (TASK-55.3) sets them so
   that these four hold and tests each boundary.
