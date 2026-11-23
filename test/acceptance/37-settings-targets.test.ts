@@ -114,7 +114,7 @@ describe("§13.29 settings.yaml codex keys that duplicate a first-class item", (
     plant(
       ws,
       SETTINGS,
-      "codex: { features: { other: true }, profiles: { work: { model_reasoning_effort: high } } }\n",
+      "codex: { features: { other: true }, other: { work: { model_reasoning_effort: high } } }\n",
     );
     const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
     expect(result.stderr).toBe("");
@@ -165,6 +165,23 @@ const RESERVED_ROWS = [
   "codex: { marketplaces: { a: { source: x } } }\n",
   "codex: { apps: { a: { default_tools_approval_mode: auto } } }\n",
   "codex: { windows: { sandbox: unelevated } }\n",
+  "codex: { profiles: { work: { model_provider: other } } }\n",
+  "claude: { mcpServers: { s: { command: server-bin } } }\n",
+  "claude: { awsAuthRefresh: ./refresh.sh }\n",
+  "claude: { awsCredentialExport: ./export.sh }\n",
+  "claude: { gcpAuthRefresh: ./refresh.sh }\n",
+  "claude: { otelHeadersHelper: ./headers.sh }\n",
+  "claude: { sandbox: { filesystem: { allowManagedReadPathsOnly: true } } }\n",
+  "claude: { sandbox: { ripgrep: { command: rg } } }\n",
+  "claude: { sandbox: { bwrapPath: /usr/bin/bwrap } }\n",
+  "claude: { sandbox: { socatPath: /usr/bin/socat } }\n",
+  "claude: { sandbox: { network: { tlsTerminate: true } } }\n",
+  "claude: { processWrapper: ./wrap.sh }\n",
+  "claude: { policyHelper: ./policy.sh }\n",
+  "claude: { sshHostCommands: [x] }\n",
+  "claude: { forceLoginGatewayUrl: 'https://example.invalid' }\n",
+  "claude: { allowManagedPermissionRulesOnly: true }\n",
+  "claude: { disableSideloadFlags: true }\n",
   "codex: { notify: [./notify.sh] }\n",
   "codex: { model_provider: other }\n",
   "codex: { model_providers: { other: { base_url: 'https://example.invalid' } } }\n",
@@ -176,7 +193,7 @@ const RESERVED_ROWS = [
 const FLOOR_ROWS = [
   "claude: { sandbox: { enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: false, allowUnsandboxedCommands: false, excludedCommands: [git], filesystem: { allowWrite: [.], allowRead: [.], denyWrite: [.env], denyRead: [.env] }, ignoreViolations: { '*': [/tmp] }, enableWeakerNestedSandbox: false, enableWeakerNetworkIsolation: false, network: { allowedDomains: [example.invalid], allowUnixSockets: [], allowMachLookup: [], allowAllUnixSockets: false, allowLocalBinding: false, deniedDomains: [bad.invalid] } } }\n",
   "claude: { disableAutoMode: disable, allowedHttpHookUrls: [], httpHookAllowedEnvVars: [], disableSkillShellExecution: true, allowedMcpServers: [], deniedMcpServers: [], disableClaudeAiConnectors: true }\n",
-  "codex: { sandbox_workspace_write: { network_access: false, writable_roots: [], exclude_tmpdir_env_var: true, exclude_slash_tmp: true }, approvals_reviewer: user, allow_login_shell: false, web_search: disabled, tools: { web_search: disabled }, profiles: { work: { approvals_reviewer: user, web_search: cached } } }\n",
+  "codex: { sandbox_workspace_write: { network_access: false, writable_roots: [], exclude_tmpdir_env_var: true, exclude_slash_tmp: true }, approvals_reviewer: user, allow_login_shell: false, web_search: disabled, tools: { web_search: { context_size: low, allowed_domains: [] } } }\n",
 ];
 
 describe("§13.29 settings.yaml keys with a security meaning", () => {
