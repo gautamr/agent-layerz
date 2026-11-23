@@ -1,10 +1,10 @@
 ---
 id: TASK-70
 title: Run git for a remote layer source so that ssh cannot prompt on the terminal
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-23T04:51:00Z'
-updated_date: '2026-11-23T11:58:00Z'
+updated_date: '2026-11-23T12:12:00Z'
 labels:
   - discovered
   - area:rust
@@ -38,3 +38,9 @@ Owner (2026-11-23): never prompt. The spec (§6 'A failed fetch') now says git a
 
 R3.11 (2026-11-23): AC1 spec 'Git subprocesses / No terminal' in section 6 (R3.1); AC2 crates/alz/tests/git_runner.rs fake ssh opening /dev/tty under script(1) (R3.3). rust:ci passes.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed in the Rust alz in R3 (PR #8, decision-30); the TypeScript reference keeps the bug, and its acceptance cases are marked reference drift where it fails them.
+<!-- SECTION:FINAL_SUMMARY:END -->

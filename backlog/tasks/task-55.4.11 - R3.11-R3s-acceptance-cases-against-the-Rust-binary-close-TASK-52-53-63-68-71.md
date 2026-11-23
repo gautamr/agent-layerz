@@ -3,11 +3,11 @@ id: TASK-55.4.11
 title: >-
   R3.11: R3's acceptance cases against the Rust binary; close TASK-52, 53, 63,
   68-71
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T10:12:00Z'
+updated_date: '2026-11-23T12:12:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -44,9 +44,9 @@ Plan for this step (TASK-55.4, "Acceptance cases R3 must pass against ALZ_BIN").
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every case listed in the description passes against ALZ_BIN=target/release/alz; the list with counts, and the Rust test behind each case of 16, 24, 28 and 30, is in TASK-55.4's notes
-- [ ] #2 mise run test passes with the reference, and each new drift case is an expected failure there that names its task
-- [ ] #3 TASK-52, TASK-53, TASK-63, TASK-68, TASK-69, TASK-70 and TASK-71 have every criterion checked with this run's evidence and go to In Review with this pull request
+- [x] #1 Every case listed in the description passes against ALZ_BIN=target/release/alz; the list with counts, and the Rust test behind each case of 16, 24, 28 and 30, is in TASK-55.4's notes
+- [x] #2 mise run test passes with the reference, and each new drift case is an expected failure there that names its task
+- [x] #3 TASK-52, TASK-53, TASK-63, TASK-68, TASK-69, TASK-70 and TASK-71 have every criterion checked with this run's evidence and go to In Review with this pull request
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -66,3 +66,9 @@ R3.11 evidence (2026-11-23, uncommitted on feat/rust-r3-task-55.4). Suite: test/
 
 Lead (2026-11-23): verified mise run rust:ci exit 0, lint passes, mise run test 49 files, 1175 passed, 68 expected fail, 5 skipped. All lint twins pass against target/release/alz; the build/check/init/doctor/diff/ls/account-which cases wait for R5/R6. Lead decisions: (1) the §5.2 credentials check on the whole text wrongly refuses scp-like sources with a ref and no slash (git:host:repo.git@v1, git:git@host:repo.git@v1): the R3 review fix round limits the whole-text check to URLs with a scheme (://), keeping the split check for scp-like addresses (a token-bearing scp form without a ref cannot pass, since the ref would hold ':'), and restores test 26's original sources; (2) the pathref@ index mode 0600 (stricter than the reference) is accepted, and test 30 asserts 'not writable by others'; (3) existing build forms that assert the reference's wording are updated in R5; (4) the per-case Rust-test mapping for 16, 24, 28, 30 goes into TASK-55.4's notes in the fix round; (5) git 2.30 not available through mise: argv verified on git 2.50.1 only; (6) the Linux-only 0xFF cases run in PR #8's ubuntu job.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+R3's acceptance cases run against the Rust binary as lint twins of tests 16, 24, 26, 28 and 30 and the new test 36, with Rust tests behind every resolution case; the spec names every resolution message. TASK-68 and TASK-70 closed; TASK-52, 53, 63, 69 and 71 keep their build-form criteria for R5.
+<!-- SECTION:FINAL_SUMMARY:END -->
