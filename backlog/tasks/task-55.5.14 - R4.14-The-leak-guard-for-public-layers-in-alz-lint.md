@@ -1,11 +1,11 @@
 ---
 id: TASK-55.5.14
 title: 'R4.14: The leak guard for public layers in alz lint'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T12:39:00Z'
+updated_date: '2026-11-23T15:13:00Z'
 labels:
   - area:rust
   - area:security
