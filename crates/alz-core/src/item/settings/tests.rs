@@ -157,7 +157,6 @@ fn a_key_that_duplicates_a_first_class_item_is_refused_per_target_naming_the_fil
         ("permissions", "permissions.yaml"),
         ("hooks", "hooks/hooks.yaml"),
         ("model", "models.yaml (default)"),
-        ("mcpServers", "mcp.yaml"),
         ("enabledMcpjsonServers", "mcp.enable in the repo manifest"),
         ("disabledMcpjsonServers", "mcp.enable in the repo manifest"),
         (
@@ -173,7 +172,6 @@ fn a_key_that_duplicates_a_first_class_item_is_refused_per_target_naming_the_fil
         ("model", "models.yaml"),
         ("mcp_servers", "mcp.yaml"),
         ("hooks", "hooks/hooks.yaml"),
-        ("profile", "permissions.yaml"),
         ("approval_policy", "permissions.yaml"),
         ("sandbox_mode", "permissions.yaml"),
     ];
@@ -187,6 +185,34 @@ fn a_key_that_duplicates_a_first_class_item_is_refused_per_target_naming_the_fil
                 "{target}.{key}"
             );
         }
+    }
+}
+
+#[test]
+fn a_key_that_target_facts_corrected_is_refused_with_its_own_reason() {
+    for (yaml, expected) in [
+        (
+            "claude:\n  mcpServers:\n    s: x\n",
+            "error [settings] personal:settings.yaml:2:3: 'claude.mcpServers' is not set in settings.yaml: Claude Code documents no such settings key; servers are set through mcp.yaml",
+        ),
+        (
+            "claude:\n  allowAllClaudeAiMcps: true\n",
+            "error [settings] personal:settings.yaml:2:3: 'claude.allowAllClaudeAiMcps' is not set in settings.yaml: it is read from a user or managed scope, not from a project",
+        ),
+        (
+            "codex:\n  profile: work\n",
+            "error [settings] personal:settings.yaml:2:3: 'codex.profile' is not set in settings.yaml: removed by Codex 0.169.0 (use --profile)",
+        ),
+        (
+            "codex:\n  profiles:\n    work:\n      model_provider: x\n",
+            "error [settings] personal:settings.yaml:2:3: 'codex.profiles' is not set in settings.yaml: Codex ignores it in a project's config.toml",
+        ),
+        (
+            "codex:\n  windows:\n    sandbox: elevated\n",
+            "error [settings] personal:settings.yaml:2:3: 'codex.windows' is not set in settings.yaml: it is read from a user or managed scope, not from a project",
+        ),
+    ] {
+        assert_eq!(refused(yaml), [expected], "{yaml}");
     }
 }
 
@@ -207,7 +233,7 @@ fn every_reserved_key_of_a_file_is_reported_and_the_other_target_is_not_confused
 #[test]
 fn a_reserved_name_below_the_top_of_a_target_is_an_ordinary_key() {
     let settings = only(
-        "claude:\n  env:\n    permissions: x\n  sandbox:\n    hooks: y\ncodex:\n  profiles:\n    work:\n      model: z\n",
+        "claude:\n  env:\n    permissions: x\n  sandbox:\n    hooks: y\ncodex:\n  other:\n    work:\n      model: z\n",
     );
     assert!(settings.of(TargetName::Claude).is_some());
     assert!(settings.of(TargetName::Codex).is_some());
@@ -242,6 +268,7 @@ fn a_protected_variable_in_settings_is_refused_and_the_file_gives_no_settings() 
             "codex:\n  profiles:\n    work:\n      shell_environment_policy:\n        set:\n          codex_home: x\n"
         ),
         [
+            "error [settings] personal:settings.yaml:2:3: 'codex.profiles' is not set in settings.yaml: Codex ignores it in a project's config.toml",
             "error [protected-variable] personal:settings.yaml: codex.shell_environment_policy.set names CODEX_HOME; no layer may set the variables that choose an account folder or locate alz's files (\u{a7}7.9)"
         ]
     );
@@ -280,6 +307,7 @@ fn a_policy_that_is_not_a_mapping_is_a_settings_error_naming_the_key_and_the_fil
     assert_eq!(
         refused("codex:\n  profiles:\n    work:\n      shell_environment_policy: [HOME]\n"),
         [
+            "error [settings] personal:settings.yaml:2:3: 'codex.profiles' is not set in settings.yaml: Codex ignores it in a project's config.toml",
             "error [settings] personal:settings.yaml: codex.shell_environment_policy must be a mapping"
         ]
     );
@@ -297,20 +325,8 @@ fn a_codex_key_that_duplicates_a_first_class_item_is_refused_at_any_depth() {
             "error [settings] personal:settings.yaml:3:5: 'codex.features.codex_hooks' is set through hooks/hooks.yaml",
         ),
         (
-            "codex:\n  profile: work\n",
-            "error [settings] personal:settings.yaml:2:3: 'codex.profile' is set through permissions.yaml",
-        ),
-        (
-            "codex:\n  profiles:\n    work:\n      approval_policy: never\n",
-            "error [settings] personal:settings.yaml:4:7: 'codex.profiles.*.approval_policy' is set through permissions.yaml",
-        ),
-        (
-            "codex:\n  profiles:\n    work:\n      sandbox_mode: danger-full-access\n",
-            "error [settings] personal:settings.yaml:4:7: 'codex.profiles.*.sandbox_mode' is set through permissions.yaml",
-        ),
-        (
-            "codex:\n  profiles:\n    work:\n      features:\n        hooks: false\n",
-            "error [settings] personal:settings.yaml:5:9: 'codex.profiles.*.features.hooks' is set through hooks/hooks.yaml",
+            "codex:\n  other:\n    work:\n      features:\n        hooks: false\n",
+            "error [settings] personal:settings.yaml:5:9: 'codex.**.features.hooks' is set through hooks/hooks.yaml",
         ),
         (
             "codex:\n  other:\n    - features:\n        codex_hooks: false\n",
@@ -332,7 +348,7 @@ fn a_refused_codex_key_never_prints_its_value_or_the_name_of_a_profile() {
 #[test]
 fn the_names_of_a_first_class_item_are_ordinary_keys_where_codex_does_not_read_them_as_one() {
     let settings = only(
-        "claude:\n  features:\n    hooks: true\n  profiles:\n    work:\n      approval_policy: never\ncodex:\n  features:\n    other: true\n  profiles:\n    work:\n      model_reasoning_effort: high\n  hooks_note:\n    approval_policy: x\n",
+        "claude:\n  features:\n    hooks: true\n  profiles:\n    work:\n      approval_policy: never\ncodex:\n  features:\n    other: true\n  other:\n    work:\n      model_reasoning_effort: high\n  hooks_note:\n    approval_policy: x\n",
     );
     assert!(settings.of(TargetName::Claude).is_some());
     assert!(settings.of(TargetName::Codex).is_some());

@@ -535,7 +535,7 @@ DOCS: Codex ignores `openai_base_url`, `chatgpt_base_url`, `apps_mcp_product_sku
 
 ### 13.8 Corrections the code table needs
 
-Found by TASK-76; `crates/` was not edited.
+Found by TASK-76. Items 1 to 7 are applied in `crates/alz-core/src/item/native_keys.rs` and §7.9 of the spec (TASK-76, AC #2); a Codex `profiles` table is reserved whole, so the rows below it (`profiles.*.…`) are folded into that one row.
 
 1. **`codex.tools.web_search` is not a mode.** It is a boolean or a table `{ context_size = "low|medium|high", allowed_domains = [string], location = {…} }` (SMOKE: an integer gives `data did not match any variant of untagged enum WebSearchToolConfigInput`; the source ignores a boolean). The row `codex("tools.web_search", WEB_SEARCH)` makes every table a `Kind` error against a text ladder. Remove it. Replace it with `tools.web_search.allowed_domains` as `NO_ADDITIONS` and `profiles.*.tools.web_search.allowed_domains` likewise. The page says these domain filters are separate from the sandbox's network rules and do not restrict connectors or MCP servers. `context_size` and `location` need no row. That an unset `allowed_domains` means "unrestricted" is implied by the docs, not observed.
 2. **`claude.allowAllClaudeAiMcps` is managed only**, so give it `OUTSIDE_THE_PROJECT`, not the reason "it widens the connector servers past the allowlist of mcp.yaml". The refusal stays.

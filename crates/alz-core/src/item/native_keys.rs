@@ -154,6 +154,9 @@ const PLUGIN_SOURCE: KeyRule =
 const ROUTES_TRAFFIC: KeyRule =
     KeyRule::Reserved("it runs a program or routes traffic, and is not a project setting");
 const NO_ORDER: KeyRule = KeyRule::Reserved("its values have no order, so no layer may tighten it");
+/// Codex ignores these keys in a project's `config.toml`, so they would do nothing there.
+const IGNORED_IN_A_PROJECT: KeyRule =
+    KeyRule::Reserved("Codex ignores it in a project's config.toml");
 
 /// The table: the first row that matches a key path is the one that applies.
 pub const KEYS: &[NativeKey] = &[
@@ -161,7 +164,6 @@ pub const KEYS: &[NativeKey] = &[
     claude("permissions", KeyRule::FirstClass("permissions.yaml")),
     claude("hooks", KeyRule::FirstClass("hooks/hooks.yaml")),
     claude("model", KeyRule::FirstClass("models.yaml (default)")),
-    claude("mcpServers", KeyRule::FirstClass("mcp.yaml")),
     claude(
         "enabledMcpjsonServers",
         KeyRule::FirstClass("mcp.enable in the repo manifest"),
@@ -209,6 +211,12 @@ pub const KEYS: &[NativeKey] = &[
     claude("disableClaudeAiConnectors", TRUE_IS_STRICTER),
     // Claude: reserved.
     claude(
+        "mcpServers",
+        KeyRule::Reserved(
+            "Claude Code documents no such settings key; servers are set through mcp.yaml",
+        ),
+    ),
+    claude(
         "sandbox.network.httpProxyPort",
         KeyRule::Reserved("it routes traffic, and has no order"),
     ),
@@ -238,12 +246,13 @@ pub const KEYS: &[NativeKey] = &[
     claude("allowManagedHooksOnly", OUTSIDE_THE_PROJECT),
     claude("statusLine", RUNS_A_COMMAND),
     claude("fileSuggestion", RUNS_A_COMMAND),
+    claude("awsAuthRefresh", RUNS_A_COMMAND),
+    claude("awsCredentialExport", RUNS_A_COMMAND),
+    claude("gcpAuthRefresh", RUNS_A_COMMAND),
+    claude("otelHeadersHelper", RUNS_A_COMMAND),
     claude("allowManagedMcpServersOnly", OUTSIDE_THE_PROJECT),
     claude("managedMcpServers", OUTSIDE_THE_PROJECT),
-    claude(
-        "allowAllClaudeAiMcps",
-        KeyRule::Reserved("it widens the connector servers past the allowlist of mcp.yaml"),
-    ),
+    claude("allowAllClaudeAiMcps", OUTSIDE_THE_PROJECT),
     claude("enabledPlugins", PLUGIN_SOURCE),
     claude("extraKnownMarketplaces", PLUGIN_SOURCE),
     claude("prependPlugins", OUTSIDE_THE_PROJECT),
@@ -253,32 +262,29 @@ pub const KEYS: &[NativeKey] = &[
     claude("blockedMarketplaces", OUTSIDE_THE_PROJECT),
     claude("strictPluginOnlyCustomization", OUTSIDE_THE_PROJECT),
     claude("syncClaudeAiPlugins", OUTSIDE_THE_PROJECT),
+    claude(
+        "sandbox.filesystem.allowManagedReadPathsOnly",
+        OUTSIDE_THE_PROJECT,
+    ),
+    claude("sandbox.ripgrep", OUTSIDE_THE_PROJECT),
+    claude("sandbox.bwrapPath", OUTSIDE_THE_PROJECT),
+    claude("sandbox.socatPath", OUTSIDE_THE_PROJECT),
+    claude("sandbox.network.tlsTerminate", OUTSIDE_THE_PROJECT),
+    claude("processWrapper", OUTSIDE_THE_PROJECT),
+    claude("policyHelper", OUTSIDE_THE_PROJECT),
+    claude("sshHostCommands", OUTSIDE_THE_PROJECT),
+    claude("forceLoginGatewayUrl", OUTSIDE_THE_PROJECT),
+    claude("allowManagedPermissionRulesOnly", OUTSIDE_THE_PROJECT),
+    claude("disableSideloadFlags", OUTSIDE_THE_PROJECT),
     // Codex: first-class items.
     codex("model", KeyRule::FirstClass("models.yaml")),
     codex("mcp_servers", KeyRule::FirstClass("mcp.yaml")),
     codex("hooks", KeyRule::FirstClass("hooks/hooks.yaml")),
-    codex("profile", KeyRule::FirstClass("permissions.yaml")),
     codex("approval_policy", KeyRule::FirstClass("permissions.yaml")),
     codex("sandbox_mode", KeyRule::FirstClass("permissions.yaml")),
-    codex(
-        "profiles.*.approval_policy",
-        KeyRule::FirstClass("permissions.yaml"),
-    ),
-    codex(
-        "profiles.*.sandbox_mode",
-        KeyRule::FirstClass("permissions.yaml"),
-    ),
     codex("features.hooks", KeyRule::FirstClass("hooks/hooks.yaml")),
     codex(
         "features.codex_hooks",
-        KeyRule::FirstClass("hooks/hooks.yaml"),
-    ),
-    codex(
-        "profiles.*.features.hooks",
-        KeyRule::FirstClass("hooks/hooks.yaml"),
-    ),
-    codex(
-        "profiles.*.features.codex_hooks",
         KeyRule::FirstClass("hooks/hooks.yaml"),
     ),
     codex("**.features.hooks", KeyRule::FirstClass("hooks/hooks.yaml")),
@@ -298,12 +304,15 @@ pub const KEYS: &[NativeKey] = &[
         TRUE_IS_STRICTER,
     ),
     codex("approvals_reviewer", APPROVALS_REVIEWER),
-    codex("profiles.*.approvals_reviewer", APPROVALS_REVIEWER),
     codex("allow_login_shell", FALSE_IS_STRICTER),
     codex("web_search", WEB_SEARCH),
-    codex("profiles.*.web_search", WEB_SEARCH),
-    codex("tools.web_search", WEB_SEARCH),
+    codex("tools.web_search.allowed_domains", NO_ADDITIONS),
     // Codex: reserved.
+    codex(
+        "profile",
+        KeyRule::Reserved("removed by Codex 0.169.0 (use --profile)"),
+    ),
+    codex("profiles", IGNORED_IN_A_PROJECT),
     codex("auto_review", NO_ORDER),
     codex("default_permissions", NO_ORDER),
     codex("permissions", NO_ORDER),
@@ -314,7 +323,7 @@ pub const KEYS: &[NativeKey] = &[
     codex("plugins", PLUGIN_SOURCE),
     codex("marketplaces", PLUGIN_SOURCE),
     codex("apps", NO_ORDER),
-    codex("windows.sandbox", NO_ORDER),
+    codex("windows", OUTSIDE_THE_PROJECT),
     codex("notify", ROUTES_TRAFFIC),
     codex("model_provider", ROUTES_TRAFFIC),
     codex("model_providers", ROUTES_TRAFFIC),

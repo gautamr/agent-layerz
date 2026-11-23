@@ -6,8 +6,8 @@
 //! but a target. Each target's value must be a mapping, whose keys must not duplicate a
 //! first-class item (permissions, hooks, MCP, model), and which must not set a protected
 //! variable. For Codex that also holds below the top level where Codex reads the same setting
-//! again: `features.hooks` and `features.codex_hooks` at any depth, `profile`, and
-//! `approval_policy` and `sandbox_mode` under `profiles.*`.
+//! again: `features.hooks` and `features.codex_hooks` at any depth, and `profile`
+//! and `profiles`, which a project's Codex config does not read.
 //!
 //! A file with a problem gives no item, so a merged model never holds half a file.
 
