@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-23T12:27:00Z'
-updated_date: '2026-11-23T12:47:00Z'
+updated_date: '2026-11-23T15:33:00Z'
 labels:
   - area:rust
   - area:spec
@@ -68,6 +68,31 @@ Architect (2026-11-23), second pass after R4.2 (b42dc6c), still on the branch an
 Checks: mise run lint exit 0. The added lines of the spec and CHANGELOG contain none of the private item's words.
 
 Lead (2026-11-23): accepted, including the stricter hook run: rule (a script below hooks/scripts/, reference drift) and the unknown targets/<name> folder as a passthrough error. The R4 unit review checks the text against the code.
+
+Architect (2026-11-23), R4 spec pass. I wrote every spec item from R4.4 to R4.14 in TASK-55.5.15's notes into docs/LAYERING-SPEC.md, on the branch and not committed. Unclear details were checked in crates/alz-core.
+- §7.1: the instruction modes; replace or remove without a base is unresolved; White_Space trim and empty blocks dropped (drift: U+FEFF, TASK-55.5.4); the kind heading.
+- §7.2:
+  - the list-edit syntax;
+  - the narrowing details: docs/**/** covers only equal; docs/** covers docs; ** covers any path without a dot segment; braces are literal; the base includes earlier overlays; a refused overlay is not applied; allow_widen in a public layer is always an error; the 12-tool vocabulary plus mcp__; an empty scope is taken as written;
+  - the neutral keys of the claude and codex maps;
+  - the native-field key order (TASK-66, drift);
+  - the memory and permission_mode values;
+  - the overlay error codes (drift, TASK-55.5.5);
+  - removing a tool when the agent has no tool list.
+- §7.3: SKILL.md checks; where the slot and slot-missing errors are located; lint-only provides_slots; no preload limit.
+- §7.4: skill-command-clash drops the command; the command frontmatter fields.
+- §7.5: hook ids, timeout (drift, TASK-55.5.8), the on_fail default, native events, targets: [], match.tools, the id rules.
+- §7.6: list edits; rule grammar; permission-shadowed; the order of modes; floor; a looser default_mode ignored.
+- §7.7: checks stop at the first failure; ignored fields; mcp.enable repeats; "no layer defines it" except for a protected refusal.
+- §7.8: non-blank ids; a broken models.yaml gives nothing (drift, TASK-55.5.11).
+- §7.9: a null target value; non-mapping policy and server maps; one error per protected variable; no line or column.
+- §7.10: paths required; duplicate globs kept once (drift, TASK-55.5.4); extend without a base is unresolved.
+- §7.11: both messages; a refused file gives no warning (drift); the non-ASCII rule for all of targets/; the TOML and JSON limits (depth 128, drift, TASK-55.5.12).
+- §7.12: refusals, conflict, unopenable layers, reason wording, the account-resolution difference (TASK-55.5.13).
+- §9.2: reporting per file without lines (drift); multi-line mode; lossy reading of binary files (drift); the layer.yaml span; locations; one message; entry 65; the heuristic patterns; JS white space (TASK-55.5.14).
+- §10.1: the agent row (preload limit dropped), agent-overlay, slot-missing and hooks rows; new rows permission-shadowed, identity and account; a longer unresolved row; the line and column rule.
+- §10.2: key order (TASK-66).
+Checks: mise run lint exit 0. The added lines contain none of the private item's words. TASK-66 AC #1 is checked, with its evidence in TASK-66's notes.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
