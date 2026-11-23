@@ -47,13 +47,12 @@ use crate::merge::skills::{MergedSkills, SkillState, SlotDemand};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
 use crate::target::TargetName;
 
-/// What a kind needs to absorb one layer: the layer, where it lies in the stack, the manifest and
-/// where the layer lies in relation to the repository.
+/// What a kind needs to absorb one layer: the layer, where it lies in the stack and where the layer
+/// lies in relation to the repository.
 #[derive(Debug, Clone, Copy)]
 pub struct LayerContext<'a> {
     layer: &'a ResolvedLayer,
     index: usize,
-    manifest: &'a Manifest,
     placement: Placement,
 }
 
@@ -64,10 +63,14 @@ impl<'a> LayerContext<'a> {
         self.layer
     }
 
-    /// The repository's manifest, for `mcp.enable` and the other options a kind reads.
-    #[must_use]
-    pub const fn manifest(&self) -> &'a Manifest {
-        self.manifest
+    /// The first layer of a stack of one, for the checks of `alz lint` that read a layer alone
+    /// (§10). Its placement is [`Placement::Inside`], the stricter answer.
+    pub(super) const fn alone(layer: &'a ResolvedLayer) -> Self {
+        Self {
+            layer,
+            index: 0,
+            placement: Placement::Inside,
+        }
     }
 
     /// Where the layer lies in relation to the repository.
@@ -379,7 +382,6 @@ pub fn merge(stack: &ResolvedStack, manifest: &Manifest, placements: &Placements
         .map(|(index, layer)| LayerContext {
             layer,
             index,
-            manifest,
             placement: placements.of(layer.meta().name()),
         })
         .fold(Accumulator::default(), |state, context| {

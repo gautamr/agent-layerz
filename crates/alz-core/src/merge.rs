@@ -20,6 +20,7 @@
 
 mod agents;
 pub mod algebra;
+mod alone;
 mod declarers;
 mod hooks;
 mod instructions;
@@ -38,6 +39,7 @@ pub(crate) mod testing;
 
 pub use agents::{AgentBody, ContextSection, MergedAgent};
 pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree, covers, widened};
+pub use alone::check_alone;
 pub use declarers::{Declarations, Declared, Reason, Refused};
 pub use instructions::InstructionBlock;
 pub use mcp::MergedMcp;

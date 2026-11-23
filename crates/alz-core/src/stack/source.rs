@@ -237,6 +237,17 @@ fn split_ref(spec: &str) -> Result<(&str, GitRef), SourceError> {
     Ok((url, GitRef::try_from(git_ref)?))
 }
 
+impl Source {
+    /// The working directory itself, as `path:.`: the source of a layer that `alz lint --layer`
+    /// reads in place, where nothing depends on how the layer would be reached from a stack.
+    #[must_use]
+    pub fn working_directory() -> Self {
+        Self::Path {
+            dir: SourceDir(".".to_owned()),
+        }
+    }
+}
+
 impl TryFrom<&str> for Source {
     type Error = SourceError;
 

@@ -1,11 +1,11 @@
 ---
 id: TASK-55.5.15
 title: 'R4.15: alz lint runs the per-layer checks; R4''s acceptance cases and checks'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T15:27:00Z'
+updated_date: '2026-11-23T15:52:00Z'
 labels:
   - area:rust
   - area:lint
@@ -29,10 +29,10 @@ Plan for this step.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 alz lint reports the per-layer errors of every item kind and no unresolved one, for one layer and for each layer of a stack alone (assert_cmd tests)
-- [ ] #2 Test 37's lint rows pass against the Rust binary and are marked reference drift against the TypeScript reference (mise run test:acceptance, with and without ALZ_BIN)
-- [ ] #3 Every case of tests 02 to 11, 17 to 19, 26, 29 and 37 that drives alz lint passes against ALZ_BIN, the 84 of the 2026-11-23 baseline included, and TASK-55.5's notes list each merge case with its Rust test
-- [ ] #4 mise run rust:ci, mise run lint and mise run alz:check pass, and src/ is unchanged (git diff --stat main -- src)
+- [x] #1 alz lint reports the per-layer errors of every item kind and no unresolved one, for one layer and for each layer of a stack alone (assert_cmd tests)
+- [x] #2 Test 37's lint rows pass against the Rust binary and are marked reference drift against the TypeScript reference (mise run test:acceptance, with and without ALZ_BIN)
+- [x] #3 Every case of tests 02 to 11, 17 to 19, 26, 29 and 37 that drives alz lint passes against ALZ_BIN, the 84 of the 2026-11-23 baseline included, and TASK-55.5's notes list each merge case with its Rust test
+- [x] #4 mise run rust:ci, mise run lint and mise run alz:check pass, and src/ is unchanged (git diff --stat main -- src)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +59,19 @@ Spec items from R4.12 (2026-11-23): (a) the passthrough warning 'raw passthrough
 Spec items from R4.13 (2026-11-23): (a) add identity and account rows to §10.1's merge table; (b) say which rule each consumer uses: the build reports every refused layer as an error and a refused first layer gives Conflict; account resolution (§7.13) ignores an in-repository declaration (neither wins nor conflicts); (c) a refused first layer with a declaring client gives Conflict, no winner; (d) a layer that cannot be opened counts as inside the repository; (e) the refusal messages keep the reference's wording.
 
 Spec items from R4.14 (2026-11-23): (a) one leak diagnostic per file and entry, per file and secret kind, and one email and one host warning per file, without line numbers (the reference reported per line); (b) patterns match the whole file text ((?m) for ^ and $); (c) binary and non-UTF-8 files are scanned too, read lossily (the reference skipped files with a NUL in the first 8 KiB); (d) layer.yaml is scanned without the forbid_patterns span, removed line-wise with comment-only lines kept; (e) one refusal message for a pattern that does not compile, is too large or nests too deep; (f) only entry 65 is reported past the cap; (g) a refused entry is located at <layer>:layer.yaml; (h) the email and host heuristics are the reference's patterns.
+
+Implementer, R4.15 (code changed and checked locally; nothing committed, ACs not ticked).
+Files: alz-core merge/alone.rs (new, merge::check_alone(&ResolvedLayer) -> Diagnostics: each kind's absorb on a one-layer stack in the reference's order instructions, agents, skills, rules, hooks, permissions (+ permission-shadowed), mcp, models, settings, passthrough, then SkillItems::check_provided; unresolved dropped; no finish step, so no slot-missing or mcp.enable checks, as the reference's lint); merge/stack.rs (LayerContext loses its unused manifest field and accessor, gains pub(super) alone()); merge.rs (re-export); stack/source.rs (Source::working_directory(), path:.); alz command/lint.rs (--layer reads the files of every valid layer, not only public ones, and runs leak guard then check_alone; stack mode runs the same per resolved layer); crates/alz/tests/layer_checks.rs (16 assert_cmd tests: one per kind, slots both ways, unresolved dropped, order and summary, stack of two layers); test/acceptance/37-settings-targets.test.ts and fixture test/fixtures/37-settings-targets (13 settings keys and 9 mcp keys, each through lint --layer and build, plus a valid-file control per file).
+AC1: crates/alz/tests/layer_checks.rs (16 pass). AC2: test 37 against target/release/alz: 24 pass (22 lint rows and 2 controls), the 22 build rows fail with exit 2 (unrecognised subcommand build) until R5; against the reference (ALZ_BIN unset) 2 pass and 44 expected fail.
+AC3, ALZ_BIN=target/release/alz, per file (passed/failed): 02 0/1, 03 0/2, 04 0/4, 05 0/1, 06 0/2, 07 0/2, 08 0/2, 09 0/1, 10 3/0, 11 0/1, 17 0/3, 18 0/2, 19 0/2, 26 37/84, 29 46/8, 37 24/22; total 110 pass, 137 fail. The baseline 84 (10: 1, 26: 37, 29: 46) still passes, test 10 is 3/3. Every failing case exits 2 with an unrecognised subcommand (build, check, explain, doctor, init): none drives alz lint. They wait for R5 (build, check, explain, doctor; tests 02-09, 11, 17-19, 37 build rows, 26 and 29 cases other than lint) and R6 (test 26's section 9.4 cases and the account resolution cases of 29).
+AC4: mise run rust:ci exit 0; mise run lint exit 0; mise run alz:check passes (68 files); mise run test 1179 passed, 124 expected fail (80 before plus the 44 drift rows of test 37), 5 skipped; git diff --stat main -- src is empty. One earlier mise run test showed 3 failures while rust:ci ran alongside it, and passed alone on the rerun.
+Notes: docs/LAYERING-SPEC.md shows as modified in the work tree; it was not changed by this work (the architect's pass).
+
+Verified by the lead (2026-11-23) on an idle machine: mise run rust:ci exits 0 (1186 tests), lint passes, mise run test 50 files, 1179 passed, 124 expected fail, 5 skipped; alz:check passes; test 32 61/61 alone (the hook's timeouts were load). The collected spec items are in the spec (architect's pass, TASK-55.5.1's notes).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+alz lint runs every per-layer check R4 built on one layer or on each layer of a stack, dropping unresolved: instructions, agents and overlays, skills, rules, hooks, permissions, MCP, models, settings, passthrough, provides_slots, and the leak guard. Test 37 checks the known-target and server-id rules through lint (and build in R5). Against the Rust binary the 84 baseline cases still pass and test 10 passes in full; every other failure needs build, check, explain, doctor or init.
+<!-- SECTION:FINAL_SUMMARY:END -->
