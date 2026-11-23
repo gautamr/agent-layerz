@@ -6,11 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T08:16:00Z'
-updated_date: '2026-11-22T12:55:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - discovered
   - area:resolve
   - area:security
+  - area:rust
 milestone: m-3
 dependencies:
   - TASK-50.10
@@ -38,4 +39,6 @@ Found while planning TASK-50.10. cacheRoot (src/resolve/cache-paths.ts) uses XDG
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust in TASK-55.4, where openat-relative access closes it properly.
+
+Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R3 (TASK-55.4, sources and the cache). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R4 depends on this task, so it closes within R3.
 <!-- SECTION:NOTES:END -->

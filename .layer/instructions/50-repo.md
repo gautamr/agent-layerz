@@ -2,8 +2,11 @@
 
 agent-layerz (CLI `alz`) composes layered coding-agent configuration into repositories.
 It is being ported to idiomatic Rust under `crates/` (decision-21, decision-22, plan doc-5,
-architecture doc-6, milestone m-7). The TypeScript implementation (Node 22+, `src/`, `test/`)
-is the frozen behavioural reference until cutover: fixes only, no new features.
+architecture doc-6, milestone m-7). The TypeScript implementation (Node 22+, `src/`) is the
+frozen behavioural reference until cutover and is never changed, not even for fixes
+(decision-30): every bug is fixed only in Rust, `docs/LAYERING-SPEC.md` states the intended
+behaviour, and where the reference differs the acceptance suite marks the case as reference
+drift. The test suite under `test/` is the oracle and keeps changing.
 
 This repository is managed by `alz` itself. `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`
 and `layer.lock` are generated from `.layer/` and the personal layer: change `.layer/`, then

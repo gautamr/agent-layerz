@@ -4,7 +4,7 @@ title: 'R2: Core model in Rust'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-22T19:20:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -27,3 +27,9 @@ doc-5 phase R2: manifest, layer meta, lock, account model, YAML with limits, dia
 <!-- AC:BEGIN -->
 - [ ] #1 The suite's model and lint cases pass against the Rust binary
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+decision-30: R2 also fixes TASK-59 to TASK-62 in Rust and implements name order (§6, TASK-64) for the lock and content hash model.
+<!-- SECTION:NOTES:END -->

@@ -4,9 +4,11 @@ title: parseYaml and parseYamlLimited apply the same alias limit
 status: To Do
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - discovered
   - area:spec
+  - area:rust
 milestone: m-7
 dependencies: []
 references:
@@ -27,3 +29,9 @@ The yaml library's default maxAliasCount is 100, the same as MAX_ALIASES, so par
 - [ ] #1 The spec states one parsing rule for all YAML alz reads (alias limit, size cap, depth) or names which files differ and why
 - [ ] #2 The Rust port's single YAML entry point follows that rule
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R2 (TASK-55.3, YAML with limits and the manifest model). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R3 depends on this task, so it closes within R2.
+<!-- SECTION:NOTES:END -->

@@ -4,9 +4,11 @@ title: A layer ref that is a list or a number is converted with String()
 status: To Do
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - discovered
   - area:resolve
+  - area:rust
 milestone: m-7
 dependencies: []
 priority: low
@@ -25,3 +27,9 @@ A stack entry's ref is passed through String(), so ref: [x] becomes "x" and ref:
 - [ ] #1 A ref that is not a string is a lint and build error naming the entry
 - [ ] #2 An acceptance test covers ref as a list and ref: 1.10
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R2 (TASK-55.3, YAML with limits and the manifest model). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R3 depends on this task, so it closes within R2.
+<!-- SECTION:NOTES:END -->

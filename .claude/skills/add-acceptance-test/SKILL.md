@@ -26,6 +26,10 @@ checks the TypeScript reference and the Rust `alz`.
   scans, resolver internals, the install script) goes in `test/reference/`, not here. Those
   files are deleted at cutover.
 - The spec's formulas (cache names, content hash, limits) are test-side code in `test/spec/`.
+- The suite asserts the spec, not the TypeScript reference, which is never changed
+  (decision-30). A case the reference is known to fail is written with
+  `referenceDrift("TASK-n", name, fn)` from `test/drift.ts`: it must fail against the bundled
+  reference and pass against any ALZ_BIN, and it names the task that records the drift.
 
 ## Helpers (`test/helpers.ts`)
 - `fixture(name)` copies the fixture to a temp dir and gives it an isolated `HOME`, so tests

@@ -4,9 +4,11 @@ title: Cyclic YAML aliases are accepted
 status: To Do
 assignee: []
 created_date: '2026-11-22T16:27:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - discovered
   - area:security
+  - area:rust
 milestone: m-7
 dependencies: []
 references:
@@ -28,3 +30,9 @@ A self-referencing alias parses into a cyclic object instead of an error. Code t
 - [ ] #2 The spec states a nesting depth limit for untrusted YAML, enforced deterministically
 - [ ] #3 Acceptance tests cover a cyclic alias and a document past the depth limit
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R2 (TASK-55.3, YAML with limits and the manifest model). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R3 depends on this task, so it closes within R2.
+<!-- SECTION:NOTES:END -->

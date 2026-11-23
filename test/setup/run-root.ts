@@ -12,6 +12,8 @@ declare module "vitest" {
     runRoot: string;
     /** The binary the acceptance suite spawns. */
     alzBin: string;
+    /** True when that binary is the TypeScript reference built for this run (ALZ_BIN unset). */
+    alzIsReference: boolean;
   }
 }
 
@@ -35,6 +37,7 @@ export default function setup(project: TestProject): () => void {
     const bin = checked ?? buildReference(join(root, "bin"));
     project.provide("runRoot", root);
     project.provide("alzBin", bin);
+    project.provide("alzIsReference", checked === undefined);
   } catch (error) {
     removeTree(root);
     throw error;

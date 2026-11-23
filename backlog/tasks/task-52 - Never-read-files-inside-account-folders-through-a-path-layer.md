@@ -4,11 +4,12 @@ title: 'Never read files inside account folders through a path: layer'
 status: To Do
 assignee: []
 created_date: '2026-11-22T07:23:00Z'
-updated_date: '2026-11-22T12:55:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - discovered
   - area:security
   - area:resolve
+  - area:rust
 milestone: m-3
 dependencies:
   - TASK-50.9
@@ -38,4 +39,6 @@ Found while planning TASK-50.9. LAYERING-SPEC §9.1 says alz never opens a file 
 2026-11-22 from the TASK-50.9 security review (NOTE): the account reader's lexical account-folder check sees only the text, so a symlink planted in the repository (path:./alias or git:./alias@v1 pointing into ~/.claude-x) still makes realpath and gitTarget lstat, readlink and stat names inside an account folder before the real-path check; nothing is opened. Fix: resolve one path component at a time with lstat/readlink and check each resolved prefix with touchesAccountFolder before going deeper. Also normalise Unicode in namesAccountFolder (text.normalize('NFC').toLowerCase()) for non-ASCII homes on APFS. Covers the reader and build.
 
 2026-11-22: paused by decision-21 (Rust port, doc-5). Built in Rust in TASK-55.4, where openat-relative access closes it properly.
+
+Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R3 (TASK-55.4, sources and the cache). Its acceptance cases assert the spec and are marked reference drift (test/drift.ts) where the TypeScript reference fails them. R4 depends on this task, so it closes within R3.
 <!-- SECTION:NOTES:END -->
