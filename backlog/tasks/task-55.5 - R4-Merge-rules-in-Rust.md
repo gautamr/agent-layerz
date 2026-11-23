@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T16:13:00Z'
+updated_date: '2026-11-23T17:51:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -24,9 +24,9 @@ doc-5 phase R4: every merge rule, protected variables, who may declare.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every merge rule of spec §7 has Rust tests, with property tests for its law (doc-6 §3.5), and each merge case of tests 02 to 11, 17 to 19, 26 and 29 has a Rust test with the same verdict (list in the notes)
-- [ ] #2 The cases of tests 02 to 11, 17 to 19, 26 and 29 that alz lint can reach pass against the Rust binary; the rest of those files pass by R5 (TASK-55.6), and test 26's identity cases (§9.4) by R6 (TASK-55.7)
-- [ ] #3 Settings files accept only the known target names at the top level and MCP files only server ids of the spec's grammar; any other top-level key is an error naming the file, whatever the key, and the merged settings and servers are ordered maps of validated keys
+- [x] #1 Every merge rule of spec §7 has Rust tests, with property tests for its law (doc-6 §3.5), and each merge case of tests 02 to 11, 17 to 19, 26 and 29 has a Rust test with the same verdict (list in the notes)
+- [x] #2 The cases of tests 02 to 11, 17 to 19, 26 and 29 that alz lint can reach pass against the Rust binary; the rest of those files pass by R5 (TASK-55.6), and test 26's identity cases (§9.4) by R6 (TASK-55.7)
+- [x] #3 Settings files accept only the known target names at the top level and MCP files only server ids of the spec's grammar; any other top-level key is an error naming the file, whatever the key, and the merged settings and servers are ordered maps of validated keys
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -224,6 +224,8 @@ Questions for the owner, each with a recommendation:
 Owner answers on the security-key list (2026-11-23): (1) the architect's draft list is approved as written: floors (only stricter down the stack; a looser value is a settings error naming the layer, file and key path; 'no additions' and 'union' lists; a kind change refused for floor keys) and reserved keys; every unverified key is recorded in docs/target-facts.md through a docs task before R5's adapter relies on it; (2) disableBypassPermissionsMode and the block-reads/writes-outside-working-directories keys become first-class floor fields of permissions.yaml (once true, stays true); (3) enabledPlugins and extraKnownMarketplaces are reserved now; a decision superseding decision-5 and a later task plan a first-class plugin item behind a manifest allowlist; (4) claude.mcpServers and per-agent hooks in an agent's native fields are refused (servers and hooks come only through mcp.yaml and hooks.yaml). Lead: 'no additions' lists cannot be narrowed either (no removal syntax), accepted for now.
 
 Implementer (2026-11-23), R4 security review fixes: (1) item/settings.rs: Codex keys that duplicate first-class items are reserved at any depth (features.hooks and features.codex_hooks wherever a features mapping stands, profile, approval_policy and sandbox_mode under profiles.*); error [settings] with a fixed key path, no value and no profile name printed; neutral rows in test 37 (lint). (2) merge/agents.rs, merge/permissions.rs (DeclaredFloor), merge/stack.rs: an agent overlay may not set a permission_mode looser than the agent it refines or the permissions floor declared by more general layers, and may not remove entries of claude.disallowedTools a more general layer set; error [agent-overlay], overlay not applied; tests in merge/agents/overlay_strictness.rs incl. the property an_overlay_never_loosens_the_permission_mode. (3) merge/mcp.rs: warning [mcp] naming the server and both layers when a layer inside the repository replaces a server of a layer outside it. (4) settings.rs read_target: the unreachable non-mapping branch now returns a settings diagnostic instead of an empty error. Spec text for the architect: 7.9 'For Codex the keys that duplicate a first-class item are reserved at any depth: features.hooks and features.codex_hooks wherever a features mapping stands, profile, and approval_policy and sandbox_mode in a profile (profiles.*); a file that sets one is a settings error naming the file and the key path, with no value printed.' 7.2 'An overlay may only make an agent stricter: its permission_mode may not be looser than that of the agent it refines nor than the permissions floor (7.6) declared by a more general layer, and claude.disallowedTools keeps every entry a more general layer set; otherwise it is an agent-overlay error and the overlay is not applied.' 7.7 'A layer inside the repository that replaces a server defined by a layer outside it gets an mcp warning naming the server and both layers.' Reference drift: items 2 and 3 are Rust-only behaviour with no acceptance case yet.
+
+Lead (2026-11-23): AC #1 — every merge rule has Rust tests and property tests (case-to-test mapping above, R4.4–R4.16); AC #2 — the lint-reachable cases of tests 02–11, 17–19, 26, 29 pass against target/release/alz (the 84 baseline cases, test 10 in full, test 37's lint rows); the rest pass by R5, test 26's identity cases by R6; AC #3 — settings files take only the known targets and MCP files only server ids of the grammar, any other key refused whatever it is, merged as ordered maps of validated keys. Final checks: rust:ci 1254 tests, lint, mise run test 1185 passed / 171 expected fail / 5 skipped, alz:check, src/ identical to main. R4 is set Done when PR #9 merges.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
