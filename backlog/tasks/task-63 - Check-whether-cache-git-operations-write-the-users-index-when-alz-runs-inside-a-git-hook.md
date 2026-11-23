@@ -6,10 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T17:19:00Z'
+updated_date: '2026-11-23T04:24:00Z'
 labels:
   - discovered
   - area:security
   - area:resolve
+  - area:rust
 milestone: m-7
 dependencies: []
 references:
@@ -30,6 +32,12 @@ Found while amending decision-24 after the R0 security review; not reproduced ye
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A reproduction (acceptance test or recorded manual run) shows whether alz build or alz check inside a pre-commit hook changes the user's index or repository
-- [ ] #2 If it does, the TypeScript reference removes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_NAMESPACE and GIT_CEILING_DIRECTORIES for cache and clone operations, with a regression test
+- [ ] #2 The Rust alz removes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_NAMESPACE and GIT_CEILING_DIRECTORIES for cache and clone operations (decision-24), with an acceptance case that is marked reference drift if the TypeScript reference fails it
 - [ ] #3 The spec section on git subprocesses states the rule
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R3 (TASK-55.4); AC #2 reworded from a TypeScript fix to the Rust rule. R4 depends on this task.
+<!-- SECTION:NOTES:END -->

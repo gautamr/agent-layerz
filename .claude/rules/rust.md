@@ -21,7 +21,7 @@ paths:
   types at the boundary. Writes happen only through the repository-root and state-directory
   capabilities.
 - Generated files are byte-identical to the TypeScript reference for every fixture until
-  cutover; output uses ordered collections, never `HashMap`, and no timestamps.
+  cutover, except where the spec and a reference-drift case say otherwise (decision-30); output uses ordered collections, never `HashMap`, and no timestamps.
 - Every new dependency is a recorded decision. No `unsafe`, no `allow` without
   `#[expect(…, reason = "…")]`.
 - Tests use an isolated `HOME` and temporary directories; never the real `~/.claude*`,

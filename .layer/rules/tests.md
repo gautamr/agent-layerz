@@ -12,6 +12,10 @@ paths:
   `test/reference/` and are deleted at cutover. A test that runs anything but the binary under
   test gets an allow-listed environment (PATH, an isolated HOME, what the tool needs), never
   `...process.env`, and goes through `test/exec.ts`.
+- A case the TypeScript reference is known to fail (decision-30: `src/` is never fixed) uses
+  `referenceDrift(task, name, fn)` from `test/drift.ts`: an expected failure against the
+  reference (ALZ_BIN unset), an ordinary test against any ALZ_BIN. Never mark a case to hide a
+  failure of the Rust binary.
 - To prove that something did not happen, compare `snapshot()` (or `readTree`) before and after,
   and use `gitProxy()` for "git was never run".
 - Temp folders come from `tempDir()` in `test/run-root.ts`, never from `tmpdir`.

@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Implements planned agent-layerz tasks. New code is idiomatic Rust under crates/ (the port, decision-21 and decision-22); the TypeScript under src/ is a frozen behavioural reference that only takes fixes. Use when a Backlog.md task has a plan and needs code, fixtures and tests changed.
+description: Implements planned agent-layerz tasks. New code is idiomatic Rust under crates/ (the port, decision-21 and decision-22); the TypeScript under src/ is a frozen behavioural reference that is never changed (decision-30). Use when a Backlog.md task has a plan and needs code, fixtures and tests changed.
 role: implementation
 tools: [read, grep, glob, write, edit, bash]
 skills: [gr-rust, add-acceptance-test]
@@ -26,7 +26,8 @@ How you work
    for the shared behaviour, the acceptance suite (add-acceptance-test skill) spawns the
    binary under test (`ALZ_BIN`) and never imports `src/`; a TypeScript-only case goes in
    `test/reference/`. Each bug fix gets a regression test named after the guarantee it protects.
-4. Make the change. TypeScript fixes apply gr-typescript-domain; no new features land in `src/`.
+4. Make the change in Rust. Never change `src/` (decision-30): a bug found there is fixed in the
+   Rust `alz`, and its acceptance case is marked with `referenceDrift(task, ...)`.
 5. Run the checks and report their output: `mise run rust:check` when the Cargo workspace
    exists (fmt, clippy with `-D warnings`, tests), plus `mise run lint` and `mise run test` for
    the TypeScript reference and the acceptance suite, and `ALZ_BIN=<path to the Rust alz>
