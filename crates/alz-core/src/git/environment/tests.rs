@@ -64,6 +64,8 @@ fn name() -> impl Strategy<Value = String> {
         Just("GIT_TERMINAL_PROMPT".to_owned()),
         Just("GIT_NO_REPLACE_OBJECTS".to_owned()),
         Just("GIT_NO_LAZY_FETCH".to_owned()),
+        Just("GIT_PROTOCOL_FROM_USER".to_owned()),
+        Just("GIT_LITERAL_PATHSPECS".to_owned()),
         Just("GIT_SSH_COMMAND".to_owned()),
         "GIT_CONFIG_(KEY|VALUE)_[0-9]{1,4}",
         "GIT_CONFIG_(KEY|VALUE)_[a-z]{0,3}",
@@ -94,21 +96,71 @@ fn is_numbered_config(name: &OsStr) -> bool {
 
 fn is_set_by(operation: GitOperation, name: &OsStr) -> bool {
     name == "GIT_TERMINAL_PROMPT"
+        || (operation == REMOTE_CLONE && name == "GIT_PROTOCOL_FROM_USER")
+        || (operation == REMOTE_CLONE && name == "GIT_ALLOW_PROTOCOL")
         || (operation == GitOperation::TreeRead
-            && (name == "GIT_NO_REPLACE_OBJECTS" || name == "GIT_NO_LAZY_FETCH"))
+            && (name == "GIT_NO_REPLACE_OBJECTS"
+                || name == "GIT_NO_LAZY_FETCH"
+                || name == "GIT_LITERAL_PATHSPECS"))
 }
 
-fn is_removed_by_spec(operation: GitOperation, name: &OsStr) -> bool {
-    REMOVED_EVERYWHERE.iter().any(|removed| name == *removed)
-        || is_numbered_config(name)
-        || (operation == REMOTE_CLONE && name == "GIT_ALLOW_PROTOCOL")
+fn is_removed_by_spec(name: &OsStr) -> bool {
+    REMOVED_EVERYWHERE.iter().any(|removed| name == *removed) || is_numbered_config(name)
+}
+
+/// The transports a remote clone is told it may use.
+fn protocols_of(child: &EnvVars) -> Option<Vec<String>> {
+    child.get("GIT_ALLOW_PROTOCOL").map(|list| {
+        list.to_str()
+            .unwrap_or_default()
+            .split(':')
+            .map(str::to_owned)
+            .collect()
+    })
+}
+
+/// Every operation that is not a remote clone.
+fn not_remote_clone() -> impl Strategy<Value = GitOperation> {
+    select(vec![
+        LOCAL_CLONE,
+        GitOperation::CacheRead,
+        GitOperation::TreeRead,
+    ])
 }
 
 proptest! {
+    /// Whatever the user sets, a remote clone never allows a transport other than https and ssh,
+    /// and never one that the user did not name.
+    #[test]
+    fn a_remote_clone_never_widens_the_allowed_protocols(
+        list in "[a-z:]{0,24}",
+        extra in select(vec!["https", "ssh", "ext", "file", "git", "http", "fd"]),
+    ) {
+        let user = format!("{list}:{extra}");
+        let env = vars(&[("GIT_ALLOW_PROTOCOL", user.as_str())]);
+        let child = protocols_of(&child_environment(REMOTE_CLONE, &env)).expect("a list");
+        let named: Vec<&str> = user.split(':').collect();
+        for protocol in &child {
+            if !protocol.is_empty() {
+                prop_assert!(["https", "ssh"].contains(&protocol.as_str()), "{protocol}");
+                prop_assert!(named.contains(&protocol.as_str()), "{protocol}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_other_operations_leave_the_allowed_protocols_alone(
+        operation in not_remote_clone(),
+        env in environment(),
+    ) {
+        let child = child_environment(operation, &env);
+        prop_assert_eq!(child.get("GIT_ALLOW_PROTOCOL"), env.get("GIT_ALLOW_PROTOCOL"));
+    }
+
     #[test]
     fn no_removed_name_survives(operation in operation(), env in environment()) {
         let child = child_environment(operation, &env);
-        prop_assert!(child.iter().all(|(name, _)| !is_removed_by_spec(operation, name)));
+        prop_assert!(child.iter().all(|(name, _)| !is_removed_by_spec(name)));
     }
 
     #[test]
@@ -121,7 +173,7 @@ proptest! {
     fn every_other_variable_is_unchanged(operation in operation(), env in environment()) {
         let child = child_environment(operation, &env);
         for (name, value) in env.iter() {
-            if !is_removed_by_spec(operation, name) && !is_set_by(operation, name) {
+            if !is_removed_by_spec(name) && !is_set_by(operation, name) {
                 prop_assert_eq!(child.get(name), Some(value));
             }
         }
@@ -192,16 +244,66 @@ fn the_config_variables_of_a_parent_git_are_removed_for_every_operation() {
 }
 
 #[test]
-fn a_remote_clone_has_no_allowed_protocol_list() {
-    let env = vars(&[("GIT_ALLOW_PROTOCOL", "file:https")]);
+fn a_remote_clone_keeps_only_https_and_ssh_of_the_users_allowed_protocols() {
+    for (user, kept) in [
+        ("file:https", "https"),
+        ("ssh:ext::https:ssh", "ssh:https"),
+        ("ext:file:git:http", ""),
+        ("", ""),
+        ("https:https", "https"),
+        ("https", "https"),
+    ] {
+        let env = vars(&[("GIT_ALLOW_PROTOCOL", user)]);
+        assert_eq!(
+            child_environment(REMOTE_CLONE, &env).get("GIT_ALLOW_PROTOCOL"),
+            Some(OsStr::new(kept)),
+            "{user:?}"
+        );
+    }
+}
+
+#[test]
+fn a_remote_clone_without_a_user_list_gets_https_and_ssh_over_the_users_configuration() {
     assert_eq!(
-        child_environment(REMOTE_CLONE, &env).get("GIT_ALLOW_PROTOCOL"),
-        None
+        child_environment(REMOTE_CLONE, &EnvVars::default()).get("GIT_ALLOW_PROTOCOL"),
+        Some(OsStr::new("https:ssh"))
     );
 }
 
 #[test]
-fn the_other_operations_keep_the_allowed_protocol_list() {
+fn only_a_remote_clone_ignores_protocols_that_the_user_allows_by_hand() {
+    let env = vars(&[("GIT_PROTOCOL_FROM_USER", "1")]);
+    assert_eq!(
+        child_environment(REMOTE_CLONE, &env).get("GIT_PROTOCOL_FROM_USER"),
+        Some(OsStr::new("0"))
+    );
+    for operation in [LOCAL_CLONE, GitOperation::CacheRead, GitOperation::TreeRead] {
+        assert_eq!(
+            child_environment(operation, &env).get("GIT_PROTOCOL_FROM_USER"),
+            Some(OsStr::new("1")),
+            "{operation:?}"
+        );
+    }
+}
+
+#[test]
+fn only_a_tree_read_takes_pathspecs_literally() {
+    let env = vars(&[("GIT_LITERAL_PATHSPECS", "0")]);
+    assert_eq!(
+        child_environment(GitOperation::TreeRead, &env).get("GIT_LITERAL_PATHSPECS"),
+        Some(OsStr::new("1"))
+    );
+    for operation in [REMOTE_CLONE, LOCAL_CLONE, GitOperation::CacheRead] {
+        assert_eq!(
+            child_environment(operation, &EnvVars::default()).get("GIT_LITERAL_PATHSPECS"),
+            None,
+            "{operation:?}"
+        );
+    }
+}
+
+#[test]
+fn the_other_operations_keep_the_allowed_protocol_list_as_it_is() {
     let env = vars(&[("GIT_ALLOW_PROTOCOL", "file:https")]);
     for operation in [LOCAL_CLONE, GitOperation::CacheRead, GitOperation::TreeRead] {
         assert_eq!(

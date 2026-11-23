@@ -10,9 +10,11 @@ mod terminal_text;
 use std::io;
 use std::process::ExitCode;
 
+use alz_io::{EnvSnapshot, WorkingDirectory};
 use clap::Parser;
 
 use crate::cli::{Cli, Command};
+use crate::command::lint::Surroundings;
 use crate::report::Rendered;
 
 fn main() -> ExitCode {
@@ -22,15 +24,19 @@ fn main() -> ExitCode {
         return exit_code;
     }
     internal_failure::install_hook();
-    internal_failure::exit_code_of(run)
+    // The environment and the working directory are read once, here, and passed down.
+    let env = EnvSnapshot::capture();
+    let directory = WorkingDirectory::capture();
+    internal_failure::exit_code_of(|| run(&env, &directory))
 }
 
-fn run() -> ExitCode {
+fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
     match Cli::try_parse() {
         Ok(Cli {
             command: Command::Lint(args),
         }) => ExitCode::from(command::lint::run(
             &args,
+            Surroundings { env, directory },
             &mut io::stdout(),
             &mut io::stderr(),
         )),

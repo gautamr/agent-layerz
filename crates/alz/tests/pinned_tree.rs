@@ -421,6 +421,10 @@ mod tests {
 
     #[test]
     fn an_index_that_cannot_be_written_is_a_warning_and_the_layer_still_resolves() {
+        // The superuser ignores modes, so the failure this test makes cannot happen.
+        if alz_test_support::running_as_root() {
+            return;
+        }
         let world = World::new();
         let commit = world.commit(LAYER);
         let tree = world.tree_of(commit, "layer");

@@ -3,6 +3,7 @@
 use std::ffi::OsStr;
 
 use alz_core::env::EnvVars;
+use alz_core::path::AbsolutePath;
 
 /// The environment of the process, taken once at the start of the command and passed down.
 /// This is the only reader of the process environment, and nothing in alz changes it.
@@ -60,6 +61,36 @@ impl EnvSnapshot {
     }
 }
 
+/// The working directory of the process, taken once at the start of the command together with the
+/// environment and passed down, so that every part of a run agrees on where it is. `None` when it
+/// cannot be found or is not a path that reads as text.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WorkingDirectory(Option<AbsolutePath>);
+
+impl WorkingDirectory {
+    /// The working directory of this process, as it is now.
+    #[must_use]
+    pub fn capture() -> Self {
+        Self(std::env::current_dir().ok().and_then(|directory| {
+            directory
+                .to_str()
+                .and_then(|text| AbsolutePath::try_from(text).ok())
+        }))
+    }
+
+    /// The directory of a caller that already holds it.
+    #[must_use]
+    pub const fn at(directory: AbsolutePath) -> Self {
+        Self(Some(directory))
+    }
+
+    /// The directory, when it is known.
+    #[must_use]
+    pub const fn path(&self) -> Option<&AbsolutePath> {
+        self.0.as_ref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ffi::{OsStr, OsString};
@@ -96,6 +127,11 @@ mod tests {
         let env = snapshot(&[]);
         assert_eq!(env.home(), None);
         assert_eq!(env.codex_home(), None);
+    }
+
+    #[test]
+    fn the_working_directory_is_captured_as_an_absolute_path() {
+        assert!(super::WorkingDirectory::capture().path().is_some());
     }
 
     #[test]

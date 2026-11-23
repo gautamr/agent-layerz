@@ -338,21 +338,38 @@ names `stack[<n>].source`, never its value:
 - `path:<dir>`: `<dir>` is not empty.
 - `github:<owner>/<repo>@<ref>`: `<owner>` and `<repo>` are non-empty, hold only ASCII letters,
   digits, `.`, `_` and `-`, do not start with `-` and are not `.` or `..`.
-- `git:<url>@<ref>`: `<url>` is not empty and does not start with `-`.
+- `git:<url>@<ref>`: `<url>` is not empty, does not start with `-` and names no transport
+  helper (**Transports**, below).
 - The ref is what follows the last `@`; it is not empty, holds no `:` (an `@` before a `:` is the
   user of a scp-like address, so `git:git@host:o/r.git` has no ref and is refused) and follows the
   `ref` rule above.
 - A `https://` or `http://` scheme is matched ignoring case; the authority of a URL ends at the
   first `/`, `\`, `?` or `#`.
 
-**Credentials in a source** (TASK-65). A `git:` URL must not hold credentials. The rule is applied
-to the whole text after `git:` and to the URL left once the `@<ref>` is split off, so a source
-without a ref (`git:https://token@host/x.git`) is refused as holding credentials, not read as a URL
-and a ref cut at the credentials' `@`:
+**Transports** (TASK-55.4). git reads `<helper>::<address>` as a request to run
+`git-remote-<helper>`, and `ext::<command>` runs a command. A `git:` source whose text after `git:`
+starts with ASCII letters, digits, `+`, `-` or `.` (possibly none) and then `::` is the error
+`manifest` at `layer.yaml`, naming `stack[<n>].source` and saying that the URL must not be a
+transport helper (`<helper>::<address>`). It is checked first, so `git:https::https://token@host/x.git`
+is refused as a helper and the token is not printed. A remote `git:` or `github:` source is cloned
+with `https` and `ssh` only (§6 "Git subprocesses").
+
+**Credentials in a source** (TASK-65). A `git:` URL must not hold credentials. For a URL with
+`://` the rule is applied to the whole text after `git:`, so a source without a ref
+(`git:https://token@host/x.git`) is refused as holding credentials, not read as a URL and a ref cut
+at the credentials' `@`:
 - an `http://` or `https://` URL with a user name or password (`https://user@…`,
   `https://token@…`, `https://user:token@…`) is refused;
-- any other URL, or a scp-like address (`user@host:path`), whose user part holds a `:` (a
-  password) is refused.
+- any other URL with `://` whose user part holds a `:` (a password) is refused.
+
+Any other text is a scp-like address, `[user@]host:path`. Its user part is what precedes the first
+`@` of its first `/`-separated segment, and it is refused when that holds a `:`. The `@<ref>` is
+left out first, when the last `@` starts a ref that is not empty and holds neither `:` nor `/`; a
+ref that holds a `/` cannot be told from a host and a path, so the whole text is checked. So
+`git:git@host:repo.git@v1`, `git:host.invalid:client.git@v1` and `git:x:y@v1` are accepted, and
+`git:me:token@github.com/o/r` and `git:user:token@host:repo@v1` are refused. A scp-like source whose
+ref holds a `/` and whose host and path hold a `:` before it (`git:host:repo.git@feature/x`) is
+refused as holding credentials, because it cannot be told from `user:token@host/…`.
 
 A user name alone stays allowed for `ssh://` and the scp-like form, as in
 `git@github.com:owner/repo.git`. The error is `source`, with no location and the message
@@ -624,10 +641,28 @@ entry (§6) or an entry whose content is not what the lock recorded.
        `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` and every `GIT_CONFIG_KEY_<n>` and
        `GIT_CONFIG_VALUE_<n>`, which carry the `-c` options of a parent git.
      - Set: `GIT_TERMINAL_PROMPT=0`.
-     - A clone of a source classed as a remote also loses `GIT_ALLOW_PROTOCOL` and is given
-       `-c protocol.file.allow=never` (§7.12).
-     - Every call that reads a pinned layer's tree also sets `GIT_NO_REPLACE_OBJECTS=1` and
-       `GIT_NO_LAZY_FETCH=1` (below).
+     - A clone of a source classed as a remote may use `https` and `ssh` only. It is run with
+       `-c protocol.allow=never -c protocol.https.allow=always -c protocol.ssh.allow=always`,
+       with `GIT_PROTOCOL_FROM_USER=0`, and with `GIT_ALLOW_PROTOCOL=https:ssh`. git uses
+       `GIT_ALLOW_PROTOCOL` before every `protocol.*.allow`, the user's configuration included,
+       so this is the setting that a user's `protocol.ext.allow=always` cannot undo. A
+       `GIT_ALLOW_PROTOCOL` of the user's own can only narrow it: the value is cut down to the
+       `https` and `ssh` that it names, and is empty, allowing nothing, when it names neither
+       (§7.12). A remote URL that is not `https` or `ssh` (`http://`, `git://`, `file://` by way of
+       a rewrite) therefore fails the clone with the failed fetch of "A failed fetch".
+     - A clone of a local `git:` source is run with `--no-local`: git copies the objects through its
+       own transport, and never hard-links the source's object files into the cache.
+     - Every call that reads a pinned layer's tree also sets `GIT_NO_REPLACE_OBJECTS=1`,
+       `GIT_NO_LAZY_FETCH=1` and `GIT_LITERAL_PATHSPECS=1` (below).
+   - **Which git.** alz looks `git` up once per run, in the `PATH` of its own environment, folder
+     by folder, and takes the first regular file with an execute bit. An empty entry and a relative
+     entry are skipped, because they name the working directory, which may be the repository being
+     read. The version check and every call run that one absolute path. When no folder holds git
+     the error is `found none` (above). A copy of alz that cannot be started, as when the running
+     executable has gone, is the error `git` with no location and the message `alz cannot find its
+     own executable, which it needs to run git`. git and its version check are started only when a
+     source needs a clone or a pinned `path:` layer reads its tree: a layer that the lock pins and
+     the cache holds is read without them.
 
      A git hook receives `GIT_INDEX_FILE` and, in a linked worktree, `GIT_DIR`. So when alz
      runs from a hook, these calls never read or write the user's index or repository. The
@@ -638,12 +673,20 @@ entry (§6) or an entry whose content is not what the lock recorded.
      - alz starts git through a copy of itself, run with an internal argument that is not
        part of the command-line interface. The copy starts a new session (`setsid`) and then
        runs git as its child, so git and `ssh` have no controlling terminal and cannot open
-       `/dev/tty`.
+       `/dev/tty`. The copy writes one byte to its standard output once the session has started,
+       before git runs, and alz takes it off the stream: alz treats the copy's process group as
+       git's only after that byte.
      - **Abandoned calls.** git runs in a session of its own, so an interrupt that reaches alz
        does not reach it. The copy therefore waits for git and ends git's whole process group,
        `ssh` included, when alz is gone (interrupted or killed), and alz ends the group when it
        abandons a call (an error, a panic or the deadline below). No git or `ssh` is left running
-       after alz ends. The copy ends with git's exit status.
+       after alz ends. The copy ends with git's exit status. When alz ends a call it ends the
+       copy and, once the byte has arrived, the group; if the byte arrives after the copy was
+       ended, the group is ended then. Once alz has the copy's exit status it never signals that
+       process id again, since the system may have given it to another process; and it reads
+       git's output for half a second more at most, then returns git's result, so a process that
+       outlives git and keeps the pipes open (an `ssh` kept for later connections) does not hold
+       the call to its deadline.
      - Standard input is the null device, except for the batch calls whose input alz writes.
      - A SMOKE run (TASK-55.4.3, Darwin 25.6, git 2.50.1) started a pseudo-terminal with
        `script(1)`. A process that opened `/dev/tty` there succeeded when it was started
@@ -665,7 +708,7 @@ entry (§6) or an entry whose content is not what the lock recorded.
 
    The TypeScript `alz` differs (reference drift, TASK-63, TASK-70):
    - it passes its whole environment to these calls, except `GIT_ALLOW_PROTOCOL` on a guarded
-     clone;
+     clone, and allows the transports that the user's configuration allows;
    - it leaves `ssh` able to prompt on the terminal;
    - it sets no deadline and checks no version.
 
@@ -1081,9 +1124,10 @@ commit_identity:
   then canonicalised; the inside check and `git clone` both use that canonical path, never the
   URL as written. A local `git:` source (including `file://`) with a `..` segment is a source
   error that names the source, because text and disk can disagree about where it leads. A
-  `git:` or `github:` source classed as a remote is cloned with `-c protocol.file.allow=never`
-  and without `GIT_ALLOW_PROTOCOL`, which would override that setting, so git cannot fall back
-  to a local path (`docs/target-facts.md` §11); a `url.<base>.insteadOf` that rewrites such a
+  `git:` or `github:` source classed as a remote is cloned with `https` and `ssh` only
+  (§6 "Git subprocesses": `-c protocol.allow=never` and the two `always` settings, and a
+  `GIT_ALLOW_PROTOCOL` that the user's own can only narrow), so git cannot fall back to a local
+  path or run a transport helper (`docs/target-facts.md` §11); a `url.<base>.insteadOf` that rewrites such a
   URL to a local mirror therefore fails to clone. Only two layers may declare `commit_identity`:
   1. the **first stack entry** (normally `personal`), if it is outside the repository;
   2. one **client layer**: a later layer with `kind: client`, `visibility: private` or

@@ -6,7 +6,7 @@ mod fs;
 mod git;
 mod resolve;
 
-pub use env::EnvSnapshot;
+pub use env::{EnvSnapshot, WorkingDirectory};
 pub use fs::{
     CacheDir, CacheError, Dir, IndexError, Published, ReadError, ReadOnlyDir, RepositoryPaths,
     TempEntry, WalkError,

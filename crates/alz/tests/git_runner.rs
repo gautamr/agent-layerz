@@ -9,17 +9,17 @@
 mod tests {
     use std::collections::BTreeMap;
     use std::ffi::{OsStr, OsString};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant};
 
     use alz_core::env::EnvVars;
-    use alz_core::git::{
-        CloneTransport, EntryMode, ObjectCheck, ObjectContent, ObjectKind, VersionRefusal,
-    };
+    use alz_core::git::{CloneTransport, EntryMode, ObjectCheck, ObjectContent, ObjectKind};
     use alz_core::lock::ObjectId;
     use alz_core::path::SafeRelPath;
     use alz_core::stack::GitRef;
-    use alz_io::{Deadlines, EnvSnapshot, GitFailure, GitRunner, Launcher, ReadScope};
+    use alz_io::{
+        Deadlines, EnvSnapshot, GitFailure, GitRunner, GitRunnerError, Launcher, ReadScope,
+    };
     use alz_test_support::{ScratchDir, start_silently, test_executable};
     use assert_cmd::Command;
 
@@ -157,7 +157,11 @@ printf '%b' "$ALZ_TEST_REPLY"
             call.argv,
             [
                 "-c",
-                "protocol.file.allow=never",
+                "protocol.allow=never",
+                "-c",
+                "protocol.https.allow=always",
+                "-c",
+                "protocol.ssh.allow=always",
                 "clone",
                 "--quiet",
                 "--",
@@ -171,7 +175,10 @@ printf '%b' "$ALZ_TEST_REPLY"
             git.clone_source(CloneTransport::Local, OsStr::new("/src"), Path::new("/dst"))
         });
         result.unwrap();
-        assert_eq!(call.argv, ["clone", "--quiet", "--", "/src", "/dst"]);
+        assert_eq!(
+            call.argv,
+            ["clone", "--quiet", "--no-local", "--", "/src", "/dst"]
+        );
 
         let (result, call) = recorded(&format!("{SHA}\\n"), no_vars, |git| {
             git.rev_parse_commit(repo, ReadScope::CacheEntry, &rev)
@@ -312,11 +319,27 @@ printf '%b' "$ALZ_TEST_REPLY"
             git.clone_source(CloneTransport::Remote, OsStr::new("x"), Path::new("/d"))
         });
         result.unwrap();
-        assert_eq!(names(&call), expected_names(&["GIT_TERMINAL_PROMPT"]));
+        assert_eq!(
+            names(&call),
+            expected_names(&[
+                "GIT_ALLOW_PROTOCOL",
+                "GIT_PROTOCOL_FROM_USER",
+                "GIT_TERMINAL_PROMPT"
+            ])
+        );
         assert_eq!(call.env["GIT_TERMINAL_PROMPT"], "0");
+        assert_eq!(call.env["GIT_PROTOCOL_FROM_USER"], "0");
+        // The user's list is cut down to the transports of a remote clone: it never widens them.
+        assert_eq!(call.env["GIT_ALLOW_PROTOCOL"], "");
         assert_eq!(call.env["GIT_SSH_COMMAND"], "my-ssh -v");
+        let (result, call) = recorded("", &[], |git| {
+            git.clone_source(CloneTransport::Remote, OsStr::new("x"), Path::new("/d"))
+        });
+        result.unwrap();
+        assert_eq!(call.env["GIT_ALLOW_PROTOCOL"], "https:ssh");
 
-        // A local clone keeps GIT_ALLOW_PROTOCOL; everything else of the parent's is gone.
+        // A local clone keeps GIT_ALLOW_PROTOCOL as it is; everything else of the parent's is
+        // gone.
         let (result, call) = recorded("", &extra, |git| {
             git.clone_source(CloneTransport::Local, OsStr::new("x"), Path::new("/d"))
         });
@@ -335,6 +358,7 @@ printf '%b' "$ALZ_TEST_REPLY"
             names(&call),
             expected_names(&[
                 "GIT_ALLOW_PROTOCOL",
+                "GIT_LITERAL_PATHSPECS",
                 "GIT_NO_LAZY_FETCH",
                 "GIT_NO_REPLACE_OBJECTS",
                 "GIT_TERMINAL_PROMPT"
@@ -342,6 +366,7 @@ printf '%b' "$ALZ_TEST_REPLY"
         );
         assert_eq!(call.env["GIT_NO_REPLACE_OBJECTS"], "1");
         assert_eq!(call.env["GIT_NO_LAZY_FETCH"], "1");
+        assert_eq!(call.env["GIT_LITERAL_PATHSPECS"], "1");
     }
 
     // --- The version floor -------------------------------------------------------------------
@@ -355,7 +380,7 @@ exit 0
 "#;
 
     /// The result of making a runner with a git that prints `version`, and the calls it logged.
-    fn runner_with_version(version: &str) -> (Result<GitRunner, VersionRefusal>, Vec<String>) {
+    fn runner_with_version(version: &str) -> (Result<GitRunner, GitRunnerError>, Vec<String>) {
         let dir = scratch();
         install_git(&dir, VERSIONED_GIT);
         let path = path_with_bin(&dir);
@@ -420,14 +445,116 @@ exit 0
         );
     }
 
+    #[test]
+    fn an_empty_or_relative_path_entry_never_finds_git() {
+        let dir = scratch();
+        install_git(&dir, VERSIONED_GIT);
+        // `bin/git` exists relative to the working directory of the test run only through this
+        // entry, which names no absolute folder.
+        let home = dir.path().as_os_str().to_owned();
+        let path = OsString::from(":.:bin:relative/bin:");
+        let env = snapshot(&[("PATH", &path), ("HOME", &home)]);
+        let refusal = GitRunner::with_launcher(launcher(), &env, Deadlines::STANDARD).unwrap_err();
+        assert_eq!(
+            refusal.diagnostic().to_string(),
+            "error [git] alz needs git 2.30 or later; found none"
+        );
+    }
+
+    #[test]
+    fn the_git_that_is_version_checked_is_the_git_that_runs() {
+        // Two gits on PATH; the first is the one that answers the version and runs the call, the
+        // second is never started.
+        let dir = scratch();
+        dir.make_dir("first").unwrap();
+        dir.make_dir("second").unwrap();
+        dir.write_executable(
+            "first/git",
+            "#!/bin/sh\necho first >> \"$ALZ_TEST_LOG\"\nif [ \"$1\" = version ]; then echo 'git version 2.40.0'; fi\n",
+        )
+        .unwrap();
+        dir.write_executable(
+            "second/git",
+            "#!/bin/sh\necho second >> \"$ALZ_TEST_LOG\"\n",
+        )
+        .unwrap();
+        let mut path = dir.join("first").into_os_string();
+        path.push(":");
+        path.push(dir.join("second"));
+        let log = dir.join("log").into_os_string();
+        let home = dir.path().as_os_str().to_owned();
+        let env = snapshot(&[("PATH", &path), ("HOME", &home), ("ALZ_TEST_LOG", &log)]);
+        let git = GitRunner::with_launcher(launcher(), &env, Deadlines::STANDARD).expect("a git");
+        git.checkout(dir.path(), &ObjectId::try_from(SHA).unwrap())
+            .expect("the stand-in succeeds");
+        assert_eq!(lines(&dir.read("log").unwrap()), ["first", "first"]);
+    }
+
+    #[test]
+    fn a_launcher_that_cannot_be_started_is_told_as_the_executable_that_alz_cannot_find() {
+        let dir = scratch();
+        install_git(&dir, VERSIONED_GIT);
+        let path = path_with_bin(&dir);
+        let home = dir.path().as_os_str().to_owned();
+        let env = snapshot(&[("PATH", &path), ("HOME", &home)]);
+        let failure =
+            GitRunner::with_launcher(Launcher::at("/nonexistent/alz"), &env, Deadlines::STANDARD)
+                .unwrap_err();
+        assert_eq!(
+            failure.diagnostic().to_string(),
+            "error [git] alz cannot find its own executable, which it needs to run git"
+        );
+    }
+
+    /// A git that prints a path, and leaves a background process behind that holds the output
+    /// streams open, as an `ssh` that stays on for later connections does.
+    const LINGERING_GIT: &str = r#"#!/bin/sh
+if [ "$1" = version ]; then echo "git version 2.40.0"; exit 0; fi
+sleep 8 &
+echo /the/top
+"#;
+
+    #[test]
+    fn a_process_that_outlives_git_and_keeps_its_streams_does_not_hold_the_call_to_its_deadline() {
+        let dir = scratch();
+        install_git(&dir, LINGERING_GIT);
+        let path = path_with_bin(&dir);
+        let home = dir.path().as_os_str().to_owned();
+        let env = snapshot(&[("PATH", &path), ("HOME", &home)]);
+        let deadlines = Deadlines {
+            clone: Duration::from_secs(60),
+            other: Duration::from_secs(60),
+        };
+        let git = GitRunner::with_launcher(launcher(), &env, deadlines).expect("a git");
+        let started = Instant::now();
+        let top = git.show_toplevel(dir.path()).expect("git's own result");
+        assert_eq!(top, Path::new("/the/top"));
+        assert!(
+            started.elapsed() < Duration::from_secs(6),
+            "waited {:?}",
+            started.elapsed()
+        );
+    }
+
     // --- The deadline ------------------------------------------------------------------------
 
-    /// A fake `ssh` that records its own pid and its parent's, then sleeps.
+    /// A fake `ssh` that records its own pid and its parent's in one file, `pids`, which appears
+    /// whole through a rename, then sleeps.
     const SLEEPING_SSH: &str = r#"#!/bin/sh
-echo $$ > "$ALZ_PROBE_DIR/ssh-pid"
-echo $PPID > "$ALZ_PROBE_DIR/parent-pid"
+echo "$$ $PPID" > "$ALZ_PROBE_DIR/pids.partial"
+mv "$ALZ_PROBE_DIR/pids.partial" "$ALZ_PROBE_DIR/pids"
 exec sleep 300
 "#;
+
+    /// The pids that the fake `ssh` wrote: its own, then its parent's, which is git.
+    fn recorded_pids(dir: &ScratchDir) -> (String, String) {
+        let text = String::from_utf8(dir.read("pids").expect("ssh started")).unwrap();
+        let mut pids = text.split_whitespace().map(str::to_owned);
+        (
+            pids.next().expect("ssh's pid"),
+            pids.next().expect("git's pid"),
+        )
+    }
 
     fn is_alive(pid: &str) -> bool {
         Command::new("kill")
@@ -436,9 +563,18 @@ exec sleep 300
             .is_ok_and(|output| output.status.success())
     }
 
+    /// Whether `pid` has ended but has not been reaped yet, which `kill -0` still accepts.
+    fn is_zombie(pid: &str) -> bool {
+        Command::new("ps")
+            .args(["-o", "stat=", "-p", pid])
+            .output()
+            .is_ok_and(|output| output.stdout.trim_ascii().starts_with(b"Z"))
+    }
+
+    /// Whether `pid` ends within four seconds; a zombie has ended.
     fn eventually_dead(pid: &str) -> bool {
         (0..40).any(|_| {
-            let dead = !is_alive(pid);
+            let dead = !is_alive(pid) || is_zombie(pid);
             if !dead {
                 std::thread::sleep(Duration::from_millis(100));
             }
@@ -461,7 +597,7 @@ exec sleep 300
             ("ALZ_PROBE_DIR", &probe),
         ]);
         let deadlines = Deadlines {
-            clone: Duration::from_secs(3),
+            clone: Duration::from_secs(10),
             other: Duration::from_secs(60),
         };
         let git = GitRunner::with_launcher(launcher(), &env, deadlines).expect("a git");
@@ -474,17 +610,13 @@ exec sleep 300
             )
             .unwrap_err();
         assert!(
-            matches!(failure, GitFailure::TimedOut { after } if after == Duration::from_secs(3)),
+            matches!(failure, GitFailure::TimedOut { after } if after == Duration::from_secs(10)),
             "{failure:?}"
         );
         assert!(started.elapsed() < Duration::from_secs(30));
-        let ssh_pid = String::from_utf8(dir.read("ssh-pid").expect("ssh started")).unwrap();
-        let parent_pid = String::from_utf8(dir.read("parent-pid").unwrap()).unwrap();
-        assert!(eventually_dead(ssh_pid.trim()), "ssh {ssh_pid} is alive");
-        assert!(
-            eventually_dead(parent_pid.trim()),
-            "git {parent_pid} is alive"
-        );
+        let (ssh_pid, git_pid) = recorded_pids(&dir);
+        assert!(eventually_dead(&ssh_pid), "ssh {ssh_pid} is alive");
+        assert!(eventually_dead(&git_pid), "git {git_pid} is alive");
     }
 
     // --- An abandoned call ---------------------------------------------------------------------
@@ -538,21 +670,15 @@ exec sleep 300
         )
         .expect("the child starts");
         let ssh_started = (0..300).any(|_| {
-            let started = dir.exists("parent-pid");
+            let started = dir.exists("pids");
             if !started {
                 std::thread::sleep(Duration::from_millis(100));
             }
             started
         });
         assert!(ssh_started, "the fake ssh never started");
-        // Let the fake ssh finish writing its two files.
-        std::thread::sleep(Duration::from_millis(200));
-        let ssh_pid = String::from_utf8(dir.read("ssh-pid").unwrap()).unwrap();
-        let git_pid = String::from_utf8(dir.read("parent-pid").unwrap()).unwrap();
-        assert!(
-            is_alive(ssh_pid.trim()),
-            "ssh is running before the interrupt"
-        );
+        let (ssh_pid, git_pid) = recorded_pids(&dir);
+        assert!(is_alive(&ssh_pid), "ssh is running before the interrupt");
         let interrupt = Command::new("kill")
             .args(["-INT", &alz.id().to_string()])
             .output()
@@ -561,11 +687,11 @@ exec sleep 300
         let status = alz.wait().expect("alz ends");
         assert!(!status.success(), "{status:?}");
         assert!(
-            eventually_dead(ssh_pid.trim()),
+            eventually_dead(&ssh_pid),
             "ssh {ssh_pid} is alive after alz was interrupted"
         );
         assert!(
-            eventually_dead(git_pid.trim()),
+            eventually_dead(&git_pid),
             "git {git_pid} is alive after alz was interrupted"
         );
     }
@@ -789,6 +915,87 @@ exit 1
             git.show_prefix(&source.join("layer")).unwrap(),
             OsString::from("layer/")
         );
+    }
+
+    /// A repository with one commit, in `<dir>/source`.
+    fn committed_source(dir: &ScratchDir) -> PathBuf {
+        let source = dir.join("source");
+        dir.make_dir("source").unwrap();
+        dir.write("source/a.md", "hello\n").unwrap();
+        git_in(&source, &["init", "-q"]);
+        git_in(&source, &["add", "-A"]);
+        git_in(&source, &["commit", "-q", "-m", "first"]);
+        source
+    }
+
+    #[test]
+    fn a_local_clone_copies_the_objects_and_never_hard_links_them_to_the_source() {
+        let dir = scratch();
+        let source = committed_source(&dir);
+        let home = dir.path().as_os_str().to_owned();
+        let path = real_path();
+        let git = GitRunner::with_launcher(
+            launcher(),
+            &snapshot(&[("PATH", &path), ("HOME", &home)]),
+            Deadlines::STANDARD,
+        )
+        .expect("a git");
+        let clone = dir.join("clone");
+        git.clone_source(CloneTransport::Local, source.as_os_str(), &clone)
+            .expect("a clone");
+        let linked = Command::new("find")
+            .arg(clone.join(".git/objects"))
+            .args(["-type", "f", "-links", "+1"])
+            .output()
+            .expect("find runs");
+        assert!(linked.status.success(), "{linked:?}");
+        assert_eq!(String::from_utf8_lossy(&linked.stdout).trim(), "");
+    }
+
+    #[test]
+    fn a_remote_clone_runs_no_transport_helper_even_when_the_users_configuration_allows_it() {
+        let dir = scratch();
+        // The user's own git configuration lets the `ext` helper run a command.
+        dir.write(".gitconfig", "[protocol \"ext\"]\n\tallow = always\n")
+            .unwrap();
+        let marker = dir.join("helper-ran");
+        let url = format!("ext::sh -c touch% {}", marker.display());
+        let home = dir.path().as_os_str().to_owned();
+        let path = real_path();
+        let git = GitRunner::with_launcher(
+            launcher(),
+            &snapshot(&[("PATH", &path), ("HOME", &home)]),
+            Deadlines::STANDARD,
+        )
+        .expect("a git");
+        let failure = git
+            .clone_source(CloneTransport::Remote, OsStr::new(&url), &dir.join("clone"))
+            .unwrap_err();
+        assert!(matches!(failure, GitFailure::Exited { .. }), "{failure:?}");
+        assert!(!dir.exists("helper-ran"), "the helper ran");
+    }
+
+    #[test]
+    fn a_remote_clone_never_widens_the_users_allowed_protocols_to_a_transport_helper() {
+        let dir = scratch();
+        let marker = dir.join("helper-ran");
+        let url = format!("ext::sh -c touch% {}", marker.display());
+        let home = dir.path().as_os_str().to_owned();
+        let path = real_path();
+        let allowed = OsString::from("ext:file:https");
+        let git = GitRunner::with_launcher(
+            launcher(),
+            &snapshot(&[
+                ("PATH", &path),
+                ("HOME", &home),
+                ("GIT_ALLOW_PROTOCOL", &allowed),
+            ]),
+            Deadlines::STANDARD,
+        )
+        .expect("a git");
+        git.clone_source(CloneTransport::Remote, OsStr::new(&url), &dir.join("clone"))
+            .unwrap_err();
+        assert!(!dir.exists("helper-ran"), "the helper ran");
     }
 
     #[test]

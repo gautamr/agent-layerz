@@ -76,6 +76,74 @@ fn a_user_name_alone_is_accepted_in_ssh_and_scp_like_urls() {
 }
 
 #[test]
+fn an_at_that_starts_the_ref_is_not_the_user_of_a_scp_like_address() {
+    for text in [
+        "git:git@host:repo.git@v1",
+        "git:host.invalid:client.git@v1",
+        "git:x:y@v1",
+        "git:git@host:o/r.git@feature/x",
+    ] {
+        assert!(Source::try_from(text).is_ok(), "{text}");
+    }
+}
+
+#[test]
+fn a_password_in_a_scp_like_address_is_refused_whatever_follows_it() {
+    for text in [
+        "git:me:TOKEN@github.com/o/r",
+        "git:user:tok@host:repo@v1",
+        "git:user:tok@host:repo",
+        "git:user:tok@host@v1",
+    ] {
+        assert_eq!(
+            Source::try_from(text),
+            Err(SourceError::Credentials),
+            "{text}"
+        );
+    }
+    assert_eq!(
+        GitUrl::try_from("user:tok@host"),
+        Err(SourceError::Credentials)
+    );
+}
+
+#[test]
+fn a_transport_helper_url_is_refused_before_anything_else() {
+    for text in [
+        "git:ext::sh -c touch% /tmp/x@v1",
+        "git:ext::sh@v1",
+        "git:fd::17@v1",
+        "git:https::https://TOKEN@host/x.git@v1",
+        "git:https::https://host/x.git@v1",
+        "git:a+b-c.d::x@v1",
+        "git:::x@v1",
+        "git:ext::sh -c x",
+    ] {
+        assert_eq!(
+            Source::try_from(text),
+            Err(SourceError::TransportHelper),
+            "{text}"
+        );
+    }
+    assert_eq!(
+        GitUrl::try_from("ext::sh"),
+        Err(SourceError::TransportHelper)
+    );
+}
+
+#[test]
+fn a_colon_that_is_not_a_double_colon_at_the_start_is_not_a_transport_helper() {
+    for text in [
+        "git:host:o/x.git@v1",
+        "git:./a::b/x.git@v1",
+        "git:https://host/a::b.git@v1",
+        "git:git@host:o::x@v1",
+    ] {
+        assert!(Source::try_from(text).is_ok(), "{text}");
+    }
+}
+
+#[test]
 fn credentials_in_a_git_url_are_refused() {
     for text in [
         "git:https://user:token@host/x.git@v1",

@@ -302,12 +302,19 @@ exit $status
             setup: &Setup,
         ) -> Result<FetchedLayer, Diagnostic> {
             let parts = self.parts(source, setup);
-            Fetcher::new(&parts.cache, &parts.location, &parts.runner).resolve(&GitLayer {
-                source: &parts.source,
-                git_ref: &parts.git_ref,
-                origin: &parts.origin,
-                locked,
-            })
+            Fetcher::new(&parts.cache, &parts.location, &parts.runner)
+                .resolve(&GitLayer {
+                    source: &parts.source,
+                    git_ref: &parts.git_ref,
+                    origin: &parts.origin,
+                    locked,
+                })
+                .map_err(|diagnostics| {
+                    diagnostics
+                        .into_iter()
+                        .next()
+                        .expect("a failed fetch has a diagnostic")
+                })
         }
 
         fn entry_path(&self, source: &str, commit: ObjectId) -> PathBuf {
@@ -731,6 +738,10 @@ exit $status
 
     #[test]
     fn a_cache_root_made_read_only_before_the_publish_is_cannot_store() {
+        // The superuser ignores modes, so the failure this test makes cannot happen.
+        if alz_test_support::running_as_root() {
+            return;
+        }
         let world = World::new();
         world.commit(LAYER);
         world.executable("bin/git", WRAPPED_GIT);
@@ -751,6 +762,10 @@ exit $status
 
     #[test]
     fn a_clone_that_cannot_be_read_is_cannot_store_and_not_cannot_fetch() {
+        // The superuser ignores modes, so the failure this test makes cannot happen.
+        if alz_test_support::running_as_root() {
+            return;
+        }
         let world = World::new();
         world.commit(LAYER);
         world.executable("bin/git", WRAPPED_GIT);
