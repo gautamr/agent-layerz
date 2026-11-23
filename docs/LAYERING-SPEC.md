@@ -1912,6 +1912,9 @@ A command whose own text states other codes, such as `alz account which` (§10),
    fragments that text repeats are stripped as in class 1, so no line feed, carriage return,
    escape or format character from an argument reaches the output.
 
+Untrusted text that alz writes into a generated YAML file is in none of these classes; §10.2 says
+how it is written.
+
 **Help and version.**
 - `--help` prints help on standard output and exits 0.
 - `--version` and `-V` print `alz <version>` and exit 0.
@@ -1928,6 +1931,115 @@ error, with no payload, location or backtrace, and the process exits 70.
 `lint ok: <names>`, or `lint failed: <n> errors in <names>` (`error` when n is 1). `<names>` is
 the linted layers' names joined by `, `. A layer whose name is not known appears as its directory
 as it was given, stripped.
+
+### 10.2 Generated YAML
+
+decision-28 (TASK-55.3.8). alz writes YAML into the frontmatter of the agents, rules and skills it
+generates, into the layer files `alz build --adopt` writes, and into `allowed.yaml` (§7.13). This
+section says how that document is written; the framing around it (the `---` lines and `# …`
+header of a frontmatter block, the header comment of `allowed.yaml`) belongs to the caller. The
+Rust `alz` writes the bytes the TypeScript `alz` writes (`stringifyYaml` in `src/core/yaml.ts`:
+the `yaml` package 2.9.1, block style, `lineWidth: 0`), except for the reference drift at the
+end. The golden samples in `crates/alz-core/tests/fixtures/yaml-emit/samples.json`, made from the
+reference by `crates/alz-core/tools/yaml-emit-samples.mjs`, pin the bytes; each sample's `class`
+names the rule it shows, and a `drift` field marks a sample alz writes differently.
+
+**Values.** Text, `true` and `false`, integers, lists, and mappings with text keys, in the order
+the caller gives (§6 where a section is sorted), with no key twice. Nothing else is written: no
+null, float, anchor, alias, tag or comment.
+
+**Layout.**
+- The document is the top-level value and one line feed. The top-level value is a mapping or a
+  list. alz never writes a top-level scalar, so this section gives no rule for one.
+- An integer is decimal, with `-` when negative, exact over the 64-bit range. An empty list is
+  `[]` and an empty mapping `{}`.
+- A list writes each item as `- <item>`, a mapping each entry as `<key>: <value>`, one per line
+  at the collection's indent.
+- A non-empty list or mapping that is the value of an entry starts on the next line, two spaces
+  deeper than its key (`tools:`, then `  - read`). One that is an item of a list starts after its
+  `- `, and its later lines are two spaces deeper than the `-` (`- name: a`, then `  role: b`;
+  `- - x`, then `  - y`).
+- A key whose written form (after quoting) is longer than 1024 UTF-16 code units makes an explicit
+  entry: `? <key>`, a line feed, the entry's indent, then `: <value>`, with the value on that line
+  even when it is a non-empty list or mapping.
+- The *continuation indent* of a text is two spaces more than the indent of the entry or list
+  item that holds it.
+
+**Text.** A key or a text value takes the first form that applies:
+1. **Double-quoted** when it holds a character that alz's reader refuses (§7.13, "Control
+   characters"): U+0000 to U+0008, U+000B to U+001F, U+007F to U+009F, U+2028 or U+2029
+   (U+2028 and U+2029 planned, TASK-73).
+2. **Quoted** when it starts with U+FEFF, or is made only of spaces and line feeds and holds both.
+3. **Quoted** when it is a key that holds a line feed.
+4. When plain YAML cannot hold it: it starts with a line feed, tab, space or one of
+   `` , [ ] { } # & * ! | > ' " % @ ` ``; it is `?` or `-`, or starts with `?` or `-` and then a
+   space or tab; it ends with a line feed, tab, space or `:`; or it holds a line feed or `:`
+   followed by a space or tab, a space or tab followed by a line feed, or a line feed, tab or
+   space followed by `#`. Then a key, or text without a line feed, is **quoted**, and any other
+   text is a **literal block**.
+5. A **literal block** when it holds a line feed.
+6. **Quoted** when it is a key of the top-level mapping and starts with `---` or `...`, or holds
+   U+2028 or U+2029 followed by `---`, `...` or `%`.
+7. **Quoted** when the YAML 1.2 core schema, or alz's reader, reads it as another type:
+   - `~`, `null`, `Null`, `NULL`, `true`, `True`, `TRUE`, `false`, `False`, `FALSE`, or empty;
+   - an integer, `[-+]?[0-9]+`, `0o[0-7]+` or `0x[0-9a-fA-F]+`, and, for alz's reader,
+     `[-+]0o[0-7]+`, `[-+]0x[0-9a-fA-F]+` and `[-+]?0b[01]+`;
+   - a float, `[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?`, `[-+]?\.(inf|Inf|INF)`,
+     `.nan`, `.NaN` or `.NAN`.
+
+   Forms that only YAML 1.1 reads, such as `yes`, `off`, `1_000`, `12:30` or `2024-01-01`, and
+   other case, such as `0B1` or `TRue`, stay plain.
+8. Otherwise **plain**: the text as it is.
+
+**Quoted.** Text that holds `"`, no `'` and no line feed is written in single quotes as it is
+(`'say "hi"'`). All other quoted text is double-quoted.
+
+**Double-quoted.** Start from J, the text as JSON writes a string: `"`, each character, `"`. In J,
+`"` is `\"`, `\` is `\\`, U+0008 is `\b`, U+000C `\f`, a line feed `\n`, a carriage return `\r`, a
+tab `\t`, and every other character below U+0020, and U+007F to U+009F, U+2028 and U+2029
+(planned, TASK-73), is `\u` and four lower-case hexadecimal digits; every other character is as
+it is. J is written with these changes:
+- Each `\uXXXX` becomes YAML's escape: `\0` for U+0000, `\a` for U+0007, `\v` for U+000B, `\e`
+  for U+001B, `\N` for U+0085, `\L` for U+2028, `\P` for U+2029, and otherwise `\x` and the last
+  two digits (`\x01`, `\x7f`).
+- When the text is not a key and J is at least 40 UTF-16 code units long, counted with both
+  quotes and with each escape as J writes it, every line feed except one that ends the text is
+  written as a line break instead of `\n`: a run of n such line feeds becomes n + 1 line feeds
+  and then the continuation indent.
+- A space right before a line feed (`\n` or a line break), or right after a run written as line
+  breaks, is written `\ `, once when both hold.
+
+**Literal block.** Text that ends in spaces or tabs after its last line feed is quoted instead.
+Otherwise let E be the text's trailing run of line feeds, tabs and spaces, and B the text before
+E. The block is `|`, then `2` when the first character of B that is not a line feed is a space,
+then `-` when E holds no line feed, `+` when E holds two or more or B is empty, and nothing when
+it holds one; then a line feed and the lines of the text without its final line feed (when it
+ends in one), split at line feeds. The first line is written after the continuation indent even
+when it is empty; every later line after the continuation indent, and an empty one as nothing.
+
+**Reading back.** alz's reader (§7.13) reads each document this section writes as the values
+written (the round-trip law of TASK-55.3.8), except text that holds a character of rule 1, which
+it refuses raw or escaped. YAML that alz reads cannot hold such text, but a file-system path
+(`root` and `source` of `allowed.yaml`), a file name (`alz build --adopt` names an adopted agent
+after its file, `.claude/agents/<name>.md`) or a string in a JSON file that `alz build --adopt`
+converts can. `alz account allow` then refuses to write, since the result does not read back
+(§7.13). The escapes keep these characters out of the file's bytes: a viewer or a diff may show
+NEL, U+2028 or U+2029 as a line break, so a committed file would review differently from what it
+holds, some terminals act on C1 controls, and YAML 1.1 readers take NEL, U+2028 and U+2029 as
+line breaks.
+
+The TypeScript `alz` differs (reference drift, decision-30, TASK-73). These change generated
+bytes only for the text named; the cutover release (R8, TASK-55.9) lists them.
+- It writes plain what alz's reader reads as another value or refuses, and alz quotes it: `0b`
+  integers with or without a sign and `0o` and `0x` integers with a sign, which alz's reader
+  reads as integers (rule 7); text that starts with U+FEFF, which it refuses (rule 2); and text
+  made only of spaces and line feeds that holds both, which it writes as a block that reads back
+  without its spaces (rule 2). Samples: class `reference-reads-differently`.
+- In long double-quoted text it writes a space between a line feed written as a line break and
+  another line feed as `\\ `, which reads back as a backslash; alz writes `\ ` (planned,
+  TASK-73).
+- It writes U+007F to U+009F raw inside double quotes, and U+2028 and U+2029 raw, plain or in a
+  block; alz double-quotes and escapes them (rule 1; planned, TASK-73).
 
 ---
 
