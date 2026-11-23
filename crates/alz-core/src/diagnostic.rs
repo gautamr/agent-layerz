@@ -61,6 +61,9 @@ pub enum Code {
     AccountConfig,
     /// A problem in the allow state `allowed.yaml`, which alz ignores in part or whole (§7.13).
     AccountAllowed,
+    /// A command that the Rust `alz` does not implement yet. Temporary: it is not in the spec,
+    /// and the phase that ports the command removes it.
+    NotPorted,
 }
 
 impl Code {
@@ -77,6 +80,7 @@ impl Code {
             Self::Source => "source",
             Self::AccountConfig => "account-config",
             Self::AccountAllowed => "account-allowed",
+            Self::NotPorted => "not-ported",
         }
     }
 }

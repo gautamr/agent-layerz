@@ -10,9 +10,11 @@ publish = false
 
 [dependencies]
 alz-core.workspace = true
+alz-io.workspace = true
 clap.workspace = true
 
 [dev-dependencies]
+alz-test-support.workspace = true
 assert_cmd.workspace = true
 
 [lints]

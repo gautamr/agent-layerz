@@ -8,5 +8,13 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+alz-core.workspace = true
+rustix.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+alz-test-support.workspace = true
+
 [lints]
 workspace = true
