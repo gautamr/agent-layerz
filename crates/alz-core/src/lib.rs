@@ -9,6 +9,7 @@ mod diagnostic;
 pub mod identity;
 pub mod json;
 pub mod layer;
+pub mod lint;
 pub mod lock;
 pub mod path;
 pub mod render;

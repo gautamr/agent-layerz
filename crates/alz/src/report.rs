@@ -33,13 +33,6 @@ const FAILED: u8 = 1;
 /// they give: 0 when none is an error, 1 when any is, so warnings alone do not fail a command
 /// (spec §10.1). When standard error cannot be written there is nowhere left to say so; the exit
 /// code is [`WRITE_FAILED`] then.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "alz lint (TASK-55.3.10) is the first command to report diagnostics"
-    )
-)]
 pub fn emit_diagnostics(diagnostics: &Diagnostics, stderr: &mut impl Write) -> u8 {
     match write_through(stderr, &diagnostics.to_string()) {
         Ok(()) if diagnostics.has_errors() => FAILED,

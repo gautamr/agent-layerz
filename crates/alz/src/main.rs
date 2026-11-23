@@ -2,6 +2,7 @@
 //! code. Only this crate decides the exit code (decision-26).
 
 mod cli;
+mod command;
 mod internal_failure;
 mod report;
 mod terminal_text;
@@ -11,7 +12,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
-use crate::cli::Cli;
+use crate::cli::{Cli, Command};
 use crate::report::Rendered;
 
 fn main() -> ExitCode {
@@ -21,7 +22,13 @@ fn main() -> ExitCode {
 
 fn run() -> ExitCode {
     match Cli::try_parse() {
-        Ok(Cli {}) => ExitCode::SUCCESS,
+        Ok(Cli {
+            command: Command::Lint(args),
+        }) => ExitCode::from(command::lint::run(
+            &args,
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
         Err(error) => {
             ExitCode::from(Rendered::of(error).emit(&mut io::stdout(), &mut io::stderr()))
         }
