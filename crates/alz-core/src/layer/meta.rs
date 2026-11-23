@@ -108,7 +108,11 @@ fn declarations(
 ) -> Checked<(Option<CommitIdentity>, Option<AccountDeclaration>)> {
     zip(
         optional(section, "commit_identity", CommitIdentity::from_node),
-        optional(section, "account", AccountDeclaration::from_node),
+        // Test 29: `account: null` is refused, so this field reads the node as written.
+        section
+            .written_node("account")
+            .map(|node| AccountDeclaration::from_node(node, section.field_path("account")))
+            .transpose(),
     )
 }
 

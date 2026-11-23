@@ -65,10 +65,12 @@ impl KeyPath {
 /// What is wrong with a field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FieldProblem {
-    /// A number, a boolean or null where text is expected: quote the value to keep it as text.
+    /// A number or a boolean where text is expected: quote the value to keep it as text.
     NotText,
     /// A value that is not a whole number.
     NotWholeNumber,
+    /// A value that is not `true` or `false`.
+    NotBoolean,
     /// A value that is not a list.
     NotList,
     /// A value that is not a mapping.
@@ -113,6 +115,7 @@ impl FieldError {
                 .message()
                 .then(" must be text; put the value in quotes to keep it as text"),
             FieldProblem::NotWholeNumber => self.path.message().then(" must be a whole number"),
+            FieldProblem::NotBoolean => self.path.message().then(" must be true or false"),
             FieldProblem::NotList => self.path.message().then(" must be a list"),
             FieldProblem::NotMapping => self.path.message().then(" must be a mapping"),
             FieldProblem::UnknownField(key) => {
@@ -179,9 +182,21 @@ impl<'a> Section<'a> {
         self.path.field(field)
     }
 
-    /// The node of the field, `None` when it is absent.
+    /// The node of the field, `None` when it is absent. A field whose value is null, written as
+    /// nothing, `~` or `null`, counts as absent (§5.1, §5.2); one that must be present is then
+    /// reported as missing. Every reader of a field goes through here.
     #[must_use]
     pub fn node(&self, field: &str) -> Option<&'a Node> {
+        self.mapping
+            .get(field)
+            .filter(|node| !matches!(node.value(), Value::Null))
+    }
+
+    /// The node of the field as written, null included, `None` only when the key is absent. The
+    /// `account` field uses it because its schema refuses null (§7.13); every other field
+    /// goes through [`Section::node`].
+    #[must_use]
+    pub fn written_node(&self, field: &str) -> Option<&'a Node> {
         self.mapping.get(field)
     }
 
@@ -221,15 +236,14 @@ impl<'a> Section<'a> {
         }
     }
 
-    /// The field as text, `None` when it is absent. A number, a boolean or null is an error that
+    /// The field as text, `None` when it is absent. A number or a boolean is an error that
     /// suggests quoting, so `ref: 1.10` is never read as `"1.1"`.
     ///
     /// # Errors
     ///
     /// [`FieldProblem::NotText`].
     pub fn text(&self, field: &'static str) -> Result<Option<&'a str>, FieldError> {
-        self.mapping
-            .get(field)
+        self.node(field)
             .map(|node| Self::as_text(node, self.path.field(field)))
             .transpose()
     }
@@ -241,8 +255,7 @@ impl<'a> Section<'a> {
     ///
     /// [`FieldProblem::NotWholeNumber`].
     pub fn whole_number(&self, field: &'static str) -> Result<Option<i128>, FieldError> {
-        self.mapping
-            .get(field)
+        self.node(field)
             .map(|node| {
                 whole_number_of(node.value()).ok_or_else(|| FieldError {
                     path: self.path.field(field),
@@ -261,8 +274,7 @@ impl<'a> Section<'a> {
     /// at the path `<field>[<n>]`.
     pub fn text_list(&self, field: &'static str) -> Result<Option<Vec<&'a str>>, FieldError> {
         let path = self.path.field(field);
-        self.mapping
-            .get(field)
+        self.node(field)
             .map(|node| match node.value() {
                 Value::Seq(items) => items
                     .iter()
@@ -281,6 +293,69 @@ impl<'a> Section<'a> {
                 }),
             })
             .transpose()
+    }
+
+    /// The field as `true` or `false`, `None` when it is absent.
+    ///
+    /// # Errors
+    ///
+    /// [`FieldProblem::NotBoolean`].
+    pub fn boolean(&self, field: &'static str) -> Result<Option<bool>, FieldError> {
+        self.node(field)
+            .map(|node| match node.value() {
+                Value::Bool(flag) => Ok(*flag),
+                Value::Null
+                | Value::Int(_)
+                | Value::Float(_)
+                | Value::Text(_)
+                | Value::Seq(_)
+                | Value::Map(_) => Err(FieldError {
+                    path: self.path.field(field),
+                    problem: FieldProblem::NotBoolean,
+                    at: node.at(),
+                }),
+            })
+            .transpose()
+    }
+
+    /// The items of the field as nodes with their key paths, `None` when the field is absent.
+    ///
+    /// # Errors
+    ///
+    /// [`FieldProblem::NotList`].
+    pub fn items(
+        &self,
+        field: &'static str,
+    ) -> Result<Option<Vec<(KeyPath, &'a Node)>>, FieldError> {
+        let path = self.path.field(field);
+        self.node(field)
+            .map(|node| match node.value() {
+                Value::Seq(items) => Ok(items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| (path.item(index), item))
+                    .collect()),
+                Value::Null
+                | Value::Bool(_)
+                | Value::Int(_)
+                | Value::Float(_)
+                | Value::Text(_)
+                | Value::Map(_) => Err(FieldError {
+                    path: path.clone(),
+                    problem: FieldProblem::NotList,
+                    at: node.at(),
+                }),
+            })
+            .transpose()
+    }
+
+    /// `node` as text, at `path`.
+    ///
+    /// # Errors
+    ///
+    /// [`FieldProblem::NotText`].
+    pub fn text_of(node: &'a Node, path: KeyPath) -> Result<&'a str, FieldError> {
+        Self::as_text(node, path)
     }
 
     fn as_text(node: &Node, path: KeyPath) -> Result<&str, FieldError> {

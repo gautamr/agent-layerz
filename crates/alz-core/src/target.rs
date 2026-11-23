@@ -3,6 +3,8 @@
 
 use std::fmt;
 
+use thiserror::Error;
+
 use crate::diagnostic::{Printable, sealed::Sealed};
 
 /// A target: `claude` or `codex` (spec §8). Each variant is named in `layer.yaml` and in the
@@ -29,6 +31,30 @@ impl TargetName {
     }
 }
 
+/// Text that is not the name of a target. The error holds no input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[error("not a target: claude or codex")]
+pub struct TargetError;
+
+impl TargetError {
+    /// The rule, as the end of a sentence about a field.
+    #[must_use]
+    pub const fn rule(self) -> &'static str {
+        "must be a target: claude or codex"
+    }
+}
+
+impl TryFrom<&str> for TargetName {
+    type Error = TargetError;
+
+    fn try_from(text: &str) -> Result<Self, Self::Error> {
+        Self::ALL
+            .into_iter()
+            .find(|target| target.as_str() == text)
+            .ok_or(TargetError)
+    }
+}
+
 impl fmt::Display for TargetName {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
@@ -45,7 +71,7 @@ impl Printable for TargetName {
 
 #[cfg(test)]
 mod tests {
-    use super::TargetName;
+    use super::{TargetError, TargetName};
 
     #[test]
     fn the_targets_are_listed_in_name_order() {
@@ -55,5 +81,12 @@ mod tests {
             .collect();
         assert_eq!(names, ["claude", "codex"]);
         assert!(TargetName::Claude < TargetName::Codex);
+    }
+
+    #[test]
+    fn a_target_is_read_from_its_exact_lower_case_name() {
+        assert_eq!(TargetName::try_from("codex"), Ok(TargetName::Codex));
+        assert_eq!(TargetName::try_from("Claude"), Err(TargetError));
+        assert_eq!(TargetName::try_from(""), Err(TargetError));
     }
 }

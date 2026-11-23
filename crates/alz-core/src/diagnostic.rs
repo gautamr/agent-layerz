@@ -55,6 +55,8 @@ pub enum Code {
     NoManifest,
     /// An invalid `layer.lock` (§5.4).
     Lock,
+    /// A layer source that cannot be used, such as a `git:` URL that holds credentials (§5.2).
+    Source,
 }
 
 impl Code {
@@ -68,6 +70,7 @@ impl Code {
             Self::Manifest => "manifest",
             Self::NoManifest => "no-manifest",
             Self::Lock => "lock",
+            Self::Source => "source",
         }
     }
 }
@@ -561,6 +564,7 @@ mod tests {
             Code::Manifest,
             Code::NoManifest,
             Code::Lock,
+            Code::Source,
         ]
         .map(Code::as_str)
         .to_vec();
@@ -572,7 +576,8 @@ mod tests {
                 "layer",
                 "manifest",
                 "no-manifest",
-                "lock"
+                "lock",
+                "source"
             ]
         );
     }
@@ -690,7 +695,7 @@ mod tests {
     fn any_diagnostic() -> impl Strategy<Value = Diagnostic> {
         (
             any::<bool>(),
-            0..6_u8,
+            0..7_u8,
             proptest::option::of(any_where()),
             any_message(),
         )
@@ -702,6 +707,7 @@ mod tests {
                     Code::Manifest,
                     Code::NoManifest,
                     Code::Lock,
+                    Code::Source,
                 ]
                 .get(usize::from(code))
                 .copied()
