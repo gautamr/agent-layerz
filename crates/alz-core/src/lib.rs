@@ -15,6 +15,7 @@ pub mod layer;
 pub mod lint;
 pub mod lock;
 pub mod markdown;
+pub mod merge;
 pub mod path;
 pub mod render;
 pub mod schema;
