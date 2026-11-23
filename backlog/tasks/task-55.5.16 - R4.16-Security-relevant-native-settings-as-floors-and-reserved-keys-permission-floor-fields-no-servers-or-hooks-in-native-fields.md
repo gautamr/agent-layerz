@@ -3,9 +3,11 @@ id: TASK-55.5.16
 title: >-
   R4.16: Security-relevant native settings as floors and reserved keys,
   permission floor fields, no servers or hooks in native fields
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-23T16:08:00Z'
+updated_date: '2026-11-23T16:19:00Z'
 labels:
   - area:rust
   - area:security
