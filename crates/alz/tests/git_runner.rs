@@ -418,7 +418,9 @@ exit 0
     #[test]
     fn a_git_at_2_30_is_accepted_and_asked_for_its_version_once() {
         let (result, calls) = runner_with_version("git version 2.30.0\\n");
-        assert!(result.is_ok());
+        if let Err(refusal) = &result {
+            panic!("git 2.30.0 was refused: {}", refusal.diagnostic());
+        }
         assert_eq!(calls, ["version"]);
     }
 
