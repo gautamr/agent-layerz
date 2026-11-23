@@ -5,6 +5,10 @@ use std::fmt;
 
 use thiserror::Error;
 
+mod absolute;
+
+pub use absolute::{AbsolutePath, AbsolutePathError};
+
 /// A relative path that stays where it is: `/`-separated, with no empty, `.`, `..` or `.git`
 /// segment, no backslash and no NUL. Its text is valid UTF-8 because a `str` is.
 ///
