@@ -65,10 +65,16 @@ impl KeyPath {
 /// What is wrong with a field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FieldProblem {
-    /// A number or a boolean where text is expected: quote the value to keep it as text.
+    /// A number where text is expected: quote the value to keep it as text (§5.1, §5.2).
+    NumberNotText,
+    /// Anything but text or a number where text is expected: null, a boolean, a list or a
+    /// mapping. Quoting would not make it what the field wants, so no hint is given.
     NotText,
     /// A value that is not a whole number.
     NotWholeNumber,
+    /// A float with no fractional part that is too large to be read as a whole number, such as
+    /// `1e300`.
+    WholeNumberTooLarge,
     /// A value that is not `true` or `false`.
     NotBoolean,
     /// A value that is not a list.
@@ -77,6 +83,9 @@ pub enum FieldProblem {
     NotMapping,
     /// A key the schema does not know.
     UnknownField(QuotedKey),
+    /// A key that is not text, named by its kind. It is no text from the file, so it is printed
+    /// as the kind, unquoted: `an unknown key that is a number`.
+    UnknownKeyOfKind(&'static str),
 }
 
 /// A field that does not fit its schema, with its key path and the position of its value.
@@ -110,22 +119,36 @@ impl FieldError {
     #[must_use]
     pub fn message(&self) -> Message {
         match &self.problem {
-            FieldProblem::NotText => self
+            FieldProblem::NumberNotText => self
                 .path
                 .message()
                 .then(" must be text; put the value in quotes to keep it as text"),
+            FieldProblem::NotText => self.path.message().then(" must be text"),
             FieldProblem::NotWholeNumber => self.path.message().then(" must be a whole number"),
+            FieldProblem::WholeNumberTooLarge => self
+                .path
+                .message()
+                .then(" is a whole number that is too large"),
             FieldProblem::NotBoolean => self.path.message().then(" must be true or false"),
             FieldProblem::NotList => self.path.message().then(" must be a list"),
             FieldProblem::NotMapping => self.path.message().then(" must be a mapping"),
             FieldProblem::UnknownField(key) => {
-                let message = Message::new("unknown field ").then(key.clone());
-                if self.path.0.is_empty() {
-                    message
-                } else {
-                    self.path.extend(message.then(" in "))
-                }
+                self.in_section(Message::new("unknown field ").then(key.clone()))
             }
+            FieldProblem::UnknownKeyOfKind(kind) => {
+                self.in_section(Message::new("an unknown key that is ").then(*kind))
+            }
+        }
+    }
+}
+
+impl FieldError {
+    /// `message`, followed by ` in <key path>` when the section is not the document's root.
+    fn in_section(&self, message: Message) -> Message {
+        if self.path.0.is_empty() {
+            message
+        } else {
+            self.path.extend(message.then(" in "))
         }
     }
 }
@@ -217,31 +240,36 @@ impl<'a> Section<'a> {
             .entries()
             .filter_map(|(key, _)| match key.value() {
                 Value::Text(name) if known.contains(&name.as_str()) => None,
-                Value::Text(name) => Some(self.unknown(name, key.at())),
+                Value::Text(name) => Some(self.unknown(
+                    FieldProblem::UnknownField(QuotedKey::from_untrusted(name)),
+                    key.at(),
+                )),
                 Value::Null
                 | Value::Bool(_)
                 | Value::Int(_)
                 | Value::Float(_)
                 | Value::Seq(_)
-                | Value::Map(_) => Some(self.unknown(key.value().kind_name(), key.at())),
+                | Value::Map(_) => Some(self.unknown(
+                    FieldProblem::UnknownKeyOfKind(key.value().kind_name()),
+                    key.at(),
+                )),
             })
             .collect()
     }
 
-    fn unknown(&self, name: &str, at: Position) -> FieldError {
+    fn unknown(&self, problem: FieldProblem, at: Position) -> FieldError {
         FieldError {
             path: self.path.clone(),
-            problem: FieldProblem::UnknownField(QuotedKey::from_untrusted(name)),
+            problem,
             at,
         }
     }
 
-    /// The field as text, `None` when it is absent. A number or a boolean is an error that
-    /// suggests quoting, so `ref: 1.10` is never read as `"1.1"`.
+    /// The field as text, `None` when it is absent. A number is an error that suggests quoting, so `ref: 1.10` is never read as `"1.1"`.
     ///
     /// # Errors
     ///
-    /// [`FieldProblem::NotText`].
+    /// [`FieldProblem::NumberNotText`] or [`FieldProblem::NotText`].
     pub fn text(&self, field: &'static str) -> Result<Option<&'a str>, FieldError> {
         self.node(field)
             .map(|node| Self::as_text(node, self.path.field(field)))
@@ -253,44 +281,27 @@ impl<'a> Section<'a> {
     ///
     /// # Errors
     ///
-    /// [`FieldProblem::NotWholeNumber`].
+    /// [`FieldProblem::NotWholeNumber`], or [`FieldProblem::WholeNumberTooLarge`] for a float with
+    /// no fractional part that does not fit.
     pub fn whole_number(&self, field: &'static str) -> Result<Option<i128>, FieldError> {
         self.node(field)
             .map(|node| {
                 whole_number_of(node.value()).ok_or_else(|| FieldError {
                     path: self.path.field(field),
-                    problem: FieldProblem::NotWholeNumber,
+                    problem: match node.value() {
+                        Value::Float(number) if number.is_finite() && number.fract() == 0.0 => {
+                            FieldProblem::WholeNumberTooLarge
+                        }
+                        Value::Float(_)
+                        | Value::Null
+                        | Value::Bool(_)
+                        | Value::Int(_)
+                        | Value::Text(_)
+                        | Value::Seq(_)
+                        | Value::Map(_) => FieldProblem::NotWholeNumber,
+                    },
                     at: node.at(),
                 })
-            })
-            .transpose()
-    }
-
-    /// The field as a list of text, `None` when it is absent. Every item must be text.
-    ///
-    /// # Errors
-    ///
-    /// [`FieldProblem::NotList`], or [`FieldProblem::NotText`] for the first item that is not text,
-    /// at the path `<field>[<n>]`.
-    pub fn text_list(&self, field: &'static str) -> Result<Option<Vec<&'a str>>, FieldError> {
-        let path = self.path.field(field);
-        self.node(field)
-            .map(|node| match node.value() {
-                Value::Seq(items) => items
-                    .iter()
-                    .enumerate()
-                    .map(|(index, item)| Self::as_text(item, path.item(index)))
-                    .collect(),
-                Value::Null
-                | Value::Bool(_)
-                | Value::Int(_)
-                | Value::Float(_)
-                | Value::Text(_)
-                | Value::Map(_) => Err(FieldError {
-                    path: path.clone(),
-                    problem: FieldProblem::NotList,
-                    at: node.at(),
-                }),
             })
             .transpose()
     }
@@ -353,24 +364,23 @@ impl<'a> Section<'a> {
     ///
     /// # Errors
     ///
-    /// [`FieldProblem::NotText`].
+    /// [`FieldProblem::NumberNotText`] or [`FieldProblem::NotText`].
     pub fn text_of(node: &'a Node, path: KeyPath) -> Result<&'a str, FieldError> {
         Self::as_text(node, path)
     }
 
     fn as_text(node: &Node, path: KeyPath) -> Result<&str, FieldError> {
+        let refused = |problem| FieldError {
+            path,
+            problem,
+            at: node.at(),
+        };
         match node.value() {
             Value::Text(text) => Ok(text),
-            Value::Null
-            | Value::Bool(_)
-            | Value::Int(_)
-            | Value::Float(_)
-            | Value::Seq(_)
-            | Value::Map(_) => Err(FieldError {
-                path,
-                problem: FieldProblem::NotText,
-                at: node.at(),
-            }),
+            Value::Int(_) | Value::Float(_) => Err(refused(FieldProblem::NumberNotText)),
+            Value::Null | Value::Bool(_) | Value::Seq(_) | Value::Map(_) => {
+                Err(refused(FieldProblem::NotText))
+            }
         }
     }
 }

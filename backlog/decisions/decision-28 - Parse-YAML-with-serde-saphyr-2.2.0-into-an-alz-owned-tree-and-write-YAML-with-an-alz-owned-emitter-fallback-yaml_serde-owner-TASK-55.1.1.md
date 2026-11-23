@@ -164,3 +164,11 @@ encoding_rs, licensed `(Apache-2.0 OR MIT) AND BSD-3-Clause` (the BSD-3-Clause p
 WHATWG encoding data). `deny.toml` gets a licence exception for encoding_rs only, allowing
 BSD-3-Clause for that crate; BSD-3-Clause stays disallowed for every other crate. R2.4 adds the
 exception together with serde-saphyr.
+
+**Amended 2026-11-23 (lead, R2 review).** The budgets list gains a fifth: at most 4 MiB (4194304
+bytes) of scalar text in a document, counting a scalar again each time an alias replays it, set as
+serde-saphyr's `budget.max_total_scalar_bytes`. The default is 64 MiB, which let 100 aliases of
+a 1 MiB scalar build a 100 MiB tree from a 1 MiB file; 4 MiB is four times the file cap, so no
+file without aliases comes near it, while the tree's memory stays bounded. Its breach is the
+error `yaml`, "more than 4 MiB of scalar text, counting each alias use again". Spec §7.13
+lists it with the other four.

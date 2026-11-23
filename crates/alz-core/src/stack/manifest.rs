@@ -2,7 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use crate::schema::{Checked, SchemaError, SchemaErrors, refine_list, unknown_fields, zip, zip3};
+use crate::schema::{
+    Checked, SchemaError, SchemaErrors, refine_list, text_list, unknown_fields, zip, zip3,
+};
 use crate::stack::budgets::Budgets;
 use crate::stack::entry::DeclaredStack;
 use crate::stack::workspace::Workspace;
@@ -111,16 +113,7 @@ fn mcp_enable(node: &Node, path: KeyPath) -> Checked<Vec<McpName>> {
     let section = Section::new(node, path)?;
     zip(
         unknown_fields(&section, &["enable"]),
-        section
-            .text_list("enable")
-            .map(|names| {
-                names
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(McpName::from)
-                    .collect()
-            })
-            .map_err(SchemaErrors::from),
+        text_list::<McpName>(&section, "enable"),
     )
     .map(|((), names)| names)
 }
@@ -147,16 +140,7 @@ fn targets(section: &Section<'_>) -> Checked<BTreeSet<TargetName>> {
 }
 
 fn protected_paths(section: &Section<'_>) -> Checked<Vec<ProtectedPattern>> {
-    section
-        .text_list("protected_paths")
-        .map(|paths| {
-            paths
-                .unwrap_or_default()
-                .into_iter()
-                .map(ProtectedPattern::from)
-                .collect()
-        })
-        .map_err(SchemaErrors::from)
+    text_list::<ProtectedPattern>(section, "protected_paths")
 }
 
 /// The stack manifest of a repository.

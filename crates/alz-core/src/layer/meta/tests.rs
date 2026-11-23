@@ -172,10 +172,7 @@ fn account_errors_say_what_is_wrong_with_the_path_of_the_field() {
         said(r#"{"codex": "x/y"}"#),
         [format!("account.codex {rule}")]
     );
-    assert_eq!(
-        said(r#"{"claude": null}"#),
-        ["account.claude must be text; put the value in quotes to keep it as text"]
-    );
+    assert_eq!(said(r#"{"claude": null}"#), ["account.claude must be text"]);
     assert_eq!(said("{}"), ["account must not be an empty mapping"]);
     assert_eq!(
         said("[a]"),
@@ -323,7 +320,7 @@ fn a_commit_identity_value_that_is_not_text_says_to_quote_it() {
     .expect_err("a boolean");
     assert_eq!(
         messages(&email_is_bool),
-        ["commit_identity.email must be text; put the value in quotes to keep it as text"]
+        ["commit_identity.email must be text"]
     );
 }
 
@@ -389,10 +386,7 @@ fn a_number_in_a_text_field_gets_the_quoting_hint() {
         Some("1.10".to_owned())
     );
     let description = with("description: true").expect_err("a boolean");
-    assert_eq!(
-        messages(&description),
-        ["description must be text; put the value in quotes to keep it as text"]
-    );
+    assert_eq!(messages(&description), ["description must be text"]);
 }
 
 #[test]
@@ -569,6 +563,6 @@ fn the_account_field_still_refuses_null_as_test_29_says() {
     );
     assert_eq!(
         messages(&with("account: {claude: ~}").expect_err("refused")),
-        ["account.claude must be text; put the value in quotes to keep it as text"]
+        ["account.claude must be text"]
     );
 }

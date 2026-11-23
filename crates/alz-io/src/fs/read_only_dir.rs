@@ -43,8 +43,10 @@ impl ReadOnlyDir {
     /// Reads the regular file at `path` below the directory, at most `cap` bytes.
     ///
     /// Every component is opened relative to the handle before it, with `O_NOFOLLOW`, so no
-    /// link is followed. The file is opened with `O_NONBLOCK`, so a pipe or a device cannot block
-    /// the open, and what was opened is checked with `fstat` on that handle: only a regular file
+    /// link is followed. Every component, the file included, is opened with `O_NONBLOCK`, so a pipe
+    /// or a device cannot block the open wherever it lies in the path, and the file with
+    /// `O_NOCTTY`, so a terminal device never becomes the process's controlling terminal. What was
+    /// opened is checked with `fstat` on that handle: only a regular file
     /// is read (decision-27, amended). `st_size` is not trusted: at most `cap + 1` bytes are
     /// read, and the file is refused when the last of them arrives.
     ///
@@ -63,14 +65,14 @@ impl ReadOnlyDir {
                 open_below(
                     &directory,
                     segment,
-                    OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                    OFlags::DIRECTORY | OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                 )
             },
         )?;
         let file = open_below(
             &directory,
             name,
-            OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            OFlags::NONBLOCK | OFlags::NOCTTY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
         )?;
         require_regular(&file)?;
         read_at_most(File::from(file), cap)
@@ -260,6 +262,13 @@ mod tests {
         let dir = scratch();
         dir.make_fifo("layer.yaml").expect("a fifo");
         assert_refused_as_not_regular(&dir, "layer.yaml");
+    }
+
+    #[test]
+    fn a_fifo_in_the_middle_of_a_path_is_refused_without_blocking() {
+        let dir = scratch();
+        dir.make_fifo("fifo").expect("a fifo");
+        assert_refused_as_not_regular(&dir, "fifo/layer.yaml");
     }
 
     #[test]

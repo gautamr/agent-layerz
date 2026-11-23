@@ -53,7 +53,7 @@ pub enum Code {
     Manifest,
     /// A repository without a `layer.yaml` (§5.2).
     NoManifest,
-    /// An invalid `layer.lock` (§5.4).
+    /// An invalid `layer.lock` (§5.3).
     Lock,
     /// A layer source that cannot be used, such as a `git:` URL that holds credentials (§5.2).
     Source,

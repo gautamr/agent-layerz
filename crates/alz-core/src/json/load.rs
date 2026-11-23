@@ -41,10 +41,26 @@ pub fn parse(bytes: &[u8]) -> Result<JsonValue, JsonError> {
     read(text, &failure).map_err(|error| {
         let at = Position::new(
             u32::try_from(error.line()).unwrap_or(u32::MAX),
-            u32::try_from(error.column()).unwrap_or(u32::MAX),
+            u32::try_from(characters_before(text, error.line(), error.column()))
+                .unwrap_or(u32::MAX),
         );
         JsonError::new(failure.take().unwrap_or(JsonErrorKind::Syntax), at)
     })
+}
+
+/// `serde_json` counts a column in bytes of the line, up to and including the last byte it read;
+/// the spec counts it in characters (§10.1). This is the number of characters of line `line` that
+/// start within the first `byte_column` bytes, which is the column in characters. A line the text
+/// does not have keeps the byte column.
+fn characters_before(text: &str, line: usize, byte_column: usize) -> usize {
+    line.checked_sub(1)
+        .and_then(|index| text.split('\n').nth(index))
+        .map_or(byte_column, |line_text| {
+            line_text
+                .char_indices()
+                .take_while(|&(offset, _)| offset < byte_column)
+                .count()
+        })
 }
 
 /// The position just after `prefix`, where the next character would be: lines and columns count
@@ -63,6 +79,10 @@ fn end_of(prefix: &str) -> Position {
     .unwrap_or(Position::FIRST)
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one entry point to serde_json (decision-33): every JSON file alz reads goes through json::parse"
+)]
 fn read(
     text: &str,
     failure: &RefCell<Option<JsonErrorKind>>,

@@ -2,6 +2,7 @@
 //! directories each target may read and write. They stay relative to the repository, so the
 //! generated output is the same on every machine.
 
+use std::collections::BTreeSet;
 use std::fmt;
 
 use thiserror::Error;
@@ -114,15 +115,13 @@ impl Workspace {
             refine_list::<WorkspaceDir>(&section, "add_dirs"),
         )
         .map(|((), hub, listed)| {
-            let add_dirs = hub.iter().cloned().chain(listed.unwrap_or_default()).fold(
-                Vec::new(),
-                |mut dirs, dir| {
-                    if !dirs.contains(&dir) {
-                        dirs.push(dir);
-                    }
-                    dirs
-                },
-            );
+            let mut seen = BTreeSet::new();
+            let add_dirs = hub
+                .iter()
+                .cloned()
+                .chain(listed.unwrap_or_default())
+                .filter(|dir| seen.insert(dir.clone()))
+                .collect();
             Self { hub, add_dirs }
         })
     }

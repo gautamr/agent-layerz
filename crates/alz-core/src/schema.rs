@@ -367,15 +367,18 @@ pub fn unknown_fields(section: &Section<'_>, known: &[&str]) -> Checked<()> {
 /// # Errors
 ///
 /// Every problem of every item, in document order.
-#[expect(
-    clippy::manual_try_fold,
-    reason = "try_fold stops at the first failure, and every problem of every item is wanted"
-)]
 pub fn all<T>(items: impl IntoIterator<Item = Checked<T>>) -> Checked<Vec<T>> {
-    items.into_iter().fold(Ok(Vec::new()), |collected, item| {
-        zip(collected, item)
-            .map(|(values, value)| values.into_iter().chain(std::iter::once(value)).collect())
-    })
+    let (values, problems) = items.into_iter().fold(
+        (Vec::new(), Vec::new()),
+        |(mut values, mut problems), item| {
+            match item {
+                Ok(value) => values.push(value),
+                Err(errors) => problems.extend(errors),
+            }
+            (values, problems)
+        },
+    );
+    SchemaErrors::from_vec(problems).map_or(Ok(values), Err)
 }
 
 /// `node`, at `path`, as a value of the validated type `T`.
@@ -412,6 +415,25 @@ where
                 .map(|(path, node)| refine_node(path, node)))
         })
         .transpose()
+}
+
+/// The field as a list of values made from text, empty when the field is absent. Every item that
+/// is not text is reported, at `<field>[<n>]`.
+///
+/// # Errors
+///
+/// The field's problem when it is not a list, and the problem of each item that is not text.
+pub fn text_list<T: for<'a> From<&'a str>>(
+    section: &Section<'_>,
+    field: &'static str,
+) -> Checked<Vec<T>> {
+    section.items(field)?.map_or(Ok(Vec::new()), |items| {
+        all(items.into_iter().map(|(path, node)| {
+            Section::text_of(node, path)
+                .map(T::from)
+                .map_err(SchemaErrors::from)
+        }))
+    })
 }
 
 /// The field as a value of the validated type `T`, `None` when it is absent.

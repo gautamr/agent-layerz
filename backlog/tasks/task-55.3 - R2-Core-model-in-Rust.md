@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T05:45:00Z'
+updated_date: '2026-11-23T07:24:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -166,6 +166,8 @@ Architect (2026-11-23): plan written and split into TASK-55.3.1 to TASK-55.3.11;
 Owner answers (2026-11-23): (1) a quoted key name is cut at 64 characters, counted after stripping, then '…'; (2) approve thiserror, serde without derive, serde_json for parsing only, sha2 and proptest (dev) — one decision each; (3) allow CR in raw YAML text, refuse it in decoded strings (amend decision-28); (4) schema errors never print values, only the field path and quoted keys (reference drift where the reference prints more); (5) stack-mode alz lint gives a fixed error [not-ported], exit 1, until R3, and TASK-61 closes in R2 through its lint case; (6) R3 and R4 are judged by Rust tests plus the acceptance cases their CLI can reach; the full suite files must pass by R5.
 
 Owner (2026-11-23): Q7 answered, an encoding_rs-only licence exception (decision-28 amended); R2.1 spec text approved.
+
+R2 unit review fixes (implementer). 1 credentials: stack/source.rs git branch refuses holds_credentials(whole text after git:) before split_ref; tests in stack/source/tests.rs (no-ref rows) and lock/lock_file/tests.rs (Lock::parse); spec 5.2 reworded; both fail before the fix. 2 path.rs: .git compared ASCII-case-insensitively, trailing dots/spaces trimmed (.GIT, .git., .git ); spec 6 states it. 3 yaml/load.rs: MAX_SCALAR_BYTES = 4 MiB set as budget.max_total_scalar_bytes (4x the 1 MiB cap; serde-saphyr default 64 MiB let 100 aliases of 1 MiB build a 100 MiB tree); new YamlErrorKind::TooMuchScalarText; kind_of now unwraps Error::AliasError (budget breaches during alias replay were reported as Syntax); spec 7.13 lists five budgets; decision-28 amended. 4 alz-io read_only_dir.rs: parents opened O_NONBLOCK, file O_NOCTTY, FIFO-as-middle-component test (passes before too on this platform since O_DIRECTORY already refuses it; kept as defence in depth). 5,6 spec 10.1 wording and temporary not-ported sentence. 7 json/load.rs characters_before converts serde_json byte column to characters ({"e-acute": 1,} test); serde-saphyr columns are already 1-based, duplicate-key tests 2:1 and non-ASCII flow case added. 8 test/acceptance/29: shape regex; lint shape cases and the build case are referenceDrift(TASK-55.3). 9 yaml/tests.rs used(32) is TooDeep. 10 clippy.toml adds serde_json::Deserializer::from_str and ::new (serde_json::from_str was already banned), one #[expect] on json read; comment fixed (two YAML expects). 11 test/acceptance/35 asserts. 12 nits: schema::all linear; workspace dedup via BTreeSet; non-text key printed as 'an unknown key that is a number'; quoting hint only for numbers (NumberNotText vs NotText); text_list moved to schema::text_list reporting every non-text item; whole floats out of range say 'is a whole number that is too large'; Node::new and Mapping::from_entries pub(crate); QuotedKey built only on duplicate; diagnostic.rs lock doc cites 5.3. Checks: mise run rust:ci, lint, test (reference 1118 passed, 44 expected fail), ALZ_BIN run of 29/34/35: 69 passed, 10 failed (the known alz build/init cases).
 <!-- SECTION:NOTES:END -->
 
 ## Comments

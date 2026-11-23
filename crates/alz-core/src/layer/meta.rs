@@ -6,7 +6,9 @@ use crate::layer::kind::Kind;
 use crate::layer::name::LayerName;
 use crate::layer::text::{Description, ForbidPatternText, LayerVersion, SlotName};
 use crate::layer::visibility::Visibility;
-use crate::schema::{Checked, SchemaError, SchemaErrors, require, unknown_fields, zip, zip3};
+use crate::schema::{
+    Checked, SchemaError, SchemaErrors, require, text_list, unknown_fields, zip, zip3,
+};
 use crate::yaml::Node;
 use crate::yaml::fields::{KeyPath, Section};
 
@@ -47,17 +49,6 @@ fn free_text<T: for<'a> From<&'a str>>(
     section
         .text(field)
         .map(|text| text.map(T::from))
-        .map_err(SchemaErrors::from)
-}
-
-/// The text list at `field`, empty when the field is absent.
-fn text_list<T: for<'a> From<&'a str>>(
-    section: &Section<'_>,
-    field: &'static str,
-) -> Checked<Vec<T>> {
-    section
-        .text_list(field)
-        .map(|items| items.unwrap_or_default().into_iter().map(T::from).collect())
         .map_err(SchemaErrors::from)
 }
 

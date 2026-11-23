@@ -345,7 +345,10 @@ names `stack[<n>].source`, never its value:
 - A `https://` or `http://` scheme is matched ignoring case; the authority of a URL ends at the
   first `/`, `\`, `?` or `#`.
 
-**Credentials in a source** (TASK-65). A `git:` URL must not hold credentials:
+**Credentials in a source** (TASK-65). A `git:` URL must not hold credentials. The rule is applied
+to the whole text after `git:` and to the URL left once the `@<ref>` is split off, so a source
+without a ref (`git:https://token@host/x.git`) is refused as holding credentials, not read as a URL
+and a ref cut at the credentials' `@`:
 - an `http://` or `https://` URL with a user name or password (`https://user@…`,
   `https://token@…`, `https://user:token@…`) is refused;
 - any other URL, or a scp-like address (`user@host:path`), whose user part holds a `:` (a
@@ -525,7 +528,10 @@ entry (§6) or an entry whose content is not what the lock recorded.
      or unpinned layer, so a hub with `CLAUDE.md -> AGENTS.md` keeps working. They are not
      written, and a link found in an entry is a change. A path with a backslash, a `.` or `..`
      segment or a `.git` segment, or one that is not valid UTF-8 (§5.3 "File names"), is
-     refused.
+     refused. The same rule is the one for every relative path in `layer.lock` and in a layer
+     (`SafeRelPath`): the `.git` comparison ignores ASCII case (`.GIT` names `.git` on a
+     case-insensitive file system), and a segment `.git.` or `.git ` (a trailing dot or space,
+     which Windows drops) counts as `.git`.
    - A tree with two paths that are equal after Unicode NFC normalisation and case folding, or a
      file and a folder with such names, is refused before anything is written, because one file
      system would merge them.
@@ -1379,7 +1385,7 @@ account:                       # per target; a target left out is not decided by
   as strict UTF-8 and capped at 1 MiB, and parsed with the YAML alias limit. That covers
   `layer.yaml`, every frontmatter block (the 1 MiB counts the whole file that holds it), a
   layer's settings files, `accounts.yaml` and `allowed.yaml`. A file past any limit counts as
-  invalid YAML. The YAML alias limit is four budgets:
+  invalid YAML. The YAML alias limit is five budgets:
   - at most 100 aliases (`*name`) in a document, counted as they are written in the text, not
     as they expand;
   - at most 64 mappings and sequences nested inside one another: a document that is one scalar
@@ -1389,10 +1395,15 @@ account:                       # per target; a target left out is not decided by
   - at most 10000 parse events replayed through aliases. Each scalar, each alias and the start
     and end of each mapping or sequence is one event, so each use of an alias of a large node
     costs that node's size. An alias inside that node costs one event plus the size of its own
-    anchor's node, each time the outer node is replayed.
+    anchor's node, each time the outer node is replayed;
+  - at most 4 MiB (4194304 bytes) of scalar text in a document, counting a scalar again each time
+    an alias replays it. A file is at most 1 MiB, so scalars as written never reach the budget;
+    aliases of large scalars do (a 100 KiB scalar used by 41 aliases). It bounds the memory of the
+    parsed tree. The error is `yaml` with the message `more than 4 MiB of scalar text, counting
+    each alias use again`.
 
   decision-28 names the serde-saphyr options, not how they count. R2 (TASK-55.3) sets them so
-  that these four hold and tests each boundary.
+  that these five hold and tests each boundary.
 
   The TypeScript `alz` differs (reference drift, TASK-62):
   - it caps only some of these files at 1 MiB and reads invalid UTF-8 as U+FFFD;
@@ -1866,8 +1877,8 @@ error.
   contract. The message is part of it only where the spec quotes it.
 - `<where>` locates the problem:
   - a file of a layer is `<layer>:<path>`, where `<layer>` is the layer's name, or, while the name
-    is not known (its `layer.yaml` did not parse), the layer directory or stack entry as it was
-    given;
+    is not known (its `layer.yaml` did not parse or did not pass the schema), the layer
+    directory or stack entry as it was given;
   - a file of the repository, such as `layer.yaml` or `layer.lock`, is its path from the
     repository root;
   - a YAML or JSON error adds `:<line>:<column>`, both counted from 1, the column in characters;
@@ -1934,8 +1945,11 @@ error, with no payload, location or backtrace, and the process exits 70.
 
 **`alz lint`.** After its diagnostics, `alz lint` prints one summary line on standard output:
 `lint ok: <names>`, or `lint failed: <n> errors in <names>` (`error` when n is 1). `<names>` is
-the linted layers' names joined by `, `. A layer whose name is not known appears as its directory
-as it was given, stripped.
+the linted layers' names joined by `, `. A layer whose name is not known (its `layer.yaml` did not
+parse or did not pass the schema) appears as its directory as it was given, stripped.
+
+Until R3 (TASK-55.4), the Rust `alz lint` in a repository (stack mode, no `--layer`) stops with
+`error [not-ported]` and prints no summary line; both go away in R3.
 
 ### 10.2 Generated YAML
 

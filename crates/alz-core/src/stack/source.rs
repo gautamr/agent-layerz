@@ -211,6 +211,11 @@ impl TryFrom<&str> for Source {
                 git_ref,
             })
         } else if let Some(spec) = text.strip_prefix("git:") {
+            // The whole text is checked too: without a ref, the last `@` is the credentials' own
+            // and the split below would cut the URL at it (§5.2).
+            if holds_credentials(spec) {
+                return Err(SourceError::Credentials);
+            }
             let (url, git_ref) = split_ref(spec)?;
             Ok(Self::Git {
                 url: GitUrl::try_from(url)?,

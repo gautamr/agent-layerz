@@ -100,6 +100,9 @@ fn text_that_is_not_one_document_is_a_syntax_error_with_a_position() {
         ("\u{feff}{}", Position::new(1, 1)),
         ("// c\n{}", Position::new(1, 1)),
         ("[NaN]", Position::new(1, 2)),
+        // The column counts characters, not the bytes serde_json counts: é is two bytes.
+        ("{\"é\": 1,}", Position::new(1, 9)),
+        ("{\"日本\": 1,\n \"é\": x}", Position::new(2, 7)),
         ("\"a\nb\"", None),
     ];
     for (text, at) in cases {

@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
+import { referenceDrift } from "../drift";
 import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
 
@@ -50,7 +51,7 @@ describe("§13.24 account layer field: schema (§7.13 'Account names')", () => {
     expect(result.code).toBe(0);
   });
 
-  it.each([
+  const refused: [string, unknown][] = [
     ["65 characters", "a".repeat(65)],
     ["upper case", "Client-A"],
     ["a leading '-'", "-leading"],
@@ -71,14 +72,14 @@ describe("§13.24 account layer field: schema (§7.13 'Account names')", () => {
     ["a list", ["secret-dir"]],
     ["a nested map", { claude: { name: "secret-dir" } }],
     ["a map with a null name", { claude: null }],
-  ])("lint refuses %s and prints no value", async (_label, raw) => {
+  ];
+
+  it.each(refused)("lint refuses %s and prints no value", async (_label, raw) => {
     const ws = fixture("29-account-layer");
     declare(ws, "personal", value(raw));
     const result = await lintLayer(ws, "personal");
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("error [layer]");
-    // §10.1 prints key paths unquoted: `account`, `account.claude`.
-    expect(result.stderr).toContain("account");
     for (const text of [result.stdout, result.stderr]) {
       expect(text).not.toContain("secret-dir");
       expect(text).not.toContain(TOKEN_LIKE);
@@ -87,16 +88,35 @@ describe("§13.24 account layer field: schema (§7.13 'Account names')", () => {
     }
   });
 
-  it("is a schema error for the build too, and writes nothing", async () => {
-    const ws = fixture("29-account-layer");
-    declare(ws, "personal", value("~/secret-dir"));
-    const tree = readTree(`${ws.root}/repo`);
-    const result = await layers(ws, "repo", ["build"]);
-    expect(result.code).toBe(1);
-    expect(result.stderr).toContain("'account'");
-    expect(result.stderr).not.toContain("secret-dir");
-    expect(readTree(`${ws.root}/repo`)).toEqual(tree);
-  });
+  for (const [label, raw] of refused) {
+    referenceDrift("TASK-55.3", `lint locates the refusal of ${label} at its field`, async () => {
+      const ws = fixture("29-account-layer");
+      declare(ws, "personal", value(raw));
+      const result = await lintLayer(ws, "personal");
+      // §10.1: `<layer>:layer.yaml:<line>:<column>: <key path> ...`, with the key path unquoted
+      // (`account`, `account.claude`), or an unknown field quoted `in account`.
+      expect(result.stderr).toMatch(
+        /error \[layer\] [^ ]+:layer\.yaml:\d+:\d+: (account[. ]|unknown field '[^']+' in account\b)/,
+      );
+    });
+  }
+
+  referenceDrift(
+    "TASK-55.3",
+    "is a schema error for the build too, and writes nothing",
+    async () => {
+      const ws = fixture("29-account-layer");
+      declare(ws, "personal", value("~/secret-dir"));
+      const tree = readTree(`${ws.root}/repo`);
+      const result = await layers(ws, "repo", ["build"]);
+      expect(result.code).toBe(1);
+      // §10.1 prints a key path unquoted; the reference quotes the field name.
+      expect(result.stderr).toMatch(/error \[layer\] [^ ]+:layer\.yaml:\d+:\d+: account[. ]/);
+      expect(result.stderr).not.toContain("'account'");
+      expect(result.stderr).not.toContain("secret-dir");
+      expect(readTree(`${ws.root}/repo`)).toEqual(tree);
+    },
+  );
 });
 
 /** The allowed.yaml entry `alz account allow` records: this repository, the declaring layer's real path. */

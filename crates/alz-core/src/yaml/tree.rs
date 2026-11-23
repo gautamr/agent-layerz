@@ -19,7 +19,7 @@ pub struct Node {
 impl Node {
     /// A node.
     #[must_use]
-    pub const fn new(value: Value, at: Position) -> Self {
+    pub(crate) const fn new(value: Value, at: Position) -> Self {
         Self { value, at }
     }
 
@@ -126,19 +126,19 @@ impl Mapping {
     /// [`YamlErrorKind::NonScalarKey`] for a key that is a list or a mapping, and
     /// [`YamlErrorKind::DuplicateKey`], with the key quoted, for a key that comes twice. Both are
     /// placed at the second key.
-    pub fn from_entries(entries: Vec<(Node, Node)>) -> Result<Self, YamlError> {
+    pub(crate) fn from_entries(entries: Vec<(Node, Node)>) -> Result<Self, YamlError> {
         entries
             .iter()
             .try_fold(BTreeSet::new(), |seen, (key, _)| {
                 let identity = KeyIdentity::of(key.value())
                     .ok_or_else(|| YamlError::new(YamlErrorKind::NonScalarKey, Some(key.at())))?;
-                let shown = QuotedKey::from_untrusted(&identity.shown());
+                let shown = identity.shown();
                 let mut seen = seen;
                 if seen.insert(identity) {
                     Ok(seen)
                 } else {
                     Err(YamlError::new(
-                        YamlErrorKind::DuplicateKey(Some(shown)),
+                        YamlErrorKind::DuplicateKey(Some(QuotedKey::from_untrusted(&shown))),
                         Some(key.at()),
                     ))
                 }
