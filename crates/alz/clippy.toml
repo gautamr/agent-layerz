@@ -84,4 +84,6 @@ disallowed-types = [
     { path = "std::net::TcpStream", reason = "networking belongs to alz-io" },
     { path = "std::net::TcpListener", reason = "networking belongs to alz-io" },
     { path = "std::net::UdpSocket", reason = "networking belongs to alz-io" },
+    { path = "std::collections::HashMap", reason = "iteration order depends on hashing; use BTreeMap so output is deterministic" },
+    { path = "std::collections::HashSet", reason = "iteration order depends on hashing; use BTreeSet so output is deterministic" },
 ]
