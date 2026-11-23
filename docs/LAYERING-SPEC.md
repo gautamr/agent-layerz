@@ -1855,8 +1855,11 @@ wrong. It never prints the field's value.
 - A field name that the spec defines is printed as it is.
 - A key taken from the file, such as an unknown field or a duplicate key, is printed in single
   quotes. Its control and format characters are removed (class 1 below), and it is cut after 64
-  code points, counted after that removal, with `…` added when it is cut. Such a quoted key is
-  the only text from the file that a YAML, JSON or schema diagnostic may hold.
+  code points, counted after that removal, with `…` added when it is cut. A single quote inside
+  the key is written twice, as in a YAML single-quoted scalar (`it's` is printed `'it''s'`), so
+  the key cannot close its own quotes and pass the rest as message text; a backslash is printed
+  as it is, and the cut counts the key's own code points, never the added quotes. Such a quoted
+  key is the only text from the file that a YAML, JSON or schema diagnostic may hold.
 
 The TypeScript `alz` prints more: unknown field names in full, a refused `ref` and refused
 `workspace` paths (reference drift, TASK-55.3).

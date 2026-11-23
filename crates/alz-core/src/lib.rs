@@ -4,6 +4,11 @@
 //! environment functions of the standard library (decision-23), and the crate does not depend
 //! on `alz-io`.
 
+mod diagnostic;
 mod untrusted_text;
+
+pub use diagnostic::{
+    Code, Diagnostic, Diagnostics, Level, Message, MessagePart, Place, Position, Printable, Where,
+};
 
 pub use untrusted_text::{Escaped, QuotedKey, Stripped};
