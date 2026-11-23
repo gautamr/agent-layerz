@@ -1,13 +1,10 @@
 import { appendFileSync, cpSync, existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
-import { run } from "../../src/cli/main";
-import type { Terminal } from "../../src/cli/terminal";
 import {
   accountFolder,
   alz,
   built,
-  envFor,
   hubEntry,
   plain,
   remoteStack,
@@ -716,77 +713,17 @@ describe("a refused account declaration, at resolution", () => {
   });
 });
 
-// `alz account allow` shows repository text before the person confirms: it must be the
-// reader's own text, quoted, and a declaration that may not apply is never offered.
-describe("alz account allow with a repository that is not to be trusted", () => {
-  const FIXTURE = "32-account-allow";
-  const answers = (...names: string[]): { term: Terminal; asked: string[] } => {
-    const asked: string[] = [];
-    return {
-      asked,
-      term: {
-        ask: async (prompt) => {
-          asked.push(prompt);
-          return names.shift();
-        },
-      },
-    };
-  };
+// `alz account allow` itself needs a person at a terminal, so what it prints before it asks is a
+// reference case until R1.8; what the binary shows without one is the account that applies.
+describe("an account declaration by a repository that is not to be trusted, without a terminal", () => {
   const hasControl = (text: string): boolean =>
     [...text].some((char) => {
       const code = char.codePointAt(0) ?? 0;
       return code !== 0x0a && (code <= 0x1f || (code >= 0x7f && code <= 0x9f));
     });
 
-  it("refuses a declaration the repository's own layer makes, and warns that it is ignored", async () => {
-    const s = await built("v1", FIXTURE);
-    // Only the repository's layer declares: the stack has no client layer.
-    writeFileSync(
-      `${s.real}/repo/layer.yaml`,
-      "stack:\n  - source: path:../personal\n  - source: path:./.layer\ntargets: [claude]\n",
-    );
-    expect((await alz(s, ["build"])).code).toBe(0);
-    appendFileSync(`${s.real}/repo/.layer/layer.yaml`, "account: repo-account\n");
-    const prompt = answers("repo-account");
-    const result = await alz(s, ["account", "allow"], {}, "repo", prompt.term);
-    expect(result.code).toBe(1);
-    expect(result.stderr).toContain("the layers name no account here");
-    expect(result.stderr).toContain("warning [account-declaration-ignored]");
-    expect(result.stderr).toContain("it is inside the repository");
-    expect(prompt.asked).toEqual([]);
-    expect(existsSync(`${s.ws.home}/.local`)).toBe(false);
-  });
-
-  it("shows the source an external client layer names, quoted, before it asks", async () => {
-    const s = await built("v1", FIXTURE);
-    let out = "";
-    let seenAtPrompt = "";
-    let prompt = "";
-    const code = await run(["account", "allow"], {
-      cwd: `${s.real}/repo`,
-      env: { HOME: s.ws.home, PATH: process.env.PATH ?? "", ...envFor(s) },
-      stdout: (text) => {
-        out += text;
-      },
-      stderr: () => {},
-      terminal: {
-        ask: async (text) => {
-          prompt = text;
-          seenAtPrompt = out;
-          return undefined;
-        },
-      },
-    });
-    expect(code).toBe(1);
-    // Everything the person decides on was printed before the first question, and the prompt
-    // repeats the source, because standard output may be redirected.
-    expect(seenAtPrompt).toContain('source as written: "path:../hub/layer"');
-    expect(seenAtPrompt).toContain(`recorded source: "${s.hubLayer}"`);
-    expect(prompt).toContain(`(source "${s.hubLayer}")`);
-  });
-
-  it("prints no control character for a hub directory whose name holds ESC", async () => {
-    const s = await built("v1", FIXTURE);
+  it("prints no control character for a hub directory whose name holds ESC, from build and account which", async () => {
+    const s = await built("v1", "32-account-allow");
     const folder = "we\u001b[31mird";
     cpSync(`${s.ws.root}/hub/layer`, `${s.ws.root}/${folder}/layer`, { recursive: true });
     writeFileSync(
@@ -795,10 +732,11 @@ describe("alz account allow with a repository that is not to be trusted", () => 
     );
     const build = await alz(s, ["build"]);
     expect(build.code, build.stderr).toBe(0);
-    const prompt = answers("client-a", "client-a-api");
-    const result = await alz(s, ["account", "allow"], {}, "repo", prompt.term);
-    expect(result.code, result.stderr).toBe(0);
-    expect(result.stdout).toContain("we\\u{001B}[31mird");
-    expect(hasControl(result.stdout + result.stderr)).toBe(false);
+    accountFolder(s, ".claude-client-a", ".codex-client-a-api");
+    writeAllowed(s, [hubEntry(s, { source: `${s.real}/${folder}/layer` })]);
+    const which = await alz(s, ["account", "which"]);
+    expect(which.code, which.stderr).toBe(0);
+    expect(which.stdout).toContain("claude: client-a (source: layer)");
+    expect(hasControl(build.stdout + build.stderr + which.stdout + which.stderr)).toBe(false);
   });
 });
