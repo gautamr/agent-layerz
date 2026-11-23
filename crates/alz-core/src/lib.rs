@@ -6,6 +6,7 @@
 
 mod diagnostic;
 mod untrusted_text;
+pub mod yaml;
 
 pub use diagnostic::{
     Code, Diagnostic, Diagnostics, Level, Message, MessagePart, Place, Position, Printable, Where,

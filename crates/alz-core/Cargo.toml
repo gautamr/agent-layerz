@@ -8,6 +8,11 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+serde.workspace = true
+serde-saphyr.workspace = true
+thiserror.workspace = true
+
 [dev-dependencies]
 proptest.workspace = true
 

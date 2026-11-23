@@ -87,6 +87,12 @@ pub struct Position {
 }
 
 impl Position {
+    /// Line 1, column 1.
+    pub const FIRST: Self = Self {
+        line: NonZeroU32::MIN,
+        column: NonZeroU32::MIN,
+    };
+
     /// The position, or `None` when `line` or `column` is 0.
     #[must_use]
     pub fn new(line: u32, column: u32) -> Option<Self> {

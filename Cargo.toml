@@ -15,6 +15,12 @@ assert_cmd = "2.2.2"
 clap = { version = "4.6.9", features = ["derive"] }
 # decision-35: dev-dependency only, with std and without fork, timeout or bit-set.
 proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+# decision-32: no derive; alz writes its own visitors. A `[bans]` feature rule in deny.toml keeps it off.
+serde = { version = "=1.0.229", default-features = false, features = ["std"] }
+# decision-28: deserialisation only; the pin is repeated in deny.toml.
+serde-saphyr = { version = "=2.2.0", default-features = false, features = ["deserialize"] }
+# decision-31: only std, no anyhow in library crates.
+thiserror = { version = "=2.0.21", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

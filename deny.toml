@@ -26,6 +26,13 @@ allow = [
 ]
 confidence-threshold = 0.93
 
+# decision-28 (amended 2026-11-23): serde-saphyr's `deserialize` feature brings in encoding_rs,
+# licensed `(Apache-2.0 OR MIT) AND BSD-3-Clause`; the BSD-3-Clause part covers its WHATWG encoding
+# data. BSD-3-Clause stays disallowed for every other crate, so none can bring it in unnoticed.
+[[licenses.exceptions]]
+name = "encoding_rs"
+allow = ["BSD-3-Clause"]
+
 [bans]
 # One version of each crate in the graph. A duplicate doubles compile time and binary size and
 # often hides a stale transitive dependency. When an unavoidable duplicate appears, record it in
@@ -59,6 +66,12 @@ deny = [
     { name = "serde-saphyr", version = ">2.2.0", reason = "decision-28 pins serde-saphyr to =2.2.0" },
     { name = "serde-saphyr", version = ">=2.2.1-0", reason = "decision-28 pins serde-saphyr to =2.2.0; this catches the pre-releases of 2.2.1" },
 ]
+
+# decision-32: serde's `derive` feature stays off, so no type in the workspace derives `Serialize` or
+# `Deserialize` and feature unification from another crate cannot turn it on unnoticed.
+[[bans.features]]
+crate = "serde"
+deny = ["derive"]
 
 [sources]
 # crates.io only: no git dependencies, no other registries.
