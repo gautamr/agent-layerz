@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T12:28:00Z'
-updated_date: '2026-11-23T15:04:00Z'
+updated_date: '2026-11-23T15:13:00Z'
 labels:
   - area:rust
   - area:lint
@@ -55,4 +55,6 @@ Spec items from R4.10 (2026-11-23): (a) a target whose value is null or not a ma
 Spec items from R4.11 (2026-11-23): (a) per-server checks stop at the first failing step; (b) a command on an http/sse server or a url on a stdio server is ignored; (c) mcp.enable repeats are kept once; (d) a server refused for any reason still gets the 'no layer defines it' error for mcp.enable (the spec names only the protected case); (e) alias, role and concrete model ids are any non-blank text; (f) a models.yaml with any problem gives no item (the reference kept the valid aliases: drift); (g) the credential-assignment secret shape matches JavaScript's whitespace set explicitly; (h) forbid_patterns compile with the same limits as the secret scan (secret::SIZE_LIMIT, NEST_LIMIT).
 
 Spec items from R4.12 (2026-11-23): (a) the passthrough warning 'raw passthrough to <path>; consider turning it into a first-class item' and the unknown-folder error text; (b) §7.9's non-ASCII path rule covers any folder of targets/, not only passthrough paths; (c) a .toml that is not valid UTF-8 is refused as unchecked; (d) the TOML text rule reports each distinct protected variable mentioned; (e) a non-mapping, non-list mcpServers (a plugin manifest naming a file) and a JSON root that is not an object are not checked; (f) nested env depth is bounded by the JSON reader's 128 (the reference refused past 32); (g) a refused passthrough file gives errors only (the reference also warned).
+
+Spec items from R4.13 (2026-11-23): (a) add identity and account rows to §10.1's merge table; (b) say which rule each consumer uses: the build reports every refused layer as an error and a refused first layer gives Conflict; account resolution (§7.13) ignores an in-repository declaration (neither wins nor conflicts); (c) a refused first layer with a declaring client gives Conflict, no winner; (d) a layer that cannot be opened counts as inside the repository; (e) the refusal messages keep the reference's wording.
 <!-- SECTION:NOTES:END -->

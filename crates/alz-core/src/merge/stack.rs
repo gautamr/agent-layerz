@@ -6,6 +6,10 @@
 //! is merged and every problem reported in one run; [`Merging::merged`] is `None` when any error
 //! was found.
 //!
+//! Who may declare `commit_identity` and `account` (§7.12, §7.13) is not a kind of item: the two
+//! fields of `layer.yaml` follow one rule, in `declarers`, which the fold feeds from each layer's
+//! position and [`Placement`] and which fills [`Merged::commit_identity`] and [`Merged::account`].
+//!
 //! # Adding a kind
 //!
 //! A kind of §7 (instructions, agents, skills, and the rest) is added in four steps, and the
@@ -21,11 +25,14 @@
 
 use std::collections::BTreeMap;
 
+use crate::account::AccountDeclaration;
 use crate::diagnostic::Diagnostics;
+use crate::identity::CommitIdentity;
 use crate::item::{AgentName, ClaudeExtra, Hook, RuleName, SettingsTree, Skill, SkillName};
-use crate::layer::LayerName;
+use crate::layer::{LayerMeta, LayerName};
 use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::algebra::Replace;
+use crate::merge::declarers::{Declarations, DeclaredField, DeclarerState};
 use crate::merge::hooks::HookState;
 use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
 use crate::merge::mcp::{McpState, MergedMcp};
@@ -101,6 +108,8 @@ pub struct Merged {
     mcp: MergedMcp,
     models: MergedModels,
     passthrough: MergedPassthrough,
+    commit_identity: Declarations<CommitIdentity>,
+    account: Declarations<AccountDeclaration>,
 }
 
 impl Merged {
@@ -188,6 +197,19 @@ impl Merged {
         &self.passthrough
     }
 
+    /// Who declared the commit identity (§7.12): the winner, which layer R6 names in the Commits
+    /// section and the reports, and the layers that were refused.
+    #[must_use]
+    pub const fn commit_identity(&self) -> &Declarations<CommitIdentity> {
+        &self.commit_identity
+    }
+
+    /// Who declared the account (§7.13): the winner, and the layers that were refused.
+    #[must_use]
+    pub const fn account(&self) -> &Declarations<AccountDeclaration> {
+        &self.account
+    }
+
     /// The slots that no layer filled, when `strict_slots` is false: each needs a stub skill
     /// that says "not defined for this repo", and who asked for it first (§7.3).
     #[must_use]
@@ -246,6 +268,8 @@ struct Accumulator {
     mcp: McpState,
     models: ModelState,
     passthrough: PassthroughState,
+    commit_identity: DeclarerState<CommitIdentity>,
+    account: DeclarerState<AccountDeclaration>,
     diagnostics: Diagnostics,
 }
 
@@ -263,6 +287,10 @@ impl Accumulator {
         let (mcp, found_mcp) = self.mcp.absorb(context);
         let (models, found_models) = self.models.absorb(context);
         let (passthrough, found_passthrough) = self.passthrough.absorb(context);
+        let commit_identity = self
+            .commit_identity
+            .absorb(context, LayerMeta::commit_identity);
+        let account = self.account.absorb(context, LayerMeta::account);
         Self {
             layers: self
                 .layers
@@ -279,6 +307,8 @@ impl Accumulator {
             mcp,
             models,
             passthrough,
+            commit_identity,
+            account,
             diagnostics: self
                 .diagnostics
                 .merge(found_instructions)
@@ -306,6 +336,9 @@ impl Accumulator {
         let (mcp, found_mcp) = self.mcp.finish(manifest);
         let (models, found_unresolved) = self.models.finish();
         let shadowed = self.permissions.shadowed();
+        let (commit_identity, found_identity) =
+            self.commit_identity.finish(DeclaredField::CommitIdentity);
+        let (account, found_account) = self.account.finish(DeclaredField::Account);
         Merging::of(
             Merged {
                 layers: self.layers,
@@ -321,12 +354,16 @@ impl Accumulator {
                 mcp,
                 models,
                 passthrough: self.passthrough.finish(),
+                commit_identity,
+                account,
             },
             self.diagnostics
                 .merge(found_slots)
                 .merge(shadowed)
                 .merge(found_mcp)
-                .merge(found_unresolved),
+                .merge(found_unresolved)
+                .merge(found_identity)
+                .merge(found_account),
         )
     }
 }

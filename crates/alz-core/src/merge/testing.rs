@@ -3,7 +3,7 @@
 
 use crate::layer::{LayerContents, LayerMeta};
 use crate::lint::parse_document;
-use crate::merge::{Merging, Placements, merge};
+use crate::merge::{Merging, Placement, Placements, merge};
 use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack, Source};
 
@@ -61,6 +61,32 @@ pub(crate) fn merged_with(layers: Vec<ResolvedLayer>, options: &str) -> Merging 
         &ResolvedStack::validate(layers).expect("a stack"),
         &Manifest::from_yaml(&node).expect("a manifest"),
         &Placements::default(),
+    )
+}
+
+/// The result of merging `layers` when the layers called `inside` lie inside the repository and
+/// every other layer lies outside it: the tests of who may declare (§7.12).
+pub(crate) fn merged_placed(layers: Vec<ResolvedLayer>, inside: &[&str]) -> Merging {
+    let placements: Placements = layers
+        .iter()
+        .map(|layer| {
+            let name = layer.meta().name();
+            (
+                name.clone(),
+                if inside.contains(&name.as_str()) {
+                    Placement::Inside
+                } else {
+                    Placement::Outside
+                },
+            )
+        })
+        .collect();
+    let manifest = "stack:\n  - source: path:./.layer\n";
+    let node = parse_document(manifest.as_bytes()).expect("valid YAML");
+    merge(
+        &ResolvedStack::validate(layers).expect("a stack"),
+        &Manifest::from_yaml(&node).expect("a manifest"),
+        &placements,
     )
 }
 
