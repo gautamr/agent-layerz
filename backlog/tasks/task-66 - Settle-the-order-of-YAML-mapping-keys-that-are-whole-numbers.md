@@ -4,7 +4,7 @@ title: Settle the order of YAML mapping keys that are whole numbers
 status: To Do
 assignee: []
 created_date: '2026-11-23T03:51:00Z'
-updated_date: '2026-11-23T04:24:00Z'
+updated_date: '2026-11-23T13:25:00Z'
 labels:
   - discovered
   - area:spec
@@ -36,4 +36,6 @@ Found while planning TASK-64. A JavaScript object always lists keys that are who
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only in the Rust alz, in R5 (TASK-55.6, which depends on this task); AC #2 reworded from a TypeScript fix. The spec part (AC #1) can be written before R5.
+
+Rust decision (lead, applied in R4.5, TASK-55.5.5): the native fields of an agent (claude:/codex: maps) keep source order. A key keeps the place of its first appearance in the stack, a key a later layer adds comes after the existing ones, a later value replaces or deep-merges in place without moving the key, and whole-number keys are ordinary keys in source order (the reference hoists them: drift). Implemented as alz-core NativeMap/NativeValue (item/agent/ordered_tree.rs). Settings stay sorted by code point because their JSON output sorts keys (spec section 6), so Tree is unchanged. R5 writes the native fields in the order NativeMap holds them; the spec text for AC #1 still needs the architect.
 <!-- SECTION:NOTES:END -->

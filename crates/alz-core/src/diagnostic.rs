@@ -78,6 +78,15 @@ pub enum Code {
     Frontmatter,
     /// An instruction file's unknown field or `mode` (§7.1).
     Instructions,
+    /// An agent's schema: name, description, a tool or skill entry, a native key with a neutral
+    /// field (§7.2).
+    Agent,
+    /// A second base definition of an agent (§7.2).
+    AgentDuplicate,
+    /// An overlay's `extends` or `mode`, or an edit that cannot apply (§7.2).
+    AgentOverlay,
+    /// An overlay that replaces the whole body of an agent, a warning (§7.2).
+    AgentReplace,
     /// A rule's schema (§7.10).
     Rule,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
@@ -107,6 +116,10 @@ impl Code {
             Self::Visibility => "visibility",
             Self::Frontmatter => "frontmatter",
             Self::Instructions => "instructions",
+            Self::Agent => "agent",
+            Self::AgentDuplicate => "agent-duplicate",
+            Self::AgentOverlay => "agent-overlay",
+            Self::AgentReplace => "agent-replace",
             Self::Rule => "rule",
             Self::Unresolved => "unresolved",
         }

@@ -5,9 +5,16 @@
 //! A reader reports every problem of every file in one pass. A file with a problem gives no item,
 //! so a merged model never holds a half-read file.
 
+mod agent;
 mod instruction;
+mod kebab_case;
 mod rule;
 
+pub use agent::{
+    AgentBase, AgentDescription, AgentItems, AgentName, AgentOverlay, AgentRefusal, AgentScalars,
+    Isolation, Memory, ModelId, NativeFields, NativeMap, NativeValue, OverlayMode, PermissionMode,
+    Role, SkillName, ToolEntry,
+};
 pub use instruction::{
     ClaudeExtra, InstructionEdit, InstructionFile, InstructionItems, InstructionMode,
     InstructionModeError,
@@ -50,4 +57,16 @@ pub(crate) fn schema_diagnostics(code: Code, at: &Where, errors: &SchemaErrors) 
             Diagnostic::error(code, Some(at.clone().at(error.position())), error.message())
         })
         .collect()
+}
+
+/// Both values, or the diagnostics of both: unlike `?`, one failure does not hide the other.
+pub(crate) fn zip_diagnostics<A, B>(
+    first: Result<A, Diagnostics>,
+    second: Result<B, Diagnostics>,
+) -> Result<(A, B), Diagnostics> {
+    match (first, second) {
+        (Ok(first), Ok(second)) => Ok((first, second)),
+        (Err(problems), Ok(_)) | (Ok(_), Err(problems)) => Err(problems),
+        (Err(first), Err(second)) => Err(first.merge(second)),
+    }
 }
