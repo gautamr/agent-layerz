@@ -430,6 +430,22 @@
     "drift": "blank-multi-line"
   },
   {
+    "name": "reference-reads-differently/blank-multi-line \" \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n\" as value",
+    "class": "reference-reads-differently",
+    "input": {
+      "key": " \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n"
+    },
+    "yaml": "key: |+\n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n",
+    "drift": "blank-multi-line"
+  },
+  {
+    "name": "reference-reads-differently/blank-multi-line \" \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n\" as item",
+    "class": "reference-reads-differently",
+    "input": [" \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n"],
+    "yaml": "- |+\n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n   \n",
+    "drift": "blank-multi-line"
+  },
+  {
     "name": "structure/agent-frontmatter",
     "class": "structure",
     "input": {
@@ -5596,7 +5612,8 @@
       "k17": "a---",
       "k18": "--- "
     },
-    "yaml": "k0: ---\nk1: --- a\nk2: |\n  ---\nk3: ...\nk4: ... a\nk5: |-\n  a\n  ---\nk6: |-\n  a\n  --- b\nk7: |-\n  a\n  ...\nk8: |-\n  a\n  ... b\nk9: |-\n  ---\n  a\nk10: |-\n  ...\n  a\nk11: |-\n  %a\n  b\nk12: |-\n  a\n  %b\nk13: \"a\\r---\"\nk14: a ---\nk15: a ...\nk16: a ---\nk17: a---\nk18: \"--- \"\n"
+    "yaml": "k0: ---\nk1: --- a\nk2: |\n  ---\nk3: ...\nk4: ... a\nk5: |-\n  a\n  ---\nk6: |-\n  a\n  --- b\nk7: |-\n  a\n  ...\nk8: |-\n  a\n  ... b\nk9: |-\n  ---\n  a\nk10: |-\n  ...\n  a\nk11: |-\n  %a\n  b\nk12: |-\n  a\n  %b\nk13: \"a\\r---\"\nk14: a ---\nk15: a ...\nk16: a ---\nk17: a---\nk18: \"--- \"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers/as-keys",
@@ -5622,7 +5639,8 @@
       "a---": "x",
       "--- ": "x"
     },
-    "yaml": "\"---\": x\n\"--- a\": x\n\"---\\n\": x\n\"...\": x\n\"... a\": x\n\"a\\n---\": x\n\"a\\n--- b\": x\n\"a\\n...\": x\n\"a\\n... b\": x\n\"---\\na\": x\n\"...\\na\": x\n\"%a\\nb\": x\n\"a\\n%b\": x\n\"a\\r---\": x\n\"a ---\": x\n\"a ...\": x\na ---: x\na---: x\n\"--- \": x\n"
+    "yaml": "\"---\": x\n\"--- a\": x\n\"---\\n\": x\n\"...\": x\n\"... a\": x\n\"a\\n---\": x\n\"a\\n--- b\": x\n\"a\\n...\": x\n\"a\\n... b\": x\n\"---\\na\": x\n\"...\\na\": x\n\"%a\\nb\": x\n\"a\\n%b\": x\n\"a\\r---\": x\n\"a ---\": x\n\"a ...\": x\na ---: x\na---: x\n\"--- \": x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers/as-items",
@@ -5648,7 +5666,8 @@
       "a---",
       "--- "
     ],
-    "yaml": "- ---\n- --- a\n- |\n  ---\n- ...\n- ... a\n- |-\n  a\n  ---\n- |-\n  a\n  --- b\n- |-\n  a\n  ...\n- |-\n  a\n  ... b\n- |-\n  ---\n  a\n- |-\n  ...\n  a\n- |-\n  %a\n  b\n- |-\n  a\n  %b\n- \"a\\r---\"\n- a ---\n- a ...\n- a ---\n- a---\n- \"--- \"\n"
+    "yaml": "- ---\n- --- a\n- |\n  ---\n- ...\n- ... a\n- |-\n  a\n  ---\n- |-\n  a\n  --- b\n- |-\n  a\n  ...\n- |-\n  a\n  ... b\n- |-\n  ---\n  a\n- |-\n  ...\n  a\n- |-\n  %a\n  b\n- |-\n  a\n  %b\n- \"a\\r---\"\n- a ---\n- a ...\n- a ---\n- a---\n- \"--- \"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers/as-nested",
@@ -5701,7 +5720,8 @@
         }
       ]
     },
-    "yaml": "outer:\n  inner:\n    - ---\n    - --- a\n    - |\n      ---\n    - ...\n    - ... a\n    - |-\n      a\n      ---\n    - |-\n      a\n      --- b\n    - |-\n      a\n      ...\n    - |-\n      a\n      ... b\n    - |-\n      ---\n      a\n    - |-\n      ...\n      a\n    - |-\n      %a\n      b\n    - |-\n      a\n      %b\n    - \"a\\r---\"\n    - a ---\n    - a ...\n    - a ---\n    - a---\n    - \"--- \"\nlist:\n  - k0: ---\n    k1: --- a\n    k2: |\n      ---\n    k3: ...\n    k4: ... a\n    k5: |-\n      a\n      ---\n    k6: |-\n      a\n      --- b\n    k7: |-\n      a\n      ...\n    k8: |-\n      a\n      ... b\n    k9: |-\n      ---\n      a\n    k10: |-\n      ...\n      a\n    k11: |-\n      %a\n      b\n    k12: |-\n      a\n      %b\n    k13: \"a\\r---\"\n    k14: a ---\n    k15: a ...\n    k16: a ---\n    k17: a---\n    k18: \"--- \"\n"
+    "yaml": "outer:\n  inner:\n    - ---\n    - --- a\n    - |\n      ---\n    - ...\n    - ... a\n    - |-\n      a\n      ---\n    - |-\n      a\n      --- b\n    - |-\n      a\n      ...\n    - |-\n      a\n      ... b\n    - |-\n      ---\n      a\n    - |-\n      ...\n      a\n    - |-\n      %a\n      b\n    - |-\n      a\n      %b\n    - \"a\\r---\"\n    - a ---\n    - a ...\n    - a ---\n    - a---\n    - \"--- \"\nlist:\n  - k0: ---\n    k1: --- a\n    k2: |\n      ---\n    k3: ...\n    k4: ... a\n    k5: |-\n      a\n      ---\n    k6: |-\n      a\n      --- b\n    k7: |-\n      a\n      ...\n    k8: |-\n      a\n      ... b\n    k9: |-\n      ---\n      a\n    k10: |-\n      ...\n      a\n    k11: |-\n      %a\n      b\n    k12: |-\n      a\n      %b\n    k13: \"a\\r---\"\n    k14: a ---\n    k15: a ...\n    k16: a ---\n    k17: a---\n    k18: \"--- \"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers-single/value \"---\"",
@@ -5933,7 +5953,8 @@
     "input": {
       "key": "a ---"
     },
-    "yaml": "key: a ---\n"
+    "yaml": "key: a ---\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers-single/key \"a ---\"",
@@ -5941,7 +5962,8 @@
     "input": {
       "a ---": "v"
     },
-    "yaml": "\"a ---\": v\n"
+    "yaml": "\"a ---\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers-single/value \"a ...\"",
@@ -5949,7 +5971,8 @@
     "input": {
       "key": "a ..."
     },
-    "yaml": "key: a ...\n"
+    "yaml": "key: a ...\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers-single/key \"a ...\"",
@@ -5957,7 +5980,8 @@
     "input": {
       "a ...": "v"
     },
-    "yaml": "\"a ...\": v\n"
+    "yaml": "\"a ...\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "document-markers-single/value \"a ---\"",
@@ -6040,7 +6064,8 @@
       "k26": "\u0001a\nb",
       "k27": "a\u0000\nb"
     },
-    "yaml": "k0: \"\\0\"\nk1: \"a\\0b\"\nk2: \"\\x01\"\nk3: \"a\\ab\"\nk4: \"\\b\"\nk5: \"\\t\"\nk6: a\tb\nk7: \"\\v\"\nk8: \"a\\vb\"\nk9: \"\\f\"\nk10: \"\\r\"\nk11: \"a\\rb\"\nk12: \"a\\r\\nb\"\nk13: \"a\\r\\nb\\r\\n\"\nk14: \"\\e[0m\"\nk15: \"\\e\"\nk16: \"\\x1f\"\nk17: \"\"\nk18: \"\"\nk19: \"\"\nk20: \"ab\"\nk21: \"\"\nk22:  \nk23: a b\nk24: \"\\x01\\n\"\nk25: \"a\\n\\x01\"\nk26: \"\\x01a\\nb\"\nk27: \"a\\0\\nb\"\n"
+    "yaml": "k0: \"\\0\"\nk1: \"a\\0b\"\nk2: \"\\x01\"\nk3: \"a\\ab\"\nk4: \"\\b\"\nk5: \"\\t\"\nk6: a\tb\nk7: \"\\v\"\nk8: \"a\\vb\"\nk9: \"\\f\"\nk10: \"\\r\"\nk11: \"a\\rb\"\nk12: \"a\\r\\nb\"\nk13: \"a\\r\\nb\\r\\n\"\nk14: \"\\e[0m\"\nk15: \"\\e\"\nk16: \"\\x1f\"\nk17: \"\"\nk18: \"\"\nk19: \"\"\nk20: \"ab\"\nk21: \"\"\nk22:  \nk23: a b\nk24: \"\\x01\\n\"\nk25: \"a\\n\\x01\"\nk26: \"\\x01a\\nb\"\nk27: \"a\\0\\nb\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters/as-keys",
@@ -6075,7 +6100,8 @@
       "\u0001a\nb": "x",
       "a\u0000\nb": "x"
     },
-    "yaml": "\"\\0\": x\n\"a\\0b\": x\n\"\\x01\": x\n\"a\\ab\": x\n\"\\b\": x\n\"\\t\": x\na\tb: x\n\"\\v\": x\n\"a\\vb\": x\n\"\\f\": x\n\"\\r\": x\n\"a\\rb\": x\n\"a\\r\\nb\": x\n\"a\\r\\nb\\r\\n\": x\n\"\\e[0m\": x\n\"\\e\": x\n\"\\x1f\": x\n\"\": x\n\"\": x\n\"\": x\n\"ab\": x\n\"\": x\n : x\na b: x\n\"\\x01\\n\": x\n\"a\\n\\x01\": x\n\"\\x01a\\nb\": x\n\"a\\0\\nb\": x\n"
+    "yaml": "\"\\0\": x\n\"a\\0b\": x\n\"\\x01\": x\n\"a\\ab\": x\n\"\\b\": x\n\"\\t\": x\na\tb: x\n\"\\v\": x\n\"a\\vb\": x\n\"\\f\": x\n\"\\r\": x\n\"a\\rb\": x\n\"a\\r\\nb\": x\n\"a\\r\\nb\\r\\n\": x\n\"\\e[0m\": x\n\"\\e\": x\n\"\\x1f\": x\n\"\": x\n\"\": x\n\"\": x\n\"ab\": x\n\"\": x\n : x\na b: x\n\"\\x01\\n\": x\n\"a\\n\\x01\": x\n\"\\x01a\\nb\": x\n\"a\\0\\nb\": x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters/as-items",
@@ -6110,7 +6136,8 @@
       "\u0001a\nb",
       "a\u0000\nb"
     ],
-    "yaml": "- \"\\0\"\n- \"a\\0b\"\n- \"\\x01\"\n- \"a\\ab\"\n- \"\\b\"\n- \"\\t\"\n- a\tb\n- \"\\v\"\n- \"a\\vb\"\n- \"\\f\"\n- \"\\r\"\n- \"a\\rb\"\n- \"a\\r\\nb\"\n- \"a\\r\\nb\\r\\n\"\n- \"\\e[0m\"\n- \"\\e\"\n- \"\\x1f\"\n- \"\"\n- \"\"\n- \"\"\n- \"ab\"\n- \"\"\n-  \n- a b\n- \"\\x01\\n\"\n- \"a\\n\\x01\"\n- \"\\x01a\\nb\"\n- \"a\\0\\nb\"\n"
+    "yaml": "- \"\\0\"\n- \"a\\0b\"\n- \"\\x01\"\n- \"a\\ab\"\n- \"\\b\"\n- \"\\t\"\n- a\tb\n- \"\\v\"\n- \"a\\vb\"\n- \"\\f\"\n- \"\\r\"\n- \"a\\rb\"\n- \"a\\r\\nb\"\n- \"a\\r\\nb\\r\\n\"\n- \"\\e[0m\"\n- \"\\e\"\n- \"\\x1f\"\n- \"\"\n- \"\"\n- \"\"\n- \"ab\"\n- \"\"\n-  \n- a b\n- \"\\x01\\n\"\n- \"a\\n\\x01\"\n- \"\\x01a\\nb\"\n- \"a\\0\\nb\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters/as-nested",
@@ -6181,7 +6208,8 @@
         }
       ]
     },
-    "yaml": "outer:\n  inner:\n    - \"\\0\"\n    - \"a\\0b\"\n    - \"\\x01\"\n    - \"a\\ab\"\n    - \"\\b\"\n    - \"\\t\"\n    - a\tb\n    - \"\\v\"\n    - \"a\\vb\"\n    - \"\\f\"\n    - \"\\r\"\n    - \"a\\rb\"\n    - \"a\\r\\nb\"\n    - \"a\\r\\nb\\r\\n\"\n    - \"\\e[0m\"\n    - \"\\e\"\n    - \"\\x1f\"\n    - \"\"\n    - \"\"\n    - \"\"\n    - \"ab\"\n    - \"\"\n    -  \n    - a b\n    - \"\\x01\\n\"\n    - \"a\\n\\x01\"\n    - \"\\x01a\\nb\"\n    - \"a\\0\\nb\"\nlist:\n  - k0: \"\\0\"\n    k1: \"a\\0b\"\n    k2: \"\\x01\"\n    k3: \"a\\ab\"\n    k4: \"\\b\"\n    k5: \"\\t\"\n    k6: a\tb\n    k7: \"\\v\"\n    k8: \"a\\vb\"\n    k9: \"\\f\"\n    k10: \"\\r\"\n    k11: \"a\\rb\"\n    k12: \"a\\r\\nb\"\n    k13: \"a\\r\\nb\\r\\n\"\n    k14: \"\\e[0m\"\n    k15: \"\\e\"\n    k16: \"\\x1f\"\n    k17: \"\"\n    k18: \"\"\n    k19: \"\"\n    k20: \"ab\"\n    k21: \"\"\n    k22:  \n    k23: a b\n    k24: \"\\x01\\n\"\n    k25: \"a\\n\\x01\"\n    k26: \"\\x01a\\nb\"\n    k27: \"a\\0\\nb\"\n"
+    "yaml": "outer:\n  inner:\n    - \"\\0\"\n    - \"a\\0b\"\n    - \"\\x01\"\n    - \"a\\ab\"\n    - \"\\b\"\n    - \"\\t\"\n    - a\tb\n    - \"\\v\"\n    - \"a\\vb\"\n    - \"\\f\"\n    - \"\\r\"\n    - \"a\\rb\"\n    - \"a\\r\\nb\"\n    - \"a\\r\\nb\\r\\n\"\n    - \"\\e[0m\"\n    - \"\\e\"\n    - \"\\x1f\"\n    - \"\"\n    - \"\"\n    - \"\"\n    - \"ab\"\n    - \"\"\n    -  \n    - a b\n    - \"\\x01\\n\"\n    - \"a\\n\\x01\"\n    - \"\\x01a\\nb\"\n    - \"a\\0\\nb\"\nlist:\n  - k0: \"\\0\"\n    k1: \"a\\0b\"\n    k2: \"\\x01\"\n    k3: \"a\\ab\"\n    k4: \"\\b\"\n    k5: \"\\t\"\n    k6: a\tb\n    k7: \"\\v\"\n    k8: \"a\\vb\"\n    k9: \"\\f\"\n    k10: \"\\r\"\n    k11: \"a\\rb\"\n    k12: \"a\\r\\nb\"\n    k13: \"a\\r\\nb\\r\\n\"\n    k14: \"\\e[0m\"\n    k15: \"\\e\"\n    k16: \"\\x1f\"\n    k17: \"\"\n    k18: \"\"\n    k19: \"\"\n    k20: \"ab\"\n    k21: \"\"\n    k22:  \n    k23: a b\n    k24: \"\\x01\\n\"\n    k25: \"a\\n\\x01\"\n    k26: \"\\x01a\\nb\"\n    k27: \"a\\0\\nb\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/value \"\\u0000\"",
@@ -6461,7 +6489,8 @@
     "input": {
       "key": ""
     },
-    "yaml": "key: \"\"\n"
+    "yaml": "key: \"\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/key \"\"",
@@ -6469,7 +6498,8 @@
     "input": {
       "": "v"
     },
-    "yaml": "\"\": v\n"
+    "yaml": "\"\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/value \"\"",
@@ -6477,7 +6507,8 @@
     "input": {
       "key": ""
     },
-    "yaml": "key: \"\"\n"
+    "yaml": "key: \"\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/key \"\"",
@@ -6485,7 +6516,8 @@
     "input": {
       "": "v"
     },
-    "yaml": "\"\": v\n"
+    "yaml": "\"\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/value \"\"",
@@ -6493,7 +6525,8 @@
     "input": {
       "key": ""
     },
-    "yaml": "key: \"\"\n"
+    "yaml": "key: \"\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/key \"\"",
@@ -6501,7 +6534,8 @@
     "input": {
       "": "v"
     },
-    "yaml": "\"\": v\n"
+    "yaml": "\"\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/value \"ab\"",
@@ -6509,7 +6543,8 @@
     "input": {
       "key": "ab"
     },
-    "yaml": "key: \"ab\"\n"
+    "yaml": "key: \"ab\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/key \"ab\"",
@@ -6517,7 +6552,8 @@
     "input": {
       "ab": "v"
     },
-    "yaml": "\"ab\": v\n"
+    "yaml": "\"ab\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/value \"\"",
@@ -6525,7 +6561,8 @@
     "input": {
       "key": ""
     },
-    "yaml": "key: \"\"\n"
+    "yaml": "key: \"\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/key \"\"",
@@ -6533,7 +6570,8 @@
     "input": {
       "": "v"
     },
-    "yaml": "\"\": v\n"
+    "yaml": "\"\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "control-characters-single/value \" \"",
@@ -6659,7 +6697,8 @@
       "k21": "a　",
       "k22": " x"
     },
-    "yaml": "k0: é\nk1: 日本語\nk2: 👍🏽\nk3: 👨‍👩‍👧\nk4:  \nk5:  \nk6: a b\nk7: a b\nk8: |\n   \nk9: a﻿b\nk10: ‍\nk11: ​\nk12: ‮\nk13: \"ñandú: café\"\nk14: |-\n  é\n  è\nk15: \"- é\"\nk16: \"é:\"\nk17: 😀\nk18: 􏿿\nk19: �\nk20: 　\nk21: a　\nk22:  x\n"
+    "yaml": "k0: é\nk1: 日本語\nk2: 👍🏽\nk3: 👨‍👩‍👧\nk4:  \nk5:  \nk6: a b\nk7: a b\nk8: |\n   \nk9: a﻿b\nk10: ‍\nk11: ​\nk12: ‮\nk13: \"ñandú: café\"\nk14: |-\n  é\n  è\nk15: \"- é\"\nk16: \"é:\"\nk17: 😀\nk18: 􏿿\nk19: �\nk20: 　\nk21: a　\nk22:  x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode/as-keys",
@@ -6689,7 +6728,8 @@
       "a　": "x",
       " x": "x"
     },
-    "yaml": "é: x\n日本語: x\n👍🏽: x\n👨‍👩‍👧: x\n : x\n : x\na b: x\na b: x\n\" \\n\": x\na﻿b: x\n‍: x\n​: x\n‮: x\n\"ñandú: café\": x\n\"é\\nè\": x\n\"- é\": x\n\"é:\": x\n😀: x\n􏿿: x\n�: x\n　: x\na　: x\n x: x\n"
+    "yaml": "é: x\n日本語: x\n👍🏽: x\n👨‍👩‍👧: x\n : x\n : x\na b: x\na b: x\n\" \\n\": x\na﻿b: x\n‍: x\n​: x\n‮: x\n\"ñandú: café\": x\n\"é\\nè\": x\n\"- é\": x\n\"é:\": x\n😀: x\n􏿿: x\n�: x\n　: x\na　: x\n x: x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode/as-items",
@@ -6719,7 +6759,8 @@
       "a　",
       " x"
     ],
-    "yaml": "- é\n- 日本語\n- 👍🏽\n- 👨‍👩‍👧\n-  \n-  \n- a b\n- a b\n- |\n   \n- a﻿b\n- ‍\n- ​\n- ‮\n- \"ñandú: café\"\n- |-\n  é\n  è\n- \"- é\"\n- \"é:\"\n- 😀\n- 􏿿\n- �\n- 　\n- a　\n-  x\n"
+    "yaml": "- é\n- 日本語\n- 👍🏽\n- 👨‍👩‍👧\n-  \n-  \n- a b\n- a b\n- |\n   \n- a﻿b\n- ‍\n- ​\n- ‮\n- \"ñandú: café\"\n- |-\n  é\n  è\n- \"- é\"\n- \"é:\"\n- 😀\n- 􏿿\n- �\n- 　\n- a　\n-  x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode/as-nested",
@@ -6780,7 +6821,8 @@
         }
       ]
     },
-    "yaml": "outer:\n  inner:\n    - é\n    - 日本語\n    - 👍🏽\n    - 👨‍👩‍👧\n    -  \n    -  \n    - a b\n    - a b\n    - |\n       \n    - a﻿b\n    - ‍\n    - ​\n    - ‮\n    - \"ñandú: café\"\n    - |-\n      é\n      è\n    - \"- é\"\n    - \"é:\"\n    - 😀\n    - 􏿿\n    - �\n    - 　\n    - a　\n    -  x\nlist:\n  - k0: é\n    k1: 日本語\n    k2: 👍🏽\n    k3: 👨‍👩‍👧\n    k4:  \n    k5:  \n    k6: a b\n    k7: a b\n    k8: |\n       \n    k9: a﻿b\n    k10: ‍\n    k11: ​\n    k12: ‮\n    k13: \"ñandú: café\"\n    k14: |-\n      é\n      è\n    k15: \"- é\"\n    k16: \"é:\"\n    k17: 😀\n    k18: 􏿿\n    k19: �\n    k20: 　\n    k21: a　\n    k22:  x\n"
+    "yaml": "outer:\n  inner:\n    - é\n    - 日本語\n    - 👍🏽\n    - 👨‍👩‍👧\n    -  \n    -  \n    - a b\n    - a b\n    - |\n       \n    - a﻿b\n    - ‍\n    - ​\n    - ‮\n    - \"ñandú: café\"\n    - |-\n      é\n      è\n    - \"- é\"\n    - \"é:\"\n    - 😀\n    - 􏿿\n    - �\n    - 　\n    - a　\n    -  x\nlist:\n  - k0: é\n    k1: 日本語\n    k2: 👍🏽\n    k3: 👨‍👩‍👧\n    k4:  \n    k5:  \n    k6: a b\n    k7: a b\n    k8: |\n       \n    k9: a﻿b\n    k10: ‍\n    k11: ​\n    k12: ‮\n    k13: \"ñandú: café\"\n    k14: |-\n      é\n      è\n    k15: \"- é\"\n    k16: \"é:\"\n    k17: 😀\n    k18: 􏿿\n    k19: �\n    k20: 　\n    k21: a　\n    k22:  x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/value \"é\"",
@@ -6852,7 +6894,8 @@
     "input": {
       "key": " "
     },
-    "yaml": "key:  \n"
+    "yaml": "key:  \n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/key \" \"",
@@ -6860,7 +6903,8 @@
     "input": {
       " ": "v"
     },
-    "yaml": " : v\n"
+    "yaml": " : v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/value \" \"",
@@ -6868,7 +6912,8 @@
     "input": {
       "key": " "
     },
-    "yaml": "key:  \n"
+    "yaml": "key:  \n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/key \" \"",
@@ -6876,7 +6921,8 @@
     "input": {
       " ": "v"
     },
-    "yaml": " : v\n"
+    "yaml": " : v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/value \"a b\"",
@@ -6884,7 +6930,8 @@
     "input": {
       "key": "a b"
     },
-    "yaml": "key: a b\n"
+    "yaml": "key: a b\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/key \"a b\"",
@@ -6892,7 +6939,8 @@
     "input": {
       "a b": "v"
     },
-    "yaml": "a b: v\n"
+    "yaml": "a b: v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/value \"a b\"",
@@ -6900,7 +6948,8 @@
     "input": {
       "key": "a b"
     },
-    "yaml": "key: a b\n"
+    "yaml": "key: a b\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/key \"a b\"",
@@ -6908,7 +6957,8 @@
     "input": {
       "a b": "v"
     },
-    "yaml": "a b: v\n"
+    "yaml": "a b: v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/value \" \\n\"",
@@ -6916,7 +6966,8 @@
     "input": {
       "key": " \n"
     },
-    "yaml": "key: |\n   \n"
+    "yaml": "key: |\n   \n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/key \" \\n\"",
@@ -6924,7 +6975,8 @@
     "input": {
       " \n": "v"
     },
-    "yaml": "\" \\n\": v\n"
+    "yaml": "\" \\n\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "unicode-single/value \"a﻿b\"",
@@ -7878,6 +7930,529 @@
       "0123456789012345678901234567890123456789\\n\n\u0001": "v"
     },
     "yaml": "\"0123456789012345678901234567890123456789\\\\n\\n\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds/as-values",
+    "class": "double-quoted-blank-between-line-feeds",
+    "input": {
+      "k0": "0123456789012345678901234567890123456789\n \nb\u0001",
+      "k1": "0123456789012345678901234567890123456789\n \n\nb\u0001",
+      "k2": "0123456789012345678901234567890123456789\n\n \nb\u0001",
+      "k3": "0123456789012345678901234567890123456789\n \n \nb\u0001",
+      "k4": "0123456789012345678901234567890123456789 \n \nb\u0001",
+      "k5": "0123456789012345678901234567890123456789\n  \nb\u0001",
+      "k6": "0123456789012345678901234567890123456789\n \n\u0001",
+      "k7": "\u00010123456789012345678901234567890123456789\n \nx",
+      "k8": "0123456789012345678901234567890123456789\n \nb\n ",
+      "k9": "0123456789012345678901234567890123456789\n \n\nb\n ",
+      "k10": "0123456789012345678901234567890123456789\n\n \nb\n\n ",
+      "k11": "a\n \nb\u0001",
+      "k12": "ééééééééééééééééééé\n \nb\u0001"
+    },
+    "yaml": "k0: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  b\\x01\"\nk1: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n\n  b\\x01\"\nk2: \"0123456789012345678901234567890123456789\n\n\n  \\\\ \n\n  b\\x01\"\nk3: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \\\\ \n\n  b\\x01\"\nk4: \"0123456789012345678901234567890123456789\\ \n\n  \\\\ \n\n  b\\x01\"\nk5: \"0123456789012345678901234567890123456789\n\n  \\ \\ \n\n  b\\x01\"\nk6: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \\x01\"\nk7: \"\\x010123456789012345678901234567890123456789\n\n  \\\\ \n\n  x\"\nk8: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  b\n\n  \\ \"\nk9: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n\n  b\n\n  \\ \"\nk10: \"0123456789012345678901234567890123456789\n\n\n  \\\\ \n\n  b\n\n\n  \\ \"\nk11: \"a\\n\\ \\nb\\x01\"\nk12: \"ééééééééééééééééééé\\n\\ \\nb\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds/as-keys",
+    "class": "double-quoted-blank-between-line-feeds",
+    "input": {
+      "0123456789012345678901234567890123456789\n \nb\u0001": "x",
+      "0123456789012345678901234567890123456789\n \n\nb\u0001": "x",
+      "0123456789012345678901234567890123456789\n\n \nb\u0001": "x",
+      "0123456789012345678901234567890123456789\n \n \nb\u0001": "x",
+      "0123456789012345678901234567890123456789 \n \nb\u0001": "x",
+      "0123456789012345678901234567890123456789\n  \nb\u0001": "x",
+      "0123456789012345678901234567890123456789\n \n\u0001": "x",
+      "\u00010123456789012345678901234567890123456789\n \nx": "x",
+      "0123456789012345678901234567890123456789\n \nb\n ": "x",
+      "0123456789012345678901234567890123456789\n \n\nb\n ": "x",
+      "0123456789012345678901234567890123456789\n\n \nb\n\n ": "x",
+      "a\n \nb\u0001": "x",
+      "ééééééééééééééééééé\n \nb\u0001": "x"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\nb\\x01\": x\n\"0123456789012345678901234567890123456789\\n\\ \\n\\nb\\x01\": x\n\"0123456789012345678901234567890123456789\\n\\n\\ \\nb\\x01\": x\n\"0123456789012345678901234567890123456789\\n\\ \\n\\ \\nb\\x01\": x\n\"0123456789012345678901234567890123456789\\ \\n\\ \\nb\\x01\": x\n\"0123456789012345678901234567890123456789\\n \\ \\nb\\x01\": x\n\"0123456789012345678901234567890123456789\\n\\ \\n\\x01\": x\n\"\\x010123456789012345678901234567890123456789\\n\\ \\nx\": x\n\"0123456789012345678901234567890123456789\\n\\ \\nb\\n \": x\n\"0123456789012345678901234567890123456789\\n\\ \\n\\nb\\n \": x\n\"0123456789012345678901234567890123456789\\n\\n\\ \\nb\\n\\n \": x\n\"a\\n\\ \\nb\\x01\": x\n\"ééééééééééééééééééé\\n\\ \\nb\\x01\": x\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds/as-items",
+    "class": "double-quoted-blank-between-line-feeds",
+    "input": [
+      "0123456789012345678901234567890123456789\n \nb\u0001",
+      "0123456789012345678901234567890123456789\n \n\nb\u0001",
+      "0123456789012345678901234567890123456789\n\n \nb\u0001",
+      "0123456789012345678901234567890123456789\n \n \nb\u0001",
+      "0123456789012345678901234567890123456789 \n \nb\u0001",
+      "0123456789012345678901234567890123456789\n  \nb\u0001",
+      "0123456789012345678901234567890123456789\n \n\u0001",
+      "\u00010123456789012345678901234567890123456789\n \nx",
+      "0123456789012345678901234567890123456789\n \nb\n ",
+      "0123456789012345678901234567890123456789\n \n\nb\n ",
+      "0123456789012345678901234567890123456789\n\n \nb\n\n ",
+      "a\n \nb\u0001",
+      "ééééééééééééééééééé\n \nb\u0001"
+    ],
+    "yaml": "- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  b\\x01\"\n- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n\n  b\\x01\"\n- \"0123456789012345678901234567890123456789\n\n\n  \\\\ \n\n  b\\x01\"\n- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \\\\ \n\n  b\\x01\"\n- \"0123456789012345678901234567890123456789\\ \n\n  \\\\ \n\n  b\\x01\"\n- \"0123456789012345678901234567890123456789\n\n  \\ \\ \n\n  b\\x01\"\n- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \\x01\"\n- \"\\x010123456789012345678901234567890123456789\n\n  \\\\ \n\n  x\"\n- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  b\n\n  \\ \"\n- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n\n  b\n\n  \\ \"\n- \"0123456789012345678901234567890123456789\n\n\n  \\\\ \n\n  b\n\n\n  \\ \"\n- \"a\\n\\ \\nb\\x01\"\n- \"ééééééééééééééééééé\\n\\ \\nb\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds/as-nested",
+    "class": "double-quoted-blank-between-line-feeds",
+    "input": {
+      "outer": {
+        "inner": [
+          "0123456789012345678901234567890123456789\n \nb\u0001",
+          "0123456789012345678901234567890123456789\n \n\nb\u0001",
+          "0123456789012345678901234567890123456789\n\n \nb\u0001",
+          "0123456789012345678901234567890123456789\n \n \nb\u0001",
+          "0123456789012345678901234567890123456789 \n \nb\u0001",
+          "0123456789012345678901234567890123456789\n  \nb\u0001",
+          "0123456789012345678901234567890123456789\n \n\u0001",
+          "\u00010123456789012345678901234567890123456789\n \nx",
+          "0123456789012345678901234567890123456789\n \nb\n ",
+          "0123456789012345678901234567890123456789\n \n\nb\n ",
+          "0123456789012345678901234567890123456789\n\n \nb\n\n ",
+          "a\n \nb\u0001",
+          "ééééééééééééééééééé\n \nb\u0001"
+        ]
+      },
+      "list": [
+        {
+          "k0": "0123456789012345678901234567890123456789\n \nb\u0001",
+          "k1": "0123456789012345678901234567890123456789\n \n\nb\u0001",
+          "k2": "0123456789012345678901234567890123456789\n\n \nb\u0001",
+          "k3": "0123456789012345678901234567890123456789\n \n \nb\u0001",
+          "k4": "0123456789012345678901234567890123456789 \n \nb\u0001",
+          "k5": "0123456789012345678901234567890123456789\n  \nb\u0001",
+          "k6": "0123456789012345678901234567890123456789\n \n\u0001",
+          "k7": "\u00010123456789012345678901234567890123456789\n \nx",
+          "k8": "0123456789012345678901234567890123456789\n \nb\n ",
+          "k9": "0123456789012345678901234567890123456789\n \n\nb\n ",
+          "k10": "0123456789012345678901234567890123456789\n\n \nb\n\n ",
+          "k11": "a\n \nb\u0001",
+          "k12": "ééééééééééééééééééé\n \nb\u0001"
+        }
+      ]
+    },
+    "yaml": "outer:\n  inner:\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      b\\x01\"\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n\n      b\\x01\"\n    - \"0123456789012345678901234567890123456789\n\n\n      \\\\ \n\n      b\\x01\"\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      \\\\ \n\n      b\\x01\"\n    - \"0123456789012345678901234567890123456789\\ \n\n      \\\\ \n\n      b\\x01\"\n    - \"0123456789012345678901234567890123456789\n\n      \\ \\ \n\n      b\\x01\"\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      \\x01\"\n    - \"\\x010123456789012345678901234567890123456789\n\n      \\\\ \n\n      x\"\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      b\n\n      \\ \"\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n\n      b\n\n      \\ \"\n    - \"0123456789012345678901234567890123456789\n\n\n      \\\\ \n\n      b\n\n\n      \\ \"\n    - \"a\\n\\ \\nb\\x01\"\n    - \"ééééééééééééééééééé\\n\\ \\nb\\x01\"\nlist:\n  - k0: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      b\\x01\"\n    k1: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n\n      b\\x01\"\n    k2: \"0123456789012345678901234567890123456789\n\n\n      \\\\ \n\n      b\\x01\"\n    k3: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      \\\\ \n\n      b\\x01\"\n    k4: \"0123456789012345678901234567890123456789\\ \n\n      \\\\ \n\n      b\\x01\"\n    k5: \"0123456789012345678901234567890123456789\n\n      \\ \\ \n\n      b\\x01\"\n    k6: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      \\x01\"\n    k7: \"\\x010123456789012345678901234567890123456789\n\n      \\\\ \n\n      x\"\n    k8: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      b\n\n      \\ \"\n    k9: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n\n      b\n\n      \\ \"\n    k10: \"0123456789012345678901234567890123456789\n\n\n      \\\\ \n\n      b\n\n\n      \\ \"\n    k11: \"a\\n\\ \\nb\\x01\"\n    k12: \"ééééééééééééééééééé\\n\\ \\nb\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \nb\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  b\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \nb\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n \\n\\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \n\nb\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n\n  b\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n \\n\\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \n\nb\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\n\\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n\n \nb\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n\n  \\\\ \n\n  b\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n\n \nb\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\n\\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n \\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \n \nb\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \\\\ \n\n  b\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n \\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \n \nb\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\n\\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789 \\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789 \n \nb\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\\ \n\n  \\\\ \n\n  b\\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789 \\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789 \n \nb\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\ \\n\\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n  \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n  \nb\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\ \\ \n\n  b\\x01\"\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n  \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n  \nb\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n \\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n \\n\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \n\u0001"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \\x01\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n \\n\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \n\u0001": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\n\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"\\u00010123456789012345678901234567890123456789\\n \\nx\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "\u00010123456789012345678901234567890123456789\n \nx"
+    },
+    "yaml": "key: \"\\x010123456789012345678901234567890123456789\n\n  \\\\ \n\n  x\"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"\\u00010123456789012345678901234567890123456789\\n \\nx\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "\u00010123456789012345678901234567890123456789\n \nx": "v"
+    },
+    "yaml": "\"\\x010123456789012345678901234567890123456789\\n\\ \\nx\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n \\nb\\n \"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \nb\n "
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  b\n\n  \\ \"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n \\nb\\n \"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \nb\n ": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\nb\\n \": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n \\n\\nb\\n \"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \n\nb\n "
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n\n  b\n\n  \\ \"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n \\n\\nb\\n \"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \n\nb\n ": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\n\\nb\\n \": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"0123456789012345678901234567890123456789\\n\\n \\nb\\n\\n \"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n\n \nb\n\n "
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n\n  \\\\ \n\n  b\n\n\n  \\ \"\n",
+    "drift": "space-between-line-feeds-in-long-double-quoted-text"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"0123456789012345678901234567890123456789\\n\\n \\nb\\n\\n \"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n\n \nb\n\n ": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\n\\ \\nb\\n\\n \": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"a\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "a\n \nb\u0001"
+    },
+    "yaml": "key: \"a\\n\\ \\nb\\x01\"\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"a\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "a\n \nb\u0001": "v"
+    },
+    "yaml": "\"a\\n\\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/value \"ééééééééééééééééééé\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "key": "ééééééééééééééééééé\n \nb\u0001"
+    },
+    "yaml": "key: \"ééééééééééééééééééé\\n\\ \\nb\\x01\"\n"
+  },
+  {
+    "name": "double-quoted-blank-between-line-feeds-single/key \"ééééééééééééééééééé\\n \\nb\\u0001\"",
+    "class": "double-quoted-blank-between-line-feeds-single",
+    "input": {
+      "ééééééééééééééééééé\n \nb\u0001": "v"
+    },
+    "yaml": "\"ééééééééééééééééééé\\n\\ \\nb\\x01\": v\n"
+  },
+  {
+    "name": "escaped-characters-in-long-text/as-values",
+    "class": "escaped-characters-in-long-text",
+    "input": {
+      "k0": "0123456789012345678901234567890123456789\nx",
+      "k1": " 0123456789012345678901234567890123456789\nb",
+      "k2": "0123456789012345678901234567890123456789 \nb",
+      "k3": "0123456789012345678901234567890123456789\n",
+      "k4": "\n0123456789012345678901234567890123456789\nx",
+      "k5": "0123456789012345678901234567890123456789\n \n",
+      "k6": "0123456789012345678901234567890123456789"
+    },
+    "yaml": "k0: \"0123456789012345678901234567890123456789\n\n  x\"\nk1: |-\n   0123456789012345678901234567890123456789\n  b\nk2: |-\n  0123456789012345678901234567890123456789 \n  b\nk3: \"0123456789012345678901234567890123456789\n\n  \"\nk4: \"\n\n  0123456789012345678901234567890123456789\n\n  x\"\nk5: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \"\nk6: \"0123456789012345678901234567890123456789\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text/as-keys",
+    "class": "escaped-characters-in-long-text",
+    "input": {
+      "0123456789012345678901234567890123456789\nx": "x",
+      " 0123456789012345678901234567890123456789\nb": "x",
+      "0123456789012345678901234567890123456789 \nb": "x",
+      "0123456789012345678901234567890123456789\n": "x",
+      "\n0123456789012345678901234567890123456789\nx": "x",
+      "0123456789012345678901234567890123456789\n \n": "x",
+      "0123456789012345678901234567890123456789": "x"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\nx\": x\n\" 0123456789012345678901234567890123456789\\nb\": x\n\"0123456789012345678901234567890123456789 \\nb\": x\n\"0123456789012345678901234567890123456789\\n\": x\n\"\\n0123456789012345678901234567890123456789\\nx\": x\n\"0123456789012345678901234567890123456789\\n\\ \\n\": x\n\"0123456789012345678901234567890123456789\": x\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text/as-items",
+    "class": "escaped-characters-in-long-text",
+    "input": [
+      "0123456789012345678901234567890123456789\nx",
+      " 0123456789012345678901234567890123456789\nb",
+      "0123456789012345678901234567890123456789 \nb",
+      "0123456789012345678901234567890123456789\n",
+      "\n0123456789012345678901234567890123456789\nx",
+      "0123456789012345678901234567890123456789\n \n",
+      "0123456789012345678901234567890123456789"
+    ],
+    "yaml": "- \"0123456789012345678901234567890123456789\n\n  x\"\n- |-\n   0123456789012345678901234567890123456789\n  b\n- |-\n  0123456789012345678901234567890123456789 \n  b\n- \"0123456789012345678901234567890123456789\n\n  \"\n- \"\n\n  0123456789012345678901234567890123456789\n\n  x\"\n- \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \"\n- \"0123456789012345678901234567890123456789\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text/as-nested",
+    "class": "escaped-characters-in-long-text",
+    "input": {
+      "outer": {
+        "inner": [
+          "0123456789012345678901234567890123456789\nx",
+          " 0123456789012345678901234567890123456789\nb",
+          "0123456789012345678901234567890123456789 \nb",
+          "0123456789012345678901234567890123456789\n",
+          "\n0123456789012345678901234567890123456789\nx",
+          "0123456789012345678901234567890123456789\n \n",
+          "0123456789012345678901234567890123456789"
+        ]
+      },
+      "list": [
+        {
+          "k0": "0123456789012345678901234567890123456789\nx",
+          "k1": " 0123456789012345678901234567890123456789\nb",
+          "k2": "0123456789012345678901234567890123456789 \nb",
+          "k3": "0123456789012345678901234567890123456789\n",
+          "k4": "\n0123456789012345678901234567890123456789\nx",
+          "k5": "0123456789012345678901234567890123456789\n \n",
+          "k6": "0123456789012345678901234567890123456789"
+        }
+      ]
+    },
+    "yaml": "outer:\n  inner:\n    - \"0123456789012345678901234567890123456789\n\n      x\"\n    - |-\n       0123456789012345678901234567890123456789\n      b\n    - |-\n      0123456789012345678901234567890123456789 \n      b\n    - \"0123456789012345678901234567890123456789\n\n      \"\n    - \"\n\n      0123456789012345678901234567890123456789\n\n      x\"\n    - \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      \"\n    - \"0123456789012345678901234567890123456789\"\nlist:\n  - k0: \"0123456789012345678901234567890123456789\n\n      x\"\n    k1: |-\n       0123456789012345678901234567890123456789\n      b\n    k2: |-\n      0123456789012345678901234567890123456789 \n      b\n    k3: \"0123456789012345678901234567890123456789\n\n      \"\n    k4: \"\n\n      0123456789012345678901234567890123456789\n\n      x\"\n    k5: \"0123456789012345678901234567890123456789\n\n      \\\\ \n\n      \"\n    k6: \"0123456789012345678901234567890123456789\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \"0123456789012345678901234567890123456789\\nx\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\nx"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  x\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \"0123456789012345678901234567890123456789\\nx\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "0123456789012345678901234567890123456789\nx": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\nx\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \" 0123456789012345678901234567890123456789\\nb\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": " 0123456789012345678901234567890123456789\nb"
+    },
+    "yaml": "key: |-\n   0123456789012345678901234567890123456789\n  b\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \" 0123456789012345678901234567890123456789\\nb\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      " 0123456789012345678901234567890123456789\nb": "v"
+    },
+    "yaml": "\" 0123456789012345678901234567890123456789\\nb\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \"0123456789012345678901234567890123456789 \\nb\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789 \nb"
+    },
+    "yaml": "key: |-\n  0123456789012345678901234567890123456789 \n  b\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \"0123456789012345678901234567890123456789 \\nb\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "0123456789012345678901234567890123456789 \nb": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789 \\nb\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \"0123456789012345678901234567890123456789\\n\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \"0123456789012345678901234567890123456789\\n\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \"\\n0123456789012345678901234567890123456789\\nx\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": "\n0123456789012345678901234567890123456789\nx"
+    },
+    "yaml": "key: \"\n\n  0123456789012345678901234567890123456789\n\n  x\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \"\\n0123456789012345678901234567890123456789\\nx\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "\n0123456789012345678901234567890123456789\nx": "v"
+    },
+    "yaml": "\"\\n0123456789012345678901234567890123456789\\nx\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \"0123456789012345678901234567890123456789\\n \\n\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789\n \n"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\n\n  \\\\ \n\n  \"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \"0123456789012345678901234567890123456789\\n \\n\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "0123456789012345678901234567890123456789\n \n": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\\n\\ \\n\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/value \"0123456789012345678901234567890123456789\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "key": "0123456789012345678901234567890123456789"
+    },
+    "yaml": "key: \"0123456789012345678901234567890123456789\"\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
+  },
+  {
+    "name": "escaped-characters-in-long-text-single/key \"0123456789012345678901234567890123456789\"",
+    "class": "escaped-characters-in-long-text-single",
+    "input": {
+      "0123456789012345678901234567890123456789": "v"
+    },
+    "yaml": "\"0123456789012345678901234567890123456789\": v\n",
+    "drift": "escaped-characters-the-reference-writes-raw"
   },
   {
     "name": "keys/simple",

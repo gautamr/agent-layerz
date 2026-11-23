@@ -1,6 +1,7 @@
 //! alz's own YAML emitter (decision-28): the YAML of generated agent, rule and skill frontmatter,
 //! adopted layer files and `allowed.yaml`, written byte for byte as the TypeScript reference
-//! writes it (`stringifyYaml` in `src/core/yaml.ts`: block style, no line folding) until cutover.
+//! writes it (`stringifyYaml` in `src/core/yaml.ts`: block style, no line folding) until cutover,
+//! except for the reference drift of spec §10.2 (TASK-73), which the samples mark with `drift`.
 //!
 //! The input is an [`EmitValue`]: text, booleans, integers, lists and maps with text keys. The
 //! output is a [`String`] ending in a line feed. [`emit`] is pure and total. The golden samples

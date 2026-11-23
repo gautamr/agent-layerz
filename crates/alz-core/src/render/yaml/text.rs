@@ -1,8 +1,9 @@
 //! How a piece of text is written: plain, quoted or as a block. The rules are the reference's
 //! (the `yaml` package, 2.9.1, with line folding off), tested against its samples. In short:
 //!
-//! 1. Text with a control character (U+0000 to U+0008, U+000B to U+001F, U+007F to U+009F) is
-//!    always double-quoted.
+//! 1. Text with a character that alz's reader refuses (U+0000 to U+0008, U+000B to U+001F,
+//!    U+007F to U+009F, U+2028, U+2029) is always double-quoted, and those characters are written
+//!    as escapes. The reference writes U+007F to U+009F, U+2028 and U+2029 raw (drift, TASK-73).
 //! 2. Otherwise text is plain unless YAML would read it differently: it starts with an
 //!    indicator, holds `: ` or ` #`, ends in a space or a colon, is empty, or reads as null, a
 //!    boolean, an integer or a float in the YAML 1.2 core schema. Such text is quoted, with
@@ -83,10 +84,23 @@ fn is_read_differently(text: &str) -> bool {
         || (only_blanks_and_line_feeds && text.contains(' ') && text.contains('\n'))
 }
 
-/// U+0000 to U+0008, U+000B to U+001F and U+007F to U+009F: not tab and not line feed.
+/// A character that alz's reader refuses and alz writes only as an escape (spec §10.2 rule 1):
+/// U+0000 to U+0008, U+000B to U+001F (not tab and not line feed), U+007F to U+009F, U+2028 and
+/// U+2029. The reference writes U+007F to U+009F raw inside double quotes and U+2028 and U+2029
+/// raw (reference drift, TASK-73).
+fn is_escaped_character(c: char) -> bool {
+    matches!(
+        c,
+        '\u{0}'..='\u{8}'
+            | '\u{b}'..='\u{1f}'
+            | '\u{7f}'..='\u{9f}'
+            | '\u{2028}'
+            | '\u{2029}'
+    )
+}
+
 fn has_control_character(text: &str) -> bool {
-    text.chars()
-        .any(|c| matches!(c, '\u{0}'..='\u{8}' | '\u{b}'..='\u{1f}' | '\u{7f}'..='\u{9f}'))
+    text.chars().any(is_escaped_character)
 }
 
 /// The reference's test for text that plain style cannot hold.
@@ -134,9 +148,9 @@ fn needs_quotes_or_block(text: &str) -> bool {
 }
 
 /// A line that starts with `%`, `---` or `...`. A line starts after a line feed, a carriage
-/// return, U+2028 or U+2029.
+/// return. U+2028 and U+2029 do not start one: text that holds either is double-quoted first.
 fn has_document_marker(text: &str) -> bool {
-    text.split(['\n', '\r', '\u{2028}', '\u{2029}'])
+    text.split(['\n', '\r'])
         .any(|line| line.starts_with(['%']) || line.starts_with("---") || line.starts_with("..."))
 }
 
@@ -260,7 +274,7 @@ fn json_string(text: &str) -> String {
             '\n' => "\\n".to_owned(),
             '\r' => "\\r".to_owned(),
             '\t' => "\\t".to_owned(),
-            c if c < ' ' => format!("\\u{:04x}", u32::from(c)),
+            c if is_escaped_character(c) => format!("\\u{:04x}", u32::from(c)),
             c => c.to_string(),
         })
         .collect();
@@ -295,6 +309,7 @@ fn double_quoted(text: &str, implicit_key: bool, indent: &str) -> String {
     let units: usize = json.iter().map(|c| c.len_utf16()).sum();
     let line_indent = continuation_indent(text, indent);
     let at = |index: usize| json.get(index).copied();
+    let line_feed_follows = |index: usize| at(index) == Some('\\') && at(index + 1) == Some('n');
     let slice = |from: usize, to: usize| -> String {
         json.iter()
             .skip(from)
@@ -341,7 +356,10 @@ fn double_quoted(text: &str, implicit_key: bool, indent: &str) -> String {
                         cursor += 2;
                     }
                     out.push_str(line_indent);
-                    if at(cursor + 2) == Some(' ') {
+                    // A space that starts the line needs a `\` or the break would swallow it.
+                    // When a line feed follows the space, the escape of that space (above) is
+                    // the one `\`; a second would read back as a backslash (TASK-73).
+                    if at(cursor + 2) == Some(' ') && !line_feed_follows(cursor + 3) {
                         out.push('\\');
                     }
                     cursor += 1;

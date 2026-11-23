@@ -1968,8 +1968,9 @@ null, float, anchor, alias, tag or comment.
 
 **Text.** A key or a text value takes the first form that applies:
 1. **Double-quoted** when it holds a character that alz's reader refuses (§7.13, "Control
-   characters"): U+0000 to U+0008, U+000B to U+001F, U+007F to U+009F, U+2028 or U+2029
-   (U+2028 and U+2029 planned, TASK-73).
+   characters"): U+0000 to U+0008, U+000B to U+001F, U+007F to U+009F, U+2028 or U+2029. They are
+   written as escapes (see "Double-quoted"), never raw, which the reference does for U+007F to
+   U+009F inside double quotes and for U+2028 and U+2029 anywhere (reference drift, TASK-73).
 2. **Quoted** when it starts with U+FEFF, or is made only of spaces and line feeds and holds both.
 3. **Quoted** when it is a key that holds a line feed.
 4. When plain YAML cannot hold it: it starts with a line feed, tab, space or one of
@@ -1979,8 +1980,7 @@ null, float, anchor, alias, tag or comment.
    space followed by `#`. Then a key, or text without a line feed, is **quoted**, and any other
    text is a **literal block**.
 5. A **literal block** when it holds a line feed.
-6. **Quoted** when it is a key of the top-level mapping and starts with `---` or `...`, or holds
-   U+2028 or U+2029 followed by `---`, `...` or `%`.
+6. **Quoted** when it is a key of the top-level mapping and starts with `---` or `...`.
 7. **Quoted** when the YAML 1.2 core schema, or alz's reader, reads it as another type:
    - `~`, `null`, `Null`, `NULL`, `true`, `True`, `TRUE`, `false`, `False`, `FALSE`, or empty;
    - an integer, `[-+]?[0-9]+`, `0o[0-7]+` or `0x[0-9a-fA-F]+`, and, for alz's reader,
@@ -1998,8 +1998,8 @@ null, float, anchor, alias, tag or comment.
 **Double-quoted.** Start from J, the text as JSON writes a string: `"`, each character, `"`. In J,
 `"` is `\"`, `\` is `\\`, U+0008 is `\b`, U+000C `\f`, a line feed `\n`, a carriage return `\r`, a
 tab `\t`, and every other character below U+0020, and U+007F to U+009F, U+2028 and U+2029
-(planned, TASK-73), is `\u` and four lower-case hexadecimal digits; every other character is as
-it is. J is written with these changes:
+(reference drift, TASK-73: the reference writes these raw), is `\u` and four lower-case
+hexadecimal digits; every other character is as it is. J is written with these changes:
 - Each `\uXXXX` becomes YAML's escape: `\0` for U+0000, `\a` for U+0007, `\v` for U+000B, `\e`
   for U+001B, `\N` for U+0085, `\L` for U+2028, `\P` for U+2029, and otherwise `\x` and the last
   two digits (`\x01`, `\x7f`).
@@ -2008,7 +2008,8 @@ it is. J is written with these changes:
   written as a line break instead of `\n`: a run of n such line feeds becomes n + 1 line feeds
   and then the continuation indent.
 - A space right before a line feed (`\n` or a line break), or right after a run written as line
-  breaks, is written `\ `, once when both hold.
+  breaks, is written `\ `, once when both hold (reference drift, TASK-73: where both hold, the
+  reference writes it twice).
 
 **Literal block.** Text that ends in spaces or tabs after its last line feed is quoted instead.
 Otherwise let E be the text's trailing run of line feeds, tabs and spaces, and B the text before
@@ -2037,10 +2038,14 @@ bytes only for the text named; the cutover release (R8, TASK-55.9) lists them.
   made only of spaces and line feeds that holds both, which it writes as a block that reads back
   without its spaces (rule 2). Samples: class `reference-reads-differently`.
 - In long double-quoted text it writes a space between a line feed written as a line break and
-  another line feed as `\\ `, which reads back as a backslash; alz writes `\ ` (planned,
-  TASK-73).
+  another line feed as `\\ `, which reads back as a backslash; alz writes `\ ` once, which reads
+  back as the space ("Double-quoted"). This is reachable by text that rule 1 double-quotes and by
+  text that a block cannot hold (it ends in blanks after its last line feed). Samples: class
+  `double-quoted-blank-between-line-feeds`, drift `space-between-line-feeds-in-long-double-quoted-text`.
 - It writes U+007F to U+009F raw inside double quotes, and U+2028 and U+2029 raw, plain or in a
-  block; alz double-quotes and escapes them (rule 1; planned, TASK-73).
+  block; alz double-quotes the text and escapes them (rule 1 and "Double-quoted"). Because J
+  writes each of them as six units, the 40-unit limit of long text is reached sooner than the
+  reference's. Samples: drift `escaped-characters-the-reference-writes-raw`.
 
 ---
 
