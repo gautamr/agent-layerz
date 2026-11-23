@@ -11,10 +11,18 @@
 //! the strictest mode that a more general layer declared with `floor: true` ([`Floor`]). A mode
 //! that is looser is a `permission-floor` error, and the layer's mode and floor are then ignored.
 //! A floor binds the layers after the one that declares it, never that layer's own mode.
+//!
+//! The flags `disable_bypass_mode`, `block_reads_outside` and `block_writes_outside`
+//! ([`FloorFlag`]) only move to `true`: once a layer sets one, it stays set. A more specific layer
+//! that writes `false` for it is a `permission-floor` error naming the layer, the field and the
+//! layer that set it, and the flag stays `true`.
+
+use std::collections::BTreeMap;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::item::{
-    Binding, DefaultMode, PermissionItems, PermissionMode, PermissionRule, Permissions, place,
+    Binding, DefaultMode, FloorFlag, PermissionItems, PermissionMode, PermissionRule, Permissions,
+    place,
 };
 use crate::layer::LayerName;
 use crate::merge::algebra::{Floor, ListEdit, OrderedSet};
@@ -30,9 +38,23 @@ pub struct MergedPermissions {
     deny: Vec<Traced<PermissionRule>>,
     default_mode: Option<Traced<PermissionMode>>,
     floor: Option<PermissionMode>,
+    flags: BTreeMap<FloorFlag, Traced<bool>>,
 }
 
 impl MergedPermissions {
+    /// The layers that set `flag` to `true`, the first as the one that defined it. `None` when no
+    /// layer did: the flag is not set, and a flag that is set is never `false`.
+    #[must_use]
+    pub fn flag(&self, flag: FloorFlag) -> Option<&Traced<bool>> {
+        self.flags.get(&flag)
+    }
+
+    /// Whether some layer set `flag`.
+    #[must_use]
+    pub fn is_set(&self, flag: FloorFlag) -> bool {
+        self.flags.contains_key(&flag)
+    }
+
     /// The rules that are allowed, in stack order then file order.
     #[must_use]
     pub fn allow(&self) -> &[Traced<PermissionRule>] {
@@ -165,6 +187,7 @@ pub(super) struct PermissionState {
     deny: RuleList,
     mode: Option<Traced<PermissionMode>>,
     held: Held,
+    flags: BTreeMap<FloorFlag, Traced<bool>>,
 }
 
 impl PermissionState {
@@ -205,6 +228,7 @@ impl PermissionState {
             .map(|rule| removed_deny(rule, layer, at))
             .collect::<Diagnostics>();
         let (mode, held, found_mode) = self.settle_mode(file.default_mode(), layer, at);
+        let (flags, found_flags) = self.settle_flags(file, layer, at);
         (
             Self {
                 allow: self.allow.edited(file.allow(), layer),
@@ -212,8 +236,33 @@ impl PermissionState {
                 deny,
                 mode,
                 held,
+                flags,
             },
-            found.merge(found_mode),
+            found.merge(found_mode).merge(found_flags),
+        )
+    }
+
+    /// The flags after `layer`: a flag set to `true` is kept, or newly set; a flag that is already
+    /// set and that `layer` writes as `false` stays set, with an error.
+    fn settle_flags(
+        &self,
+        file: &Permissions,
+        layer: &LayerName,
+        at: &Where,
+    ) -> (BTreeMap<FloorFlag, Traced<bool>>, Diagnostics) {
+        FloorFlag::ALL.into_iter().fold(
+            (self.flags.clone(), Diagnostics::new()),
+            |(mut flags, found), flag| match (file.flag(flag), flags.get(&flag)) {
+                (Some(true), None) => {
+                    flags.insert(flag, Traced::new(true, layer.clone(), Action::Define));
+                    (flags, found)
+                }
+                (Some(false), Some(held)) => {
+                    let problem = flag_unset(flag, held, layer, at);
+                    (flags, found.with(problem))
+                }
+                (Some(true) | None, Some(_)) | (Some(false) | None, None) => (flags, found),
+            },
         )
     }
 
@@ -276,6 +325,7 @@ impl PermissionState {
             deny: self.deny.0,
             default_mode: self.mode,
             floor: self.held.floor.get().copied(),
+            flags: self.flags,
         }
     }
 }
@@ -300,6 +350,23 @@ fn removed_deny(rule: &Traced<PermissionRule>, layer: &LayerName, at: &Where) ->
                 .then(MessagePart::printable(owner))
         })
         .then(" and cannot be removed by layer ")
+        .then(MessagePart::printable(layer));
+    Diagnostic::error(Code::PermissionFloor, Some(at.clone()), message)
+}
+
+fn flag_unset(flag: FloorFlag, held: &Traced<bool>, layer: &LayerName, at: &Where) -> Diagnostic {
+    let named = Message::new(flag.field()).then(" is true");
+    let message = held
+        .provenance()
+        .contributions()
+        .first()
+        .map_or(named.clone(), |first| {
+            named
+                .clone()
+                .then(" as set by layer ")
+                .then(MessagePart::printable(first.layer()))
+        })
+        .then(" and cannot be set to false by layer ")
         .then(MessagePart::printable(layer));
     Diagnostic::error(Code::PermissionFloor, Some(at.clone()), message)
 }

@@ -207,3 +207,229 @@ fn merging_the_same_stack_twice_gives_equal_results() {
     ];
     assert_eq!(merged(stack(&files)), merged(stack(&files)));
 }
+
+// The floors of the table of native keys (§7.9).
+
+fn error_lines(files: &[(&str, &str)]) -> Vec<String> {
+    lines(&merged(stack(files)))
+}
+
+fn floor_error(layer: &str, path: &str, sentence: &str) -> String {
+    format!("error [settings] {layer}:settings.yaml: '{path}' is a floor: {sentence}")
+}
+
+const LOOSER: &str = "this value is looser than the one a more general layer set";
+const ADDED: &str = "it may not gain entries that a more general layer did not set";
+const KIND: &str = "its kind differs from the one a more general layer set";
+
+#[test]
+fn a_boolean_floor_set_to_the_stricter_value_cannot_be_loosened_by_a_more_specific_layer() {
+    assert_eq!(
+        error_lines(&[
+            ("personal", "claude:\n  sandbox:\n    enabled: true\n"),
+            ("repo", "claude:\n  sandbox:\n    enabled: false\n"),
+        ]),
+        [floor_error("repo", "claude.sandbox.enabled", LOOSER)]
+    );
+    assert_eq!(
+        error_lines(&[
+            ("personal", "codex:\n  allow_login_shell: false\n"),
+            ("repo", "codex:\n  allow_login_shell: true\n"),
+        ]),
+        [floor_error("repo", "codex.allow_login_shell", LOOSER)]
+    );
+}
+
+#[test]
+fn a_boolean_floor_may_be_raised_and_repeated() {
+    assert_eq!(
+        of(
+            &[
+                ("personal", "claude:\n  sandbox:\n    enabled: false\n"),
+                ("client", "claude:\n  sandbox:\n    enabled: true\n"),
+                ("repo", "claude:\n  sandbox:\n    enabled: true\n"),
+            ],
+            TargetName::Claude
+        ),
+        Some(tree("claude:\n  sandbox:\n    enabled: true\n"))
+    );
+}
+
+#[test]
+fn a_floor_key_that_changes_kind_is_refused_even_to_null() {
+    for other in ["null", "[a]", "text", "1"] {
+        assert_eq!(
+            error_lines(&[
+                ("personal", "claude:\n  sandbox:\n    enabled: true\n"),
+                (
+                    "repo",
+                    &format!("claude:\n  sandbox:\n    enabled: {other}\n")
+                ),
+            ]),
+            [floor_error("repo", "claude.sandbox.enabled", KIND)],
+            "{other}"
+        );
+    }
+}
+
+#[test]
+fn an_ordered_floor_may_only_move_up() {
+    assert_eq!(
+        error_lines(&[
+            ("personal", "codex:\n  web_search: cached\n"),
+            ("repo", "codex:\n  web_search: live\n"),
+        ]),
+        [floor_error("repo", "codex.web_search", LOOSER)]
+    );
+    assert_eq!(
+        of(
+            &[
+                ("personal", "codex:\n  web_search: cached\n"),
+                ("repo", "codex:\n  web_search: disabled\n"),
+            ],
+            TargetName::Codex
+        ),
+        Some(Tree::Map(
+            [("web_search".to_owned(), Tree::Text("disabled".to_owned()))].into()
+        ))
+    );
+}
+
+#[test]
+fn a_profile_key_is_named_by_its_pattern_never_by_the_profile() {
+    assert_eq!(
+        error_lines(&[
+            (
+                "personal",
+                "codex:\n  profiles:\n    secret-name:\n      web_search: disabled\n"
+            ),
+            (
+                "repo",
+                "codex:\n  profiles:\n    secret-name:\n      web_search: live\n"
+            ),
+        ]),
+        [floor_error("repo", "codex.profiles.*.web_search", LOOSER)]
+    );
+}
+
+#[test]
+fn a_no_additions_list_may_not_gain_an_entry_but_may_repeat_entries() {
+    assert_eq!(
+        error_lines(&[
+            (
+                "personal",
+                "claude:\n  sandbox:\n    network:\n      allowedDomains: [a.example]\n"
+            ),
+            (
+                "repo",
+                "claude:\n  sandbox:\n    network:\n      allowedDomains: [a.example, b.example]\n"
+            ),
+        ]),
+        [floor_error(
+            "repo",
+            "claude.sandbox.network.allowedDomains",
+            ADDED
+        )]
+    );
+    assert_eq!(
+        of(
+            &[
+                (
+                    "personal",
+                    "claude:\n  sandbox:\n    network:\n      allowedDomains: [a.example, b.example]\n"
+                ),
+                (
+                    "repo",
+                    "claude:\n  sandbox:\n    network:\n      allowedDomains: [b.example]\n"
+                ),
+            ],
+            TargetName::Claude
+        ),
+        Some(tree(
+            "claude:\n  sandbox:\n    network:\n      allowedDomains: [a.example, b.example]\n"
+        ))
+    );
+}
+
+#[test]
+fn a_union_list_grows_and_cannot_change_kind() {
+    assert_eq!(
+        of(
+            &[
+                (
+                    "personal",
+                    "claude:\n  sandbox:\n    filesystem:\n      denyRead: [a]\n"
+                ),
+                (
+                    "repo",
+                    "claude:\n  sandbox:\n    filesystem:\n      denyRead: [b]\n"
+                ),
+            ],
+            TargetName::Claude
+        ),
+        Some(tree(
+            "claude:\n  sandbox:\n    filesystem:\n      denyRead: [a, b]\n"
+        ))
+    );
+    assert_eq!(
+        error_lines(&[
+            (
+                "personal",
+                "claude:\n  sandbox:\n    filesystem:\n      denyRead: [a]\n"
+            ),
+            (
+                "repo",
+                "claude:\n  sandbox:\n    filesystem:\n      denyRead: none\n"
+            ),
+        ]),
+        [floor_error(
+            "repo",
+            "claude.sandbox.filesystem.denyRead",
+            KIND
+        )]
+    );
+}
+
+#[test]
+fn a_file_that_loosens_a_floor_is_not_merged_at_all_and_every_loosening_is_reported() {
+    let found = merged(stack(&[
+        (
+            "personal",
+            "claude:\n  sandbox:\n    enabled: true\n  a: 1\n",
+        ),
+        (
+            "repo",
+            "claude:\n  sandbox:\n    enabled: false\n    failIfUnavailable: true\n  disableSkillShellExecution: true\n  b: 2\ncodex:\n  allow_login_shell: true\n",
+        ),
+    ]));
+    assert_eq!(
+        lines(&found),
+        [floor_error("repo", "claude.sandbox.enabled", LOOSER)]
+    );
+    assert!(found.merged().is_none());
+}
+
+#[test]
+fn the_first_layer_to_set_a_floor_key_is_free_to_set_any_value() {
+    assert_eq!(
+        error_lines(&[
+            ("personal", "claude:\n  a: 1\n"),
+            ("repo", "claude:\n  sandbox:\n    enabled: false\n"),
+        ]),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_floor_binds_a_target_only_against_the_same_target() {
+    assert_eq!(
+        error_lines(&[
+            ("personal", "claude:\n  sandbox:\n    enabled: true\n"),
+            (
+                "repo",
+                "codex:\n  sandbox_workspace_write:\n    network_access: true\n"
+            ),
+        ]),
+        Vec::<String>::new()
+    );
+}

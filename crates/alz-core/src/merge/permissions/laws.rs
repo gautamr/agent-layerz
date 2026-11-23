@@ -8,7 +8,7 @@ use proptest::prelude::{
 
 use crate::diagnostic::{Code, Level, Where};
 use crate::item::{
-    Binding, DefaultMode, PermissionItems, PermissionMode, PermissionRule, Permissions,
+    Binding, DefaultMode, FloorFlag, PermissionItems, PermissionMode, PermissionRule, Permissions,
 };
 use crate::layer::LayerName;
 use crate::merge::algebra::{ListEdit, OrderedSet};
@@ -303,5 +303,35 @@ proptest! {
         prop_assert!(same(&forward.0, &backward.0));
         prop_assert!(same(&forward.1, &backward.1));
         prop_assert!(same(&forward.2, &backward.2));
+    }
+}
+
+/// A file that sets each flag of `settings` that is `Some`.
+fn flag_file(settings: [Option<bool>; 3]) -> Permissions {
+    FloorFlag::ALL.into_iter().zip(settings).fold(
+        Permissions::new(
+            ListEdit::default(),
+            ListEdit::default(),
+            ListEdit::default(),
+            None,
+        ),
+        |file, (flag, value)| value.map_or(file.clone(), |value| file.with_flag(flag, value)),
+    )
+}
+
+proptest! {
+    #[test]
+    fn a_flag_that_is_true_stays_true_down_the_stack(
+        stack in vec(proptest::array::uniform3(proptest::option::of(any::<bool>())), 0..6),
+    ) {
+        stack.iter().enumerate().try_fold(PermissionState::default(), |before, (index, settings)| {
+            let (after, _) = before.clone().apply(&flag_file(*settings), &name(index), &at());
+            for flag in FloorFlag::ALL {
+                if before.clone().finish().is_set(flag) {
+                    prop_assert!(after.clone().finish().is_set(flag), "{flag:?}");
+                }
+            }
+            Ok(after)
+        })?;
     }
 }

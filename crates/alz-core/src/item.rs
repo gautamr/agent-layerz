@@ -13,6 +13,7 @@ mod kebab_case;
 mod list_edit;
 mod mcp;
 mod model;
+mod native_keys;
 mod passthrough;
 mod permission;
 mod protected_variable;
@@ -37,9 +38,14 @@ pub use instruction::{
 };
 pub use mcp::{McpItems, McpRefusal, McpServer, McpServerId, Transport};
 pub use model::{BlankModelName, ConcreteModel, ModelAlias, ModelItems, Models};
+pub use native_keys::{
+    AGENT_KEYS, AgentKey, KEYS, KeyRule, Looseness, Loosening, NativeKey, Step, Strictness,
+    loosenings, native_key,
+};
 pub use passthrough::{PassthroughFile, PassthroughItems};
 pub use permission::{
-    Binding, DefaultMode, PermissionItems, PermissionRefusal, PermissionRule, Permissions,
+    Binding, DefaultMode, FloorFlag, PermissionItems, PermissionRefusal, PermissionRule,
+    Permissions,
 };
 pub use rule::{
     Glob, GlobError, RuleBase, RuleEdit, RuleExtension, RuleFile, RuleItems, RuleMode,
