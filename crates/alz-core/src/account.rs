@@ -4,6 +4,7 @@
 mod allow_state;
 mod declaration;
 mod folder_key;
+mod folders;
 mod name;
 mod protected;
 mod reading;
@@ -14,6 +15,7 @@ pub use declaration::{
     AccountChoice, AccountDeclaration, AccountShapeError, EmptyTargetMap, NonEmptyTargetMap,
 };
 pub use folder_key::{FolderKey, FolderKeyError, HomeRelative};
+pub use folders::{AccountFolders, Relation};
 pub use name::{AccountName, AccountNameError};
 pub use protected::{
     PROTECTED_VARIABLES, codex_pattern_matches, is_protected_name, matched_protected_names,

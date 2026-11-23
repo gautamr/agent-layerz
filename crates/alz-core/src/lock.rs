@@ -3,7 +3,7 @@
 //! JSON. Reading the file and walking a layer are R3's and R5's.
 
 mod content_hash;
-mod hex;
+pub(crate) mod hex;
 mod lock_file;
 mod object_id;
 
