@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T07:42:00Z'
-updated_date: '2026-11-23T07:59:00Z'
+updated_date: '2026-11-23T08:10:00Z'
 labels:
   - area:rust
   - area:resolve
@@ -48,3 +48,9 @@ Plan for this step (TASK-55.4, "Acceptance cases R3 must pass against ALZ_BIN").
 - [ ] #2 mise run test passes with the reference, and each new drift case is an expected failure there that names its task
 - [ ] #3 TASK-52, TASK-53, TASK-63, TASK-68, TASK-69, TASK-70 and TASK-71 have every criterion checked with this run's evidence and go to In Review with this pull request
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R3.4 (2026-11-23): add the exact texts of the cache-integrity message, 'layer directory not found' and 'cannot resolve ref' to the spec (§6 / §10.1), matching crates/alz-core/src/stack/resolution_failure.rs.
+<!-- SECTION:NOTES:END -->

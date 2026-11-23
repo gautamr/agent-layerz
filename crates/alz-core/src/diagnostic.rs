@@ -57,6 +57,12 @@ pub enum Code {
     Lock,
     /// A layer source that cannot be used, such as a `git:` URL that holds credentials (§5.2).
     Source,
+    /// A layer cache that cannot be used or whose entry no longer matches (§5.3, §6).
+    Cache,
+    /// An index entry of the layer cache that cannot be written, a warning (§6).
+    CacheIndex,
+    /// A `.env` file in a layer (§5.3 "`.env` files").
+    EnvFile,
     /// A problem in the owner's `accounts.yaml`, which alz ignores in part or whole (§7.13).
     AccountConfig,
     /// A problem in the allow state `allowed.yaml`, which alz ignores in part or whole (§7.13).
@@ -78,6 +84,9 @@ impl Code {
             Self::NoManifest => "no-manifest",
             Self::Lock => "lock",
             Self::Source => "source",
+            Self::Cache => "cache",
+            Self::CacheIndex => "cache-index",
+            Self::EnvFile => "env-file",
             Self::AccountConfig => "account-config",
             Self::AccountAllowed => "account-allowed",
             Self::NotPorted => "not-ported",
