@@ -130,16 +130,16 @@ fn wildcards_stand_for_one_key_and_a_run_of_keys() {
     assert_eq!(path(&["features", "hooks"]), Some("features.hooks"));
     assert_eq!(
         path(&["profiles", "dev", "features", "hooks"]),
-        Some("profiles.*.features.hooks")
+        Some("**.features.hooks")
     );
     assert_eq!(
         path(&["x", "y", "features", "codex_hooks"]),
         Some("**.features.codex_hooks")
     );
-    assert_eq!(path(&["profiles", "approval_policy"]), None);
+    assert_eq!(path(&["projects", "trust_level"]), None);
     assert_eq!(
-        path(&["profiles", "dev", "approval_policy"]),
-        Some("profiles.*.approval_policy")
+        path(&["projects", "/work/shop", "trust_level"]),
+        Some("projects.*.trust_level")
     );
     assert_eq!(path(&["features", "other"]), None);
     assert_eq!(
@@ -273,10 +273,22 @@ fn a_value_outside_the_ranks_may_only_stay_as_it_was() {
 }
 
 #[test]
-fn an_ordered_floor_applies_in_profiles_too() {
+fn codex_web_search_is_a_ladder_only_at_the_top_level() {
+    // `tools.web_search` is a boolean or a table, never a mode, so it is not a ladder.
+    for after in [Tree::Bool(true), text("live"), list(&["x"])] {
+        assert_eq!(
+            codex("tools.web_search", &Tree::Bool(false), &after),
+            NOTHING,
+            "{after:?}"
+        );
+    }
     assert_eq!(
-        codex("profiles.dev.web_search", &text("disabled"), &text("live")),
-        [Looseness::Looser]
+        codex(
+            "tools.web_search",
+            &Tree::Map([("context_size".to_owned(), text("low"))].into()),
+            &Tree::Map([("context_size".to_owned(), text("high"))].into())
+        ),
+        NOTHING
     );
 }
 
@@ -299,6 +311,26 @@ fn a_no_additions_list_may_not_gain_an_entry() {
             &list(&["b.example"])
         ),
         [Looseness::Added]
+    );
+}
+
+#[test]
+fn a_web_search_domain_filter_may_not_gain_a_domain() {
+    assert_eq!(
+        codex(
+            "tools.web_search.allowed_domains",
+            &list(&["a.example"]),
+            &list(&["a.example", "b.example"])
+        ),
+        [Looseness::Added]
+    );
+    assert_eq!(
+        codex(
+            "tools.web_search.allowed_domains",
+            &list(&["a.example", "b.example"]),
+            &list(&["a.example"])
+        ),
+        NOTHING
     );
 }
 
@@ -440,4 +472,94 @@ fn the_error_names_the_layer_and_file_and_the_key_path_without_a_value() {
         found[0].diagnostic(&at).to_string(),
         "error [settings] repo:settings.yaml: 'claude.sandbox.enabled' is a floor: this value is looser than the one a more general layer set"
     );
+}
+
+// The refusals that TASK-76 corrected.
+
+fn reserved_reason(target: TargetName, names: &[&str]) -> Option<&'static str> {
+    let owned: Vec<String> = names.iter().map(|name| (*name).to_owned()).collect();
+    match refusal(target, &steps(&owned)).map(NativeKey::rule) {
+        Some(KeyRule::Reserved(reason)) => Some(reason),
+        Some(KeyRule::FirstClass(_) | KeyRule::Floor(_)) | None => None,
+    }
+}
+
+#[test]
+fn a_key_that_only_a_user_or_managed_scope_reads_is_reserved_for_that_reason() {
+    let outside = "it is read from a user or managed scope, not from a project";
+    for key in [
+        "allowAllClaudeAiMcps",
+        "sandbox.filesystem.allowManagedReadPathsOnly",
+        "sandbox.ripgrep",
+        "sandbox.bwrapPath",
+        "sandbox.socatPath",
+        "sandbox.network.tlsTerminate",
+        "processWrapper",
+        "policyHelper",
+        "sshHostCommands",
+        "forceLoginGatewayUrl",
+        "allowManagedPermissionRulesOnly",
+        "disableSideloadFlags",
+    ] {
+        let names: Vec<&str> = key.split('.').collect();
+        assert_eq!(
+            reserved_reason(TargetName::Claude, &names),
+            Some(outside),
+            "{key}"
+        );
+    }
+    assert_eq!(
+        reserved_reason(TargetName::Codex, &["windows"]),
+        Some(outside)
+    );
+}
+
+#[test]
+fn a_claude_key_that_runs_a_command_outside_hooks_is_reserved() {
+    for key in [
+        "awsAuthRefresh",
+        "awsCredentialExport",
+        "gcpAuthRefresh",
+        "otelHeadersHelper",
+        "statusLine",
+        "fileSuggestion",
+    ] {
+        assert_eq!(
+            reserved_reason(TargetName::Claude, &[key]),
+            Some("it runs a command outside hooks.yaml and its locks"),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn claude_mcp_servers_is_refused_without_calling_it_a_key_claude_reads() {
+    let reason = reserved_reason(TargetName::Claude, &["mcpServers"]).expect("a reserved key");
+    assert!(
+        reason.contains("documents no such settings key"),
+        "{reason}"
+    );
+}
+
+#[test]
+fn codex_profile_is_refused_as_removed_and_profiles_as_ignored_in_a_project() {
+    assert_eq!(
+        reserved_reason(TargetName::Codex, &["profile"]),
+        Some("removed by Codex 0.169.0 (use --profile)")
+    );
+    assert_eq!(
+        reserved_reason(TargetName::Codex, &["profiles"]),
+        Some("Codex ignores it in a project's config.toml")
+    );
+}
+
+#[test]
+fn a_profile_is_refused_as_a_whole_so_no_row_below_it_is_reachable() {
+    for row in KEYS {
+        assert!(
+            !(row.target() == TargetName::Codex && row.path().starts_with("profiles.")),
+            "{}",
+            row.display_path()
+        );
+    }
 }

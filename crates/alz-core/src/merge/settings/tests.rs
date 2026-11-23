@@ -296,23 +296,6 @@ fn an_ordered_floor_may_only_move_up() {
 }
 
 #[test]
-fn a_profile_key_is_named_by_its_pattern_never_by_the_profile() {
-    assert_eq!(
-        error_lines(&[
-            (
-                "personal",
-                "codex:\n  profiles:\n    secret-name:\n      web_search: disabled\n"
-            ),
-            (
-                "repo",
-                "codex:\n  profiles:\n    secret-name:\n      web_search: live\n"
-            ),
-        ]),
-        [floor_error("repo", "codex.profiles.*.web_search", LOOSER)]
-    );
-}
-
-#[test]
 fn a_no_additions_list_may_not_gain_an_entry_but_may_repeat_entries() {
     assert_eq!(
         error_lines(&[

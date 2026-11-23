@@ -28,8 +28,8 @@ All notable changes to agent-layerz are recorded here. The format follows
     without frontmatter must be valid UTF-8.
   - A folder in `targets/` must be named after a known target (`claude`, `codex`).
   - Codex keys that duplicate a first-class item are refused at any depth. That covers `hooks`
-    and `codex_hooks` in any `features` table, `approval_policy` and `sandbox_mode` in a
-    profile, and `profile` itself.
+    and `codex_hooks` in any `features` table. `profile` (removed by Codex 0.169.0) and
+    `profiles` as a whole are refused too, because a project's Codex config ignores them.
   - An agent overlay may only make an agent stricter. Its `permission_mode` may not be looser
     than that of the agent it refines or than the permissions floor, and it may not take an
     entry out of `claude.disallowedTools`.
@@ -38,7 +38,10 @@ All notable changes to agent-layerz are recorded here. The format follows
   - Security-relevant native settings (`docs/LAYERING-SPEC.md` §7.9) may only get stricter down
     the stack: sandbox switches, allow lists that may gain no entries, and deny lists that only
     grow. Reserved keys are refused in `settings.yaml`: plugin and marketplace sources, keys that
-    run a command or route traffic, and keys meant for user or managed settings.
+    run a command (such as `awsAuthRefresh` and `otelHeadersHelper`) or route traffic, keys meant
+    for user or managed settings (including Codex `windows`), and `mcpServers`, which Claude Code
+    does not document as a settings key. Codex `tools.web_search` is a boolean or a table, so it
+    is no longer an ordered mode; its `allowed_domains` may not gain entries.
   - An agent's native fields may not hold `claude.mcpServers`, `codex.mcp_servers` or `hooks`.
   - `permissions.yaml` has the floor fields `disable_bypass_mode`, `block_reads_outside` and
     `block_writes_outside`. Once a layer sets one to `true`, a more specific layer cannot set it

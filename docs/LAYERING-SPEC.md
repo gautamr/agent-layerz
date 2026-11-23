@@ -1323,7 +1323,9 @@ default_mode: default
   Claude adapter writes them as `permissions.disableBypassPermissionsMode`,
   `permissions.blockReadsOutsideWorkingDirectories` and
   `permissions.blockWritesOutsideWorkingDirectories`, once `docs/target-facts.md` records those
-  keys (TASK-76). The TypeScript `alz` has no such fields and refuses them as unknown (reference
+  keys (TASK-76). It writes `permissions.disableBypassPermissionsMode` as the string `"disable"`,
+  never `true`, because Claude Code takes that key as a string, and the two `block...` keys as
+  booleans (`docs/target-facts.md` §13; a wrongly typed value costs the whole settings file). The TypeScript `alz` has no such fields and refuses them as unknown (reference
   drift, TASK-55.5.16).
 
 ### 7.7 MCP servers
@@ -1413,14 +1415,13 @@ The merged settings are passed through to the target **without validation** beyo
 check where one exists.
 Keys that duplicate a first-class item (permissions, hooks, MCP, model) are rejected, so
 there is only one way to set each thing. Under `codex:` these are `model`, `mcp_servers`, `hooks`,
-`profile`, `approval_policy` and `sandbox_mode` at the top level. Because they duplicate
-first-class items wherever they stand, some are also reserved below the top level:
-- `hooks` and `codex_hooks` in every `features` mapping: `codex.features`, the `features` of a
-  profile, or one nested anywhere else under `codex:`;
-- `approval_policy` and `sandbox_mode` in each profile (`codex.profiles.<name>`).
+`approval_policy` and `sandbox_mode` at the top level (`profile` and `profiles` are reserved
+keys, below). Because `hooks` and `codex_hooks` duplicate a first-class item wherever they stand,
+they are also reserved below the top level, in every `features` mapping: `codex.features`, the
+`features` of a profile, or one nested anywhere else under `codex:`.
 
 Each reserved key is a `settings` error. It names the file and a key path chosen by alz, such as
-`codex.profiles.*.approval_policy`, with `*` for a profile name, and it never prints the value.
+`codex.**.features.hooks`, with `**` for the keys above it, and it never prints the value.
 The TypeScript `alz` checks the top level only (reference drift, TASK-55.5).
 
 **Security-relevant native keys** (TASK-55.5.16). One table in alz decides, for each target,
@@ -1435,19 +1436,19 @@ layer.
 
 **First-class keys** are refused with the file that sets them instead
 (`'<path>' is set through <file>`):
-- Claude: `permissions`, `hooks`, `model`, `mcpServers`, `enabledMcpjsonServers`,
-  `disabledMcpjsonServers`, `enableAllProjectMcpServers` and `disableAllHooks`.
-- Codex: `model`, `mcp_servers`, `hooks`, `profile`, `approval_policy` and `sandbox_mode`;
-  `profiles.*.approval_policy` and `profiles.*.sandbox_mode`; `features.hooks`,
-  `features.codex_hooks`, `profiles.*.features.hooks`, `profiles.*.features.codex_hooks`,
-  `**.features.hooks` and `**.features.codex_hooks`.
+- Claude: `permissions`, `hooks`, `model`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
+  `enableAllProjectMcpServers` and `disableAllHooks`.
+- Codex: `model`, `mcp_servers`, `hooks`, `approval_policy` and `sandbox_mode`; `features.hooks`,
+  `features.codex_hooks`, `**.features.hooks` and `**.features.codex_hooks`.
 
 **Reserved keys** are refused with a reason (`'<path>' is not set in settings.yaml: <reason>`):
 - Claude, a key that runs a command or carries a login: `apiKeyHelper`, `statusLine`,
-  `fileSuggestion` and `sandbox.credentials`.
+  `fileSuggestion`, `awsAuthRefresh`, `awsCredentialExport`, `gcpAuthRefresh`,
+  `otelHeadersHelper` and `sandbox.credentials`.
+- Claude `mcpServers`: Claude Code documents no such settings key (`docs/target-facts.md` §13.4;
+  it accepts the key silently), and servers are set through `mcp.yaml`.
 - Claude, a key that routes traffic: `sandbox.network.httpProxyPort` and
   `sandbox.network.socksProxyPort`.
-- Claude, a key that widens connector servers past `mcp.yaml`: `allowAllClaudeAiMcps`.
 - Claude, a plugin source: `enabledPlugins` and `extraKnownMarketplaces`.
 - Claude, a key for a scope alz does not write (user or managed settings):
   `sandbox.filesystem.disabled`, `sandbox.allowAppleEvents`, `sandbox.allowNestedUserNamespaces`,
@@ -1455,9 +1456,19 @@ layer.
   `skipAutoPermissionPrompt`, `skipDangerousModePermissionPrompt`, `allowManagedHooksOnly`,
   `allowManagedMcpServersOnly`, `managedMcpServers`, `prependPlugins`, `appendPlugins`,
   `pluginConfigs`, `strictKnownMarketplaces`, `blockedMarketplaces`,
-  `strictPluginOnlyCustomization` and `syncClaudeAiPlugins`.
-- Codex, a key whose values have no order: `auto_review`, `default_permissions`, `permissions`,
-  `apps` and `windows.sandbox`.
+  `strictPluginOnlyCustomization`, `syncClaudeAiPlugins`, `allowAllClaudeAiMcps` (managed scope
+  only), `sandbox.filesystem.allowManagedReadPathsOnly`, `sandbox.ripgrep`, `sandbox.bwrapPath`,
+  `sandbox.socatPath`, `sandbox.network.tlsTerminate`, `processWrapper`, `policyHelper`,
+  `sshHostCommands`, `forceLoginGatewayUrl`, `allowManagedPermissionRulesOnly` and
+  `disableSideloadFlags`.
+- Codex, a key whose values have no order: `auto_review`, `default_permissions`, `permissions`
+  and `apps`.
+- Codex `profile`: removed by Codex 0.169.0, which refuses it at load (use `--profile`).
+- Codex `profiles`, as a whole: a project's `config.toml` ignores it (`docs/target-facts.md`
+  §13.7). So no key below it is read, whether `approval_policy`, `sandbox_mode`,
+  `model_provider`, `chatgpt_base_url` or `web_search`.
+- Codex `windows`, as a whole (`windows.sandbox`, `windows.allow_mxc`): a key for a user or
+  managed scope.
 - Codex, a plugin source: `plugins` and `marketplaces`.
 - Codex, `projects.*.trust_level`, because a layer must not mark a project as trusted.
 - Codex, a key that runs a program or routes traffic: `notify`, `model_provider`,
@@ -1478,17 +1489,17 @@ stricter:
   change:
   - Claude `disableAutoMode`: one rank, `disable`. Once a layer sets it, no more specific layer
     may change it. While no layer has set it, it is free;
-  - Codex `approvals_reviewer` and `profiles.*.approvals_reviewer`: `auto_review` and
-    `guardian_subagent`, then `user`;
-  - `web_search`, `profiles.*.web_search` and `tools.web_search`: `live`, then `indexed`, then
-    `cached`, then `disabled`.
+  - Codex `approvals_reviewer`: `auto_review` and `guardian_subagent`, then `user`;
+  - Codex `web_search`: `live`, then `indexed`, then `cached`, then `disabled`. `tools.web_search`
+    is not a mode (a boolean or a table, `docs/target-facts.md` §13.8), so it has no ladder; its
+    `allowed_domains` is a "no additions" list below.
 - A "no additions" list or mapping gains no entry, list item or mapping key at any depth, that a
   more general layer did not set. Settings have no removal syntax, so it cannot shrink either.
   These are Claude `sandbox.excludedCommands`, `sandbox.filesystem.allowWrite`,
   `sandbox.filesystem.allowRead`, `sandbox.ignoreViolations`, `sandbox.network.allowedDomains`,
   `sandbox.network.allowUnixSockets`, `sandbox.network.allowMachLookup`, `allowedHttpHookUrls`,
   `httpHookAllowedEnvVars` and `allowedMcpServers`, and Codex
-  `sandbox_workspace_write.writable_roots`.
+  `sandbox_workspace_write.writable_roots` and `tools.web_search.allowed_domains`.
 - A "union" list only grows: Claude `sandbox.filesystem.denyWrite`, `sandbox.filesystem.denyRead`,
   `sandbox.network.deniedDomains` and `deniedMcpServers`.
 
