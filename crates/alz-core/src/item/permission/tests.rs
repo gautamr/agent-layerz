@@ -1,6 +1,6 @@
 use crate::item::{
-    Binding, DefaultMode, PermissionItems, PermissionMode, PermissionRefusal, PermissionRule,
-    Permissions,
+    Binding, DefaultMode, FloorFlag, PermissionItems, PermissionMode, PermissionRefusal,
+    PermissionRule, Permissions,
 };
 use crate::merge::testing::layer;
 use crate::merge::{ListEdit, OrderedSet};
@@ -198,5 +198,35 @@ fn the_modes_are_ordered_from_loosest_to_strictest() {
     assert_eq!(
         modes,
         [BypassPermissions, Auto, AcceptEdits, Default, DontAsk, Plan]
+    );
+}
+
+// The flags that only move to true (§7.6).
+
+#[test]
+fn the_flags_are_read_from_permissions_yaml() {
+    let permissions =
+        only("disable_bypass_mode: true\nblock_reads_outside: false\nblock_writes_outside: true\n");
+    assert_eq!(permissions.flag(FloorFlag::DisableBypassMode), Some(true));
+    assert_eq!(permissions.flag(FloorFlag::BlockReadsOutside), Some(false));
+    assert_eq!(permissions.flag(FloorFlag::BlockWritesOutside), Some(true));
+}
+
+#[test]
+fn a_flag_that_is_not_a_boolean_is_a_permissions_error() {
+    assert_eq!(
+        refused("block_reads_outside: yes please\n").len(),
+        1,
+        "text is not a boolean"
+    );
+}
+
+#[test]
+fn a_file_without_flags_sets_none() {
+    let permissions = only("allow: [bash:ls]\n");
+    assert!(
+        FloorFlag::ALL
+            .iter()
+            .all(|flag| permissions.flag(*flag).is_none())
     );
 }

@@ -6,9 +6,7 @@
 
 use crate::diagnostic::{Code, Diagnostics, Where};
 use crate::item::agent::tree_of;
-use crate::item::protected_variable::{
-    ServerField, env_keys, paths, refused, server_envs, unchecked,
-};
+use crate::item::protected_variable::{env_keys, paths, refused, server_envs, unchecked};
 use crate::json::{self, JsonNumber, JsonValue};
 use crate::markdown::MarkdownDoc;
 use crate::merge::{FloatBits, Tree};
@@ -85,7 +83,7 @@ fn mcp_servers(servers: Option<&Tree>, at: &Where) -> Diagnostics {
     servers
         .filter(|tree| matches!(tree, Tree::Map(_) | Tree::List(_)))
         .map_or_else(Diagnostics::new, |tree| {
-            server_envs(Some(tree), ServerField::File, Code::ProtectedVariable, at)
+            server_envs(Some(tree), Code::ProtectedVariable, at)
         })
 }
 

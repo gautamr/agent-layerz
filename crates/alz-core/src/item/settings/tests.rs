@@ -337,3 +337,90 @@ fn the_names_of_a_first_class_item_are_ordinary_keys_where_codex_does_not_read_t
     assert!(settings.of(TargetName::Claude).is_some());
     assert!(settings.of(TargetName::Codex).is_some());
 }
+
+// The reserved keys of the table of native keys (§7.9).
+
+/// The yaml of `target` that sets the key path of a row (a wildcard stands for the key `x`, and
+/// `**` for nothing) to a scalar.
+fn yaml_of(row: &crate::item::NativeKey) -> String {
+    let keys: Vec<&str> = row
+        .path()
+        .split('.')
+        .filter(|segment| *segment != "**")
+        .map(|segment| if segment == "*" { "x" } else { segment })
+        .collect();
+    let flow = keys
+        .iter()
+        .rev()
+        .fold("1".to_owned(), |inner, key| format!("{{{key}: {inner}}}"));
+    format!("{}: {flow}\n", row.target())
+}
+
+#[test]
+fn every_key_that_the_table_refuses_is_refused_with_its_path_and_no_value() {
+    use crate::item::{KEYS, KeyRule, Step, native_key};
+    for row in KEYS {
+        let (KeyRule::FirstClass(_) | KeyRule::Reserved(_)) = row.rule() else {
+            continue;
+        };
+        let found = refused(&yaml_of(row));
+        // The first row that matches the path is the one that is named.
+        let names: Vec<String> = row
+            .path()
+            .split('.')
+            .filter(|segment| *segment != "**")
+            .map(|segment| if segment == "*" { "x" } else { segment }.to_owned())
+            .collect();
+        let steps: Vec<_> = names.iter().map(|name| Step::Key(name)).collect();
+        let first = native_key(row.target(), &steps)
+            .expect("the table has the row")
+            .display_path();
+        assert!(
+            found.iter().any(
+                |line| line.starts_with("error [settings] personal:settings.yaml:")
+                    && line.contains(&format!("'{first}'"))
+            ),
+            "{}: {found:?}",
+            row.display_path()
+        );
+    }
+}
+
+#[test]
+fn a_reserved_key_says_why_it_is_not_set() {
+    assert_eq!(
+        refused("claude:\n  apiKeyHelper: ./login.sh\n"),
+        [
+            "error [settings] personal:settings.yaml:2:3: 'claude.apiKeyHelper' is not set in settings.yaml: it runs a command and carries a login"
+        ]
+    );
+    assert_eq!(
+        refused("codex:\n  projects:\n    shop:\n      trust_level: trusted\n"),
+        [
+            "error [settings] personal:settings.yaml:4:7: 'codex.projects.*.trust_level' is not set in settings.yaml: a layer must not mark a project as trusted"
+        ]
+    );
+    assert_eq!(
+        refused("claude:\n  sandbox:\n    credentials:\n      helper: x\n"),
+        [
+            "error [settings] personal:settings.yaml:3:5: 'claude.sandbox.credentials' is not set in settings.yaml: it carries or pins a login"
+        ]
+    );
+}
+
+#[test]
+fn a_floor_key_and_a_key_with_a_similar_name_are_read() {
+    let settings = only(
+        "claude:\n  sandbox:\n    enabled: true\n    network:\n      allowedDomains: [a.example]\n      httpProxyPortX: 1\n  statusLineX: 1\ncodex:\n  web_search: cached\n  projects:\n    shop:\n      other: 1\n",
+    );
+    assert!(settings.of(TargetName::Claude).is_some());
+    assert!(settings.of(TargetName::Codex).is_some());
+}
+
+#[test]
+fn a_reserved_key_is_refused_below_a_list_only_where_the_path_says_so() {
+    // A mapping inside a list is not at the path of `sandbox.credentials`.
+    only(
+        "claude:\n  other:\n    - credentials: 1\n  sandbox:\n    list:\n      - credentials: 1\n",
+    );
+}

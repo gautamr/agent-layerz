@@ -264,13 +264,13 @@ fn an_overlay_may_not_put_a_neutral_key_in_a_target_map_either() {
 #[test]
 fn native_maps_deep_merge_nested_maps_and_lists_and_stay_per_target() {
     let model = merged_model(with_overlay(
-        "---\nname: a\ndescription: d\nclaude:\n  hooks:\n    Stop: [one]\n    Start: [x]\ncodex:\n  sandbox: ro\n---\n",
-        "---\nextends: a\nclaude:\n  hooks:\n    Stop: [two, one]\ncodex:\n  sandbox: rw\n  extra: 1\n---\n",
+        "---\nname: a\ndescription: d\nclaude:\n  extras:\n    Stop: [one]\n    Start: [x]\ncodex:\n  sandbox: ro\n---\n",
+        "---\nextends: a\nclaude:\n  extras:\n    Stop: [two, one]\ncodex:\n  sandbox: rw\n  extra: 1\n---\n",
     ));
     // `Stop` keeps its place and gets `two` after `one`; `Start` stays after it.
     assert_eq!(
         native_of(&model, "a", TargetName::Claude),
-        "{hooks: {Stop: [one, two], Start: [x]}}"
+        "{extras: {Stop: [one, two], Start: [x]}}"
     );
     assert_eq!(
         native_of(&model, "a", TargetName::Codex),

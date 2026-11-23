@@ -6,11 +6,16 @@
 //! The merged settings are an ordered map from [`TargetName`] to the settings of that target; the
 //! only keys at the top level are the known targets, because a file with any other key is
 //! refused when it is read and none of its settings reach the fold.
+//!
+//! The keys that have a floor in the table of native keys ([`crate::item::KEYS`]) are not folded
+//! freely: a layer whose settings loosen one of them against what the more general layers merged
+//! (a looser value, a list that gains an entry where none may, a change of kind) is a `settings`
+//! error naming the layer, the file and the key path, and none of the file's settings are merged.
 
 use std::collections::BTreeMap;
 
-use crate::diagnostic::Diagnostics;
-use crate::item::{Settings, SettingsItems, SettingsTree};
+use crate::diagnostic::{Diagnostics, Where};
+use crate::item::{Settings, SettingsItems, SettingsTree, loosenings, place};
 use crate::layer::LayerName;
 use crate::merge::provenance::{Action, Traced};
 use crate::merge::stack::LayerContext;
@@ -28,14 +33,36 @@ impl SettingsState {
         let (items, found) = SettingsItems::read(context.layer());
         match items.into_file() {
             None => (self, found),
-            Some((_, file)) => (self.apply(&file, layer), found),
+            Some((path, file)) => {
+                let (state, problems) = self.apply(&file, layer, &place(layer, &path));
+                (state, found.merge(problems))
+            }
         }
     }
 
-    /// The state after the settings `file` of `layer`: each target it names is deep-merged into
-    /// what the target had.
-    pub(super) fn apply(self, file: &Settings, layer: &LayerName) -> Self {
-        Self(file.iter().fold(self.0, |mut merged, (target, tree)| {
+    /// The state after the settings `file` of `layer`, and the problems it makes: each target it
+    /// names is deep-merged into what the target had, unless a floor key of the file is looser
+    /// than what the more general layers merged, in which case the state is unchanged.
+    pub(super) fn apply(
+        self,
+        file: &Settings,
+        layer: &LayerName,
+        at: &Where,
+    ) -> (Self, Diagnostics) {
+        let found = file
+            .iter()
+            .filter_map(|(target, tree)| {
+                self.0
+                    .get(&target)
+                    .map(|before| loosenings(target, &before.value().to_tree(), &tree.to_tree()))
+            })
+            .flatten()
+            .map(|loosening| loosening.diagnostic(at))
+            .collect::<Diagnostics>();
+        if found.has_errors() {
+            return (self, found);
+        }
+        let merged = Self(file.iter().fold(self.0, |mut merged, (target, tree)| {
             let next = match merged.remove(&target) {
                 Some(before) => {
                     let combined = before.value().clone().deep_merge(tree.clone());
@@ -45,7 +72,8 @@ impl SettingsState {
             };
             merged.insert(target, next);
             merged
-        }))
+        }));
+        (merged, found)
     }
 
     /// The merged settings.

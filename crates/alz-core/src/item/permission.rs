@@ -8,6 +8,7 @@
 //! dropped the rules of a more general layer would be a way to loosen it. `floor` is a flag of
 //! `default_mode` and means nothing without one, so the pair is one value, [`DefaultMode`].
 
+use std::collections::BTreeMap;
 use std::fmt;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
@@ -23,7 +24,47 @@ use super::list_edit::refine_edit;
 use super::{AgentRefusal, PermissionMode, ToolGrant, place, schema_diagnostics};
 
 /// The fields of `permissions.yaml`.
-const FIELDS: [&str; 5] = ["allow", "ask", "deny", "default_mode", "floor"];
+const FIELDS: [&str; 8] = [
+    "allow",
+    "ask",
+    "deny",
+    "default_mode",
+    "floor",
+    "disable_bypass_mode",
+    "block_reads_outside",
+    "block_writes_outside",
+];
+
+/// A first-class flag of `permissions.yaml` that only ever moves to `true` down the stack (§7.6):
+/// once a layer sets it, no more specific layer may set it to `false`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FloorFlag {
+    /// `disable_bypass_mode`: the target's bypass-permissions mode is switched off.
+    DisableBypassMode,
+    /// `block_reads_outside`: reads outside the working directories are blocked.
+    BlockReadsOutside,
+    /// `block_writes_outside`: writes outside the working directories are blocked.
+    BlockWritesOutside,
+}
+
+impl FloorFlag {
+    /// Every flag, in field order.
+    pub const ALL: [Self; 3] = [
+        Self::DisableBypassMode,
+        Self::BlockReadsOutside,
+        Self::BlockWritesOutside,
+    ];
+
+    /// The field of `permissions.yaml`.
+    #[must_use]
+    pub const fn field(self) -> &'static str {
+        match self {
+            Self::DisableBypassMode => "disable_bypass_mode",
+            Self::BlockReadsOutside => "block_reads_outside",
+            Self::BlockWritesOutside => "block_writes_outside",
+        }
+    }
+}
 
 /// Text that is not a permission rule: the rule that was broken. The error holds no input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,6 +173,7 @@ pub struct Permissions {
     ask: ListEdit<PermissionRule>,
     deny: ListEdit<PermissionRule>,
     default_mode: Option<DefaultMode>,
+    flags: BTreeMap<FloorFlag, bool>,
 }
 
 impl Permissions {
@@ -159,6 +201,12 @@ impl Permissions {
         self.default_mode
     }
 
+    /// The value the file gives `flag`, when it sets one.
+    #[must_use]
+    pub fn flag(&self, flag: FloorFlag) -> Option<bool> {
+        self.flags.get(&flag).copied()
+    }
+
     /// The permissions of a file that says what the arguments say. For the tests of the merge.
     #[cfg(test)]
     pub(crate) const fn new(
@@ -172,6 +220,16 @@ impl Permissions {
             ask,
             deny,
             default_mode,
+            flags: BTreeMap::new(),
+        }
+    }
+
+    /// The same file with `flag` set to `value`. For the tests of the merge.
+    #[cfg(test)]
+    pub(crate) fn with_flag(self, flag: FloorFlag, value: bool) -> Self {
+        Self {
+            flags: self.flags.into_iter().chain([(flag, value)]).collect(),
+            ..self
         }
     }
 }
@@ -253,14 +311,17 @@ fn read_file(
                     list(&section, "allow"),
                     list(&section, "ask"),
                 ),
-                zip3(
-                    list(&section, "deny"),
-                    refine::<PermissionMode>(&section, "default_mode"),
-                    floor(&section),
+                zip(
+                    zip3(
+                        list(&section, "deny"),
+                        refine::<PermissionMode>(&section, "default_mode"),
+                        floor(&section),
+                    ),
+                    flags(&section),
                 ),
             )
             .map_err(|errors| schema_diagnostics(Code::Permissions, at, &errors))?;
-            let (((), allow, ask), (deny, mode, floor)) = fields;
+            let (((), allow, ask), ((deny, mode, floor), flags)) = fields;
             let default_mode = match (mode, floor) {
                 (Some(mode), floor) => Ok(Some(DefaultMode {
                     mode,
@@ -286,9 +347,28 @@ fn read_file(
                 ask: ask.unwrap_or_default(),
                 deny: deny.unwrap_or_default(),
                 default_mode,
+                flags,
             }))
         }
     }
+}
+
+/// The flags the file sets, each a boolean.
+fn flags(section: &Section<'_>) -> Checked<BTreeMap<FloorFlag, bool>> {
+    let [first, second, third] = FloorFlag::ALL;
+    zip3(
+        flag(section, first),
+        flag(section, second),
+        flag(section, third),
+    )
+    .map(|(first, second, third)| [first, second, third].into_iter().flatten().collect())
+}
+
+fn flag(section: &Section<'_>, flag: FloorFlag) -> Checked<Option<(FloorFlag, bool)>> {
+    section
+        .boolean(flag.field())
+        .map(|value| value.map(|value| (flag, value)))
+        .map_err(Into::into)
 }
 
 /// A list of rules as an edit: a YAML list adds, a string edits.

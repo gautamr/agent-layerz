@@ -9,7 +9,7 @@ use crate::lint::parse_document;
 use crate::merge::Tree;
 use crate::untrusted_text::Stripped;
 
-use super::{ServerField, codex_policies, env_keys, paths, server_envs};
+use super::{codex_policies, env_keys, paths, server_envs};
 use crate::diagnostic::Code;
 
 fn at() -> Where {
@@ -243,22 +243,7 @@ fn a_policy_in_a_list_is_found_too() {
 
 fn servers(yaml: &str) -> Vec<String> {
     let entries = tree(yaml);
-    lines(&server_envs(
-        entries.get("mcpServers"),
-        ServerField::Claude,
-        Code::Agent,
-        &at(),
-    ))
-}
-
-fn codex_servers(yaml: &str) -> Vec<String> {
-    let entries = tree(yaml);
-    lines(&server_envs(
-        entries.get("mcp_servers"),
-        ServerField::Codex,
-        Code::Agent,
-        &at(),
-    ))
+    lines(&server_envs(entries.get("mcpServers"), Code::Agent, &at()))
 }
 
 #[test]
@@ -312,25 +297,10 @@ fn an_mcp_servers_value_of_another_type_is_an_error_naming_the_key() {
                 "mcpServers: {value}
 "
             )),
-            ["error [agent] personal:settings.yaml: claude.mcpServers must be a mapping or a list"],
-            "{value}"
-        );
-        assert_eq!(
-            codex_servers(&format!(
-                "mcp_servers: {value}
-"
-            )),
-            ["error [agent] personal:settings.yaml: codex.mcp_servers must be a mapping"],
+            ["error [agent] personal:settings.yaml: mcpServers must be a mapping or a list"],
             "{value}"
         );
     }
-    assert_eq!(
-        codex_servers(
-            "mcp_servers: [a]
-"
-        ),
-        ["error [agent] personal:settings.yaml: codex.mcp_servers must be a mapping"]
-    );
     assert_eq!(
         servers(
             "mcpServers: [a]
@@ -349,7 +319,7 @@ fn an_mcp_servers_value_of_another_type_is_an_error_naming_the_key() {
 
 #[test]
 fn the_env_of_a_server_is_checked_in_the_map_shape_and_the_list_shape() {
-    let path = paths::CLAUDE_SERVER_ENV;
+    let path = paths::FILE_SERVER_ENV;
     assert_eq!(
         servers("mcpServers:\n  s:\n    env:\n      HOME: x\n"),
         [names(path, "HOME")]

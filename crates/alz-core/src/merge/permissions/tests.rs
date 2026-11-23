@@ -1,5 +1,5 @@
 use crate::diagnostic::Where;
-use crate::item::{Binding, DefaultMode, PermissionMode, Permissions};
+use crate::item::{Binding, DefaultMode, FloorFlag, PermissionMode, Permissions};
 use crate::layer::LayerName;
 use crate::merge::algebra::{ListEdit, OrderedSet};
 use crate::merge::provenance::Traced;
@@ -456,5 +456,82 @@ fn a_rule_that_is_allowed_and_denied_is_a_warning_and_deny_wins() {
     assert_eq!(
         written(permissions.allow()),
         ["read:.env*", "bash:git status"]
+    );
+}
+
+// The flags that only move to true.
+
+fn flag_of(files: &[(&str, &str)], flag: FloorFlag) -> (Vec<String>, Option<(bool, Vec<String>)>) {
+    let (found, merged) = run(files);
+    (
+        found,
+        merged.map(|merged| {
+            (
+                merged.is_set(flag),
+                merged.flag(flag).map_or_else(Vec::new, |held| {
+                    held.provenance()
+                        .contributions()
+                        .iter()
+                        .map(|part| part.layer().as_str().to_owned())
+                        .collect()
+                }),
+            )
+        }),
+    )
+}
+
+#[test]
+fn a_flag_set_by_a_layer_is_set_in_the_merged_permissions() {
+    for flag in FloorFlag::ALL {
+        let yaml = format!("{}: true", flag.field());
+        assert_eq!(
+            flag_of(&[("personal", &yaml), ("repo", "allow: [bash:ls]")], flag),
+            (Vec::new(), Some((true, vec!["personal".to_owned()]))),
+            "{flag:?}"
+        );
+    }
+}
+
+#[test]
+fn a_flag_nobody_sets_or_that_is_written_false_first_is_not_set() {
+    assert_eq!(
+        flag_of(
+            &[("personal", "block_reads_outside: false")],
+            FloorFlag::BlockReadsOutside
+        ),
+        (Vec::new(), Some((false, Vec::new())))
+    );
+}
+
+#[test]
+fn a_more_specific_layer_cannot_unset_a_flag_once_it_is_true() {
+    let (found, merged) = flag_of(
+        &[
+            ("personal", "disable_bypass_mode: true"),
+            ("repo", "disable_bypass_mode: false"),
+        ],
+        FloorFlag::DisableBypassMode,
+    );
+    assert_eq!(
+        found,
+        [
+            "error [permission-floor] repo:permissions.yaml: disable_bypass_mode is true as set by layer personal and cannot be set to false by layer repo"
+        ]
+    );
+    assert_eq!(merged, None, "a layer with an error has no merged model");
+}
+
+#[test]
+fn a_flag_stays_true_when_a_later_layer_repeats_it() {
+    assert_eq!(
+        flag_of(
+            &[
+                ("personal", "block_writes_outside: true"),
+                ("client", "block_writes_outside: true"),
+                ("repo", "allow: [bash:ls]"),
+            ],
+            FloorFlag::BlockWritesOutside
+        ),
+        (Vec::new(), Some((true, vec!["personal".to_owned()])))
     );
 }

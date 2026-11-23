@@ -1,5 +1,8 @@
 //! The native fields of an agent (spec §7.2): a `claude:` or `codex:` map of target fields the
 //! neutral schema does not model, passed through to that target only, and deep-merged by overlays.
+//! Servers and hooks come only through `mcp.yaml` and `hooks.yaml`, so the keys that would bring
+//! them past those files (`claude.mcpServers`, `codex.mcp_servers`, and `hooks` of either target)
+//! are refused; the keys are the rows of [`AGENT_KEYS`](crate::item::AGENT_KEYS).
 
 use std::collections::BTreeMap;
 
@@ -11,7 +14,8 @@ use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::Section;
 use crate::yaml::{Mapping, Node, Value};
 
-use super::super::protected_variable::{ServerField, codex_policies, server_envs};
+use super::super::native_keys::AGENT_KEYS;
+use super::super::protected_variable::codex_policies;
 use super::super::schema_diagnostics;
 use super::ordered_tree::{NativeMap, NativeValue};
 
@@ -120,7 +124,9 @@ fn read_target(
                 })
                 .collect();
             let fields = map_of(node);
-            let found = refused.merge(protected_variables(target, &fields, at));
+            let found = refused
+                .merge(first_class_keys(target, node, at))
+                .merge(protected_variables(target, &fields, at));
             if found.has_errors() {
                 Err(found)
             } else {
@@ -130,24 +136,43 @@ fn read_target(
         .transpose()
 }
 
-/// The problems of the variables a target's native fields set (§7.9): the `env` of each MCP
-/// server, and for Codex any `shell_environment_policy`.
+/// An error for each key of the native fields that duplicates a first-class item: servers and
+/// hooks (§7.2).
+fn first_class_keys(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
+    mapping_of(node)
+        .into_iter()
+        .flat_map(Mapping::entries)
+        .filter_map(|(key, _)| {
+            let Value::Text(name) = key.value() else {
+                return None;
+            };
+            AGENT_KEYS
+                .iter()
+                .find(|row| row.target() == target && row.key() == name)
+                .map(|row| {
+                    Diagnostic::error(
+                        Code::Agent,
+                        Some(at.clone().at(key.at())),
+                        Message::new(QuotedKey::from_untrusted(&format!(
+                            "{target}.{}",
+                            row.key()
+                        )))
+                        .then(" is set through ")
+                        .then(row.owner())
+                        .then(" so every agent gets the same servers and hooks"),
+                    )
+                })
+        })
+        .collect()
+}
+
+/// The problems of the variables a target's native fields set (§7.9): for Codex any
+/// `shell_environment_policy`. The servers of an agent's native fields are refused, so there is
+/// no server `env` to check.
 fn protected_variables(target: TargetName, fields: &NativeMap, at: &Where) -> Diagnostics {
-    let sorted = fields.sorted();
     match target {
-        TargetName::Claude => server_envs(
-            sorted.get("mcpServers"),
-            ServerField::Claude,
-            Code::Agent,
-            at,
-        ),
-        TargetName::Codex => server_envs(
-            sorted.get("mcp_servers"),
-            ServerField::Codex,
-            Code::Agent,
-            at,
-        )
-        .merge(codex_policies(&sorted, Code::Agent, at)),
+        TargetName::Claude => Diagnostics::new(),
+        TargetName::Codex => codex_policies(&fields.sorted(), Code::Agent, at),
     }
 }
 

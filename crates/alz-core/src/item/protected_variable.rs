@@ -21,10 +21,6 @@ use super::EnvVarName;
 pub(super) mod paths {
     /// `claude.env` of `settings.yaml`.
     pub(in crate::item) const CLAUDE_ENV: &str = "claude.env";
-    /// The `env` of a server under `claude.mcpServers`.
-    pub(super) const CLAUDE_SERVER_ENV: &str = "claude.mcpServers.env";
-    /// The `env` of a server under `codex.mcp_servers`.
-    pub(super) const CODEX_SERVER_ENV: &str = "codex.mcp_servers.env";
     /// The `env_from` of a server of `mcp.yaml`.
     pub(in crate::item) const MCP_ENV_FROM: &str = "mcp.env_from";
     /// The root `env` of a passthrough JSON file.
@@ -68,82 +64,35 @@ pub(super) fn env_from_names<'a>(
         .collect()
 }
 
-/// The field that holds MCP servers in a target's native fields.
-#[derive(Debug, Clone, Copy)]
-pub(super) enum ServerField {
-    /// `claude.mcpServers`: a map of name to definition, or a list of names and one-entry maps.
-    Claude,
-    /// `codex.mcp_servers`: a map of name to definition.
-    Codex,
-    /// `mcpServers` at the root of a passthrough JSON file or of a passthrough agent file's
-    /// frontmatter: shaped as for Claude, named by itself.
-    File,
-}
-
-impl ServerField {
-    const fn path(self) -> &'static str {
-        match self {
-            Self::Claude => "claude.mcpServers",
-            Self::Codex => "codex.mcp_servers",
-            Self::File => "mcpServers",
-        }
-    }
-
-    const fn env_path(self) -> &'static str {
-        match self {
-            Self::Claude => paths::CLAUDE_SERVER_ENV,
-            Self::Codex => paths::CODEX_SERVER_ENV,
-            Self::File => paths::FILE_SERVER_ENV,
-        }
-    }
-}
-
 /// The problems of the `env` of each server in `servers`. A value of another type than the field
 /// takes could carry variables that cannot be checked, so it is an error of `shape` (the code of
 /// the file kind that holds the field), naming the field.
-pub(super) fn server_envs(
-    servers: Option<&Tree>,
-    field: ServerField,
-    shape: Code,
-    at: &Where,
-) -> Diagnostics {
-    let path = field.env_path();
-    let definitions: Result<Vec<&Tree>, Diagnostics> = match (servers, field) {
-        (None | Some(Tree::Null), _) => Ok(Vec::new()),
-        (Some(Tree::List(items)), ServerField::Claude | ServerField::File) => Ok(items
-            .iter()
-            .filter_map(|item| match item {
-                Tree::Map(entries) => Some(entries.values()),
-                Tree::Null
-                | Tree::Bool(_)
-                | Tree::Int(_)
-                | Tree::Float(_)
-                | Tree::Text(_)
-                | Tree::List(_) => None,
-            })
-            .flatten()
-            .collect()),
-        (
-            Some(Tree::Map(entries)),
-            ServerField::Claude | ServerField::Codex | ServerField::File,
-        ) => Ok(entries.values().collect()),
-        (
-            Some(Tree::Bool(_) | Tree::Int(_) | Tree::Float(_) | Tree::Text(_) | Tree::List(_)),
-            ServerField::Claude | ServerField::Codex | ServerField::File,
-        ) => Err(wrong_shape(
-            field.path(),
-            match field {
-                ServerField::Claude | ServerField::File => " must be a mapping or a list",
-                ServerField::Codex => " must be a mapping",
-            },
-            shape,
-            at,
-        )),
-    };
+pub(super) fn server_envs(servers: Option<&Tree>, shape: Code, at: &Where) -> Diagnostics {
+    let definitions: Result<Vec<&Tree>, Diagnostics> =
+        match servers {
+            None | Some(Tree::Null) => Ok(Vec::new()),
+            Some(Tree::List(items)) => Ok(items
+                .iter()
+                .filter_map(|item| match item {
+                    Tree::Map(entries) => Some(entries.values()),
+                    Tree::Null
+                    | Tree::Bool(_)
+                    | Tree::Int(_)
+                    | Tree::Float(_)
+                    | Tree::Text(_)
+                    | Tree::List(_) => None,
+                })
+                .flatten()
+                .collect()),
+            Some(Tree::Map(entries)) => Ok(entries.values().collect()),
+            Some(Tree::Bool(_) | Tree::Int(_) | Tree::Float(_) | Tree::Text(_)) => Err(
+                wrong_shape("mcpServers", " must be a mapping or a list", shape, at),
+            ),
+        };
     match definitions {
         Err(found) => found,
         Ok(definitions) => all(definitions.into_iter().map(|definition| match definition {
-            Tree::Map(fields) => env_keys(fields.get("env"), path, at),
+            Tree::Map(fields) => env_keys(fields.get("env"), paths::FILE_SERVER_ENV, at),
             Tree::Null
             | Tree::Bool(_)
             | Tree::Int(_)
