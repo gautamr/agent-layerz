@@ -3,9 +3,11 @@ id: TASK-55.6.17
 title: >-
   R5.17: Contributions carry their file and the layer's revision, and explain's
   action words
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-23T18:30:00Z'
+updated_date: '2026-11-23T18:31:00Z'
 labels:
   - area:rust
   - area:merge

@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T18:28:00Z'
+updated_date: '2026-11-23T18:31:00Z'
 labels:
   - area:rust
   - area:spec
@@ -75,4 +75,12 @@ Findings for the coordinator (not done here; they need a subtask or a plan note)
 2. The §5.3 refusal of control and format characters in layer file names changes the alz-io walk and the scan verdict (R3 code). No R5 subtask names it yet. It fits R5.8 (pipeline) or a small step of its own.
 3. The owner asked for a docs task for each UNVERIFIED row the Claude output relies on: relative additionalDirectories (target-facts §7c) and an unknown settings key (target-facts §7, which TASK-79 may make moot). I did not create it, since this session touches only docs/, decisions and R5.1.
 4. R5.1 still carries the label needs:owner-approval in its file, although the answers are in.
+
+Architect (2026-11-24, R5.1 additions asked by the coordinator after R5.2 was committed):
+- §4.3 "Paths that differ only in case" and §4.5 fold paths with the NFD form, then ASCII lower case, replacing the NFC wording of my first pass. So É and é collide, and letters without an ASCII base stay apart. Another writer had already put NFD into §4.3 while I was editing; I only rewrapped that paragraph and added the same rule to §4.5.
+- §4.5: ? matches one Unicode scalar value; the reference counts a UTF-16 unit (drift). The parenthesis was already there from the other writer; I rewrapped it.
+- §4.3 header: a source holds no control or format character and no -->. One that does, through a layer version, a ref or a path, is error layer, with the message updated. The §10.1 layer row and §13 entry 30 now say the same.
+- §10.1 already lists the codes collision and protected (my first pass).
+- CHANGELOG: the accent folding, the wider header rule, and ? above U+FFFF.
+Checks: mise run lint exit 0; the leak grep over the uncommitted docs, CHANGELOG and decision diff found 0 private-task terms.
 <!-- SECTION:NOTES:END -->
