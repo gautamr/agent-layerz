@@ -32,6 +32,7 @@ use crate::layer::{LayerHeading, LayerMeta, Visibility};
 use crate::merge::algebra::{ListEdit, OrderedSet, widened};
 use crate::merge::provenance::{Action, Traced};
 use crate::merge::stack::LayerContext;
+use crate::path::SafeRelPath;
 use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
@@ -129,6 +130,7 @@ impl AgentBody {
 /// An agent after the merge.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergedAgent {
+    file: SafeRelPath,
     name: AgentName,
     description: AgentDescription,
     scalars: AgentScalars,
@@ -152,6 +154,7 @@ impl MergedAgent {
     /// The agent a base file defines.
     fn defined_by(base: &AgentBase) -> Self {
         Self {
+            file: base.path().clone(),
             name: base.name().clone(),
             description: base.description().clone(),
             scalars: base.scalars().clone(),
@@ -171,6 +174,7 @@ impl MergedAgent {
     fn defined_by_overlay(overlay: &AgentOverlay) -> Option<Result<Self, ToolsRefused>> {
         overlay.description().map(|description| {
             edited_tools(None, overlay.tools(), overlay.allow_widen()).map(|tools| Self {
+                file: overlay.path().clone(),
                 name: overlay.extends().clone(),
                 description: description.clone(),
                 scalars: overlay.scalars().clone(),
@@ -192,6 +196,7 @@ impl MergedAgent {
     fn refined_by(self, overlay: &AgentOverlay, meta: &LayerMeta) -> Result<Self, ToolsRefused> {
         edited_tools(self.tools.as_ref(), overlay.tools(), overlay.allow_widen()).map(|tools| {
             Self {
+                file: self.file,
                 name: self.name,
                 description: overlay.description().cloned().unwrap_or(self.description),
                 scalars: self.scalars.merge(overlay.scalars().clone()),
@@ -205,6 +210,12 @@ impl MergedAgent {
                 body: self.body.then(overlay.mode(), overlay.body(), meta),
             }
         })
+    }
+
+    /// The file that defined the agent: its base, or the overlay with `mode: replace` that made it.
+    #[must_use]
+    pub const fn file(&self) -> &SafeRelPath {
+        &self.file
     }
 
     /// The agent's name.

@@ -1,7 +1,7 @@
 use crate::item::{AgentName, ModelId, Role, SkillName, ToolGrant};
 use crate::item::{NativeMap, NativeValue};
 use crate::merge::provenance::{Action, Traced};
-use crate::merge::testing::{layer, lines, merged};
+use crate::merge::testing::{layer, lines_but_slots as lines, merged_without_slots as merged};
 use crate::merge::{Merged, MergedAgent};
 use crate::stack::ResolvedLayer;
 use crate::target::TargetName;

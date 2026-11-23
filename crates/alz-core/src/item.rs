@@ -9,6 +9,7 @@ mod agent;
 mod instruction;
 mod kebab_case;
 mod rule;
+mod skill;
 
 pub use agent::{
     AgentBase, AgentDescription, AgentItems, AgentName, AgentOverlay, AgentRefusal, AgentScalars,
@@ -22,6 +23,10 @@ pub use instruction::{
 pub use rule::{
     Glob, GlobError, RuleBase, RuleEdit, RuleExtension, RuleFile, RuleItems, RuleMode,
     RuleModeError, RuleName, RuleNameError,
+};
+pub use skill::{
+    ArgumentHint, Command, Skill, SkillDescription, SkillDescriptionError, SkillDirectory,
+    SkillFile, SkillItems,
 };
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Where};

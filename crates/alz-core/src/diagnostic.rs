@@ -89,6 +89,20 @@ pub enum Code {
     AgentReplace,
     /// An overlay that widens a tool, or `allow_widen` in a public layer (§7.2).
     ToolWiden,
+    /// A skill directory without `SKILL.md`, a name that is not kebab-case or not the directory's,
+    /// or a missing description (§7.3).
+    Skill,
+    /// A command's schema (§7.4).
+    Command,
+    /// A skill and a command with one name in one layer (§7.4).
+    SkillCommandClash,
+    /// A `provides_slots` entry without its skill, or a `requires_slots` entry that is not a skill
+    /// name (§7.3).
+    Slot,
+    /// A slot that no layer fills: an error with `strict_slots: true`, else a warning (§7.3).
+    SlotMissing,
+    /// An agent that preloads a command (§7.3, §7.4).
+    SlotCommand,
     /// A rule's schema (§7.10).
     Rule,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
@@ -123,6 +137,12 @@ impl Code {
             Self::AgentOverlay => "agent-overlay",
             Self::AgentReplace => "agent-replace",
             Self::ToolWiden => "tool-widen",
+            Self::Skill => "skill",
+            Self::Command => "command",
+            Self::SkillCommandClash => "skill-command-clash",
+            Self::Slot => "slot",
+            Self::SlotMissing => "slot-missing",
+            Self::SlotCommand => "slot-command",
             Self::Rule => "rule",
             Self::Unresolved => "unresolved",
         }
