@@ -1,5 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import YAML from "yaml";
@@ -13,6 +12,7 @@ import {
   MAX_LAYER_YAML_BYTES as srcMaxYamlBytes,
 } from "../../src/resolve/reader-load";
 import { githubCloneUrl as srcGithubCloneUrl } from "../../src/resolve/source-location";
+import { tempDir } from "../run-root";
 import * as spec from "../spec/cache";
 import { contentHash, hashedFiles } from "../spec/content-hash";
 import {
@@ -86,7 +86,7 @@ describe("content hash equals the implementation's", () => {
     files: Record<string, string | Uint8Array>,
     links: Record<string, string> = {},
   ) => {
-    const dir = mkdtempSync(join(tmpdir(), "alz-spec-formulas-"));
+    const dir = tempDir("alz-spec-formulas-");
     roots.push(dir);
     for (const [path, content] of Object.entries(files)) {
       mkdirSync(join(dir, path, ".."), { recursive: true });

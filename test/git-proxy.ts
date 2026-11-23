@@ -1,6 +1,6 @@
-import { accessSync, constants, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { accessSync, constants, readFileSync, statSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
+import { tempDir } from "./run-root";
 
 /**
  * A `git` stand-in for tests that prove a command never runs git (or that another one does).
@@ -77,7 +77,7 @@ export function parseGitCalls(log: string): GitCall[] {
 export function gitProxy(realPath: string = process.env.PATH ?? ""): GitProxy {
   const realGit = resolveOnPath("git", realPath);
   if (realGit === undefined) throw new Error("no git on PATH: the stand-in has nothing to run");
-  const dir = mkdtempSync(join(tmpdir(), "alz-git-proxy-"));
+  const dir = tempDir("alz-git-proxy-");
   const log = join(dir, "calls.log");
   writeFileSync(log, "");
   writeFileSync(join(dir, "git"), script(log, realGit), { mode: 0o755 });

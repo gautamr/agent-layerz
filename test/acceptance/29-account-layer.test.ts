@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import {
   appendFileSync,
   chmodSync,
@@ -9,6 +8,7 @@ import {
 } from "node:fs";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
+import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
 
 // Reserved names only. A refused value must never appear in any output.
@@ -28,7 +28,7 @@ function lintLayer(ws: Workspace, layer: string) {
 }
 
 function git(ws: Workspace, dir: string, args: string[]): void {
-  execFileSync("git", args, {
+  tool("git", args, {
     cwd: `${ws.root}/${dir}`,
     env: { PATH: process.env.PATH ?? "", HOME: ws.home, GIT_CONFIG_NOSYSTEM: "1" },
   });

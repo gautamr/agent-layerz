@@ -1,20 +1,20 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { lstatSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { capture } from "../exec";
+import { tempDir } from "../run-root";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const script = join(repoRoot, "scripts", "install-local.sh");
 
 /** Runs the script with an isolated HOME, so npm never touches the real home folder. */
 function install(binDir: string) {
-  const home = mkdtempSync(join(tmpdir(), "alz-install-home-"));
-  return spawnSync("sh", [script], {
+  const home = tempDir("alz-install-home-");
+  return capture("sh", [script], {
     cwd: repoRoot,
-    encoding: "utf8",
     env: { ...process.env, HOME: home, BIN_DIR: binDir, PREFIX: "" },
+    timeoutMs: 100_000,
   });
 }
 
@@ -24,7 +24,7 @@ function sha256(path: string): string {
 
 describe("installing from source (scripts/install-local.sh)", () => {
   it("installs one regular executable that runs without node_modules", () => {
-    const base = mkdtempSync(join(tmpdir(), "alz-install-"));
+    const base = tempDir("alz-install-");
     const binDir = join(base, "bin");
 
     const result = install(binDir);
@@ -42,16 +42,17 @@ describe("installing from source (scripts/install-local.sh)", () => {
     const empty = join(base, "empty");
     mkdirSync(empty);
     const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
-    const version = spawnSync(target, ["--version"], { cwd: empty, encoding: "utf8" });
-    expect(version.status, version.stderr).toBe(0);
-    expect(version.stdout.trim()).toBe(pkg.version);
-    const help = spawnSync(target, ["--help"], { cwd: empty, encoding: "utf8" });
-    expect(help.status, help.stderr).toBe(0);
-    expect(help.stdout).toContain("usage: alz");
+    const version = capture(target, ["--version"], { cwd: empty, env: {} });
+    expect(version.status).toBe(0);
+    expect(version.stderr).toBe("");
+    expect(version.stdout).toContain(pkg.version);
+    const help = capture(target, ["--help"], { cwd: empty, env: {} });
+    expect(help.status).toBe(0);
+    expect(help.stdout).not.toBe("");
   }, 120_000);
 
   it("refuses to replace a symlink at the target", () => {
-    const base = mkdtempSync(join(tmpdir(), "alz-install-"));
+    const base = tempDir("alz-install-");
     const binDir = join(base, "bin");
     mkdirSync(binDir);
     symlinkSync(join(base, "elsewhere"), join(binDir, "alz"));

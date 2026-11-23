@@ -17,8 +17,6 @@ import { readRegularFileWithId } from "../../src/core/files";
 import { type AccountResolution, resolveAccounts } from "../../src/resolve/account-resolution";
 import {
   accountFolder,
-  alz,
-  built,
   envFor,
   hubEntry,
   PERSONAL,
@@ -33,6 +31,7 @@ import { traced, tracedAsync } from "../fs-trace";
 import { valueImports } from "../import-graph";
 import { sha256Hex } from "../spec/cache";
 import { ENV_NAMES, YAML_ALIAS_LIMIT } from "../spec/limits";
+import { alz, built } from "./account-in-process";
 
 /**
  * Account resolution (spec 13.19) as the TypeScript implementation does it: the cases that call
@@ -313,7 +312,11 @@ describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
     const cacheBefore = listing(s.cache);
     const homeBefore = listing(s.ws.home);
 
-    const { result, calls } = await tracedAsync(() => which(s));
+    // The command starts in the working directory by the name the user's shell gives it: on macOS
+    // the temp folder is a link (/var/..., really /private/var/...), so resolving it is a call the
+    // entry makes once, apart from the lookups of the already resolved path.
+    const named = { ...s, ws: { ...s.ws, root: s.ws.root.replace(/^\/private(?=\/var\/)/, "") } };
+    const { result, calls } = await tracedAsync(() => which(named));
     expect(result.code, result.stderr).toBe(0);
     expect(result.stdout).toContain("claude: client-a (source: layer)");
 
@@ -389,7 +392,7 @@ describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
 
     // $HOME is listed once, and the working directory is resolved once.
     expect(listed.filter((path) => path === s.ws.home)).toHaveLength(1);
-    const cwd = `${s.ws.root}/repo`;
+    const cwd = `${named.ws.root}/repo`;
     expect(
       fsCalls
         .filter((call) => call.fn.startsWith("realpathSync"))

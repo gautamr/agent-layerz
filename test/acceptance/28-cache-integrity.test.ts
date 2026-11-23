@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   cpSync,
@@ -12,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
 import { gitCacheKey, githubCloneUrl } from "../spec/cache";
 
@@ -26,9 +26,8 @@ const GIT_ENV = {
 };
 
 function sh(ws: Workspace, cwd: string, args: string[]): string {
-  return execFileSync("git", ["-c", "commit.gpgsign=false", ...args], {
+  return tool("git", ["-c", "commit.gpgsign=false", ...args], {
     cwd,
-    encoding: "utf8",
     env: { ...GIT_ENV, HOME: ws.home },
   }).trim();
 }
@@ -46,10 +45,9 @@ function remote(ws: Workspace, from: string, dest: string): string {
 
 /** A hash-object that stores `content` and returns the blob id. */
 function blob(ws: Workspace, cwd: string, content: string): string {
-  return execFileSync("git", ["hash-object", "-w", "--stdin"], {
+  return tool("git", ["hash-object", "-w", "--stdin"], {
     cwd,
     input: content,
-    encoding: "utf8",
     env: { ...GIT_ENV, HOME: ws.home },
   }).trim();
 }
@@ -257,7 +255,7 @@ describe("cache integrity", () => {
       const { ws, dir } = await lockedGit();
       writeFileSync(`${dir}/instructions/10-team.md`, "- Tampered.\n");
       expect((await alz(ws, ["build"])).code).toBe(1);
-      execFileSync("rm", ["-rf", dir]);
+      tool("rm", ["-rf", dir]);
       expect((await alz(ws, ["build"])).code).toBe(0);
       expect(readFile(ws, "repo/AGENTS.md")).toContain("A tracker");
     });

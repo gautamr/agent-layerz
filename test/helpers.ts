@@ -3,14 +3,15 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   readlinkSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { run } from "../src/cli/main";
+import { type CliResult, spawnCaptured } from "./exec";
+import { alzBin, tempDir, tmpRoot } from "./run-root";
+
+export type { CliResult } from "./exec";
 
 const fixturesDir = join(import.meta.dirname, "fixtures");
 
@@ -21,9 +22,9 @@ export interface Workspace {
   home: string;
 }
 
-/** Copies `test/fixtures/<name>` into a fresh temp dir. */
+/** Copies `test/fixtures/<name>` into a fresh folder under the run root. */
 export function fixture(name: string): Workspace {
-  const base = mkdtempSync(join(tmpdir(), `alz-${name}-`));
+  const base = tempDir(`alz-${name}-`);
   const root = join(base, "ws");
   const home = join(base, "home");
   cpSync(join(fixturesDir, name), root, { recursive: true });
@@ -31,31 +32,44 @@ export function fixture(name: string): Workspace {
   return { root, home };
 }
 
-export interface CliResult {
-  code: number;
-  stdout: string;
-  stderr: string;
+/** What `layers` is: the runner of one command in a workspace. */
+export type Layers = (
+  ws: Workspace,
+  dir: string,
+  args: string[],
+  env?: Record<string, string>,
+) => Promise<CliResult>;
+
+export interface LayersOptions {
+  /** Standard input for the child; without it the child has none. */
+  input?: string;
+  /** Raise it for a case that legitimately takes longer than the default. */
+  timeoutMs?: number;
 }
 
-export async function layers(
+/**
+ * Runs the binary under test (`ALZ_BIN`, or the TypeScript reference built for this run) as
+ * `alz <args>` in `ws.root/dir`. The child gets exactly HOME, PATH, ALZ_CLAUDE_BIN and TMPDIR
+ * (inside the run root), then `env`.
+ */
+export function layers(
   ws: Workspace,
   dir: string,
   args: string[],
   env: Record<string, string> = {},
+  options: LayersOptions = {},
 ): Promise<CliResult> {
-  let stdout = "";
-  let stderr = "";
-  const code = await run(args, {
+  return spawnCaptured(alzBin(), args, {
     cwd: join(ws.root, dir),
-    env: { HOME: ws.home, PATH: process.env.PATH ?? "", ALZ_CLAUDE_BIN: "/nonexistent", ...env },
-    stdout: (text) => {
-      stdout += text;
+    env: {
+      HOME: ws.home,
+      PATH: process.env.PATH ?? "",
+      ALZ_CLAUDE_BIN: "/nonexistent",
+      TMPDIR: tmpRoot(),
+      ...env,
     },
-    stderr: (text) => {
-      stderr += text;
-    },
+    ...options,
   });
-  return { code, stdout, stderr };
 }
 
 /** Every file under `dir` as path → content, sorted, ignoring the given top-level entries. */

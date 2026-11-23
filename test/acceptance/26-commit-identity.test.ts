@@ -1,19 +1,18 @@
-import { execFileSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace } from "../helpers";
+import { tempDir } from "../run-root";
 
 // Reserved addresses only: the wrong identity must never appear in any output.
 const WRONG_NAME = "Shared CI";
@@ -23,11 +22,22 @@ const ENV = { GIT_CONFIG_NOSYSTEM: "1" };
 const TREE_IGNORE = [".git", "ext", "own", "link"];
 
 function sh(ws: Workspace, dir: string, args: string[]): string {
-  return execFileSync("git", args, {
+  return tool("git", args, {
     cwd: `${ws.root}/${dir}`,
-    encoding: "utf8",
     env: { PATH: process.env.PATH ?? "", HOME: ws.home, GIT_CONFIG_NOSYSTEM: "1" },
   }).trim();
+}
+
+/**
+ * A PATH that has node and no git: one folder holding a `node` script that runs this process's
+ * node. A binary that starts with `#!/usr/bin/env node` still starts; one that does not need node
+ * ignores it. Either way, `git` is not found.
+ */
+function pathWithoutGit(): string {
+  const dir = tempDir("alz-path-");
+  const node = process.execPath.replaceAll("'", "'\\''");
+  writeFileSync(join(dir, "node"), `#!/bin/sh\nexec '${node}' "$@"\n`, { mode: 0o755 });
+  return dir;
 }
 
 const RIGHT_GLOBAL = "[user]\n\tname = Owner Example\n\temail = owner@client.example\n";
@@ -76,7 +86,7 @@ function identityYaml(name: unknown, email: unknown): string {
 
 /** Does this machine's temp directory ignore case in file names? */
 function caseInsensitiveTmp(): boolean {
-  const dir = mkdtempSync(join(tmpdir(), "alz-case-"));
+  const dir = tempDir("alz-case-");
   try {
     writeFileSync(join(dir, "a"), "");
     return existsSync(join(dir, "A"));
@@ -820,7 +830,7 @@ describe("§13.18 commit identity", () => {
     it("fails check, instead of passing, when git cannot be used", async () => {
       const ws = gitFixture("right");
       expect((await layers(ws, "repo", ["build"], ENV)).code).toBe(0);
-      const missing = await layers(ws, "repo", ["check"], { ...ENV, PATH: "/nonexistent" });
+      const missing = await layers(ws, "repo", ["check"], { ...ENV, PATH: pathWithoutGit() });
       expect(missing.code).toBe(1);
       expect(missing.stderr).toContain("error [identity] git is not available or failed");
       expect(missing.stderr).not.toContain("not a git repository");

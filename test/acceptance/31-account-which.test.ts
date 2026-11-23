@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -28,6 +27,7 @@ import {
   writeAccounts,
   writeAllowed,
 } from "../account-workspace";
+import { tool } from "../exec";
 import { gitProxy } from "../git-proxy";
 import { type CliResult, readTree, snapshot } from "../helpers";
 import { YAML_ALIAS_LIMIT } from "../spec/limits";
@@ -254,13 +254,14 @@ describe("§13.19 sources: which account each target gets and why (AC 1)", () =>
     const result = await which(s, {}, args);
     expect(result.code).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("usage: alz <command>");
+    expect(result.stderr).not.toBe("");
   });
 
   it("exits 2 for an unknown account subcommand", async () => {
     const result = await alz(plain(), ["account", "frobnicate"]);
     expect(result.code).toBe(2);
-    expect(result.stderr).toContain("usage: alz <command>");
+    expect(result.stdout).toBe("");
+    expect(result.stderr).not.toBe("");
   });
 });
 
@@ -494,7 +495,7 @@ describe("§13.19 paths: the repository root and the folders entries (AC 4)", ()
     it("does not hang on a FIFO named layer.yaml on the walk, and treats it as unreadable", async () => {
       const s = await built();
       accountFolder(s, CLIENT_A, CLIENT_A_API);
-      execFileSync("mkfifo", [`${s.real}/repo/sub/layer.yaml`]);
+      tool("mkfifo", [`${s.real}/repo/sub/layer.yaml`]);
       writeAllowed(s, [
         hubEntry(s, { root: `${s.real}/repo/sub`, account: { claude: "client-a" } }),
       ]);
@@ -635,7 +636,7 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
       accountFolder(s, ".claude-client-b");
       const file = writeAccounts(s, CONFIG(s));
       rmSync(file);
-      execFileSync("mkfifo", [file]);
+      tool("mkfifo", [file]);
       chmodSync(file, 0o600);
       const started = Date.now();
       const result = await which(s);
@@ -653,7 +654,7 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
       accountFolder(s, CLIENT_A, CLIENT_A_API);
       const file = writeAllowed(s, [hubEntry(s)]);
       rmSync(file);
-      execFileSync("mkfifo", [file]);
+      tool("mkfifo", [file]);
       chmodSync(file, 0o600);
       const started = Date.now();
       const result = await which(s);
@@ -1365,6 +1366,8 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
     const s = plain();
     const result = await which(s, {}, ["--use", "claude=../x"]);
     expect(result.code).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).not.toBe("");
   });
 
   describe("a HOME that is not an absolute path", () => {

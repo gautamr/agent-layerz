@@ -1,12 +1,11 @@
-import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { tool } from "../exec";
 import { fixture, layers, readFile, type Workspace } from "../helpers";
 
 function git(ws: Workspace, args: string[]): void {
-  execFileSync("git", args, {
+  tool("git", args, {
     cwd: `${ws.root}/hub`,
-    stdio: "ignore",
     env: {
       PATH: process.env.PATH ?? "",
       HOME: ws.home,
