@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T05:17:00Z'
-updated_date: '2026-11-23T05:27:00Z'
+updated_date: '2026-11-23T05:45:00Z'
 labels:
   - area:rust
   - area:security
@@ -46,3 +46,9 @@ Untrusted input: every byte.
 - [ ] #3 Every tag decision-28 lists is refused with yaml-tag and the core tags are accepted; two documents, a cyclic alias, an unresolved alias and an escape that decodes to a forbidden control character are refused, and no diagnostic holds the alias name (unit tests)
 - [ ] #4 Property test: the diagnostic of any rejected input holds no input text except one quoted, stripped key name
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-23): deny.toml gets a licence exception for encoding_rs only (BSD-3-Clause), added with serde-saphyr in this subtask; decision-28 amended.
+<!-- SECTION:NOTES:END -->

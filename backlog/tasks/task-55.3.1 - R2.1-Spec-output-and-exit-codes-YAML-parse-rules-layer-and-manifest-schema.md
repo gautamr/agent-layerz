@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-23T05:17:00Z'
-updated_date: '2026-11-23T05:32:00Z'
+updated_date: '2026-11-23T05:45:00Z'
 labels:
   - area:spec
   - area:rust
@@ -35,8 +35,8 @@ Out of scope: what R3 to R6 build (resolved sources, leak guard, merge, account 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The spec has an 'Output and exit codes' section and §10 points to it; every diagnostic code R2 emits is named in the spec (grep of the codes in crates/ against the spec, recorded in the notes)
-- [ ] #2 §5.1, §5.2, §5.3 and §7.13 state every rule R2.4 to R2.9 enforce, each with its reference drift and task where the TypeScript alz differs (owner review comment on this task)
-- [ ] #3 The text follows the owner's answers in TASK-55.3's notes: input keys cut at 64 code points after stripping, CR allowed in raw YAML text only, schema errors never print values (owner review comment)
+- [x] #2 §5.1, §5.2, §5.3 and §7.13 state every rule R2.4 to R2.9 enforce, each with its reference drift and task where the TypeScript alz differs (owner review comment on this task)
+- [x] #3 The text follows the owner's answers in TASK-55.3's notes: input keys cut at 64 code points after stripping, CR allowed in raw YAML text only, schema errors never print values (owner review comment)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -54,4 +54,19 @@ Open:
 - AC #1: the grep of the codes in crates/ against the spec can only run once R2's code exists, so it is left for R2.11. error [not-ported] is deliberately not in the spec: it is temporary (owner answer 5) and is never released.
 - AC #2 and AC #3 wait for the owner's review comment.
 - Kept as the reference has it, not decided by the owner: a ref: field on a github: or git: entry is checked but has no effect. Making it an error would be a new rule.
+
+Owner approved the text (comment). AC #1 (grep of codes in crates/ against the spec) is checked in R2.11, once R2's code exists; R2.3 may start on the approved text.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: owner
+created: 2026-11-23T05:45:00Z
+
+---
+
+Owner review (2026-11-23): the R2.1 spec text in commit 531859d is approved; the R2 unit review checks it against the code at the end.
+
+---
+<!-- COMMENTS:END -->

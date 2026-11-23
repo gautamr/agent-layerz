@@ -10,8 +10,11 @@ license = "MIT"
 repository = "https://github.com/gautamr/agent-layerz"
 
 [workspace.dependencies]
+alz-core = { path = "crates/alz-core", version = "0.1.0" }
 assert_cmd = "2.2.2"
 clap = { version = "4.6.9", features = ["derive"] }
+# decision-35: dev-dependency only, with std and without fork, timeout or bit-set.
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

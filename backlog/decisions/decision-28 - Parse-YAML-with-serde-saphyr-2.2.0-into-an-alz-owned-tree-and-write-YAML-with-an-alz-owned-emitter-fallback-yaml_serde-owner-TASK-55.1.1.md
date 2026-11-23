@@ -158,3 +158,9 @@ stays an error in both. The spec states both sets in §7.13 "YAML limits" (TASK-
 - **Amended 2026-11-23 (owner, TASK-55.3):** with CR allowed in raw text, a file with CRLF line ends
   is not a new error. A `\r` escape that decodes to a carriage return is one: it belongs to the new
   error "a control character that an escape in a quoted string produces" listed above.
+
+**Amended 2026-11-23 (owner, TASK-55.3, licence).** serde-saphyr's `deserialize` feature pulls in
+encoding_rs, licensed `(Apache-2.0 OR MIT) AND BSD-3-Clause` (the BSD-3-Clause part covers its
+WHATWG encoding data). `deny.toml` gets a licence exception for encoding_rs only, allowing
+BSD-3-Clause for that crate; BSD-3-Clause stays disallowed for every other crate. R2.4 adds the
+exception together with serde-saphyr.
