@@ -533,3 +533,42 @@ proptest! {
         prop_assert!(!printed(&errors).contains("QZX9"));
     }
 }
+
+// ---- null counts as absent (spec 5.1) ----
+
+#[test]
+fn an_optional_field_that_is_null_counts_as_absent() {
+    let meta = with(
+        "version:\ndescription: ~\nprovides_slots: null\nrequires_slots:\nforbid_patterns: ~\ncommit_identity:\n",
+    )
+    .expect("null optional fields are absent");
+    assert!(meta.version().is_none() && meta.description().is_none());
+    assert!(meta.provides_slots().is_empty() && meta.requires_slots().is_empty());
+    assert!(meta.forbid_patterns().is_empty() && meta.commit_identity().is_none());
+    assert_eq!(meta, read(BASE).expect("the base layer"));
+}
+
+#[test]
+fn a_required_field_that_is_null_is_reported_as_missing() {
+    let errors = read("name:\nkind: ~\nvisibility: null\n").expect_err("required fields");
+    assert_eq!(
+        messages(&errors),
+        [
+            "name is required",
+            "kind is required",
+            "visibility is required"
+        ]
+    );
+}
+
+#[test]
+fn the_account_field_still_refuses_null_as_test_29_says() {
+    assert_eq!(
+        messages(&with("account:").expect_err("refused")),
+        ["account must be an account name or a mapping of target to name"]
+    );
+    assert_eq!(
+        messages(&with("account: {claude: ~}").expect_err("refused")),
+        ["account.claude must be text; put the value in quotes to keep it as text"]
+    );
+}

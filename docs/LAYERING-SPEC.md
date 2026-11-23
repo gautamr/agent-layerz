@@ -262,6 +262,9 @@ adds it (its release note names the version).
 - `version` and `description` are optional text.
 - `provides_slots`, `requires_slots` and `forbid_patterns` are optional lists of text.
 - `commit_identity` follows §7.12 and `account` follows §7.13.
+- An optional field whose value is null, written as nothing, `~` or `null`, counts as absent. A
+  required field that is null is reported as missing. `account` is the exception: `account: null`
+  and a null name inside it are refused (§7.13).
 - A field that expects text and holds a number is an error that suggests quoting the value:
   `version: 1.10` is the number 1.1, so it is written `version: "1.10"`. The TypeScript `alz`
   turns the number into text instead (`1.1`; reference drift, TASK-55.3).
@@ -325,6 +328,22 @@ repository without `layer.yaml` is the error `no-manifest`.
 - `options.commit_generated` and `options.strict_slots` are `true` or `false`, and `true` when
   absent.
 - `mcp`, `workspace`, `budgets` and `options` are mappings with only the fields above.
+- An optional field or section whose value is null, written as nothing, `~` or `null`, counts as
+  absent (an empty `mcp:` is no `mcp`). A required field that is null, such as `stack:` with
+  nothing after it, is reported as missing.
+
+**Source forms** (TASK-55.3). A `source` prints back as the text it was read from, byte for byte
+(`layer.lock` and `allowed.yaml` store that text). Each error is `manifest` at `layer.yaml` and
+names `stack[<n>].source`, never its value:
+- `path:<dir>`: `<dir>` is not empty.
+- `github:<owner>/<repo>@<ref>`: `<owner>` and `<repo>` are non-empty, hold only ASCII letters,
+  digits, `.`, `_` and `-`, do not start with `-` and are not `.` or `..`.
+- `git:<url>@<ref>`: `<url>` is not empty and does not start with `-`.
+- The ref is what follows the last `@`; it is not empty, holds no `:` (an `@` before a `:` is the
+  user of a scp-like address, so `git:git@host:o/r.git` has no ref and is refused) and follows the
+  `ref` rule above.
+- A `https://` or `http://` scheme is matched ignoring case; the authority of a URL ends at the
+  first `/`, `\`, `?` or `#`.
 
 **Credentials in a source** (TASK-65). A `git:` URL must not hold credentials:
 - an `http://` or `https://` URL with a user name or password (`https://user@…`,

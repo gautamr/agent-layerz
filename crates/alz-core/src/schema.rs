@@ -9,6 +9,8 @@ use crate::account::{AccountNameError, AccountShapeError};
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Position, Where};
 use crate::identity::{EmailError, IdentityNameError};
 use crate::layer::{KindError, LayerNameError, VisibilityError};
+use crate::stack::{BudgetError, GitRefError, SourceError, StackError, WorkspaceDirError};
+use crate::target::TargetError;
 use crate::untrusted_text::Stripped;
 use crate::yaml::Node;
 use crate::yaml::fields::{FieldError, KeyPath, Section};
@@ -31,6 +33,18 @@ pub enum Refusal {
     AccountName(AccountNameError),
     /// The shape of an `account` value.
     AccountShape(AccountShapeError),
+    /// A git ref (`stack[n].ref`).
+    GitRef(GitRefError),
+    /// A stack entry's `source`.
+    Source(SourceError),
+    /// A target name.
+    Target(TargetError),
+    /// A workspace directory.
+    WorkspaceDir(WorkspaceDirError),
+    /// A budget.
+    Budget(BudgetError),
+    /// The stack as a whole.
+    Stack(StackError),
 }
 
 impl Refusal {
@@ -45,6 +59,12 @@ impl Refusal {
             Self::Email(error) => error.rule(),
             Self::AccountName(error) => error.rule(),
             Self::AccountShape(error) => error.rule(),
+            Self::GitRef(error) => error.rule(),
+            Self::Source(error) => error.rule(),
+            Self::Target(error) => error.rule(),
+            Self::WorkspaceDir(error) => error.rule(),
+            Self::Budget(error) => error.rule(),
+            Self::Stack(error) => error.rule(),
         }
     }
 }
@@ -67,6 +87,12 @@ refusal_from! {
     EmailError => Email,
     AccountNameError => AccountName,
     AccountShapeError => AccountShape,
+    GitRefError => GitRef,
+    SourceError => Source,
+    TargetError => Target,
+    WorkspaceDirError => WorkspaceDir,
+    BudgetError => Budget,
+    StackError => Stack,
 }
 
 /// One problem of a file against its schema, with the position it is reported at.
@@ -133,6 +159,10 @@ impl SchemaError {
             Self::NotAMapping(_) => Message::new("the document must be a mapping"),
             Self::Field(error) => error.message(),
             Self::Missing { path, .. } => path.message().then(" is required"),
+            Self::Refused {
+                refusal: Refusal::Source(SourceError::Credentials),
+                ..
+            } => Message::new(SourceError::Credentials.rule()),
             Self::Refused { path, refusal, .. } => path.message().then(" ").then(refusal.rule()),
             Self::StackManifest(_) => Message::new(
                 "this file has a 'stack' field, so it is a repository's stack manifest and not a layer",
@@ -151,6 +181,33 @@ impl SchemaError {
             ),
             self.message(),
         )
+    }
+}
+
+impl SchemaError {
+    /// The error of the stack manifest `layer.yaml` of the repository: code `manifest`, at
+    /// `layer.yaml` and the position. A `git:` source that holds credentials is the error
+    /// `source` instead, with no location and a message that never prints the source (§5.2).
+    #[must_use]
+    pub fn manifest_diagnostic(&self) -> Diagnostic {
+        match self {
+            Self::Refused {
+                refusal: Refusal::Source(SourceError::Credentials),
+                ..
+            } => Diagnostic::error(Code::Source, None, self.message()),
+            Self::NotAMapping(_)
+            | Self::Field(_)
+            | Self::Missing { .. }
+            | Self::Refused { .. }
+            | Self::StackManifest(_) => Diagnostic::error(
+                Code::Manifest,
+                Some(
+                    Where::repository_file(Stripped::from_untrusted("layer.yaml"))
+                        .at(self.position()),
+                ),
+                self.message(),
+            ),
+        }
     }
 }
 
@@ -228,6 +285,14 @@ impl SchemaErrors {
     }
 }
 
+impl SchemaErrors {
+    /// One `manifest` error for each problem, at `layer.yaml` of the repository.
+    #[must_use]
+    pub fn manifest_diagnostics(&self) -> Diagnostics {
+        self.iter().map(SchemaError::manifest_diagnostic).collect()
+    }
+}
+
 impl IntoIterator for SchemaErrors {
     type Item = SchemaError;
     type IntoIter = std::iter::Chain<std::iter::Once<SchemaError>, std::vec::IntoIter<SchemaError>>;
@@ -295,6 +360,58 @@ pub fn unknown_fields(section: &Section<'_>, known: &[&str]) -> Checked<()> {
             .collect(),
     )
     .map_or(Ok(()), Err)
+}
+
+/// Every value, or the problems of all that failed.
+///
+/// # Errors
+///
+/// Every problem of every item, in document order.
+#[expect(
+    clippy::manual_try_fold,
+    reason = "try_fold stops at the first failure, and every problem of every item is wanted"
+)]
+pub fn all<T>(items: impl IntoIterator<Item = Checked<T>>) -> Checked<Vec<T>> {
+    items.into_iter().fold(Ok(Vec::new()), |collected, item| {
+        zip(collected, item)
+            .map(|(values, value)| values.into_iter().chain(std::iter::once(value)).collect())
+    })
+}
+
+/// `node`, at `path`, as a value of the validated type `T`.
+///
+/// # Errors
+///
+/// The node's problem when it is not text, or the refusal of the type's `TryFrom<&str>`, at the
+/// node. No error holds the text.
+pub fn refine_node<T>(path: KeyPath, node: &Node) -> Checked<T>
+where
+    T: for<'a> TryFrom<&'a str>,
+    for<'a> <T as TryFrom<&'a str>>::Error: Into<Refusal>,
+{
+    let text = Section::text_of(node, path.clone())?;
+    T::try_from(text).map_err(|error| SchemaError::refused(path, error.into(), node.at()).into())
+}
+
+/// The field as a list of validated values, `None` when it is absent. Every item is checked.
+///
+/// # Errors
+///
+/// The field's problem when it is not a list, and the problem of each item that is not text or
+/// is refused, at `<field>[<n>]`.
+pub fn refine_list<T>(section: &Section<'_>, field: &'static str) -> Checked<Option<Vec<T>>>
+where
+    T: for<'a> TryFrom<&'a str>,
+    for<'a> <T as TryFrom<&'a str>>::Error: Into<Refusal>,
+{
+    section
+        .items(field)?
+        .map(|items| {
+            all(items
+                .into_iter()
+                .map(|(path, node)| refine_node(path, node)))
+        })
+        .transpose()
 }
 
 /// The field as a value of the validated type `T`, `None` when it is absent.

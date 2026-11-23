@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 use crate::account::name::{AccountName, AccountNameError};
-use crate::schema::{Checked, Refusal, SchemaError, SchemaErrors, refine, unknown_fields, zip};
+use crate::schema::{
+    Checked, Refusal, SchemaError, SchemaErrors, refine_node, unknown_fields, zip,
+};
 use crate::target::TargetName;
 use crate::yaml::fields::{KeyPath, Section};
 use crate::yaml::{Node, Value};
@@ -144,8 +146,14 @@ impl AccountDeclaration {
         let entries = TargetName::ALL
             .into_iter()
             .map(|target| {
-                refine::<AccountChoice>(&section, target.as_str())
-                    .map(|choice| choice.map(|choice| (target, choice)))
+                // Test 29: `{claude: null}` is refused, so each entry is read as written.
+                section
+                    .written_node(target.as_str())
+                    .map(|entry| {
+                        refine_node::<AccountChoice>(path.field(target.as_str()), entry)
+                            .map(|choice| (target, choice))
+                    })
+                    .transpose()
             })
             .fold(Ok(Vec::new()), |all, next| {
                 zip(all, next).map(|(mut all, next)| {
