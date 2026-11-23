@@ -129,18 +129,32 @@ impl AccountDeclaration {
             Value::Text(text) => AccountChoice::try_from(text.as_str())
                 .map(Self::Every)
                 .map_err(|error| refused(error.into(), path)),
-            Value::Map(_) => Self::per_target(node, path),
+            Value::Map(_) => NonEmptyTargetMap::from_node(node, path).map(Self::PerTarget),
             Value::Null | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Seq(_) => {
                 Err(refused(AccountShapeError::NotNameOrMapping.into(), path))
             }
         }
     }
+}
 
+impl<T> NonEmptyTargetMap<T>
+where
+    T: for<'a> TryFrom<&'a str>,
+    for<'a> <T as TryFrom<&'a str>>::Error: Into<Refusal>,
+{
+    /// Reads `node`, at `path`, as a mapping of target to a validated value, with at least one
+    /// target.
+    ///
+    /// # Errors
+    ///
+    /// Every problem of the mapping, with its key path: a value that is not text or is refused
+    /// (`null` included), a key that is not `claude` or `codex`, an empty mapping, or a node that
+    /// is not a mapping. No error holds a value.
     #[expect(
         clippy::manual_try_fold,
         reason = "the fold keeps the problems of every target, which try_fold would stop at the first"
     )]
-    fn per_target(node: &Node, path: KeyPath) -> Checked<Self> {
+    pub fn from_node(node: &Node, path: KeyPath) -> Checked<Self> {
         let section = Section::new(node, path.clone()).map_err(SchemaError::from)?;
         let known = TargetName::ALL.map(TargetName::as_str);
         let entries = TargetName::ALL
@@ -150,7 +164,7 @@ impl AccountDeclaration {
                 section
                     .written_node(target.as_str())
                     .map(|entry| {
-                        refine_node::<AccountChoice>(path.field(target.as_str()), entry)
+                        refine_node::<T>(path.field(target.as_str()), entry)
                             .map(|choice| (target, choice))
                     })
                     .transpose()
@@ -172,6 +186,5 @@ impl AccountDeclaration {
                     ))
                 })
             })
-            .map(Self::PerTarget)
     }
 }

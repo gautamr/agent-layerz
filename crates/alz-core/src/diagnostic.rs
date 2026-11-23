@@ -57,6 +57,10 @@ pub enum Code {
     Lock,
     /// A layer source that cannot be used, such as a `git:` URL that holds credentials (§5.2).
     Source,
+    /// A problem in the owner's `accounts.yaml`, which alz ignores in part or whole (§7.13).
+    AccountConfig,
+    /// A problem in the allow state `allowed.yaml`, which alz ignores in part or whole (§7.13).
+    AccountAllowed,
 }
 
 impl Code {
@@ -71,6 +75,8 @@ impl Code {
             Self::NoManifest => "no-manifest",
             Self::Lock => "lock",
             Self::Source => "source",
+            Self::AccountConfig => "account-config",
+            Self::AccountAllowed => "account-allowed",
         }
     }
 }
