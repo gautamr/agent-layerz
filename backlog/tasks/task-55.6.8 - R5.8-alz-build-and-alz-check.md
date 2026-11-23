@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-23T18:29:00Z'
+updated_date: '2026-11-23T18:30:00Z'
 labels:
   - area:rust
   - area:cli
@@ -34,6 +34,7 @@ Plan for this step: crates/alz/src/command/{pipeline,build,check}.rs.
 - [ ] #1 alz build writes, and alz check passes on, the reference's bytes for every fixture repository (golden-tree integration test)
 - [ ] #2 Acceptance files 01, 02, 07 to 09, 11, 14, 15, 23 and 37's build rows pass against ALZ_BIN (vitest run with ALZ_BIN=target/release/alz, counts in the notes)
 - [ ] #3 The build and check forms of TASK-52, TASK-53, TASK-63 and TASK-71 in tests 24 and 36 pass against ALZ_BIN (vitest run)
+- [ ] #4 The layer walk refuses a file name with a control or format character (error layer naming the layer; layer-invalid in account resolution), per spec §5.3
 <!-- AC:END -->
 
 ## Implementation Notes

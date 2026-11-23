@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T18:17:00Z'
+updated_date: '2026-11-23T18:28:00Z'
 labels:
   - area:rust
   - area:spec
@@ -34,6 +34,45 @@ Out of scope: Codex output (TASK-18), §9.4 identity behaviour (R6).
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 docs/LAYERING-SPEC.md states every rule listed in this task's description, each owner answer of TASK-55.6 included (spec diff, reviewed)
-- [ ] #2 §10.1 lists each new diagnostic code with its level and what raises it, and §10 quotes every R5 message the acceptance suite asserts (spec diff checked against grep of test/acceptance)
-- [ ] #3 CHANGELOG.md names the user-facing changes and the minor bump at cutover; mise run lint exits 0
+- [x] #2 §10.1 lists each new diagnostic code with its level and what raises it, and §10 quotes every R5 message the acceptance suite asserts (spec diff checked against grep of test/acceptance)
+- [x] #3 CHANGELOG.md names the user-facing changes and the minor bump at cutover; mise run lint exits 0
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Architect (2026-11-23, R5.1 spec pass, uncommitted on feat/rust-r5-task-55.6; it lands with the R5 pull request). I followed the owner answers and lead decisions in TASK-55.6's notes.
+
+Spec changes (docs/LAYERING-SPEC.md):
+- §4.3, after the adoption table:
+  - the header and its sources (`<layer>@<rev>:<path>`, the YAML comment form, the generated mark and its earlier spelling; a source holding `-->` is error layer);
+  - "Which files are alz's own": the generated mark, or a lock entry whose current bytes match the recorded hash; nothing else is ever overwritten or deleted; one bullet per case of the build comparison;
+  - links refused: any path under a link, and any entry that is not a regular file, is a collision;
+  - paths that differ only in case: NFC, then ASCII lower case;
+  - writing: temporary file and rename, modes, the lock last;
+  - the .gitignore block;
+  - "Adoption, in detail": the repo layer requirement, the planned layer read with every layer check (TASK-73), problems stripped, JSON floats exact, the YAML merge, and alz's own minimal text edit of layer.yaml that keeps comments and every other byte, refusing the forms it does not handle.
+- §4.5: the glob syntax, case-insensitive matching, the protected warning.
+- §5.3 "File names": names with a control or format character are refused (error layer, layer-invalid in resolution), with the order of checks updated.
+- §7.1: the budget messages, Commits section included.
+- §7.11: the case-folded passthrough collision.
+- §8 intro: "What an adapter may rely on". Emit exactly what the reference emits, nothing new on an UNVERIFIED fact, and a docs task per UNVERIFIED row; two such rows are named. The floor keys wait for TASK-76. codex is error target.
+- §8.1: the Claude output per item, with the tool and mode mappings, hooks, settings.json, .mcp.json, protected and managed folders, the adopt-always files and the verified range.
+- §10.1: the `note` level, and a table of the R5 codes: collision, check, budget, protected, layer, passthrough, target, claude-agent, tool-scope, hook-on-fail, adopt, explain, ls, claude, init.
+- New §10.3: the output of build, check, diff (alz's own Myers unified format), ls and --live, explain (with its action words), doctor and init.
+- §13: entries 30 (the writer and generated headers) and 31 (output parity with golden trees).
+Other files: CHANGELOG.md has an Unreleased entry for the writer and adoption changes, a minor bump at cutover. backlog/decisions/decision-33 is amended ("Amended 2026-11-23 (owner, R5, TASK-55.6)", float_roundtrip on; title and status unchanged; the deny.toml change is listed under consequences for the implementing PR).
+
+Checks:
+- `mise run lint`: exit 0, run twice, the second time after the last edit.
+- Leak grep over `git diff docs/ CHANGELOG.md backlog/decisions/`: no private-task term. The one hit for "private" is the word in the init options.
+- Both private task files are still git-ignored.
+- AC #2: a script checked 26 message strings that the acceptance suite asserts for R5 commands (ls, --live, doctor, init, adopt, check, budget, collision, explain) against the spec text; all 26 are present.
+- AC #1 is not ticked: the spec diff still needs its review.
+
+Findings for the coordinator (not done here; they need a subtask or a plan note):
+1. Provenance gap. alz-core's Contribution (merge/provenance.rs) holds only the layer and an Action (Define, Extend, Replace, Remove). Headers need the file of each contribution and the layer's rev or version: test 26 asserts `+ client@0.1.0:layer.yaml`, and the reference's header sources are file refs. explain needs the kind's action words that §10.3 now states: test 17 asserts `2. shop-api:rules/testing.md — extend: paths +[e2e/**]`. R5.3, R5.4 and R5.10 cannot be byte-identical without that. Proposed: a small alz-core step before R5.3 that gives Contribution the file (SafeRelPath) and an action detail per kind.
+2. The §5.3 refusal of control and format characters in layer file names changes the alz-io walk and the scan verdict (R3 code). No R5 subtask names it yet. It fits R5.8 (pipeline) or a small step of its own.
+3. The owner asked for a docs task for each UNVERIFIED row the Claude output relies on: relative additionalDirectories (target-facts §7c) and an unknown settings key (target-facts §7, which TASK-79 may make moot). I did not create it, since this session touches only docs/, decisions and R5.1.
+4. R5.1 still carries the label needs:owner-approval in its file, although the answers are in.
+<!-- SECTION:NOTES:END -->

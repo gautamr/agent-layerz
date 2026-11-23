@@ -5,12 +5,14 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
+updated_date: '2026-11-23T18:31:00Z'
 labels:
   - area:rust
   - area:render
 milestone: m-7
 dependencies:
   - TASK-55.6.2
+  - TASK-55.6.17
 parent_task_id: TASK-55.6
 priority: high
 type: task
