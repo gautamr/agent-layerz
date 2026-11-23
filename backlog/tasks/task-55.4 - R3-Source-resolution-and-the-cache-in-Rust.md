@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T08:03:00Z'
+updated_date: '2026-11-23T11:29:00Z'
 labels:
   - area:rust
   - area:security
@@ -329,4 +329,6 @@ Owner answers (2026-11-23): (1) TASK-70: alz re-runs itself with an internal arg
 Architect (2026-11-23): the owner's answers are folded into the plan and into subtasks R3.1, R3.2, R3.3, R3.5, R3.6, R3.9 and R3.11. Answer 3 is recorded as decision-36 (sha1 =0.11.0) and decision-37 (unicode-normalization =0.1.26), both accepted. Answer 7: the criteria of TASK-52, 53, 63, 69 and 71 now name the lint twins, and each task's last criterion says that the build or check form is checked again in R5 (TASK-55.6), and the account-resolution forms in R6 (TASK-55.7). R3.1's spec text is written, uncommitted, on the branch.
 
 Architect (2026-11-23): the owner's answers are folded into the plan and into subtasks R3.1, R3.2, R3.3, R3.5, R3.6, R3.9 and R3.11. Answer 3 is recorded as decision-36 (sha1 =0.11.0) and decision-37 (unicode-normalization =0.1.26), both accepted. Answer 7: the criteria of TASK-52, 53, 63, 69 and 71 now name the lint twins, and each task's last criterion says that the build or check form is checked again in R5 (TASK-55.6), and the account-resolution forms in R6 (TASK-55.7). R3.1's spec text is written, uncommitted, on the branch.
+
+Owner answers to the R3 security review (2026-11-23): (M1) a remote git: source may use only https and ssh: refuse '<helper>::' URLs at parse time; run remote clones with protocol.allow=never plus protocol.https.allow and protocol.ssh.allow, and GIT_PROTOCOL_FROM_USER=0; the user's own GIT_ALLOW_PROTOCOL can only narrow it. (L3) local git: sources are cloned with --no-local. (L6) a file over 16 MiB in a layer is an error in the build too. Lead decisions on the rest: the credentials check takes the user part before the first '@' of the first '/'-segment for the scp-like form (so git@host:repo@v1 is accepted and me:TOKEN@host/o/r and user:tok@host:repo@v1 are refused) and keeps the whole-text check for '://' URLs; never signal a reaped pid, and confirm the group before trusting it; resolve git to an absolute path once (no relative PATH entries); refuse a cache root not owned by the effective uid or writable by group or others; probe_file without following links, regular files only; iterative remove_tree; account folders reached through links are refused (lstat/readlink the named entries of HOME); a pinned layer's git top is checked against the account folders; git is started only when a source needs it; the environment is captured once in main.
 <!-- SECTION:NOTES:END -->
