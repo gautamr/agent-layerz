@@ -1,10 +1,10 @@
 ---
 id: TASK-76
 title: Record the security-relevant Claude and Codex settings keys in target-facts
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-23T16:08:00Z'
-updated_date: '2026-11-23T18:17:00Z'
+updated_date: '2026-11-23T23:32:00Z'
 labels:
   - area:docs
   - area:security
@@ -33,3 +33,9 @@ Recorded all 98 rows of crates/alz-core/src/item/native_keys.rs in docs/target-f
 
 AC #2 done: corrections 1 to 7 of docs/target-facts.md 13.8 are applied in crates/alz-core/src/item/native_keys.rs and docs/LAYERING-SPEC.md 7.9 (and the R5 disable string in 7.6). Codex tools.web_search is no longer a ladder (only tools.web_search.allowed_domains is a no-additions floor); allowAllClaudeAiMcps is OUTSIDE_THE_PROJECT; claude.mcpServers is reserved with a reason that does not call it a settings key; codex profile is reserved as removed by 0.169.0; codex profiles and windows are reserved whole (the profiles.* first-class and floor rows, unreachable behind the whole-key refusal, are folded); 4 command keys and 11 managed or user keys added. Evidence: mise run rust:ci green (988 alz-core tests); mise run lint clean; acceptance 37 against the release binary: all lint rows pass, 22 failures are only the alz build cases that need R5 (TASK-55.6).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The 98 security-relevant Claude and Codex settings keys are recorded in target-facts §13 (DOCS for all, SMOKE type checks for 94), and the code table was corrected where the facts proved it wrong. Merged as PR #10.
+<!-- SECTION:FINAL_SUMMARY:END -->
