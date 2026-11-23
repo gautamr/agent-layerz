@@ -4,8 +4,9 @@
 //! the layer is named in the message, as the spec words each one.
 
 use crate::diagnostic::{Code, Diagnostic, Message};
-use crate::git::FetchFailureLine;
+use crate::git::{FetchFailureLine, ListingRefusal};
 use crate::layer::LayerName;
+use crate::lock::ObjectId;
 use crate::stack::GitRef;
 use crate::stack::source::CREDENTIALS_MESSAGE;
 use crate::untrusted_text::Stripped;
@@ -140,6 +141,70 @@ pub fn cannot_resolve_ref(git_ref: &GitRef, source: Stripped) -> Diagnostic {
     )
 }
 
+/// A pinned `path:` layer whose tree could not be read from the repository (§6): git failed,
+/// outran its deadline, or the repository lacks a blob. `cannot read '<source>' at <ref>: <detail>`,
+/// and without the detail when there is none.
+#[must_use]
+pub fn cannot_read_pinned(
+    source: Stripped,
+    git_ref: &GitRef,
+    detail: Option<Stripped>,
+) -> Diagnostic {
+    let message = Message::new("cannot read '")
+        .then(source)
+        .then("' at ")
+        .then(crate::MessagePart::printable(git_ref));
+    Diagnostic::error(
+        Code::Source,
+        None,
+        detail.map_or(message.clone(), |detail| message.then(": ").then(detail)),
+    )
+}
+
+/// A `tree2@` entry that no longer matches the git tree it is named after (§6): the "delete that
+/// directory" error. It never names a file or holds content.
+#[must_use]
+pub fn cache_differs_from_tree(
+    source: Stripped,
+    tree: &ObjectId,
+    cache_directory: Stripped,
+) -> Diagnostic {
+    Diagnostic::error(
+        Code::Cache,
+        None,
+        Message::new("cached layer '")
+            .then(source)
+            .then("' no longer matches git tree ")
+            .then(Stripped::from_untrusted(&tree.to_string()))
+            .then(": its files in ")
+            .then(cache_directory)
+            .then(" changed after they were cached; delete that directory and rebuild"),
+    )
+}
+
+/// A pinned `path:` layer whose git tree lists a path that is refused (§5.3 "File names", §6).
+/// Nothing was written. No path is printed.
+#[must_use]
+pub fn pinned_tree_refused(refusal: ListingRefusal, source: Stripped) -> Diagnostic {
+    match refusal {
+        ListingRefusal::NotUtf8 => file_name_not_utf8(source),
+        ListingRefusal::NotSafe => Diagnostic::error(
+            Code::Layer,
+            None,
+            Message::new("the git tree of layer '")
+                .then(source)
+                .then("' lists a path with a backslash, a '.', '..' or '.git' segment; rename it"),
+        ),
+        ListingRefusal::Collision => Diagnostic::error(
+            Code::Layer,
+            None,
+            Message::new("the git tree of layer '")
+                .then(source)
+                .then("' lists two paths that one file system would merge (equal after Unicode normalisation and case folding); rename one"),
+        ),
+    }
+}
+
 /// A name in a layer that is not valid UTF-8 (§5.3 "File names"). The name itself is never
 /// printed.
 #[must_use]
@@ -165,9 +230,10 @@ mod tests {
     use proptest::prelude::{Strategy, any, prop_assert, prop_assert_eq, proptest};
 
     use super::{
-        cache_differs_from_clone, cache_differs_from_lock, cannot_fetch, cannot_resolve_ref,
-        cannot_store, file_name_not_utf8, invalid_file_url, layer_directory_not_found,
-        layer_touches_account_folder, local_git_path_has_dotdot, source_holds_credentials,
+        cache_differs_from_clone, cache_differs_from_lock, cache_differs_from_tree, cannot_fetch,
+        cannot_read_pinned, cannot_resolve_ref, cannot_store, file_name_not_utf8, invalid_file_url,
+        layer_directory_not_found, layer_touches_account_folder, local_git_path_has_dotdot,
+        pinned_tree_refused, source_holds_credentials,
     };
     use crate::diagnostic::Diagnostic;
     use crate::git::FetchFailureLine;
@@ -181,6 +247,49 @@ mod tests {
 
     fn name() -> LayerName {
         LayerName::try_from("team").expect("a valid layer name")
+    }
+
+    #[test]
+    fn a_pinned_tree_failure_names_the_source_the_ref_and_the_detail() {
+        let git_ref = GitRef::try_from("v1").expect("a ref");
+        assert_eq!(
+            cannot_read_pinned(
+                stripped("path:../hub"),
+                &git_ref,
+                Some(stripped("git did not finish within 120 seconds"))
+            )
+            .to_string(),
+            "error [source] cannot read 'path:../hub' at v1: git did not finish within 120 seconds"
+        );
+        assert_eq!(
+            cannot_read_pinned(stripped("path:../hub"), &git_ref, None).to_string(),
+            "error [source] cannot read 'path:../hub' at v1"
+        );
+    }
+
+    #[test]
+    fn a_tree_entry_that_changed_says_to_delete_its_directory() {
+        let tree = crate::lock::ObjectId::try_from("b8b1dadfa8feded6f6d93583dd449585eaafb9f8")
+            .expect("an id");
+        assert_eq!(
+            cache_differs_from_tree(stripped("path:../hub"), &tree, stripped("/c/tree2@x"))
+                .to_string(),
+            "error [cache] cached layer 'path:../hub' no longer matches git tree b8b1dadfa8feded6f6d93583dd449585eaafb9f8: its files in /c/tree2@x changed after they were cached; delete that directory and rebuild"
+        );
+    }
+
+    #[test]
+    fn a_refused_tree_names_the_layer_and_never_a_path() {
+        use crate::git::ListingRefusal;
+        for refusal in [
+            ListingRefusal::NotUtf8,
+            ListingRefusal::NotSafe,
+            ListingRefusal::Collision,
+        ] {
+            let text = pinned_tree_refused(refusal, stripped("path:../hub")).to_string();
+            assert!(text.starts_with("error [layer] "), "{text}");
+            assert!(text.contains("'path:../hub'"), "{text}");
+        }
     }
 
     #[test]

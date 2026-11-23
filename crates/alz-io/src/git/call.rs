@@ -61,6 +61,11 @@ pub(super) enum GitCall<'a> {
         scope: ReadScope,
         rev: &'a GitRef,
     },
+    /// The tree of `commit`.
+    RevParseTree {
+        repository: &'a Path,
+        commit: &'a ObjectId,
+    },
     /// Check out `commit`, detached.
     Checkout {
         repository: &'a Path,
@@ -98,7 +103,7 @@ pub(super) enum GitCall<'a> {
 pub(super) enum Outcome {
     Nothing,
     Version(Vec<u8>),
-    Commit(Option<ObjectId>),
+    Object(Option<ObjectId>),
     Path(PathBuf),
     Prefix(OsString),
     Tree(Vec<TreeEntry>),
@@ -140,6 +145,7 @@ impl GitCall<'_> {
                 scope: ReadScope::PinnedTree,
                 ..
             }
+            | Self::RevParseTree { .. }
             | Self::ShowToplevel { .. }
             | Self::ShowPrefix { .. }
             | Self::LsTreeAt { .. }
@@ -176,6 +182,13 @@ impl GitCall<'_> {
                 os("--end-of-options"),
                 OsString::from(format!("{}^{{commit}}", rev.as_str())),
             ],
+            Self::RevParseTree { commit, .. } => vec![
+                os("rev-parse"),
+                os("--verify"),
+                os("--quiet"),
+                os("--end-of-options"),
+                OsString::from(format!("{commit}^{{tree}}")),
+            ],
             Self::Checkout { commit, .. } => vec![
                 os("-c"),
                 os("advice.detachedHead=false"),
@@ -210,6 +223,7 @@ impl GitCall<'_> {
         match self {
             Self::Version | Self::Clone { .. } => None,
             Self::RevParseCommit { repository, .. }
+            | Self::RevParseTree { repository, .. }
             | Self::Checkout { repository, .. }
             | Self::LsTreeAt { repository, .. }
             | Self::LsTreeRecursive { repository, .. }
@@ -228,6 +242,7 @@ impl GitCall<'_> {
             Self::Version
             | Self::Clone { .. }
             | Self::RevParseCommit { .. }
+            | Self::RevParseTree { .. }
             | Self::Checkout { .. }
             | Self::ShowToplevel { .. }
             | Self::ShowPrefix { .. }
@@ -251,6 +266,7 @@ impl GitCall<'_> {
             Self::Version
             | Self::Clone { .. }
             | Self::RevParseCommit { .. }
+            | Self::RevParseTree { .. }
             | Self::Checkout { .. }
             | Self::ShowToplevel { .. }
             | Self::ShowPrefix { .. } => OutputLimit::Line,
@@ -260,7 +276,10 @@ impl GitCall<'_> {
     /// Whether git's exit status 1 with no output is an answer (`rev-parse --verify --quiet`
     /// of a revision that is not there) and not a failure.
     pub(super) const fn status_one_is_no_answer(&self) -> bool {
-        matches!(self, Self::RevParseCommit { .. })
+        matches!(
+            self,
+            Self::RevParseCommit { .. } | Self::RevParseTree { .. }
+        )
     }
 
     /// Reads `output`, the standard output of a call that succeeded, into its typed result.
@@ -268,11 +287,13 @@ impl GitCall<'_> {
         match self {
             Self::Version => Ok(Outcome::Version(output.to_vec())),
             Self::Clone { .. } | Self::Checkout { .. } => Ok(Outcome::Nothing),
-            Self::RevParseCommit { .. } => std::str::from_utf8(single_line(output))
-                .ok()
-                .and_then(|text| ObjectId::try_from(text).ok())
-                .map(|id| Outcome::Commit(Some(id)))
-                .ok_or(UnreadableOutput::new("a rev-parse commit id")),
+            Self::RevParseCommit { .. } | Self::RevParseTree { .. } => {
+                std::str::from_utf8(single_line(output))
+                    .ok()
+                    .and_then(|text| ObjectId::try_from(text).ok())
+                    .map(|id| Outcome::Object(Some(id)))
+                    .ok_or(UnreadableOutput::new("a rev-parse object id"))
+            }
             Self::ShowToplevel { .. } => Ok(Outcome::Path(PathBuf::from(OsStr::from_bytes(
                 single_line(output),
             )))),

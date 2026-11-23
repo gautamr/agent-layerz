@@ -14,4 +14,7 @@ pub use fs::{
 pub use git::{
     Deadlines, GitFailure, GitRunner, GitRunnerError, Launcher, ReadScope, run_if_requested,
 };
-pub use resolve::{FetchedLayer, Fetcher, GitLayer, ReadHow, locate_git_source};
+pub use resolve::{
+    FetchedLayer, Fetcher, GitLayer, PinnedLayer, PinnedRead, PinnedTreeReader, ReadHow,
+    locate_git_source,
+};

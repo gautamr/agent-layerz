@@ -10,7 +10,7 @@
 
 mod verdict;
 
-use crate::lock::FileDigest;
+use crate::lock::{FileDigest, ObjectId};
 use crate::path::SafeRelPath;
 
 pub use verdict::{LayerRefusal, ReadLayer, scan_verdict};
@@ -76,6 +76,19 @@ pub enum NameProblem {
     NotUtf8,
 }
 
+/// What the walk saw of one regular file when it was asked to compare the layer with a git tree
+/// (spec §6 "A pinned `path:` layer"): the blob id git computes over its bytes and its
+/// owner-execute bit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitFileFacts {
+    /// The file's path.
+    pub path: SafeRelPath,
+    /// Whether the owner-execute bit is set.
+    pub executable: bool,
+    /// The blob id of the bytes that were read.
+    pub blob: ObjectId,
+}
+
 /// What the walk of one layer directory saw. It is built by the walk, one fact at a time, and
 /// judged by [`scan_verdict`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -84,6 +97,8 @@ pub struct LayerScan {
     name_problem: Option<NameProblem>,
     files: Vec<(SafeRelPath, FileDigest)>,
     env_files: Vec<SafeRelPath>,
+    git_files: Vec<GitFileFacts>,
+    other_entries: usize,
     bytes: u64,
     unreadable: bool,
 }
@@ -136,6 +151,24 @@ impl LayerScan {
         Self { env_files, ..self }
     }
 
+    /// The scan after the git facts of a file that was read in full were recorded.
+    #[must_use]
+    pub fn with_git_facts(self, facts: GitFileFacts) -> Self {
+        let mut git_files = self.git_files;
+        git_files.push(facts);
+        Self { git_files, ..self }
+    }
+
+    /// The scan after an entry that is no file and no folder was listed: a link, a pipe, a socket
+    /// or a device. It was never opened.
+    #[must_use]
+    pub fn with_other_entry(self) -> Self {
+        Self {
+            other_entries: self.other_entries.saturating_add(1),
+            ..self
+        }
+    }
+
     /// The scan after `length` more bytes were read, or counted as read when a file was refused
     /// for passing the budget.
     #[must_use]
@@ -153,6 +186,24 @@ impl LayerScan {
             unreadable: true,
             ..self
         }
+    }
+
+    /// The git facts of the files that were read, when the walk was asked for them.
+    #[must_use]
+    pub fn git_files(&self) -> &[GitFileFacts] {
+        &self.git_files
+    }
+
+    /// The paths of the `.env` files that were listed.
+    #[must_use]
+    pub fn env_files(&self) -> &[SafeRelPath] {
+        &self.env_files
+    }
+
+    /// How many links and other entries that are neither file nor folder were listed.
+    #[must_use]
+    pub const fn other_entries(&self) -> usize {
+        self.other_entries
     }
 
     /// How many entries were listed.

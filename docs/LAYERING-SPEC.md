@@ -658,6 +658,18 @@ entry (§6) or an entry whose content is not what the lock recorded.
    - A tree with two paths that are equal after Unicode NFC normalisation and case folding, or a
      file and a folder with such names, is refused before anything is written, because one file
      system would merge them.
+   - These refusals are the error `layer`, with no location, and name the layer by its source and
+     never a path: a path that is not valid UTF-8 gives the message of §5.3 "File names"; a path
+     that is not safe gives `the git tree of layer '<source>' lists a path with a backslash, a
+     '.', '..' or '.git' segment; rename it`; two paths that one file system would merge give
+     `the git tree of layer '<source>' lists two paths that one file system would merge (equal
+     after Unicode normalisation and case folding); rename one`. Every path the tree lists is
+     judged, links and submodules too, but only the files are compared for merging.
+   - A layer at the top of its repository (`git rev-parse --show-prefix` is empty) is the commit's
+     own tree. A git step that fails before the tree is listed, because the folder is not in a
+     repository or the ref is unknown, is `cannot resolve ref`; one that fails while the tree is
+     read, or that does not finish, is `cannot read '<source>' at <ref>: <line>`, and so is a
+     blob the repository does not hold (`the repository does not hold the file '<path>'`).
 
    Next to each `tree2@` entry the commands that resolve a pinned `path:` layer keep an index
    entry, `pathref@<sha256 of the layer directory's real path>-<commit sha>`, that names the

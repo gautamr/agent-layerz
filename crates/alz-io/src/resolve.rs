@@ -3,6 +3,8 @@
 
 mod clone;
 mod locate;
+mod pinned_tree;
 
 pub use clone::{FetchedLayer, Fetcher, GitLayer, ReadHow};
 pub use locate::locate_git_source;
+pub use pinned_tree::{PinnedLayer, PinnedRead, PinnedTreeReader};

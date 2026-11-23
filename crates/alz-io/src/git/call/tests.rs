@@ -230,7 +230,7 @@ fn output_is_read_into_typed_values() {
     };
     assert_eq!(
         commit.read(format!("{SHA}\n").as_bytes()),
-        Ok(Outcome::Commit(Some(id())))
+        Ok(Outcome::Object(Some(id())))
     );
     assert!(commit.read(b"not an id\n").is_err());
     assert_eq!(
@@ -240,4 +240,25 @@ fn output_is_read_into_typed_values() {
         .read(b"layers/x/\n"),
         Ok(Outcome::Prefix(OsString::from("layers/x/")))
     );
+}
+
+#[test]
+fn the_tree_of_a_commit_is_asked_after_the_end_of_options_and_with_the_pinned_tree_environment() {
+    let commit = id();
+    let call = GitCall::RevParseTree {
+        repository: Path::new("/r"),
+        commit: &commit,
+    };
+    assert_eq!(
+        args(&call),
+        [
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "--end-of-options",
+            &format!("{SHA}^{{tree}}")
+        ]
+    );
+    assert_eq!(call.operation(), GitOperation::TreeRead);
+    assert!(call.status_one_is_no_answer());
 }

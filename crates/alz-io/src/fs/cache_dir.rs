@@ -21,6 +21,7 @@ use crate::fs::read_below::read_file_below;
 use crate::fs::read_error::ReadError;
 use crate::fs::walk::find;
 use crate::fs::walk_error::WalkError;
+use crate::fs::write_below::write_file_below;
 
 /// Counts the temporary names this process has made.
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -304,6 +305,22 @@ impl<'c> TempEntry<'c> {
     #[must_use]
     pub const fn dir(&self) -> &Dir {
         &self.dir
+    }
+
+    /// Writes the file `path` in the entry, with its folders, and sets its mode to `0644`, or
+    /// `0755` when `executable`, whatever the umask. Nothing is followed and nothing is replaced:
+    /// a name that exists is an error.
+    ///
+    /// # Errors
+    ///
+    /// [`CacheError::Io`] for any failure, such as a file that is there already.
+    pub fn write_file(
+        &self,
+        path: &SafeRelPath,
+        bytes: &[u8],
+        executable: bool,
+    ) -> Result<(), CacheError> {
+        write_file_below(self.dir.handle(), path, bytes, executable).map_err(CacheError::Io)
     }
 
     /// Moves the entry to `name` without replacing anything: an entry that is there already stays
