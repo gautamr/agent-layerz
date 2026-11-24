@@ -275,16 +275,25 @@ describe("§13.20 the lock file, through twelve terminals", () => {
     const sessions = Array.from({ length: 12 }, () =>
       onTerminal(s, ["account", "allow"], {}, "repo", 80_000),
     );
+    // A run that reads allowed.yaml after another run wrote it says "already allowed" and asks
+    // nothing, so each run either answers both prompts or ends with that line.
     const results = await Promise.all(
       sessions.map(async (session) => {
-        await session.waitForStderr("Type client-a to allow");
+        try {
+          await session.waitForStderr("Type client-a to allow");
+        } catch {
+          const ended = await session.done();
+          expect(ended.stdout, ended.stderr).toContain("already allowed:");
+          return { ...ended, prompted: false };
+        }
         session.type("client-a\n");
         await session.waitForStderr("Type client-a-api to allow");
         session.type("client-a-api\n");
-        return session.done();
+        return { ...(await session.done()), prompted: true };
       }),
     );
     for (const result of results) expect(result.code, result.stderr).toBe(0);
+    expect(results.some((result) => result.prompted)).toBe(true);
     const entries = YAML.parse(readAllowed(s)) as { root: string }[];
     expect(entries.map((entry) => entry.root)).toEqual([`${s.real}/repo`]);
     expect(
