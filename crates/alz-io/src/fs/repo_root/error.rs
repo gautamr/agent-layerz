@@ -35,6 +35,13 @@ pub enum RepoError {
         /// The limit.
         limit: usize,
     },
+    /// Something is at a path that was to be created: a file, a folder or a link. Nothing was
+    /// written there.
+    #[error("{path} already exists")]
+    Exists {
+        /// The path, stripped.
+        path: String,
+    },
     /// A path was a folder, a file or a link when the plan was made and is something else now:
     /// something changed the repository while the build ran. Nothing was written through it.
     #[error("{path} changed while alz was writing")]
@@ -50,6 +57,12 @@ impl RepoError {
             operation,
             path: Stripped::from_untrusted(path.as_str()).to_string(),
             source,
+        }
+    }
+
+    pub(super) fn exists(path: &SafeRelPath) -> Self {
+        Self::Exists {
+            path: Stripped::from_untrusted(path.as_str()).to_string(),
         }
     }
 

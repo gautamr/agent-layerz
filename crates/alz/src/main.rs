@@ -14,7 +14,7 @@ use alz_io::{EnvSnapshot, WorkingDirectory};
 use clap::Parser;
 
 use crate::cli::{Cli, Command};
-use crate::command::lint::Surroundings;
+use crate::command::Surroundings;
 use crate::report::Rendered;
 
 fn main() -> ExitCode {
@@ -32,6 +32,14 @@ fn main() -> ExitCode {
 
 fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
     match Cli::try_parse() {
+        Ok(Cli {
+            command: Command::Init(args),
+        }) => ExitCode::from(command::init::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
         Ok(Cli {
             command: Command::Lint(args),
         }) => ExitCode::from(command::lint::run(

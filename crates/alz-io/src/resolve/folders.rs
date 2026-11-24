@@ -50,7 +50,7 @@ fn linked_account_folders(home: &AbsolutePath) -> Vec<AbsolutePath> {
 /// that is a link, so a folder reached through such a link is refused. A value that is empty or relative has no meaning
 /// here and is left out; a `HOME` that is not an absolute path leaves `/` as the home folder, so
 /// no folder is known by name and only the configured ones count.
-pub(super) fn account_folders(env: &EnvSnapshot) -> AccountFolders {
+pub(crate) fn account_folders(env: &EnvSnapshot) -> AccountFolders {
     let home = absolute(env.home()).unwrap_or_else(AbsolutePath::root);
     let claude = absolute(env.claude_config_dir());
     let codex = absolute(env.codex_home());
