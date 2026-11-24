@@ -28,13 +28,13 @@ mod tests {
         format!("#!/bin/sh\nprintf '%s\\n' '{text}'\n")
     }
 
-    const EXPECTED_ARGUMENTS: &str =
-        "-p Reply with OK. --output-format stream-json --verbose --max-turns 1";
+    /// The arguments as `$*` joins them: the last one, the empty list of tools, leaves the space.
+    const EXPECTED_ARGUMENTS: &str = r#"-p Reply with OK. --output-format stream-json --verbose --max-turns 1 --settings {"disableAllHooks":true} --strict-mcp-config --mcp-config {"mcpServers":{}} --tools "#;
 
     /// A session that checks it was asked as the spec says, then prints `init` and `stderr`.
     fn session_script(init: &str, stderr_text: &str) -> String {
         format!(
-            "#!/bin/sh\n[ \"$*\" = \"{EXPECTED_ARGUMENTS}\" ] || exit 3\n[ -z \"$GITHUB_TOKEN\" ] || exit 4\nprintf '%s\\n' '{stderr_text}' >&2\nprintf '%s\\n' '{init}'\n"
+            "#!/bin/sh\n[ \"$#\" = 14 ] || exit 5\n[ -z \"${{14}}\" ] || exit 6\n[ \"$*\" = '{EXPECTED_ARGUMENTS}' ] || exit 3\n[ -z \"$GITHUB_TOKEN\" ] || exit 4\nprintf '%s\\n' '{stderr_text}' >&2\nprintf '%s\\n' '{init}'\n"
         )
     }
 

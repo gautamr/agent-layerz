@@ -3043,7 +3043,7 @@ How values print in these messages:
 | `hook-on-fail` | warning | `on_fail: deny` on an event where Claude cannot block, or cannot block on a crash (§8.1) |
 | `adopt` | error, or note | `--adopt` without a repo layer inside the repository, each problem of the adoption plan; the note says how a native file was adopted (§4.3) |
 | `explain` | error | `alz explain` for a name the merged result does not have (§10.3) |
-| `ls` | error, or warning | `alz ls --live`: no claude target, a probe that failed, a built item Claude did not load; the warning is a server that is not connected (§10.3) |
+| `ls` | error | `alz ls --live`: no claude target, a probe that failed, a built item Claude did not load (§10.3) |
 | `claude` | warning | a line that Claude printed on its standard error or as non-JSON output during `alz ls --live` |
 | `init` | error | `alz init` where a `layer.yaml` exists, with a name that is not a layer name, or with a hub tag that is not a git ref (§10.3) |
 
@@ -3326,8 +3326,13 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
 - `--live` needs the `claude` target, else `error [ls] --live needs the claude target`. It prints
   a blank line and `asking <bin> what it loads here (one short model call)…`, then runs `<bin>`
   (`ALZ_CLAUDE_BIN`, else `claude`) once in the repository. The arguments are `-p "Reply with
-  OK." --output-format stream-json --verbose --max-turns 1`, and alz reads the `system` `init`
-  event (target-facts §0.2).
+  OK." --output-format stream-json --verbose --max-turns 1 --settings {"disableAllHooks":true}
+  --strict-mcp-config --mcp-config {"mcpServers":{}} --tools ""`, and alz reads the `system`
+  `init` event (target-facts §0.2). The last four options turn off what the repository itself
+  configures: the repository's hooks do not run (the `--settings` value wins over its project and
+  local settings), no MCP server starts, whoever defines it, and the session has no tool
+  (target-facts §16, owner decision 2026-11-24). Agents and skills still load, which is what
+  the probe reports. As no server starts, `--live` does not judge the MCP servers a build enables.
 - `<bin>` is found as an absolute path: an absolute `ALZ_CLAUDE_BIN` as it is, a name without `/`
   (the default `claude` too) in the absolute entries of `PATH`, in order, as the first regular file
   with an execute bit. A relative path, or an empty or relative `PATH` entry, names nothing, so a
@@ -3348,9 +3353,7 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   within 180 seconds | cannot start it | cannot talk to it>`, or `<bin> printed no init event:
   <first line of its standard error>`.
 - A built agent or skill that Claude did not load is `error [ls] agent '<name>' was built but
-  Claude did not load it` (or `skill`). An enabled server Claude did not start is
-  `error [ls] mcp '<id>' is enabled but Claude did not start it`, and one it did not connect is
-  `warning [ls] mcp '<id>' is <status>`.
+  Claude did not load it` (or `skill`).
 - Each other line Claude printed is `warning [claude] <line>`.
 - Then come `claude loaded <a> agents, <s> skills and commands`, and the lines
   `  not from layers, agents: <names>` and `  not from layers, skills: <names>` when there are

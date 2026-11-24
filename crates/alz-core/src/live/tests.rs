@@ -2,11 +2,7 @@ use super::{Built, Comparison};
 use crate::probe::Probe;
 
 fn built() -> Built {
-    Built::from_names(
-        ["architect".to_owned()],
-        ["review".to_owned()],
-        ["docs".to_owned()],
-    )
+    Built::from_names(["architect".to_owned()], ["review".to_owned()])
 }
 
 fn probe(agents: &str, skills: &str, servers: &str) -> Probe {
@@ -69,25 +65,15 @@ fn a_skill_that_did_not_load_is_an_error() {
 }
 
 #[test]
-fn a_server_claude_did_not_start_is_an_error_and_one_not_connected_a_warning() {
-    let none = Comparison::of(&built(), &probe(r#""architect""#, r#""review""#, ""));
-    assert!(
-        none.diagnostics()
-            .to_string()
-            .contains("error [ls] mcp 'docs' is enabled but Claude did not start it\n")
-    );
-    let user_scope = r#"{"name":"docs","status":"connected","source":"user"}"#;
-    let wrong_scope = Comparison::of(
-        &built(),
-        &probe(r#""architect""#, r#""review""#, user_scope),
-    );
-    assert!(!wrong_scope.matches());
-    let failing = r#"{"name":"docs","status":"failed","source":"project"}"#;
-    let down = Comparison::of(&built(), &probe(r#""architect""#, r#""review""#, failing));
-    assert!(down.matches());
-    assert!(
-        down.diagnostics()
-            .to_string()
-            .contains("warning [ls] mcp 'docs' is failed\n")
-    );
+fn an_mcp_server_is_not_compared_because_the_probe_runs_with_servers_off() {
+    // The probe asks Claude for no MCP server, so none is expected and none is judged: an event
+    // without a server, and one with a server that failed, both match the build.
+    for servers in [
+        "",
+        r#"{"name":"docs","status":"failed","source":"project"}"#,
+    ] {
+        let found = Comparison::of(&built(), &probe(r#""architect""#, r#""review""#, servers));
+        assert!(found.matches(), "{servers}");
+        assert!(!found.diagnostics().to_string().contains("mcp"));
+    }
 }

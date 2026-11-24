@@ -13,8 +13,12 @@ use crate::command::Surroundings;
 const DEFAULT_PROGRAM: &str = "claude";
 
 /// The arguments of the session: one turn, so the `init` event is printed and nothing more is
-/// asked of the model.
-const ARGUMENTS: [&str; 7] = [
+/// asked of the model, and nothing the repository configures runs (target-facts §16). `--settings`
+/// with `disableAllHooks` wins over the project and local settings and turns off every hook; an
+/// empty `--mcp-config` with `--strict-mcp-config` starts no MCP server, whoever defines it; the
+/// empty `--tools` list leaves the session no tool. Agents and skills still load, which is what
+/// the probe reports.
+const ARGUMENTS: [&str; 14] = [
     "-p",
     "Reply with OK.",
     "--output-format",
@@ -22,6 +26,13 @@ const ARGUMENTS: [&str; 7] = [
     "--verbose",
     "--max-turns",
     "1",
+    "--settings",
+    r#"{"disableAllHooks":true}"#,
+    "--strict-mcp-config",
+    "--mcp-config",
+    r#"{"mcpServers":{}}"#,
+    "--tools",
+    "",
 ];
 
 /// The program as the user named it, stripped, for messages.

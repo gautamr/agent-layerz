@@ -851,3 +851,29 @@ What `alz ls --live` may hand the `claude` program beyond its fixed allowlist (s
 - Bedrock on: the probe's child also gets every variable that starts with `AWS_`. Vertex on: it also gets every variable that starts with `GOOGLE_` or `VERTEX_REGION_CLAUDE_`, `GCLOUD_PROJECT`, `CLOUD_ML_REGION` and `ANTHROPIC_VERTEX_PROJECT_ID`. A switch that is off passes none of its set. The switches themselves pass through the `CLAUDE_CODE_*` prefix.
 - `ANTHROPIC_VERTEX_PROJECT_ID` starts with `ANTHROPIC_`, which the allowlist already passes. alz withholds it while Vertex is off, so "only when switched on" holds for it too.
 - `GCLOUD_PROJECT` and `VERTEX_REGION_CLAUDE_*` are in the set because §15.1 records the pages as naming them for Vertex. `AWS_*` names in lower case do not pass.
+
+## 16. Running the live probe with nothing of the repository's own configuration executing (TASK-55.6 review) — checked 2026-11-24, Claude Code 2.1.323
+
+Owner decision, 2026-11-24: `alz ls --live` (spec §10.3) asks Claude Code what it loaded, and the repository being probed is untrusted, so the probe must not run the repository's hooks or MCP servers, and gives the session no tool.
+
+### 16.0 Method
+
+SMOKE, no login and no model call: a throwaway project with a `.claude/settings.json` and a `.claude/settings.local.json`, both with `"disableAllHooks": false`, a `SessionStart` hook and a `UserPromptSubmit` hook that each `touch` a marker file in the throwaway folder, `"enableAllProjectMcpServers": true`, and a `.mcp.json` whose one server is `/usr/bin/touch <marker>`; `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders (nothing under `~/.claude*` was read or written); `claude -p hi --max-turns 1 --output-format stream-json --verbose </dev/null` with the flags below. A marker file says the hook or server ran; the `init` event says what loaded. The event is printed with an empty `CLAUDE_CONFIG_DIR` and no login (§12).
+
+### 16.1 Rows
+
+| Flags | Hooks ran | MCP server ran | `tools` of the event | Level |
+|---|---|---|---|---|
+| none | yes, both (project and local) | yes | the default set | SMOKE |
+| `--settings '{"disableAllHooks":true}'` | **no**, although project and local settings say `disableAllHooks: false` | yes | the default set | SMOKE |
+| `--strict-mcp-config --mcp-config '{"mcpServers":{}}'` | yes | **no**: `mcp_servers` is `[]`, although `enableAllProjectMcpServers` is `true` | the default set | SMOKE |
+| `--tools ""` | yes | yes (listed as `failed`: no tool uses it, but the process started) | `[]` | SMOKE |
+| all three | **no** | **no**: `mcp_servers` is `[]` | `[]` | SMOKE |
+
+So each flag is needed, none implies another, and the `--settings` value wins over the project and the local settings for `disableAllHooks`. With all three, the `init` event still lists the subagents (`agents`, the project's `demo-agent` among them) and the skills (`skills`, the project's `demo-skill` among them), which is what `ls --live` compares.
+
+Not used: `--bare` (HELP: it skips CLAUDE.md discovery and reads no OAuth or keychain login, so a logged-in user would need an API key) and `--disable-slash-commands` (HELP: it disables skills, which the probe reports). The arguments of the probe are `-p "Reply with OK." --output-format stream-json --verbose --max-turns 1 --settings {"disableAllHooks":true} --strict-mcp-config --mcp-config {"mcpServers":{}} --tools ""`.
+
+Not smoke-tested: a hook or server of the user scope or of a plugin. `disableAllHooks` and `--strict-mcp-config` name no scope (HELP: "ignoring all other MCP configurations"), so they are expected to cover them (level HELP).
+
+With MCP servers off, the probe cannot say whether an enabled server starts, so alz no longer judges servers.

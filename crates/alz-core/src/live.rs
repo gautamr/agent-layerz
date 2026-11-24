@@ -12,17 +12,17 @@ use crate::probe::Probe;
 use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
-/// The agents, skills and servers a build makes for Claude.
+/// The agents and skills a build makes for Claude. The probe runs with MCP servers off (spec
+/// §10.3), so the servers a build enables are not compared.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Built {
     agents: BTreeSet<String>,
     skills: BTreeSet<String>,
-    servers: Vec<String>,
 }
 
 impl Built {
     /// The names of a merged stack: the agents that target Claude, every skill and command, the
-    /// slot stubs, and the enabled MCP servers in the order of `mcp.enable`.
+    /// slot stubs.
     #[must_use]
     pub fn of(merged: &Merged) -> Self {
         Self {
@@ -48,12 +48,6 @@ impl Built {
                         .map(|name| name.as_str().to_owned()),
                 )
                 .collect(),
-            servers: merged
-                .mcp()
-                .enabled()
-                .iter()
-                .map(|id| id.as_str().to_owned())
-                .collect(),
         }
     }
 
@@ -62,12 +56,10 @@ impl Built {
     pub fn from_names(
         agents: impl IntoIterator<Item = String>,
         skills: impl IntoIterator<Item = String>,
-        servers: impl IntoIterator<Item = String>,
     ) -> Self {
         Self {
             agents: agents.into_iter().collect(),
             skills: skills.into_iter().collect(),
-            servers: servers.into_iter().collect(),
         }
     }
 
@@ -111,37 +103,6 @@ fn not_loaded<'a>(
     })
 }
 
-fn server_findings<'a>(
-    built: &'a Built,
-    probe: &'a Probe,
-) -> impl Iterator<Item = Diagnostic> + 'a {
-    built.servers.iter().filter_map(|id| {
-        let shown = Stripped::from_untrusted(id);
-        match probe
-            .mcp()
-            .iter()
-            .find(|state| state.name() == id && state.is_project())
-        {
-            None => Some(Diagnostic::error(
-                Code::Ls,
-                None,
-                Message::new("mcp '")
-                    .then(shown)
-                    .then("' is enabled but Claude did not start it"),
-            )),
-            Some(state) if state.is_connected() => None,
-            Some(state) => Some(Diagnostic::warning(
-                Code::Ls,
-                None,
-                Message::new("mcp '")
-                    .then(shown)
-                    .then("' is ")
-                    .then(state.status().clone()),
-            )),
-        }
-    })
-}
-
 impl Comparison {
     /// What Claude loaded against what the build made. Items Claude loaded that no layer built
     /// are shown and not judged; skills with a `:` in the name (plugins) are left out of the
@@ -151,7 +112,6 @@ impl Comparison {
         let diagnostics =
             not_loaded("agent", &built.agents, probe.agents())
                 .chain(not_loaded("skill", &built.skills, probe.skills()))
-                .chain(server_findings(built, probe))
                 .chain(probe.warnings().iter().map(|line| {
                     Diagnostic::warning(Code::Claude, None, Message::new(line.clone()))
                 }))

@@ -32,11 +32,7 @@ fn facts() -> Facts {
         claude: Some(ClaudeFacts {
             accounts: vec![],
             installed: Installed::NotFound,
-            built: Built::from_names(
-                ["architect".to_owned()],
-                ["stack-conventions".to_owned()],
-                [],
-            ),
+            built: Built::from_names(["architect".to_owned()], ["stack-conventions".to_owned()]),
         }),
         client_root: None,
         workspace: vec![],
