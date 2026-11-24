@@ -34,6 +34,14 @@ const REAP_GRACE: Duration = Duration::from_secs(5);
 /// How long the streams are read after the program ended, when a descendant keeps them open.
 const PIPE_GRACE: Duration = Duration::from_millis(500);
 
+/// Ends every process of the program's group. A group that is already gone is not an error: that
+/// is the usual case when the program left nothing behind.
+fn end_group(group: Option<Pid>) {
+    if let Some(group) = group {
+        kill_process_group(group, Signal::KILL).unwrap_or_default();
+    }
+}
+
 /// Why a run did not give its output.
 #[derive(Debug, Error)]
 pub enum ToolError {
@@ -106,7 +114,9 @@ impl ToolRunner {
         &self.program
     }
 
-    /// Runs the program with `arguments` in `directory` and waits for it.
+    /// Runs the program with `arguments` in `directory` and waits for it. Its process group is
+    /// ended when the program ends, by itself or at the deadline, so nothing it started outlives
+    /// the call.
     ///
     /// # Errors
     ///
@@ -139,6 +149,10 @@ impl ToolRunner {
         match status.recv_timeout(until.saturating_duration_since(Instant::now())) {
             Ok(waited) => {
                 let status = waited.map_err(ToolError::Io)?;
+                // Whatever the program left running in its group is ended now, so no process
+                // outlives the call and every write end of the pipes closes: the readers then
+                // reach the end of their streams and the gathering below is not left waiting.
+                end_group(group);
                 let pipes_until = until.min(Instant::now() + PIPE_GRACE);
                 let Gathered { bytes: stdout } = gather(&stdout, pipes_until)?;
                 let Gathered { bytes: stderr } = gather(&stderr, pipes_until)?;
@@ -149,10 +163,7 @@ impl ToolRunner {
                 })
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                if let Some(group) = group {
-                    // A group that is already gone is not an error.
-                    kill_process_group(group, Signal::KILL).unwrap_or_default();
-                }
+                end_group(group);
                 // Reap the program so that no zombie stays behind; its result is of no use now.
                 drop(status.recv_timeout(REAP_GRACE));
                 Err(ToolError::TimedOut {

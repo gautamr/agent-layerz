@@ -3351,7 +3351,7 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   empty, `0` and `false` included, is off): `AWS_*` when `CLAUDE_CODE_USE_BEDROCK` is on, and
   `GOOGLE_*`, `GCLOUD_PROJECT`, `VERTEX_REGION_CLAUDE_*`, `CLOUD_ML_REGION` and
   `ANTHROPIC_VERTEX_PROJECT_ID` when `CLAUDE_CODE_USE_VERTEX` is on (target-facts §15). Without
-  the switch none of them passes, `ANTHROPIC_VERTEX_PROJECT_ID` included. The version call of `alz doctor` takes none of them. After 180 seconds its process group is ended. At most
+  the switch none of them passes, `ANTHROPIC_VERTEX_PROJECT_ID` included. The version call of `alz doctor` takes none of them. After 180 seconds its process group is ended, and so it is as soon as the program itself ends, so nothing it started keeps running. At most
   4 MiB of its standard output and 64 KiB of its standard error are read; the rest is dropped.
   Everything it prints is untrusted and shown stripped (class 1).
 - A probe that fails is `error [ls] <reason>`: `could not run <bin>: <not found | it did not finish

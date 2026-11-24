@@ -124,6 +124,30 @@ mod tests {
     }
 
     #[test]
+    fn a_program_that_ends_by_itself_leaves_nothing_of_its_group_running() {
+        let scratch = ScratchDir::new().expect("scratch");
+        let marker = scratch.join("child-survived");
+        let script = format!(
+            "#!/bin/sh\n(sleep 3; echo alive > '{}') &\necho done\n",
+            marker.display()
+        );
+        let runner = runner_for(&scratch, &script, Purpose::Version);
+        let started = Instant::now();
+        let output = runner.run(&arguments(&[]), scratch.path()).expect("runs");
+        assert!(output.success);
+        assert_eq!(output.stdout, b"done\n");
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "the readers finished when the group was ended, not when the child's sleep did"
+        );
+        std::thread::sleep(Duration::from_secs(4));
+        assert!(
+            !marker.exists(),
+            "the child the program left behind was ended with its group"
+        );
+    }
+
+    #[test]
     fn output_beyond_the_cap_is_dropped_and_the_program_is_not_stopped() {
         let scratch = ScratchDir::new().expect("scratch");
         let runner = runner_for(
