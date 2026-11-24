@@ -239,7 +239,7 @@ fn a_git_source_with_credentials_is_the_error_source_without_a_location_or_the_t
 // ---- targets ----
 
 #[test]
-fn targets_default_to_claude_and_are_a_set_in_name_order() {
+fn targets_default_to_claude_and_are_a_set_in_declared_order() {
     assert_eq!(
         read(STACK)
             .expect("valid")
@@ -256,7 +256,7 @@ fn targets_default_to_claude_and_are_a_set_in_name_order() {
             .iter()
             .copied()
             .collect::<Vec<_>>(),
-        [TargetName::Claude, TargetName::Codex]
+        [TargetName::Codex, TargetName::Claude]
     );
 }
 

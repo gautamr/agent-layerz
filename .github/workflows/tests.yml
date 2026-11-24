@@ -81,15 +81,14 @@ jobs:
       - name: TypeScript reference and acceptance suites
         run: mise run test
 
-  # The acceptance project against the release Rust binary. NOT BLOCKING YET: until R5's commands
-  # exist most cases fail. TASK-55.6.15 makes this job blocking (remove continue-on-error there).
-  # A job with continue-on-error shows green when its steps fail, but the failures stay in the log
-  # and the job's own conclusion is recorded as a failed step: read the log of this job.
+  # The acceptance project against the release Rust binary, blocking. The cases that R6
+  # (TASK-55.7: accounts and commit identity) delivers are listed with their reasons in
+  # test/ci/r6-pending.json; the check fails on any other failing case and on a listed case that
+  # passes, so the list shrinks as R6 lands and nothing else can fail unnoticed.
   acceptance-rust:
-    name: acceptance against the Rust binary (ubuntu, not blocking)
+    name: acceptance against the Rust binary (ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,8 +128,13 @@ jobs:
       - name: Build the release alz binary
         run: mise run rust:build
 
-      # ALZ_BIN must be an absolute path. Failures print in full in this step's log.
+      # ALZ_BIN must be an absolute path. Vitest prints failures in full in the log and writes the
+      # JSON report; the check then compares the failing cases with the R6 list. The test step
+      # itself may exit 1 for the listed cases, so its status is judged by the check below.
       - name: Acceptance suite against the Rust binary
         env:
           ALZ_BIN: ${{ github.workspace }}/target/release/alz
-        run: mise run test:acceptance
+          REPORT: ${{ runner.temp }}/acceptance-report.json
+        run: |
+          mise exec -- npx vitest run --project acceptance --reporter=default --reporter=json --outputFile.json="$REPORT" || true
+          mise exec -- node --experimental-strip-types test/ci/check-r6-pending.ts "$REPORT"

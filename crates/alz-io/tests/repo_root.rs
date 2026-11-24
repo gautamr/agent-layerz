@@ -411,6 +411,37 @@ mod tests {
     }
 
     #[test]
+    fn a_folder_that_cannot_be_named_makes_the_override_search_refuse() {
+        let place = Place::new();
+        place.write("docs/AGENTS.override.md", "hides");
+        // A folder name that is no safe relative path cannot be entered by name; the walk must not
+        // pass it over as if nothing below it could matter.
+        fs::create_dir(place.repo().join("odd\\name")).expect("made");
+        let found = place.root().files_named("AGENTS.override.md");
+        assert!(
+            matches!(found, Err(RepoError::UnnameableEntry { .. })),
+            "a folder that cannot be named is a refusal, not a skip: {found:?}"
+        );
+    }
+
+    #[test]
+    fn a_file_with_an_unusable_name_does_not_stop_the_search_for_an_override() {
+        let place = Place::new();
+        fs::create_dir_all(place.repo().join(".git/hooks")).expect("made");
+        fs::create_dir_all(place.repo().join("node_modules")).expect("made");
+        place.write("docs/AGENTS.override.md", "hides");
+        place.write("odd\\file.md", "x");
+        let found = place
+            .root()
+            .files_named("AGENTS.override.md")
+            .expect("a file name that cannot be an override is skipped");
+        assert_eq!(
+            found.iter().map(SafeRelPath::as_str).collect::<Vec<_>>(),
+            ["docs/AGENTS.override.md"]
+        );
+    }
+
+    #[test]
     fn a_managed_folder_is_walked_without_entering_a_link_and_a_foreign_file_is_a_collision() {
         let place = Place::new();
         fs::write(place.outside().join("secret.md"), "outside").expect("written");

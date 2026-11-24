@@ -291,6 +291,13 @@ UTF-8 is a collision with the message `is not valid UTF-8 text`. If a folder abo
 link, or a file where a folder is needed, after the plan was made, the write stops with an error
 that names the path, and nothing is written through it.
 
+**The search for `AGENTS.override.md`.** The build looks for the file in every folder of the
+repository, never entering a link, `.git`, `.DS_Store` or `node_modules`. A file whose name is not
+valid Unicode or not a safe relative path cannot be that file and is passed over. A folder whose
+name is not valid Unicode or not a safe relative path cannot be searched, so the build refuses: the
+error `write` with the message `<folder> holds an entry whose name alz cannot read`, nothing
+written (the TypeScript `alz` does not search such a folder, reference drift, TASK-55.6.15).
+
 **Writing.** The build writes nothing when it reports any error, a collision included. Each file
 is written as a temporary file in its folder and renamed over its path, with mode `0644`, or
 `0755` when it is executable, whatever the umask. A missing folder is created with mode `0777`
@@ -315,6 +322,10 @@ written by the rules above, links included.
   as a control, format or line separator character, a name outside its grammar or a key the schema
   refuses, is a problem that names the native file and never prints the text (TASK-73).
 - A problem prints text from the native files stripped (§10.1, class 1).
+- Problems come in two phases. First each native file is converted, and every problem of every
+  file is listed. The reader check of the planned layer runs only when all conversions succeeded,
+  so a repository can show the problems of the reader in a second run, after the first set is
+  fixed.
 - A collision that adoption cannot clear (a link or a path under one, an entry that is not a
   regular file, a file larger than the writer compares, an input of alz) stops `--adopt` before
   anything is planned: the error `collision` at each, and the repository is unchanged. A native
@@ -1608,6 +1619,9 @@ diagnostic names the file without a line or column.
 - Native agent frontmatter: the `env` of each server under `claude.mcpServers` (a map of
   name to definition, or a list of names and one-entry maps), under `codex.mcp_servers`, and
   a `shell_environment_policy` under `codex`.
+  An agent that sets `claude.mcpServers` or `codex.mcp_servers` is refused earlier, as the error
+  `agent` of §7.2 and not as `protected-variable`; both refuse, and the TypeScript `alz` reports
+  `protected-variable` (reference drift, TASK-55.5.16).
 - Passthrough files (§7.11), with the path after `targets/<target>/` compared with ASCII
   case folding. Covered: every path ending in `.claude/settings.json` or
   `.claude/settings.local.json`, every `.mcp.json`, and every `.claude-plugin/*.json`, at any
@@ -3207,7 +3221,7 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   file-type message of §4.3. Any collision means exit 1, with nothing written.
 - On success it writes by §4.3 and prints, on standard output, `built <n> files for <targets>:
   <c> created, <u> updated, <d> deleted (output visibility: <visibility>)`. `<targets>` is the
-  manifest's targets joined with `, `.
+  manifest's targets, each once, in the order the manifest declares them, joined with `, `.
 - With `--adopt`, each note of the plan is `note [adopt] <note>` and each problem
   `error [adopt] <problem>`, followed by `nothing was adopted; fix the problems above and rerun`
   and exit 1, with the repository unchanged. Otherwise each adopted file prints
@@ -3338,8 +3352,9 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
 - A name the merged result does not have is `error [explain] no <type> named '<name>' in the
   merged result`, and exit 1. The TypeScript `alz` prints the message without the diagnostic
   prefix (reference drift, TASK-55.6).
-- The text of the output files is stripped of control and format characters, line feeds kept
-  (§10.1).
+- The text of the output files is stripped of control and format characters, line feeds and tabs
+  kept (§10.1): a carriage return, an escape, a bidirectional control and every other control or
+  format character can move the cursor or hide text, and a tab cannot.
 
 **`alz doctor`.** Its report goes to standard output, line by line:
 - `agent-layerz doctor: <repository root>`.
@@ -3759,6 +3774,32 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     (TASK-73).
 
 ---
+
+### The reference drift list (§13)
+
+Every acceptance case marked `referenceDrift(<task>, ...)` is a case the TypeScript `alz` fails and
+the Rust `alz` passes. The cutover pull request cites this list; `grep -rn referenceDrift test`
+finds each case.
+
+| Task | Files | What differs |
+|---|---|---|
+| TASK-52 | 36 | layers and the layer cache inside an account folder or the home folder are refused |
+| TASK-53 | 36 | an empty or relative `XDG_CACHE_HOME` counts as unset |
+| TASK-55.3 | 26, 29, 34, 35 | YAML tags, escapes that decode to control characters, `version: 1.10`, account fields as schema errors |
+| TASK-55.4 | 24 | a refused hook or source is neither run nor written |
+| TASK-55.5 | 37 | refusals of unknown Claude or Codex keys in `settings.yaml` through lint and build |
+| TASK-55.5.6 | 04 | an overlay may not widen a path or command scope |
+| TASK-55.5.12 | 24 | nested `env` mappings are checked to depth 128, not 32 |
+| TASK-55.5.16 | 24, 37 | an agent's native `mcpServers`, `mcp_servers` and `hooks` are refused as `agent`; the floor field flags |
+| TASK-55.6 | 22 | `ls` lists in name order; `explain` prints the diagnostic prefix |
+| TASK-55.6.13, TASK-55.6.14 | 20 | adoption keeps agents with native hooks out; hook scripts move to `hooks/scripts/` |
+| TASK-55.6.15 | 24, 28 | wording of a refused lock, cache entry or pinned tree (§5.3, §6); a file name with a control character is refused before names are compared; the search for `AGENTS.override.md` refuses a folder it cannot enter |
+| TASK-59, TASK-60, TASK-61, TASK-62 | 34, 35 | YAML aliases, depth and size limits, manifest entry errors |
+| TASK-63 | 36 | a build in a linked worktree leaves the index alone |
+| TASK-64 | 33 | name order by code point (AGENTS.md, settings.json, content hash) |
+| TASK-68 | 26 | the first line left after control characters are removed |
+| TASK-71 | 24 | credentials in a layer source are refused |
+| TASK-79 | 37 | Claude settings keys and agent fields need a recorded type |
 
 ## 14. Rollout (generic, for any client)
 

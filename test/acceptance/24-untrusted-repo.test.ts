@@ -480,10 +480,36 @@ const FORMS: Form[] = [
   },
 ];
 
+/**
+ * An agent's native `claude.mcpServers` is refused as the error `agent` before the protected
+ * variable check reads it (§7.2: servers come only through mcp.yaml; the TypeScript alz passes
+ * them through and reports `protected-variable`, reference drift TASK-55.5.16). Both refuse.
+ */
+const AGENT_REFUSES_FIRST = /^agent frontmatter, claude\.mcpServers/;
+
 describe("a layer that sets an account or location variable", () => {
-  const cases = FORMS.flatMap((form) =>
+  const cases = FORMS.filter((form) => !AGENT_REFUSES_FIRST.test(form.label)).flatMap((form) =>
     PROTECTED_VARIABLES.map((name) => [form.label, form, name] as const),
   );
+
+  for (const form of FORMS.filter((form) => AGENT_REFUSES_FIRST.test(form.label))) {
+    for (const name of PROTECTED_VARIABLES) {
+      referenceDrift(
+        "TASK-55.5.16",
+        `fails the build as an agent error: ${form.label}, ${name}`,
+        async () => {
+          const ws = fixture("29-account-layer");
+          put(ws, `personal/${form.file}`, form.text(name));
+          const tree = readTree(`${ws.root}/repo`);
+          const result = await layers(ws, "repo", ["build"]);
+          expect(result.code).toBe(1);
+          expect(result.stderr).toContain(`error [agent] personal:${form.file}`);
+          expect(result.stderr).toContain("'claude.mcpServers' is set through mcp.yaml");
+          expect(readTree(`${ws.root}/repo`)).toEqual(tree);
+        },
+      );
+    }
+  }
 
   it.each(cases)("fails the build: %s, %s", async (_label, form, name) => {
     const ws = fixture("29-account-layer");
@@ -790,17 +816,31 @@ describe("one report per problem", () => {
     expect(reports).toHaveLength(1);
   });
 
-  it("refuses a JSON file nested deeper than the checker reads, instead of stopping silently", async () => {
+  // §7.11: nested `env` mappings are checked down to the JSON reader's depth limit of 128; the
+  // TypeScript alz stopped at 32 (reference drift, TASK-55.5.12).
+  const nested = (levels: number): string =>
+    `{"x": ${'{"a":'.repeat(levels)}{"env":{"CODEX_HOME":"x"}}${"}".repeat(levels)}}\n`;
+
+  referenceDrift(
+    "TASK-55.5.12",
+    "checks a nested env below 32 levels, as far as the JSON reader goes",
+    async () => {
+      const ws = fixture("29-account-layer");
+      put(ws, "personal/targets/claude/.claude/settings.json", nested(40));
+      const result = await layers(ws, "repo", ["build"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("a nested env names CODEX_HOME");
+      expect(existsSync(`${ws.root}/repo/.claude`)).toBe(false);
+    },
+  );
+
+  it("refuses a JSON file nested deeper than the JSON reader reads, instead of stopping silently", async () => {
     const ws = fixture("29-account-layer");
-    const deep = `${'{"a":'.repeat(40)}{"env":{"CODEX_HOME":"x"}}${"}".repeat(40)}`;
-    put(ws, "personal/targets/claude/.claude/settings.json", `{"x": ${deep}}\n`);
+    put(ws, "personal/targets/claude/.claude/settings.json", nested(200));
     const result = await layers(ws, "repo", ["build"]);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("is nested deeper than 32 levels, so it cannot be checked");
-    const reports = result.stderr
-      .split("\n")
-      .filter((line) => line.includes("nested deeper than 32 levels"));
-    expect(reports).toHaveLength(1);
+    expect(result.stderr).toContain("cannot be checked");
+    expect(existsSync(`${ws.root}/repo/.claude`)).toBe(false);
   });
 });
 

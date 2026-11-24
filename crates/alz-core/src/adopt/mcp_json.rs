@@ -6,7 +6,7 @@
 use crate::diagnostic::Message;
 use crate::json::{JsonObject, JsonValue};
 use crate::render::yaml::EmitValue;
-use crate::untrusted_text::QuotedKey;
+use crate::untrusted_text::{QuotedKey, Stripped};
 
 use super::draft::Draft;
 use super::settings_json::{as_text, object};
@@ -85,7 +85,9 @@ fn env_from(id: &str, env: Option<&JsonValue>, draft: &mut Draft<'_>) -> Vec<Str
                         .then(QuotedKey::from_untrusted(id))
                         .then(" sets ")
                         .then(QuotedKey::from_untrusted(name))
-                        .then(" to a value; layers never store values. Write the variable as a reference to itself and export it"),
+                        .then(" to a value; layers never store values. Use \"${")
+                        .then(Stripped::from_untrusted(name))
+                        .then("}\" and export it"),
                 );
                 None
             }

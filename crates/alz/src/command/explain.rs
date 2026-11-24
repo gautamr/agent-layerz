@@ -3,7 +3,7 @@
 //!
 //! The item's lines come from [`alz_core::explain`], which holds only stripped text. The generated
 //! file is the build's own text, made from untrusted layer files, so it passes the last guard of
-//! [`strip_untrusted_keeping_line_feeds`] before it reaches the terminal.
+//! [`strip_untrusted_keeping_layout`] before it reaches the terminal.
 
 use std::io::{self, Write};
 
@@ -15,7 +15,7 @@ use crate::cli::ExplainArgs;
 use crate::command::Surroundings;
 use crate::command::pipeline;
 use crate::report::emit_diagnostics;
-use crate::terminal_text::strip_untrusted_keeping_line_feeds;
+use crate::terminal_text::strip_untrusted_keeping_layout;
 
 /// Runs `alz explain`, writes the diagnostics to `stderr` and the explanation to `stdout`, and
 /// returns the exit code.
@@ -53,7 +53,7 @@ fn text_of(explanation: &Explanation, tree: &FileTree) -> String {
         .map(|(path, file)| {
             format!(
                 "\nmerged result ({path}):\n{}",
-                strip_untrusted_keeping_line_feeds(&String::from_utf8_lossy(&file.bytes))
+                strip_untrusted_keeping_layout(&String::from_utf8_lossy(&file.bytes))
             )
         });
     std::iter::once(explanation.to_string())

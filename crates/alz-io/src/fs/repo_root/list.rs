@@ -12,19 +12,17 @@ use crate::fs::repo_root::probe::{Below, folder_at};
 /// The most entries the writer looks at in one folder tree.
 const MAX_ENTRIES: usize = 10_000;
 
-/// One entry of a folder.
+/// One entry of a folder. `name` is `None` when the file system's name for it is not valid
+/// Unicode.
 struct Entry {
-    name: String,
+    name: Option<String>,
     is_folder: bool,
 }
 
 /// The entries of `handle`, which is `folder` (the repository root when `None`). Each is looked at
-/// with `lstat`, so a link is no folder.
-fn entries(handle: &OwnedFd, folder: Option<&SafeRelPath>) -> Result<Vec<Entry>, RepoError> {
-    let label = folder.map_or_else(
-        || String::from("the repository root"),
-        |folder| Stripped::from_untrusted(folder.as_str()).to_string(),
-    );
+/// with `lstat`, so a link is no folder. A name that is not valid Unicode is kept as `None`.
+fn listing(handle: &OwnedFd, folder: Option<&SafeRelPath>) -> Result<Vec<Entry>, RepoError> {
+    let label = folder_label(folder);
     let failed = |errno: rustix::io::Errno| RepoError::Io {
         operation: "listing",
         path: label.clone(),
@@ -44,19 +42,37 @@ fn entries(handle: &OwnedFd, folder: Option<&SafeRelPath>) -> Result<Vec<Entry>,
         }
         let status =
             fs::statat(handle, entry.file_name(), AtFlags::SYMLINK_NOFOLLOW).map_err(failed)?;
-        let name = entry
-            .file_name()
-            .to_str()
-            .map_err(|_not_unicode| RepoError::UnnameableEntry {
-                folder: label.clone(),
-            })?
-            .to_owned();
         found.push(Entry {
-            name,
+            name: entry.file_name().to_str().ok().map(str::to_owned),
             is_folder: FileType::from_raw_mode(status.st_mode) == FileType::Directory,
         });
     }
     Ok(found)
+}
+
+fn folder_label(folder: Option<&SafeRelPath>) -> String {
+    folder.map_or_else(
+        || String::from("the repository root"),
+        |folder| Stripped::from_untrusted(folder.as_str()).to_string(),
+    )
+}
+
+/// The entries of `handle` when every name is valid Unicode, else the error for the folder.
+fn entries(
+    handle: &OwnedFd,
+    folder: Option<&SafeRelPath>,
+) -> Result<Vec<(String, bool)>, RepoError> {
+    listing(handle, folder)?
+        .into_iter()
+        .map(|entry| {
+            entry
+                .name
+                .map(|name| (name, entry.is_folder))
+                .ok_or_else(|| RepoError::UnnameableEntry {
+                    folder: folder_label(folder),
+                })
+        })
+        .collect()
 }
 
 fn join(folder: Option<&SafeRelPath>, name: &str) -> Option<SafeRelPath> {
@@ -87,7 +103,7 @@ pub(super) fn names_in(
     Ok(match listed {
         Ok(found) => found
             .into_iter()
-            .filter_map(|entry| join(folder, &entry.name))
+            .filter_map(|(name, _)| join(folder, &name))
             .collect(),
         Err(RepoError::UnnameableEntry { .. }) => Vec::new(),
         Err(other) => return Err(other),
@@ -109,12 +125,11 @@ pub(super) fn files_below(
         else {
             continue;
         };
-        for entry in entries(&handle, Some(&next))? {
-            let path =
-                join(Some(&next), &entry.name).ok_or_else(|| RepoError::UnnameableEntry {
-                    folder: Stripped::from_untrusted(next.as_str()).to_string(),
-                })?;
-            if entry.is_folder {
+        for (name, is_folder) in entries(&handle, Some(&next))? {
+            let path = join(Some(&next), &name).ok_or_else(|| RepoError::UnnameableEntry {
+                folder: Stripped::from_untrusted(next.as_str()).to_string(),
+            })?;
+            if is_folder {
                 pending.push(path);
             } else {
                 found.push(path);
@@ -135,37 +150,47 @@ pub(super) fn files_below(
 const NOT_WALKED: [&str; 3] = [".git", ".DS_Store", "node_modules"];
 
 /// Every file named `name` anywhere in the repository, in path order. Folders are entered from an
-/// explicit stack and no link is followed; a link is no file. A folder whose entries have names
-/// that are no valid Unicode, or are no safe relative path, is left out: nothing below it can be
-/// named by a generated path.
+/// explicit stack and no link is followed; a link is no file. An entry whose name is no valid
+/// Unicode or no safe relative path cannot be named, so it is skipped when it is no folder (it is
+/// not the file looked for), and refused as [`RepoError::UnnameableEntry`] when it is a folder:
+/// what lies below it cannot be searched, and passing it over would hide a file.
 pub(super) fn files_named(root: &OwnedFd, name: &str) -> Result<Vec<SafeRelPath>, RepoError> {
     let mut pending: Vec<Option<SafeRelPath>> = vec![None];
     let mut found = Vec::new();
     while let Some(next) = pending.pop() {
         let listed = match &next {
-            None => entries(root, None),
+            None => listing(root, None)?,
             Some(folder) => match folder_at(root, folder.segments())
                 .map_err(|source| RepoError::io("listing", folder, source))?
             {
-                Below::Folder(handle) => entries(&handle, Some(folder)),
+                Below::Folder(handle) => listing(&handle, Some(folder))?,
                 Below::Stop(_) => continue,
             },
         };
-        let entries = match listed {
-            Ok(entries) => entries,
-            Err(RepoError::UnnameableEntry { .. }) => continue,
-            Err(other) => return Err(other),
-        };
-        for entry in entries {
-            let Some(path) = join(next.as_ref(), &entry.name) else {
+        for entry in listed {
+            // Folders the walk never enters are passed over before their name is parsed: `.git`
+            // is no safe relative path.
+            if entry.is_folder
+                && entry
+                    .name
+                    .as_deref()
+                    .is_some_and(|n| NOT_WALKED.contains(&n))
+            {
                 continue;
-            };
-            if entry.is_folder {
-                if !NOT_WALKED.contains(&entry.name.as_str()) {
-                    pending.push(Some(path));
+            }
+            let path = entry
+                .name
+                .as_deref()
+                .and_then(|entry_name| join(next.as_ref(), entry_name));
+            match (entry.name.as_deref(), path) {
+                (Some(_), Some(path)) if entry.is_folder => pending.push(Some(path)),
+                (Some(entry_name), Some(path)) if entry_name == name => found.push(path),
+                (_, None) if entry.is_folder => {
+                    return Err(RepoError::UnnameableEntry {
+                        folder: folder_label(next.as_ref()),
+                    });
                 }
-            } else if entry.name == name {
-                found.push(path);
+                _ => {}
             }
         }
     }
