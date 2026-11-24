@@ -1198,7 +1198,7 @@ default_mode: default
   `permissions.blockWritesOutsideWorkingDirectories`, once `docs/target-facts.md` records those
   keys (TASK-76). It writes `permissions.disableBypassPermissionsMode` as the string `"disable"`,
   never `true`, because Claude Code takes that key as a string, and the two `block...` keys as
-  booleans (`docs/target-facts.md` §13; a wrongly typed value costs the whole settings file). The TypeScript `alz` has no such fields and refuses them as unknown (reference
+  booleans (`docs/target-facts.md` §13). The TypeScript `alz` has no such fields and refuses them as unknown (reference
   drift, TASK-55.5.16).
 
 ### 7.7 MCP servers
