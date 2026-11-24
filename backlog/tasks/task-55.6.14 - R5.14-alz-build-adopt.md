@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T03:39:00Z'
+updated_date: '2026-11-24T04:54:00Z'
 labels:
   - area:rust
   - area:adopt
@@ -41,4 +41,6 @@ Plan for this step (§4.3, §10).
 
 <!-- SECTION:NOTES:BEGIN -->
 From R5.8 (2026-11-24): the build --adopt rows left are test 14 (1 row), test 23 (2 rows) and test 24 (2 rows: a lock outside the repository, a lock sha).
+
+Lead decisions from R5.13 (2026-11-24): (1) an agent with native claude.hooks (fixture 20's architect) is refused for adoption with a problem naming the agent and the field (moving agent-scoped hooks into hooks/hooks.yaml would make them run everywhere); test 20's success case becomes referenceDrift('TASK-55.6.13', ...), and a twin fixture without native hooks shows the success path against the Rust binary. (2) Adoption notes print at Level::Note (R5.9 added it), not as warnings. (3) AdoptionInput.natives holds the collisions and adopt-always files alz did not generate (the planner does not know ownership); agents_md is the on-disk AGENTS.md bytes. (4) R5.13's AC #3 (property over generated native settings through the renderer) is done here, where render is wired: adopt, then build, then the rendered native files equal the adopted ones for generated inputs.
 <!-- SECTION:NOTES:END -->
