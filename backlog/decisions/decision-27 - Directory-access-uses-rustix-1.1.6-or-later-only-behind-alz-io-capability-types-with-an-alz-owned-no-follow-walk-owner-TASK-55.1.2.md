@@ -78,6 +78,8 @@ name that is opened afterwards:
 - `pty`, dev only, in `alz-test-support`, for the pseudo-terminal driver that runs `alz account
   allow` in tests (TASK-55.7.1). `alz-test-support` is only ever a dev-dependency, so the `alz`
   binary is built without this feature.
+  The driver also enables `termios` there, to hand the terminal to the child's process group
+  (`tcsetpgrp`); it is dev only as well (lead, 2026-11-24, within the owner's pty choice).
 
 `alz-test-support` is thus the one other alz crate that may depend on rustix directly. The rule
 that only `alz-io` calls rustix still holds for every crate the binary is built from.
