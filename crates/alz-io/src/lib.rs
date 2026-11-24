@@ -8,6 +8,7 @@ mod fs;
 mod git;
 mod resolve;
 mod surroundings;
+mod terminal;
 mod tool;
 
 pub use account::{
@@ -35,4 +36,5 @@ pub use resolve::{
 pub use surroundings::{
     client_root_of, observe_ancestors, observe_client_root, observe_workspace, resolve_below,
 };
+pub use terminal::{PersonAtTerminal, TerminalError};
 pub use tool::{Purpose, ToolError, ToolOutput, ToolRunner};

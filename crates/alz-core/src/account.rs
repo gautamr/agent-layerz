@@ -2,21 +2,27 @@
 //! may not set. Folder paths are R6's; nothing here touches the file system.
 
 mod allow_state;
+mod confirmation;
 mod declaration;
 mod folder_key;
 mod folders;
 mod name;
+mod person;
 mod protected;
 mod reading;
 mod user_config;
 
 pub use allow_state::{AllowEntry, AllowFile, AllowState, AllowedSource, AllowedSourceError};
+pub use confirmation::{Answer, Confirmation};
 pub use declaration::{
     AccountChoice, AccountDeclaration, AccountShapeError, EmptyTargetMap, NonEmptyTargetMap,
 };
 pub use folder_key::{FolderKey, FolderKeyError, HomeRelative};
 pub use folders::{AccountFolders, Relation, lies_within, names_account_folder};
 pub use name::{AccountName, AccountNameError};
+pub use person::{
+    AgentSession, AgentSessionMarker, NotAPerson, decide as decide_person_at_terminal, markers_set,
+};
 pub use protected::{
     PROTECTED_VARIABLES, codex_pattern_matches, is_protected_name, matched_protected_names,
     protected_variable,
