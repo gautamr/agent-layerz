@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.15
 title: 'R5.15: R5 acceptance, output parity and the drift list'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T05:19:00Z'
+updated_date: '2026-11-24T05:22:00Z'
 labels:
   - area:rust
   - area:test
@@ -52,4 +52,6 @@ From R5.10 (2026-11-24): alz explain strips tabs and carriage returns from the m
 From R5.13 (2026-11-24): (1) hook scripts adopt to .layer/hooks/scripts/<path> with run: scripts/<path>, the layout the spec and the reader require; test 20's expectation of .layer/hooks/guard.sh becomes reference drift. (2) Floats and nulls in an adopted settings.json or .mcp.json: the YAML emitter writes none, so adoption refuses them, yet typed Number keys exist (e.g. skillListingBudgetFraction); if the reference writes such floats, teach the YAML emitter to write floats exactly (round trip) and drop the refusal, else state it in §4.3. (3) Model alias tie-break: follow the reference's insertion order rather than name order. (4) The reader check runs after conversions succeed, so problems come per phase; say so in §4.3.
 
 From R5.14 (2026-11-24): (1) align the adoption problem for a literal env value in .mcp.json with the spec's text (Use "${<NAME>}" and export it); (2) a link at .claude/settings.json or .mcp.json that the build does not write is skipped silently — print a note naming the path; (3) test 24's two lock rows assert the spec's wording as referenceDrift('TASK-55.6.15', ...) — keep or retarget.
+
+Baseline (2026-11-24, ALZ_BIN=target/release/alz, full acceptance project): 742 passed, 281 failed. Failing files: 24 (261/16), 26 (97/24), 28 (65/12), 29 (48/6), 30 (11/63), 31 (13/103), 32 (6/55), 33 (2/2); all others pass whole. 30-32 and the identity parts of 26 and 29 are R6. Owner decision for ls --live (2026-11-24): pass AWS_* only when CLAUDE_CODE_USE_BEDROCK is set, and GOOGLE_*/CLOUD_ML_REGION/ANTHROPIC_VERTEX_PROJECT_ID only when CLAUDE_CODE_USE_VERTEX is set, recorded in target-facts first; everything else stays cleared.
 <!-- SECTION:NOTES:END -->
