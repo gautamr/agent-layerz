@@ -18,7 +18,7 @@ macro_rules! fixture {
     };
 }
 
-/// A file of the reference's output, kept under `tests/fixtures`.
+/// A file of the expected output, kept under `tests/fixtures`.
 macro_rules! golden {
     ($path:literal) => {
         include_str!(concat!("../../../tests/fixtures/", $path))
@@ -64,7 +64,7 @@ fn assert_whole_tree(rendered: &Rendered, wanted: &[(&str, &str, FileMode)]) {
         assert_eq!(
             String::from_utf8_lossy(&file.bytes),
             *text,
-            "{name} differs from the reference"
+            "{name} differs from the expected file"
         );
         assert_eq!(file.mode, *mode, "{name}");
     }
@@ -264,7 +264,7 @@ fn a_header_source_that_closes_its_comment_makes_no_file_and_an_error() {
 }
 
 #[test]
-fn fixture_01_whole_tree_matches_the_reference() {
+fn fixture_01_whole_tree_is_written_as_expected() {
     let layers = stacks::CASE_01
         .iter()
         .map(|part| {

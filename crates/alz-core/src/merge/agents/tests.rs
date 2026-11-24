@@ -724,7 +724,7 @@ fn the_contributions_of_an_agent_give_the_words_of_alz_explain() {
 }
 
 // The edits of a list read as the layer wrote them, in the order written and with an empty edit
-// as it is: the strings are those of the reference's `describeOps`.
+// as it is: the strings are the spec's description of each operation.
 #[test]
 fn the_edits_of_a_list_are_shown_in_the_order_the_layer_wrote_them() {
     use crate::render::action_word::ActionWord;

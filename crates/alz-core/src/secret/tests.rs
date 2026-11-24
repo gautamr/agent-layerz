@@ -62,7 +62,7 @@ fn text_without_a_token_has_no_finding() {
 }
 
 #[test]
-fn a_shape_needs_a_word_boundary_where_the_reference_has_one() {
+fn a_shape_needs_a_word_boundary_where_the_spec_has_one() {
     let aws = sample(SecretKind::AwsAccessKeyId);
     assert_eq!(scan(&format!("x{aws}")), Vec::<SecretKind>::new());
     assert_eq!(scan(&format!("{aws}x")), Vec::<SecretKind>::new());

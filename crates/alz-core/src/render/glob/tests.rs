@@ -1,14 +1,14 @@
 use proptest::prelude::{prop_assert_eq, proptest};
 
 use super::PathGlob;
-use super::reference_table::{MATCHES, PATHS};
+use super::match_table::{MATCHES, PATHS};
 
 fn matches(pattern: &str, path: &str) -> bool {
     PathGlob::parse(pattern).matches(path)
 }
 
 #[test]
-fn agrees_with_the_reference_matcher_on_every_pattern_and_path_of_the_table() {
+fn matches_every_pattern_and_path_of_the_table() {
     for (pattern, accepted) in MATCHES {
         for path in PATHS {
             assert_eq!(

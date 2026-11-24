@@ -22,7 +22,7 @@ use super::ordered_tree::{NativeMap, NativeValue};
 
 /// The keys of a target's map that have a neutral field, and so are refused inside it (§7.2).
 /// The spec names `tools`, `model` and `permissionMode` and leaves the rest of the list open; this
-/// is the reference's list.
+/// is the spec's list.
 const fn neutral_keys(target: TargetName) -> &'static [&'static str] {
     match target {
         TargetName::Claude => &[

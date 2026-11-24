@@ -1,5 +1,5 @@
 //! `.claude/settings.json`, the copied hook scripts and `.mcp.json`: byte for byte against the
-//! reference's output for the fixtures (`tests/fixtures/claude-settings`), and the rules of §8.1
+//! expected output for the fixtures (`tests/fixtures/claude-settings`), and the rules of §8.1
 //! and §7.6 case by case.
 
 use std::collections::BTreeSet;
@@ -20,7 +20,7 @@ macro_rules! fixture {
     };
 }
 
-/// The text of a file of the reference's output.
+/// The text of a file of the expected output.
 macro_rules! golden {
     ($path:literal) => {
         include_str!(concat!(
@@ -51,7 +51,7 @@ impl<'a> Part<'a> {
     }
 }
 
-/// A file of the reference's output: its path, its text and its mode.
+/// A file of the expected output: its path, its text and its mode.
 type Golden = (&'static str, &'static str, FileMode);
 
 const SCRIPT: &str = "hooks/scripts/block-secrets.sh";
@@ -92,8 +92,8 @@ fn lines(files: &ClaudeSettingsFiles) -> Vec<String> {
         .collect()
 }
 
-/// Compares the paths, the bytes and the modes with the reference's output.
-fn matches_reference(files: &ClaudeSettingsFiles, golden: &[Golden]) {
+/// Compares the paths, the bytes and the modes with the expected output.
+fn matches_expected(files: &ClaudeSettingsFiles, golden: &[Golden]) {
     assert!(!files.diagnostics().has_errors(), "{}", files.diagnostics());
     let made: Vec<&str> = files.tree().paths().map(OutputPath::as_str).collect();
     let mut wanted: Vec<&str> = golden.iter().map(|(name, _, _)| *name).collect();
@@ -104,7 +104,7 @@ fn matches_reference(files: &ClaudeSettingsFiles, golden: &[Golden]) {
         assert_eq!(
             String::from_utf8_lossy(&file.bytes),
             *text,
-            "{name} differs from the reference"
+            "{name} differs from the expected file"
         );
         assert_eq!(file.mode, *mode, "{name}");
     }
@@ -115,7 +115,7 @@ fn personal(yaml: &'static str, files: Vec<(&'static str, &'static str)>) -> Par
 }
 
 #[test]
-fn fixture_01_matches_the_reference_byte_for_byte() {
+fn fixture_01_is_written_byte_for_byte() {
     let parts: Vec<Part<'_>> = super::stacks::CASE_01
         .iter()
         .map(|layer| Part::new(layer.yaml, layer.files.to_vec()).executable(&[SCRIPT]))
@@ -124,7 +124,7 @@ fn fixture_01_matches_the_reference_byte_for_byte() {
         &parts,
         "options:\n  strict_slots: true\nmcp:\n  enable: [context7]\n",
     );
-    matches_reference(
+    matches_expected(
         &files,
         &[
             (
@@ -152,7 +152,7 @@ fn fixture_01_matches_the_reference_byte_for_byte() {
 }
 
 #[test]
-fn fixture_07_matches_the_reference_byte_for_byte() {
+fn fixture_07_is_written_byte_for_byte() {
     let parts = [
         personal(
             fixture!("07-permission-floor/personal/layer.yaml"),
@@ -169,7 +169,7 @@ fn fixture_07_matches_the_reference_byte_for_byte() {
             )],
         ),
     ];
-    matches_reference(
+    matches_expected(
         &render(&parts, ""),
         &[(
             ".claude/settings.json",
@@ -180,7 +180,7 @@ fn fixture_07_matches_the_reference_byte_for_byte() {
 }
 
 #[test]
-fn fixture_08_matches_the_reference_byte_for_byte() {
+fn fixture_08_is_written_byte_for_byte() {
     let scripts = ["hooks/scripts/block-secrets.sh", "hooks/scripts/format.sh"];
     let parts = [
         personal(
@@ -209,7 +209,7 @@ fn fixture_08_matches_the_reference_byte_for_byte() {
             )],
         ),
     ];
-    matches_reference(
+    matches_expected(
         &render(&parts, ""),
         &[
             (
@@ -227,7 +227,7 @@ fn fixture_08_matches_the_reference_byte_for_byte() {
 }
 
 #[test]
-fn fixture_09_matches_the_reference_byte_for_byte() {
+fn fixture_09_is_written_byte_for_byte() {
     let parts = [
         personal(
             fixture!("09-mcp-allowlist/personal/layer.yaml"),
@@ -235,7 +235,7 @@ fn fixture_09_matches_the_reference_byte_for_byte() {
         ),
         personal(fixture!("09-mcp-allowlist/repo/.layer/layer.yaml"), vec![]),
     ];
-    matches_reference(
+    matches_expected(
         &render(&parts, "mcp:\n  enable: [context7]\n"),
         &[(
             ".mcp.json",
@@ -246,13 +246,13 @@ fn fixture_09_matches_the_reference_byte_for_byte() {
 }
 
 #[test]
-fn fixture_16_grants_the_hub_as_an_additional_directory_like_the_reference() {
+fn fixture_16_grants_the_hub_as_an_additional_directory() {
     let parts = [
         personal(fixture!("16-hub/personal/layer.yaml"), vec![]),
         personal(fixture!("16-hub/hub/layer/layer.yaml"), vec![]),
         personal(fixture!("16-hub/repo-a/.layer/layer.yaml"), vec![]),
     ];
-    matches_reference(
+    matches_expected(
         &render(&parts, "workspace:\n  hub: ../hub\n"),
         &[(
             ".claude/settings.json",
@@ -263,7 +263,7 @@ fn fixture_16_grants_the_hub_as_an_additional_directory_like_the_reference() {
 }
 
 #[test]
-fn fixture_19_matches_the_reference_byte_for_byte() {
+fn fixture_19_is_written_byte_for_byte() {
     let parts = [
         personal(fixture!("19-hook-commands/personal/layer.yaml"), vec![]),
         personal(
@@ -274,7 +274,7 @@ fn fixture_19_matches_the_reference_byte_for_byte() {
             )],
         ),
     ];
-    matches_reference(
+    matches_expected(
         &render(&parts, ""),
         &[(
             ".claude/settings.json",
@@ -322,9 +322,9 @@ fn mix() -> ClaudeSettingsFiles {
 }
 
 #[test]
-fn the_mixed_stack_matches_the_reference_byte_for_byte() {
+fn the_mixed_stack_is_written_byte_for_byte() {
     let files = mix();
-    matches_reference(
+    matches_expected(
         &files,
         &[
             (
@@ -348,8 +348,8 @@ fn the_mixed_stack_matches_the_reference_byte_for_byte() {
 }
 
 #[test]
-fn args_written_empty_are_written_and_absent_args_are_left_out_like_the_reference() {
-    // `plain` has no `args` and `empty` has `args: []`; the golden is the reference's output.
+fn args_written_empty_are_written_and_absent_args_are_left_out() {
+    // `plain` has no `args` and `empty` has `args: []`; the golden holds both.
     let files = mix();
     let text = String::from_utf8(
         files

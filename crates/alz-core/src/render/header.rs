@@ -235,7 +235,7 @@ pub fn frontmatter_header(sources: &Sources) -> String {
 pub struct NoFrontmatter;
 
 /// Puts the header as the first line of the frontmatter of `text`. Line endings are read as line
-/// feeds throughout, as the reference reads them, and the rest of the file is kept as it is.
+/// feeds throughout, as the spec reads them, and the rest of the file is kept as it is.
 ///
 /// # Errors
 ///

@@ -1,5 +1,5 @@
 //! The checks of `alz lint` that read one layer alone (spec §10): every kind's reader and the
-//! merge rules that one layer can break by itself, with none of the references to a more general
+//! merge rules that one layer can break by itself, with none of the links to a more general
 //! layer, which only a build can resolve.
 
 use crate::diagnostic::{Code, Diagnostics};
@@ -17,7 +17,7 @@ use crate::merge::stack::LayerContext;
 use crate::stack::ResolvedLayer;
 
 /// What is wrong with `layer` taken as a stack of its own: the errors and warnings of every kind
-/// in the order of the reference (instructions, agents, skills, rules, hooks, permissions, MCP,
+/// in the order of the spec (instructions, agents, skills, rules, hooks, permissions, MCP,
 /// models, settings, passthrough), then the `slot` errors of its `provides_slots`. A diagnostic
 /// that names a more general layer the layer does not have (`unresolved`) is dropped.
 #[must_use]

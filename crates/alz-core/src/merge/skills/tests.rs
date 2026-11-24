@@ -461,10 +461,10 @@ proptest! {
     }
 }
 
-// The reference names a skill by its folder and a command by its file in a header and in
+// The spec names a skill by its folder and a command by its file in a header and in
 // `alz explain`: `sourceRef(layer, dir)` and `sourceRef(layer, path)`.
 #[test]
-fn a_skill_is_named_by_its_folder_and_a_command_by_its_file_as_the_reference_does() {
+fn a_skill_is_named_by_its_folder_and_a_command_by_its_file() {
     use crate::merge::testing::layer_from_yaml;
     use crate::render::header::SourceRef;
 

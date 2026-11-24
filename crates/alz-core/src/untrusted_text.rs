@@ -11,8 +11,8 @@
 //! Class 3, usage output, stays in the binary, which strips each argument fragment with
 //! [`Stripped`].
 //!
-//! [`Stripped`] matches `stripControl` of the TypeScript reference (`src/core/sanitize.ts`);
-//! the `parity` test compares the two over every code point.
+//! [`Stripped`] removes the control and format characters of spec §10.1;
+//! a test compares it with the list in `tests/fixtures/untrusted-code-points.txt` over every code point.
 
 mod format_characters;
 
@@ -373,9 +373,9 @@ mod tests {
         assert_eq!(QuotedKey::from_untrusted("\u{1b}").to_string(), "''");
     }
 
-    /// The inclusive ranges of code points that the reference removes, from the fixture generated
-    /// from `src/core/sanitize.ts`.
-    fn removed_by_the_reference() -> Vec<(u32, u32)> {
+    /// The inclusive ranges of code points that spec §10.1 removes, from the fixture
+    /// `tests/fixtures/untrusted-code-points.txt`.
+    fn listed_as_removed() -> Vec<(u32, u32)> {
         include_str!("../tests/fixtures/untrusted-code-points.txt")
             .lines()
             .filter(|line| !line.starts_with('#'))
@@ -390,13 +390,13 @@ mod tests {
     }
 
     #[test]
-    fn parity_with_the_typescript_reference_over_every_code_point() {
-        let reference = removed_by_the_reference();
+    fn the_stripped_code_points_are_those_of_the_list_over_every_code_point() {
+        let listed = listed_as_removed();
         let differing: Vec<String> = (0..=0x0010_FFFF)
             .filter_map(char::from_u32)
             .filter(|character| {
                 let code = u32::from(*character);
-                let removed = reference
+                let removed = listed
                     .iter()
                     .any(|(first, last)| (*first..=*last).contains(&code));
                 stripped(&character.to_string()).is_empty() != removed
@@ -405,8 +405,8 @@ mod tests {
             .collect();
         assert!(
             differing.is_empty(),
-            "the stripped text and the reference disagree on: {differing:?} (regenerate the \
-             fixture with `node crates/alz/tools/untrusted-code-points.mjs`)"
+            "the stripped text and the list disagree on: {differing:?} (the list is kept by hand; \
+             change it with the rule of spec §10.1)"
         );
     }
 

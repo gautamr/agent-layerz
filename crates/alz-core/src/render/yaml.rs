@@ -1,12 +1,11 @@
 //! alz's own YAML emitter (decision-28): the YAML of generated agent, rule and skill frontmatter,
-//! adopted layer files and `allowed.yaml`, written byte for byte as the TypeScript reference
-//! writes it (`stringifyYaml` in `src/core/yaml.ts`: block style, no line folding) until cutover,
-//! except for the reference drift of spec §10.2 (TASK-73), which the samples mark with `drift`.
+//! adopted layer files and `allowed.yaml`, written in block style, with no line folding
+//! (spec §10.2, TASK-73); the samples that hold text alz writes differently are marked with `drift`.
 //!
 //! The input is an [`EmitValue`]: text, booleans, integers, lists and maps with text keys. The
 //! output is a [`String`] ending in a line feed. [`emit`] is pure and total. The golden samples
-//! in `tests/fixtures/yaml-emit/samples.json` come from the reference
-//! (`crates/alz-core/tools/yaml-emit-samples.mjs`); how text is quoted is in `text`.
+//! in `tests/fixtures/yaml-emit/samples.json` are kept by hand (see
+//! `tests/fixtures/yaml-emit/README.md`); how text is quoted is in `text`.
 
 mod number;
 mod text;
@@ -24,13 +23,13 @@ pub use number::EmitFloat;
 const INDENT_STEP: &str = "  ";
 
 /// A key longer than this many UTF-16 code units is written as an explicit `? key` entry, the way
-/// the reference does (a YAML implicit key may not be longer than 1024 characters).
+/// YAML requires (a YAML implicit key may not be longer than 1024 characters).
 const MAX_IMPLICIT_KEY_UNITS: usize = 1024;
 
 /// A value to write as YAML.
 ///
-/// Integers are written exactly. The reference holds numbers as floating point, so its samples
-/// stop at 2^53; beyond that this emitter is exact and the reference is not.
+/// Integers are written exactly, whatever their size: the samples stop at 2^53, and beyond that
+/// the emitter still writes every digit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EmitValue {
     /// Text of any content: it is quoted or written as a block when YAML needs it.
@@ -39,8 +38,8 @@ pub enum EmitValue {
     Bool(bool),
     /// An integer.
     Int(i64),
-    /// A number with a fraction or an exponent, or one beyond 64 bits: written as the reference
-    /// writes a JavaScript number.
+    /// A number with a fraction or an exponent, or one beyond 64 bits: written as the shortest
+    /// decimal that reads back as the same number.
     Float(EmitFloat),
     /// `null`.
     Null,
@@ -113,7 +112,7 @@ pub fn emit(value: &EmitValue) -> String {
     format!("{}\n", node(value, ""))
 }
 
-/// `value` as the reference writes a node whose context indent is `indent`.
+/// `value` as a node whose context indent is `indent`.
 fn node(value: &EmitValue, indent: &str) -> String {
     match value {
         EmitValue::Text(text) => text::scalar(text, false, indent),

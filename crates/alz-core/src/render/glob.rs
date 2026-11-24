@@ -187,6 +187,6 @@ fn split_token(characters: &[char]) -> Option<([Option<Token>; 2], &[char])> {
 }
 
 #[cfg(test)]
-mod reference_table;
+mod match_table;
 #[cfg(test)]
 mod tests;

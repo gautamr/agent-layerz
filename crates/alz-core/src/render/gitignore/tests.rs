@@ -85,7 +85,7 @@ fn syncing_twice_changes_nothing_the_second_time() {
 }
 
 #[test]
-fn an_empty_tree_leaves_the_empty_line_the_reference_writes() {
+fn an_empty_tree_leaves_the_empty_line() {
     assert_eq!(
         synced("", &FileTree::new(), Generated::Ignored),
         format!("{BLOCK_START}\n\n{BLOCK_END}\n")

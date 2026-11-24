@@ -1,8 +1,8 @@
-//! `alz build` and `alz check` against the reference's output (spec §4.3, §10.3, TASK-55.6.8):
+//! `alz build` and `alz check` against the expected trees (spec §4.3, §10.3, TASK-55.6.8):
 //! for every repository fixture of the acceptance suite that builds, the Rust `alz` writes the
-//! paths, bytes and executable bits of the golden tree made from the TypeScript reference by
-//! `crates/alz/tools/golden-trees.mjs`, prints what it printed, and `alz check` then passes. A
-//! generated file that is edited makes `alz check` fail, as in the reference.
+//! paths, bytes and executable bits of the golden tree kept in `tests/fixtures/golden`, prints what
+//! the golden `stdout` and `stderr` hold, and `alz check` then passes. A generated file that is
+//! edited makes `alz check` fail (spec §4.3).
 
 // The tests sit in a `mod tests` so that `clippy::tests_outside_test_module` holds for this file
 // as for every other one.
@@ -31,9 +31,8 @@ mod tests {
     }
 
     /// The level and code of each line of diagnostics, in order. The place and the wording after
-    /// them are the Rust `alz`'s own where the specification words a message differently from the
-    /// reference (§7.3 `slot-missing` has a place, §9.2 reports a finding once per file); the
-    /// messages are tested where they are made. The `[identity]` lines of §9.4 are compared like
+    /// them are not compared (§7.3 `slot-missing` has a place, §9.2 reports a finding once per
+    /// file); the messages are tested where they are made. The `[identity]` lines of §9.4 are compared like
     /// the others: a fixture with a declared commit identity, built outside a git repository,
     /// prints the note that it was not checked.
     fn problem_lines(text: &str) -> Vec<String> {

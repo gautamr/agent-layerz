@@ -33,8 +33,8 @@ fn stack() -> ResolvedStack {
 }
 
 #[test]
-fn the_hash_of_each_file_is_the_one_the_reference_wrote_into_this_repositorys_lock() {
-    let reference = Lock::parse(REPOSITORY_LOCK).expect("the repository's lock");
+fn the_hash_of_each_file_is_the_one_in_this_repositorys_lock() {
+    let recorded = Lock::parse(REPOSITORY_LOCK).expect("the repository's lock");
     let lock = lock_of(
         &tree(&[
             ("AGENTS.md", AGENTS_MD),
@@ -45,7 +45,7 @@ fn the_hash_of_each_file_is_the_one_the_reference_wrote_into_this_repositorys_lo
     );
     assert_eq!(lock.files.len(), 3);
     for (path, hash) in &lock.files {
-        assert_eq!(reference.files.get(path), Some(hash), "{path}");
+        assert_eq!(recorded.files.get(path), Some(hash), "{path}");
     }
 }
 

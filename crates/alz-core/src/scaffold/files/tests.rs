@@ -1,11 +1,11 @@
-//! The bytes of every scaffolded file against the TypeScript `alz`'s: each expected text was
-//! produced by running the reference's `alz init` once in a scratch folder.
+//! The bytes of every scaffolded file against spec §10.3: each expected text is
+//! written out in full.
 
 use super::{MISE_TASKS, RepoOptions, RepoSurroundings, Scaffolded, layer_files, repo_files};
 use crate::layer::{LayerName, Visibility};
 use crate::scaffold::{Hub, stack_entry};
 
-const REFERENCE_MANIFEST_WITH_STACK_AND_HUB: &str = "stack:
+const EXPECTED_MANIFEST_WITH_STACK_AND_HUB: &str = "stack:
   - source: path:../p
     ref: v1
   - source: github:a/b@v2
@@ -23,7 +23,7 @@ options:
   strict_slots: true
 ";
 
-const REFERENCE_MANIFEST_BARE: &str = "stack:
+const EXPECTED_MANIFEST_BARE: &str = "stack:
   # Most general first, for example:
   # - source: github:<you>/agent-layerz-personal@v1.0.0
   - source: path:./.layer   # the repo layer, always last
@@ -58,7 +58,7 @@ fn listed(scaffolded: &Scaffolded) -> Vec<(&str, &str)> {
 }
 
 #[test]
-fn a_repository_with_a_stack_and_a_hub_has_the_references_bytes() {
+fn a_repository_with_a_stack_and_a_hub_has_the_expected_bytes() {
     let stack = [
         stack_entry("../p@v1").expect("an entry"),
         stack_entry("github:a/b@v2").expect("an entry"),
@@ -76,7 +76,7 @@ fn a_repository_with_a_stack_and_a_hub_has_the_references_bytes() {
     assert_eq!(
         listed(&scaffolded),
         [
-            ("layer.yaml", REFERENCE_MANIFEST_WITH_STACK_AND_HUB),
+            ("layer.yaml", EXPECTED_MANIFEST_WITH_STACK_AND_HUB),
             (
                 ".layer/layer.yaml",
                 "name: my-repo\nkind: repo\nvisibility: private\nversion: 0.1.0\n"
@@ -92,7 +92,7 @@ fn a_repository_with_a_stack_and_a_hub_has_the_references_bytes() {
 }
 
 #[test]
-fn a_repository_without_options_has_the_references_example_manifest() {
+fn a_repository_without_options_has_the_example_manifest() {
     let scaffolded = repo_files(
         RepoOptions {
             name: &name("r"),
@@ -104,12 +104,12 @@ fn a_repository_without_options_has_the_references_example_manifest() {
     );
     assert_eq!(
         scaffolded.files().first().map(super::ScaffoldFile::text),
-        Some(REFERENCE_MANIFEST_BARE)
+        Some(EXPECTED_MANIFEST_BARE)
     );
 }
 
 #[test]
-fn the_mise_tasks_are_the_references() {
+fn the_mise_tasks_are_the_expected_ones() {
     assert_eq!(
         MISE_TASKS,
         "[tasks.\"alz:build\"]\nrun = \"alz build\"\n\n[tasks.\"alz:check\"]\nrun = \"alz check\"\n\n[tasks.\"alz:diff\"]\nrun = \"alz diff\"\n\n[tasks.\"alz:doctor\"]\nrun = \"alz doctor\"\n"
@@ -143,7 +143,7 @@ fn an_existing_repo_layer_and_an_existing_mise_config_are_not_written_again() {
 }
 
 #[test]
-fn a_layer_has_the_references_two_files() {
+fn a_layer_has_the_two_expected_files() {
     let scaffolded = layer_files(&name("x.y"), Visibility::Confidential);
     assert_eq!(
         listed(&scaffolded),

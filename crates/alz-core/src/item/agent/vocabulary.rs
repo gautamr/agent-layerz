@@ -177,7 +177,7 @@ impl TryFrom<&str> for Isolation {
 }
 
 /// `memory`: where an agent keeps its memory. The spec lists `none`, `project` and `user`; the
-/// reference also accepts `local`, which Claude has, so it stays valid.
+/// spec also accepts `local`, which Claude has, so it stays valid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Memory {
     /// `none`.
@@ -204,7 +204,7 @@ impl TryFrom<&str> for Memory {
     }
 }
 
-/// `permission_mode` and `default_mode`: the vocabulary of the reference, which the spec does not
+/// `permission_mode` and `default_mode`: the vocabulary alz accepts, which the spec does not
 /// list. The order is the strictness, loosest first, so a stricter mode is a larger one and
 /// `bypass_permissions` is the loosest (spec §7.6 uses it for the permission floor).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

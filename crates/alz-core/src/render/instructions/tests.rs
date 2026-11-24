@@ -14,7 +14,7 @@ macro_rules! fixture {
     };
 }
 
-/// The reference's output for a fixture repository, kept in `tests/fixtures/instructions`.
+/// The expected output for a fixture repository, kept in `tests/fixtures/instructions`.
 macro_rules! golden {
     ($path:literal) => {
         include_str!(concat!("../../../tests/fixtures/instructions/", $path))
@@ -202,8 +202,8 @@ fn budgets(lines: Option<u64>, bytes: Option<u64>) -> Budgets {
         .budgets()
 }
 
-// AC 1: the reference's bytes. Fixture 02 has its own expected files; the others were made with
-// the reference's `alz build` (tests/fixtures/instructions).
+// AC 1: the expected bytes. Fixture 02 has its own expected files; the others are kept in
+// tests/fixtures/instructions.
 
 #[test]
 fn fixture_02_matches_the_expected_files_byte_for_byte() {
@@ -219,14 +219,14 @@ fn fixture_02_matches_the_expected_files_byte_for_byte() {
 }
 
 #[test]
-fn fixture_01_matches_the_reference_with_the_claude_extra() {
+fn fixture_01_is_written_with_the_claude_extra() {
     let merged = case_01();
     assert_eq!(agents(&merged), golden!("01-determinism/AGENTS.md"));
     assert_eq!(claude(&merged), golden!("01-determinism/CLAUDE.md"));
 }
 
 #[test]
-fn fixture_16_matches_the_reference_with_the_hub_label_of_its_ref() {
+fn fixture_16_is_written_with_the_hub_label_of_its_ref() {
     let repo_a = case_16(
         fixture!("16-hub/repo-a/.layer/layer.yaml"),
         fixture!("16-hub/repo-a/.layer/instructions/50-repo.md"),
@@ -242,7 +242,7 @@ fn fixture_16_matches_the_reference_with_the_hub_label_of_its_ref() {
 }
 
 #[test]
-fn fixture_26_matches_the_reference_with_the_commits_section_of_the_client() {
+fn fixture_26_is_written_with_the_commits_section_of_the_client() {
     let merged = case_26();
     assert_eq!(agents(&merged), golden!("26-commit-identity/AGENTS.md"));
     assert_eq!(claude(&merged), golden!("26-commit-identity/CLAUDE.md"));

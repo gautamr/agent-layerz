@@ -115,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn a_repository_gets_the_reference_files_and_the_created_lines() {
+    fn a_repository_gets_the_scaffold_files_and_the_created_lines() {
         let place = Place::new();
         let run = place.alz(&["init", "--name", "repo"]);
         assert_eq!((run.code, run.stderr.as_str()), (0, ""));
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn a_layer_gets_the_reference_files_with_the_public_default() {
+    fn a_layer_gets_the_scaffold_files_with_the_public_default() {
         let place = Place::new();
         let run = place.alz(&["init", "--kind", "layer", "--name", "x.y"]);
         assert_eq!((run.code, run.stderr.as_str()), (0, ""));

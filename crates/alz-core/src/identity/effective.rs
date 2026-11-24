@@ -39,7 +39,7 @@ impl Effective {
     /// Compares the standard output of `git var GIT_<ROLE>_IDENT`, `None` when git failed (no
     /// identity with `user.useConfigOnly`, a broken config file), with `declared`. Total: any
     /// bytes give a value, and bytes that are not an identity line, or not UTF-8, differ in both
-    /// parts. A trimmed output is parsed as `<name> <<email>> <epoch> <zone>`, as the reference does.
+    /// parts. A trimmed output is parsed as `<name> <<email>> <epoch> <zone>`.
     #[must_use]
     pub fn compare(output: Option<&[u8]>, declared: &CommitIdentity) -> Self {
         output

@@ -20,7 +20,7 @@ const FIELDS: [&str; 1] = ["mode"];
 /// field a file adds its own block, which is no mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InstructionMode {
-    /// `append`: the file adds its own block, as a file without `mode` does. The reference
+    /// `append`: the file adds its own block, as a file without `mode` does. The spec
     /// accepts it and layers write it, so it stays valid (decision of the lead, TASK-55.5.4).
     Append,
     /// `replace`: the block takes the place of the block of the same file name.

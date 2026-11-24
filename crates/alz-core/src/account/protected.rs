@@ -72,7 +72,7 @@ mod tests {
     use super::{codex_pattern_matches, is_protected_name, matched_protected_names};
 
     #[test]
-    fn the_codex_pattern_cases_of_the_reference() {
+    fn the_codex_pattern_cases() {
         let cases = [
             ("*", "CODEX_HOME", true),
             ("?ODEX_HOME", "CODEX_HOME", true),

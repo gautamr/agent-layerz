@@ -193,7 +193,7 @@ fn an_unknown_tool_in_an_agent_file_is_an_agent_error() {
     );
 }
 
-// Reference drift (TASK-55.5.6): the reference reads any scope that ends in `*` as covering every
+// Spec §7.2 (TASK-55.5.6): a scope that ends in `*` does not cover every
 // scope that starts with its text before the stars.
 #[test]
 fn a_trailing_star_path_scope_does_not_cover_another_folder() {

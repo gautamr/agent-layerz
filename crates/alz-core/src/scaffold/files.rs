@@ -1,5 +1,5 @@
-//! The files `alz init` creates and their text (spec §10.3), byte for byte as the TypeScript `alz`
-//! writes them.
+//! The files `alz init` creates and their text (spec §10.3), byte for byte as the spec states
+//! them.
 
 use std::sync::LazyLock;
 

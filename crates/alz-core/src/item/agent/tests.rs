@@ -206,7 +206,7 @@ proptest! {
         second in texts(),
     ) {
         let base: OrderedSet<SkillName> = base.into_iter().map(skill).collect();
-        // A text of white space alone is no edit (the reference refuses it), so an empty part
+        // A text of white space alone is no edit (the spec refuses it), so an empty part
         // adds no separator.
         let joined = [first.as_str(), second.as_str()]
             .into_iter()
