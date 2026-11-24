@@ -4,11 +4,11 @@ use std::os::fd::OwnedFd;
 use std::path::Path;
 
 use alz_core::layer::{LayerScan, Purpose};
-use alz_core::path::SafeRelPath;
+use alz_core::path::{AbsolutePath, SafeRelPath};
 use rustix::fs::{self, Mode, OFlags};
 use rustix::io::Errno;
 
-use crate::fs::read_below::read_file_below;
+use crate::fs::read_below::{ReadFile, read_file_below, read_segments_below};
 use crate::fs::read_error::ReadError;
 use crate::fs::scan::scan_layer;
 
@@ -53,6 +53,20 @@ impl ReadOnlyDir {
     /// `cap` bytes, and [`ReadError::Io`] for any other failure.
     pub fn read_file(&self, path: &SafeRelPath, cap: usize) -> Result<Vec<u8>, ReadError> {
         read_file_below(&self.handle, path, cap)
+    }
+
+    /// Reads the regular file at the absolute `path` through the handle of the root folder `/`, at
+    /// most `cap` bytes, as [`read_file`](Self::read_file) does, and says who owns it and whether
+    /// group or others can write it, as `fstat` on the handle that was read reports. This is how
+    /// the two account files are read (spec §7.13 "Both files"): the caller opened `/` with
+    /// [`open`](Self::open).
+    ///
+    /// # Errors
+    ///
+    /// As [`read_file`](Self::read_file).
+    pub fn read_absolute(&self, path: &AbsolutePath, cap: usize) -> Result<ReadFile, ReadError> {
+        let segments: Vec<&str> = path.components().collect();
+        read_segments_below(&self.handle, &segments, cap)
     }
 
     /// Walks the directory as a layer, as [`Dir::scan`](crate::fs::Dir::scan) does: every file is

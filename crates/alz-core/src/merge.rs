@@ -42,7 +42,7 @@ pub use action::{Action, AgentChange, AgentScalar};
 pub use agents::{AgentBody, ContextSection, MergedAgent};
 pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree, covers, widened};
 pub use alone::check_alone;
-pub use declarers::{Declarations, Declared, Reason, Refused};
+pub use declarers::{Declarations, Declared, Reason, Refused, refusal_reasons};
 pub use instructions::{InstructionBlock, MergedClaudeExtra};
 pub use mcp::MergedMcp;
 pub use models::{MergedModels, TargetModels};

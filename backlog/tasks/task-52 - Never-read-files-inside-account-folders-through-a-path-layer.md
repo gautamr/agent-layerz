@@ -4,7 +4,7 @@ title: 'Never read files inside account folders through a path: layer'
 status: Done
 assignee: []
 created_date: '2026-11-22T07:23:00Z'
-updated_date: '2026-11-24T05:55:00Z'
+updated_date: '2026-11-24T14:08:00Z'
 labels:
   - discovered
   - area:security
@@ -50,4 +50,6 @@ R3.11 (2026-11-23): AC1-3 checked. Lint twins in test/acceptance/36-sources-and-
 R5.8 (TASK-55.6.8, 2026-11-24): build form run against ALZ_BIN=target/release/alz in test 36 (16 passed, 4 Linux-only skipped) and test 24 (259 of 277; none of the 18 failures is this task's rows: --adopt R5.14, account which R6, agent mcpServers and nested JSON R4 follow-up). AC #4 left for the lead to check.
 
 Verified by the lead (2026-11-24) on the R5 branch: test/acceptance/36-sources-and-cache-guards.test.ts runs this criterion's build and check forms; against ALZ_BIN=target/release/alz it gives 16 passed, 4 skipped (the 0xFF cases, Linux only); the ubuntu CI job runs those.
+
+R6.16 evidence (architect, 2026-11-24, branch feat/rust-r6-task-55.7 at b757f43, target/release/alz rebuilt, cargo said up to date). #4 account side (already checked): cargo test --locked -q -p alz-io --test account_walk account_folder: 3 passed, among them the proptest nothing_inside_an_account_folder_is_looked_at_through_a_planted_link (account folders mode 000, a link planted in the repository into them: NoRoot::AccountFolder and no warning, so nothing inside was lstat'ed, read or opened) and a_working_directory_through_a_link_into_an_account_folder_finds_no_root_and_opens_nothing; cargo test -p alz-io --test cached_declaration account_folder: 2 passed (a cache that touches an account folder is a miss; a repository inside one is refused before anything is read). Acceptance 30 'fails closed, and never touches an account folder, when a layer directory is $HOME (through alz account which)' and 'fails closed on %s that names an account folder' pass in the full Rust run (1220, 0 failing). Not covered by a Rust test: a stack path: layer reached through a planted link into a mode-000 account folder during account resolution (the walk is the same function, R3.5).
 <!-- SECTION:NOTES:END -->

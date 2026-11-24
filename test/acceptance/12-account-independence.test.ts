@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { referenceDrift } from "../drift";
 import { tool } from "../exec";
 import { fixture, layers, readTree } from "../helpers";
 
@@ -25,6 +26,39 @@ describe("§13.12 account independence", () => {
       });
     }
     expect(results[1]).toEqual(results[0]);
+  });
+
+  // §10.3 doctor: the blocked folders are not account folders, and warn when they exist
+  // (TASK-50.4 AC 5, TASK-55.7.15). The reference lists ~/.claude-alz-blocked as an account.
+  referenceDrift(
+    "TASK-55.7",
+    "doctor does not list a blocked folder as an account and warns once for each that exists",
+    async () => {
+      const ws = fixture("01-determinism");
+      for (const name of [".claude-alz-blocked", ".codex-alz-blocked"]) {
+        mkdirSync(`${ws.home}/${name}`);
+      }
+      const doctor = await layers(ws, "repo", ["doctor"]);
+      expect(doctor.code).toBe(0);
+      expect(doctor.stdout).toContain("claude account dirs:\n  none found\n");
+      expect(doctor.stdout).not.toContain("no collisions");
+      for (const name of [".claude-alz-blocked", ".codex-alz-blocked"]) {
+        const warning = `warning: ${ws.home}/${name} is a blocked folder (§7.13), not an account; delete it\n`;
+        expect(doctor.stdout.split(warning)).toHaveLength(2);
+      }
+      expect(doctor.stdout.match(/blocked folder/g)).toHaveLength(2);
+    },
+  );
+
+  // The Rust alz does not read ALZ_ACCOUNT_DIRS; the reference lists the folders it names.
+  referenceDrift("TASK-55.7", "doctor does not read ALZ_ACCOUNT_DIRS", async () => {
+    const ws = fixture("05-skill-override");
+    const plain = await layers(ws, "repo", ["doctor"]);
+    const named = await layers(ws, "repo", ["doctor"], { ALZ_ACCOUNT_DIRS: `${ws.root}/account` });
+    expect(plain.code).toBe(0);
+    expect(named.code).toBe(0);
+    expect(named.stdout).toBe(plain.stdout);
+    expect(named.stdout).not.toContain("collision");
   });
 
   const smoke = process.env.ALZ_SMOKE_CLAUDE === "1" && Boolean(process.env.ANTHROPIC_API_KEY);

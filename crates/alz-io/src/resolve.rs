@@ -11,5 +11,6 @@ mod stack;
 pub use clone::{FetchedLayer, Fetcher, GitLayer, ReadHow};
 pub use locate::locate_git_source;
 pub use pinned_tree::{PinnedLayer, PinnedRead, PinnedTreeReader};
+pub(crate) use placement::path_of;
 pub use placement::{placement_of_directory, placement_of_source, placements_of_stack};
 pub use stack::StackResolver;

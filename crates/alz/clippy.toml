@@ -2,7 +2,7 @@
 # them, so the two files repeat what they share and must change together: the four `allow-*-in-tests`
 # lines repeat the root clippy.toml, and so does every shared `disallowed-methods` and
 # `disallowed-types` entry below.
-# This file lacks the clock and standard-stream bans of the twin, which the binary needs.
+# This file lacks the clock and the standard output and error bans of the twin, which the binary needs.
 
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
@@ -72,6 +72,8 @@ disallowed-methods = [
     { path = "std::env::var_os", reason = "the environment belongs to alz-io" },
     { path = "std::env::vars", reason = "the environment belongs to alz-io" },
     { path = "std::env::vars_os", reason = "the environment belongs to alz-io" },
+    # standard input: alz-io's terminal module is the only reader (spec §7.13)
+    { path = "std::io::stdin", reason = "standard input is read by alz-io's terminal module only" },
 ]
 
 # Types that open or hold an effect handle. Banning the type also stops a value from being named in a

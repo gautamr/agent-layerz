@@ -16,8 +16,8 @@ use alz_core::target::TargetName;
 use alz_core::target::claude::facts::Version;
 use alz_core::{Diagnostics, Stripped};
 use alz_io::{
-    Purpose, ToolRunner, claude_account_folders, client_root_of, observe_ancestors,
-    observe_client_root, observe_workspace,
+    Purpose, ToolRunner, blocked_folders, claude_account_folders, client_root_of,
+    observe_ancestors, observe_client_root, observe_workspace,
 };
 
 use crate::command::Surroundings;
@@ -71,6 +71,7 @@ fn facts_of(surroundings: Surroundings<'_>, root: &Path, pipeline: Pipeline) -> 
                 .collect()
         }),
         ancestors: observe_ancestors(root, client_root.as_deref()),
+        blocked: blocked_folders(surroundings.env),
         build: pipeline.diagnostics,
     }
 }

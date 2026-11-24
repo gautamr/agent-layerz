@@ -25,6 +25,7 @@ pub fn cannot_fetch(source: Stripped, line: Option<FetchFailureLine>) -> Diagnos
             message.then(": ").then(line.into_stripped())
         }),
     )
+    .source_not_there_yet()
 }
 
 /// A clone that git made but alz could not read for the hash comparison or move into the cache
@@ -126,6 +127,7 @@ pub fn layer_directory_not_found(source: Stripped) -> Diagnostic {
             .then(source)
             .then("'"),
     )
+    .source_not_there_yet()
 }
 
 /// A pinned `path:` layer whose ref does not give a layer tree (§6).
@@ -140,6 +142,7 @@ pub fn cannot_resolve_ref(git_ref: &GitRef, source: Stripped) -> Diagnostic {
             .then(source)
             .then("': not a git repo, unknown ref, the layer did not exist at that ref, or its path is not a plain directory there"),
     )
+    .source_not_there_yet()
 }
 
 /// A pinned `path:` layer whose tree could not be read from the repository (§6): git failed,

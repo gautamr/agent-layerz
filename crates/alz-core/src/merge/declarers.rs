@@ -131,19 +131,30 @@ struct Candidate<T> {
 }
 
 impl<T> Candidate<T> {
-    /// Why the layer may not declare; empty when it may (§7.12). The first layer needs only to be
-    /// outside the repository, a later one must also be a `client` that is not public.
+    /// Why the layer may not declare; empty when it may (§7.12).
     fn problems(&self) -> Vec<Reason> {
-        [
-            (self.placement == Placement::Inside).then_some(Reason::InsideRepository),
-            (!self.is_first && !self.kind.is_client())
-                .then(|| Reason::KindNotClient(self.kind.clone())),
-            (!self.is_first && self.visibility < Visibility::Private).then_some(Reason::Public),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
+        refusal_reasons(self.is_first, &self.kind, self.visibility, self.placement)
     }
+}
+
+/// Why a layer with this position, kind, visibility and placement may not declare `commit_identity`
+/// or `account`, in the order of [`Reason`]; empty when it may (§7.12). The first layer needs only
+/// to be outside the repository, a later one must also be a `client` that is not public.
+#[must_use]
+pub fn refusal_reasons(
+    is_first: bool,
+    kind: &Kind,
+    visibility: Visibility,
+    placement: Placement,
+) -> Vec<Reason> {
+    [
+        (placement == Placement::Inside).then_some(Reason::InsideRepository),
+        (!is_first && !kind.is_client()).then(|| Reason::KindNotClient(kind.clone())),
+        (!is_first && visibility < Visibility::Private).then_some(Reason::Public),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 /// The layers that declare a field, as the fold meets them, most general first.

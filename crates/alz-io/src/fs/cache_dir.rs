@@ -8,7 +8,7 @@ use std::io::{self, Write};
 use std::os::fd::OwnedFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use alz_core::account::{AccountFolders, lies_within};
+use alz_core::account::{AccountFolders, IndexEntry, lies_within};
 use alz_core::cache::{CacheBase, CacheLocation, DirKey, EntryName};
 use alz_core::lock::ObjectId;
 use alz_core::path::{AbsolutePath, Name, SafeRelPath};
@@ -17,7 +17,7 @@ use rustix::io::Errno;
 
 use crate::fs::cache_error::{CacheError, IndexError};
 use crate::fs::dir::Dir;
-use crate::fs::read_below::read_file_below;
+use crate::fs::read_below::read_segments_below;
 use crate::fs::read_error::ReadError;
 use crate::fs::walk::find;
 use crate::fs::walk_error::WalkError;
@@ -124,19 +124,7 @@ impl CacheDir {
     /// the effective user (checked with `fstat` on that handle), and [`CacheError::Io`] for any
     /// other failure.
     pub fn entry(&self, name: &EntryName) -> Result<Option<Dir>, CacheError> {
-        match open_folder(&self.handle, &name.to_string()) {
-            Ok(handle) => {
-                let status = fs::fstat(&handle).map_err(|errno| CacheError::Io(errno.into()))?;
-                if status.st_uid == rustix::process::geteuid().as_raw() {
-                    Ok(Some(Dir::from_handle(handle)))
-                } else {
-                    Err(CacheError::EntryNotOwned(*name))
-                }
-            }
-            Err(Errno::NOENT) => Ok(None),
-            Err(Errno::LOOP | Errno::NOTDIR) => Err(CacheError::EntryNotDirectory(*name)),
-            Err(errno) => Err(CacheError::Io(errno.into())),
-        }
+        entry_below(&self.handle, name)
     }
 
     /// The content of the index entry for the pinned `path:` layer at `dir` and `commit`: the
@@ -144,11 +132,10 @@ impl CacheDir {
     /// a missing entry, a link, a folder or any other content is a miss, `None`.
     #[must_use]
     pub fn read_index(&self, dir: DirKey, commit: ObjectId) -> Option<ObjectId> {
-        let path = SafeRelPath::try_from(index_name(dir, commit).to_string().as_str()).ok()?;
-        read_file_below(&self.handle, &path, INDEX_CAP)
-            .ok()
-            .and_then(|bytes| String::from_utf8(bytes).ok())
-            .and_then(|text| ObjectId::try_from(text.as_str()).ok())
+        match index_below(&self.handle, dir, commit) {
+            IndexEntry::Tree(tree) => Some(tree),
+            IndexEntry::Missing | IndexEntry::Invalid | IndexEntry::NotOwned => None,
+        }
     }
 
     /// Writes the index entry for `dir` and `commit` with `tree` as its whole content, through a
@@ -199,9 +186,55 @@ impl CacheDir {
     }
 }
 
+/// The entry called `name` below the cache root `root`, opened with `O_NOFOLLOW` and checked with
+/// `fstat` on that handle: a folder owned by the effective user. `None` when there is none.
+pub(super) fn entry_below(root: &OwnedFd, name: &EntryName) -> Result<Option<Dir>, CacheError> {
+    match open_folder(root, &name.to_string()) {
+        Ok(handle) => {
+            let status = fs::fstat(&handle).map_err(|errno| CacheError::Io(errno.into()))?;
+            if status.st_uid == rustix::process::geteuid().as_raw() {
+                Ok(Some(Dir::from_handle(handle)))
+            } else {
+                Err(CacheError::EntryNotOwned(*name))
+            }
+        }
+        Err(Errno::NOENT) => Ok(None),
+        Err(Errno::LOOP | Errno::NOTDIR) => Err(CacheError::EntryNotDirectory(*name)),
+        Err(errno) => Err(CacheError::Io(errno.into())),
+    }
+}
+
+/// What the index entry for `dir` and `commit` below the cache root `root` holds: only a regular
+/// file that this user owns and whose whole content is a lowercase object id is a tree.
+pub(super) fn index_below(root: &OwnedFd, dir: DirKey, commit: ObjectId) -> IndexEntry {
+    let name = index_name(dir, commit).to_string();
+    match read_segments_below(root, &[name.as_str()], INDEX_CAP) {
+        Err(ReadError::Missing) => IndexEntry::Missing,
+        Err(ReadError::NotRegular | ReadError::TooLarge | ReadError::Io(_)) => IndexEntry::Invalid,
+        Ok(read) => index_read(
+            read.owner(),
+            read.into_bytes(),
+            rustix::process::geteuid().as_raw(),
+        ),
+    }
+}
+
+/// What a regular index file owned by `owner` holds, for the user `user`: a file that another user
+/// owns is never read, whatever it holds.
+fn index_read(owner: u32, bytes: Vec<u8>, user: u32) -> IndexEntry {
+    if owner == user {
+        String::from_utf8(bytes)
+            .ok()
+            .and_then(|text| ObjectId::try_from(text.as_str()).ok())
+            .map_or(IndexEntry::Invalid, IndexEntry::Tree)
+    } else {
+        IndexEntry::NotOwned
+    }
+}
+
 /// Whether a folder with owner `uid` and `mode` is private to this process's user: owned by the
 /// effective user, and not writable by group or others.
-fn is_private(uid: u32, mode: Mode) -> bool {
+pub(super) fn is_private(uid: u32, mode: Mode) -> bool {
     uid == rustix::process::geteuid().as_raw() && !mode.intersects(Mode::WGRP | Mode::WOTH)
 }
 
@@ -225,7 +258,7 @@ fn refuse_inside(
 }
 
 /// `existing` with the `below` names added.
-fn joined(existing: &AbsolutePath, below: &[Name]) -> Result<AbsolutePath, CacheError> {
+pub(super) fn joined(existing: &AbsolutePath, below: &[Name]) -> Result<AbsolutePath, CacheError> {
     let parts = existing
         .components()
         .chain(below.iter().map(Name::as_str))
@@ -245,7 +278,7 @@ fn make_folder(parent: &OwnedFd, name: &Name) -> Result<OwnedFd, CacheError> {
     open_folder(parent, name.as_str()).map_err(|errno| CacheError::Io(errno.into()))
 }
 
-fn open_folder(parent: &OwnedFd, name: &str) -> Result<OwnedFd, Errno> {
+pub(super) fn open_folder(parent: &OwnedFd, name: &str) -> Result<OwnedFd, Errno> {
     fs::openat(
         parent,
         name,
@@ -525,7 +558,10 @@ mod tests {
     use alz_test_support::ScratchDir;
     use rustix::fs::{self, AtFlags, OFlags};
 
-    use super::{is_private, open_directory, remove_tree, rename_without_replacing};
+    use alz_core::account::IndexEntry;
+    use alz_core::lock::ObjectId;
+
+    use super::{index_read, is_private, open_directory, remove_tree, rename_without_replacing};
 
     /// A handle on the scratch folder, to remove folders below.
     fn open_scratch(scratch: &ScratchDir) -> OwnedFd {
@@ -615,6 +651,24 @@ mod tests {
         assert!(remove_tree(&open_scratch(&scratch), c"tree").is_err());
         assert!(scratch.is_file("outside/keep"));
         fs::unlinkat(open_scratch(&scratch), c"tree", AtFlags::empty()).expect("unlinked");
+    }
+
+    #[test]
+    fn an_index_file_that_another_user_owns_is_not_read_whatever_it_holds() {
+        let tree = "0123456789abcdef0123456789abcdef01234567";
+        let expected = ObjectId::try_from(tree).expect("an id");
+        assert_eq!(
+            index_read(1000, tree.as_bytes().to_vec(), 1000),
+            IndexEntry::Tree(expected)
+        );
+        assert_eq!(
+            index_read(0, tree.as_bytes().to_vec(), 1000),
+            IndexEntry::NotOwned
+        );
+        assert_eq!(
+            index_read(1000, b"not an id".to_vec(), 1000),
+            IndexEntry::Invalid
+        );
     }
 
     #[test]

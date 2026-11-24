@@ -19,6 +19,16 @@ use crate::env::EnvSnapshot;
 const DEFAULT_FOLDER: &str = ".claude";
 /// What the folders of other accounts start with.
 const ACCOUNT_PREFIX: &str = ".claude-";
+/// The blocked folders (spec §7.13), which are not accounts: Claude's, then Codex's.
+const BLOCKED_FOLDERS: [&str; 2] = [".claude-alz-blocked", ".codex-alz-blocked"];
+
+/// Whether `path` is the blocked folder of Claude, in `home` or anywhere `CLAUDE_CONFIG_DIR`
+/// points at one by that name.
+fn is_blocked(path: &Path) -> bool {
+    path.file_name()
+        .and_then(OsStr::to_str)
+        .is_some_and(|name| name.eq_ignore_ascii_case(".claude-alz-blocked"))
+}
 
 fn absolute(value: Option<&OsStr>) -> Option<PathBuf> {
     value
@@ -83,7 +93,11 @@ fn candidates(env: &EnvSnapshot) -> Vec<PathBuf> {
             .collect();
         named.into_iter().map(|name| home.join(name))
     });
-    let all = configured.into_iter().chain(default).chain(others);
+    let all = configured
+        .into_iter()
+        .chain(default)
+        .chain(others)
+        .filter(|path| !is_blocked(path));
     all.fold(Vec::new(), |mut unique, path| {
         if !unique.contains(&path) {
             unique.push(path);
@@ -99,5 +113,21 @@ pub fn claude_account_folders(env: &EnvSnapshot) -> Vec<AccountFolder> {
         .iter()
         .filter(|folder| fs::metadata(folder).is_ok_and(|metadata| metadata.is_dir()))
         .map(|folder| observe(folder))
+        .collect()
+}
+
+/// The blocked folders that exist in `$HOME`, `~/.claude-alz-blocked` first. A folder or a link
+/// counts, as in the listing of account folders; each is looked at with `lstat` alone, so nothing
+/// inside it is opened (spec §7.13, §9.1).
+#[must_use]
+pub fn blocked_folders(env: &EnvSnapshot) -> Vec<Stripped> {
+    absolute(env.home())
+        .iter()
+        .flat_map(|home| BLOCKED_FOLDERS.iter().map(|name| home.join(name)))
+        .filter(|folder| {
+            fs::symlink_metadata(folder)
+                .is_ok_and(|metadata| metadata.is_dir() || metadata.is_symlink())
+        })
+        .map(|folder| Stripped::from_untrusted(&folder.to_string_lossy()))
         .collect()
 }

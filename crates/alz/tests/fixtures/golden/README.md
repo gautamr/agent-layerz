@@ -21,4 +21,3 @@ reports once per file, §9.2). Left out:
 - `04-tool-narrowing/repo-widen-command-operator` and `repo-widen-path-scope`: the reference
   builds them and the Rust `alz` refuses the overlay (`tool-widen`, §7.2), which is reference
   drift.
-- The commit identity lines (`[identity]`, §9.4), which come with TASK-55.7.

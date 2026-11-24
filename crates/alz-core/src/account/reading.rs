@@ -1,8 +1,8 @@
 //! A value read from a file that alz may ignore in part (spec §7.13 "User config", "Allow state"):
 //! what was usable, and one warning for each thing that was not.
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Position, Where};
-use crate::yaml::{Node, YamlError, YamlText, parse};
+use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
+use crate::yaml::{Node, YamlError, YamlText, parse, parse_paths};
 
 /// A value and the warnings its reading raised. A warning is not an error: the file is read as far
 /// as it can be, and the problem is reported.
@@ -69,9 +69,15 @@ impl<T> Reading<T> {
     }
 }
 
-/// A warning of `code`, placed in `file` at `at`.
-pub(super) fn warning(code: Code, file: &Where, at: Position, message: Message) -> Diagnostic {
-    Diagnostic::warning(code, Some(file.clone().at(at)), message)
+/// A warning of `code` about `file`: `<file>: <message>`. The position in the file is not part of
+/// the line (§10.3 names an `allowed.yaml` entry by its number and a `folders` key by its text).
+pub(super) fn warning(code: Code, file: &Where, message: Message) -> Diagnostic {
+    Diagnostic::warning(code, Some(file.clone()), message)
+}
+
+/// A warning whose message names the file itself, so the line holds no place.
+pub(super) fn unplaced(code: Code, message: Message) -> Diagnostic {
+    Diagnostic::warning(code, None, message)
 }
 
 /// The warning for a file that is not valid YAML or is over a limit: the file is ignored. It
@@ -82,10 +88,37 @@ pub(super) fn unreadable(error: &YamlError, file: &Where) -> Diagnostic {
         .position()
         .map_or_else(|| file.clone(), |position| file.clone().at(position));
     Diagnostic::warning(
-        error.kind().code(),
+        Code::AccountFileIgnored,
         Some(at),
         error.kind().message().then("; the file is ignored"),
     )
+}
+
+/// The tree of an account file's bytes, through the one YAML entry point: strict UTF-8, at most
+/// 1 MiB and the alias limits (spec §7.13 "YAML limits").
+///
+/// # Errors
+///
+/// The YAML error when the bytes are not valid UTF-8, are over a limit or are not valid YAML.
+pub fn parse_file(bytes: &[u8]) -> Result<Node, YamlError> {
+    tree(bytes)
+}
+
+/// The tree of the bytes of a file that holds file-system paths: as [`tree`], and a path may hold
+/// the characters that alz writes escaped (U+007F to U+009F, U+2028 and U+2029).
+pub(super) fn path_tree(bytes: &[u8]) -> Result<Node, YamlError> {
+    YamlText::from_bytes(bytes).and_then(|text| parse_paths(&text))
+}
+
+/// The tree of the bytes of a file that holds file-system paths (`allowed.yaml`): as
+/// [`parse_file`], and a key or value may hold what a path may hold and the emitter escapes, U+007F
+/// to U+009F, U+2028 and U+2029.
+///
+/// # Errors
+///
+/// As [`parse_file`].
+pub fn parse_path_file(bytes: &[u8]) -> Result<Node, YamlError> {
+    path_tree(bytes)
 }
 
 /// The tree of a file's bytes, through the one YAML entry point.

@@ -175,6 +175,89 @@ mod tests {
     }
 
     #[test]
+    fn doctor_warns_once_about_a_blocked_folder_and_does_not_list_it_as_an_account() {
+        let workspace = Workspace::of("01-determinism", "repo");
+        let blocked = workspace.scratch.join("home/.claude-alz-blocked");
+        workspace
+            .scratch
+            .make_dirs("home/.claude-alz-blocked/skills/stack-conventions")
+            .expect("made");
+        let run = workspace.alz(&["doctor"], &[]);
+        let folder = blocked.clone();
+        assert_eq!(run.code, 0, "{}{}", run.stdout, run.stderr);
+        assert!(
+            run.stdout.contains(&format!(
+                "claude account dirs:\n  none found\nclaude: not found; version check skipped\nwarning: {} is a blocked folder (§7.13), not an account; delete it\nbuild: ",
+                folder.display()
+            )),
+            "{}",
+            run.stdout
+        );
+        assert_eq!(run.stdout.matches("blocked folder").count(), 1);
+        assert!(!run.stdout.contains("no collisions"), "{}", run.stdout);
+        assert_eq!(run.stderr, "");
+        assert!(
+            workspace.scratch.is_dir("home/.claude-alz-blocked"),
+            "doctor never deletes it"
+        );
+    }
+
+    #[test]
+    fn doctor_warns_about_the_codex_blocked_folder_too_and_reads_nothing_inside_either() {
+        if alz_test_support::running_as_root() {
+            return;
+        }
+        let workspace = Workspace::of("01-determinism", "repo");
+        for name in ["home/.claude-alz-blocked", "home/.codex-alz-blocked"] {
+            workspace.scratch.make_dirs(name).expect("made");
+            workspace
+                .scratch
+                .write(format!("{name}/.credentials.json"), "secret")
+                .expect("written");
+            workspace
+                .scratch
+                .set_mode(format!("{name}/.credentials.json"), 0o000)
+                .expect("mode");
+            workspace.scratch.set_mode(name, 0o000).expect("mode");
+        }
+        let run = workspace.alz(&["doctor"], &[]);
+        for name in ["home/.claude-alz-blocked", "home/.codex-alz-blocked"] {
+            workspace.scratch.set_mode(name, 0o700).expect("restored");
+            workspace
+                .scratch
+                .set_mode(format!("{name}/.credentials.json"), 0o600)
+                .expect("restored");
+        }
+        let home = workspace.scratch.join("home");
+        assert_eq!(run.code, 0, "{}{}", run.stdout, run.stderr);
+        let claude = format!(
+            "warning: {}/.claude-alz-blocked is a blocked folder (§7.13), not an account; delete it\n",
+            home.display()
+        );
+        let codex = format!(
+            "warning: {}/.codex-alz-blocked is a blocked folder (§7.13), not an account; delete it\n",
+            home.display()
+        );
+        assert!(
+            run.stdout.contains(&format!("{claude}{codex}")),
+            "{}",
+            run.stdout
+        );
+    }
+
+    #[test]
+    fn doctor_does_not_read_alz_account_dirs() {
+        let workspace = Workspace::of("05-skill-override", "repo");
+        let account = workspace.scratch.join("work/account");
+        let without = workspace.alz(&["doctor"], &[]);
+        let with = workspace.alz(&["doctor"], &[("ALZ_ACCOUNT_DIRS", &account)]);
+        assert_eq!(without.code, 0, "{}{}", without.stdout, without.stderr);
+        assert_eq!(with.code, 0, "{}{}", with.stdout, with.stderr);
+        assert_eq!(with.stdout, without.stdout);
+        assert!(!with.stdout.contains("account/skills"), "{}", with.stdout);
+    }
+
+    #[test]
     fn doctor_prints_the_version_a_fake_claude_gives_and_whether_it_is_verified() {
         let workspace = live_workspace();
         let verified = workspace.claude(&version_script("2.1.311 (Claude Code)"));

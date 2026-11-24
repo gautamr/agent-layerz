@@ -89,7 +89,7 @@ pub fn placements_of_stack(
 }
 
 /// The absolute path of a `path:` source: relative to the repository root, as written.
-fn path_of(written: &str, repository: &AbsolutePath) -> Option<AbsolutePath> {
+pub(crate) fn path_of(written: &str, repository: &AbsolutePath) -> Option<AbsolutePath> {
     let joined = if written.starts_with('/') {
         written.to_owned()
     } else {

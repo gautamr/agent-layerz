@@ -6,6 +6,7 @@
 mod adopt;
 mod create;
 mod error;
+mod git_config;
 mod list;
 mod probe;
 mod write;
@@ -14,6 +15,7 @@ use std::collections::BTreeSet;
 
 use alz_core::account::AccountFolders;
 use alz_core::adopt::AdoptionPlan;
+use alz_core::identity::{Blocker, GitConfigPlace};
 use alz_core::lock::Lock;
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::render::tree::{FileTree, OutputPath, fold};
@@ -26,6 +28,7 @@ use crate::resolve::folders::account_folders;
 
 pub use adopt::AdoptionBasis;
 pub use error::RepoError;
+pub use git_config::{Changed, GitConfigSeal};
 pub use write::Applied;
 
 /// A repository's root folder, opened by the component walk. It reads and writes below itself
@@ -130,6 +133,45 @@ impl RepoRoot {
             .flatten()
             .filter(|name| folded.contains(&fold(name)));
         Ok(Disk::new(seen, managed, listed))
+    }
+
+    /// Whether `.git/config` of this root may be written: the root holds a real `.git` folder,
+    /// which makes it the top level of its work tree, and `.git/config` is absent or a regular
+    /// file. Nothing is followed, and nothing is written.
+    #[must_use]
+    pub fn git_config_place(&self) -> GitConfigPlace {
+        git_config::place(self.root.handle())
+    }
+
+    /// Checks the place as [`git_config_place`](Self::git_config_place) does, right before a
+    /// write, and remembers `.git` for the check after it.
+    ///
+    /// # Errors
+    ///
+    /// The [`Blocker`] that says why nothing may be written.
+    pub fn seal_git_config(&self) -> Result<GitConfigSeal, Blocker> {
+        git_config::seal(self.root.handle())
+    }
+
+    /// Checks the place again, right after a write: `.git` is still the folder that was sealed
+    /// and `.git/config` is still not a link.
+    ///
+    /// # Errors
+    ///
+    /// What changed: git may have written through a link.
+    pub fn verify_git_config(&self, seal: GitConfigSeal) -> Result<(), Changed> {
+        git_config::verify(self.root.handle(), seal)
+    }
+
+    /// Whether `path`, followed to the end, is the folder this root was opened on.
+    ///
+    /// # Errors
+    ///
+    /// The error of looking at either folder.
+    pub fn is_this_folder(&self, path: &std::path::Path) -> std::io::Result<bool> {
+        let mine = rustix::fs::fstat(self.root.handle())?;
+        let theirs = rustix::fs::stat(path)?;
+        Ok(mine.st_dev == theirs.st_dev && mine.st_ino == theirs.st_ino)
     }
 
     /// Every file named `name` anywhere in the repository, in path order, found without following

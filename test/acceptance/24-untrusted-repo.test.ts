@@ -921,17 +921,40 @@ describe("an account declaration by a repository that is not to be trusted, with
     const s = await built("v1", "32-account-allow");
     const folder = "we\u001b[31mird";
     cpSync(`${s.ws.root}/hub/layer`, `${s.ws.root}/${folder}/layer`, { recursive: true });
+    // layer.yaml may not hold a control character (spec 5.2), so the repository reaches the
+    // folder through a link with a plain name; the name with ESC comes from allowed.yaml, as
+    // the real path of the layer.
+    symlinkSync(`${s.ws.root}/${folder}`, `${s.ws.root}/hub-link`);
     writeFileSync(
       `${s.ws.root}/repo/layer.yaml`,
-      `stack:\n  - source: path:../personal\n  - source: ${JSON.stringify(`path:../${folder}/layer`)}\n  - source: path:./.layer\ntargets: [claude]\n`,
+      "stack:\n  - source: path:../personal\n  - source: path:../hub-link/layer\n  - source: path:./.layer\ntargets: [claude]\n",
     );
     const build = await alz(s, ["build"]);
     expect(build.code, build.stderr).toBe(0);
     accountFolder(s, ".claude-client-a", ".codex-client-a-api");
+    // The folder name comes from allowed.yaml, as the real path of the layer. A YAML control
+    // character is refused once its escapes are applied (spec 5.2, 7.13): the Rust alz ignores
+    // this file, as the next case shows, and the reference reads it. Either way nothing printed
+    // holds a control character, and the report is there.
     writeAllowed(s, [hubEntry(s, { source: `${s.real}/${folder}/layer` })]);
     const which = await alz(s, ["account", "which"]);
     expect(which.code, which.stderr).toBe(0);
-    expect(which.stdout).toContain("claude: client-a (source: layer)");
+    expect(which.stdout).toMatch(/^claude: /m);
     expect(hasControl(build.stdout + build.stderr + which.stdout + which.stderr)).toBe(false);
   });
+
+  referenceDrift(
+    "TASK-55.3",
+    "ignores an allowed.yaml whose source is an escape for a control character",
+    async () => {
+      const s = await built("v1", "32-account-allow");
+      accountFolder(s, ".claude-client-a", ".codex-client-a-api");
+      writeAllowed(s, [hubEntry(s, { source: `${s.real}/we\u001b[31mird/layer` })]);
+      const which = await alz(s, ["account", "which"]);
+      expect(which.code, which.stderr).toBe(0);
+      expect(which.stdout).toContain("(ignored: it is not valid YAML)");
+      expect(which.stdout).toContain("claude: default (source: default)");
+      expect(hasControl(which.stdout + which.stderr)).toBe(false);
+    },
+  );
 });

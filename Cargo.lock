@@ -43,6 +43,10 @@ dependencies = [
 [[package]]
 name = "alz-test-support"
 version = "0.1.0"
+dependencies = [
+ "rustix",
+ "thiserror",
+]
 
 [[package]]
 name = "annotate-snippets"

@@ -181,13 +181,53 @@ mod tests {
             "--hub",
             "../hub",
         ]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "note [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n"
+            )
+        );
         let manifest = place.text("layer.yaml").expect("a manifest");
         assert!(
             manifest.starts_with(
                 "stack:\n  - source: path:../nowhere\n  - source: path:../hub/layer\n    ref: layer-v1.0.0\n  - source: github:me/agent-layerz-personal@v1.2.0\n  - source: path:./.layer   # the repo layer, always last\ntargets: [claude]\nworkspace:\n  hub: ../hub             # granted"
             ),
             "{manifest}"
+        );
+    }
+
+    #[test]
+    fn a_refused_source_is_a_warning_and_not_the_note_about_a_stack_not_resolved_yet() {
+        let place = Place::new();
+        let run = place.alz(&["init", "--name", "repo", "--stack", "git:/srv/a/../b@v1"]);
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "warning [source] 'git:/srv/a/../b@v1': a local git: path must not contain '..' segments; use a path without them\n"
+            )
+        );
+    }
+
+    #[test]
+    fn a_source_not_there_yet_adds_the_note_after_the_warnings_of_the_other_problems() {
+        let place = Place::new();
+        let run = place.alz(&[
+            "init",
+            "--name",
+            "repo",
+            "--stack",
+            "../nowhere",
+            "--stack",
+            "git:/srv/a/../b@v1",
+        ]);
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "warning [source] 'git:/srv/a/../b@v1': a local git: path must not contain '..' segments; use a path without them\nnote [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n"
+            )
         );
     }
 
@@ -267,7 +307,13 @@ mod tests {
             .write("repo/mise.toml", "# mine\n")
             .expect("written");
         let run = place.alz(&["init", "--name", "repo"]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "warning [layer] path:./.layer:layer.yaml:1:1: kind is required\nwarning [layer] path:./.layer:layer.yaml:1:1: visibility is required\n"
+            )
+        );
         assert_eq!(
             run.stdout,
             format!(
@@ -306,7 +352,13 @@ mod tests {
             .make_link("repo/.layer", "../outside")
             .expect("linked");
         let run = place.alz(&["init", "--name", "repo"]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "warning [layer] missing layer.yaml in layer 'path:./.layer'\n"
+            )
+        );
         assert_eq!(place.files("outside"), Vec::<String>::new());
         assert!(place.scratch.exists("repo/layer.yaml"));
     }
@@ -372,7 +424,13 @@ mod tests {
             "--hub",
             "../hub",
         ]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "note [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n"
+            )
+        );
         assert!(
             run.stdout
                 .starts_with("using the hub's client layer path:../hub/layer at layer-v0.10.0\n"),
