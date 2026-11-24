@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T04:54:00Z'
+updated_date: '2026-11-24T05:19:00Z'
 labels:
   - area:rust
   - area:test
@@ -50,4 +50,6 @@ From R5.8 (2026-11-24), to settle in R5.15: (1) parity: the build summary line p
 From R5.10 (2026-11-24): alz explain strips tabs and carriage returns from the merged file it prints (class 1 guard). Tabs are harmless in a terminal; keep tabs and strip only what can move the cursor or hide text (CR, escapes, bidi and format characters), which also narrows the drift from the reference.
 
 From R5.13 (2026-11-24): (1) hook scripts adopt to .layer/hooks/scripts/<path> with run: scripts/<path>, the layout the spec and the reader require; test 20's expectation of .layer/hooks/guard.sh becomes reference drift. (2) Floats and nulls in an adopted settings.json or .mcp.json: the YAML emitter writes none, so adoption refuses them, yet typed Number keys exist (e.g. skillListingBudgetFraction); if the reference writes such floats, teach the YAML emitter to write floats exactly (round trip) and drop the refusal, else state it in §4.3. (3) Model alias tie-break: follow the reference's insertion order rather than name order. (4) The reader check runs after conversions succeed, so problems come per phase; say so in §4.3.
+
+From R5.14 (2026-11-24): (1) align the adoption problem for a literal env value in .mcp.json with the spec's text (Use "${<NAME>}" and export it); (2) a link at .claude/settings.json or .mcp.json that the build does not write is skipped silently — print a note naming the path; (3) test 24's two lock rows assert the spec's wording as referenceDrift('TASK-55.6.15', ...) — keep or retarget.
 <!-- SECTION:NOTES:END -->

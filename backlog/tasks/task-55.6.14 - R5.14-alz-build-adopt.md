@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.14
 title: 'R5.14: alz build --adopt'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T05:13:00Z'
+updated_date: '2026-11-24T05:19:00Z'
 labels:
   - area:rust
   - area:adopt
@@ -32,10 +32,10 @@ Plan for this step (§4.3, §10).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Test 20 passes against ALZ_BIN: the adopted repository builds the same settings and agents, the manifest keeps its comments, and check passes (vitest run)
-- [ ] #2 When any file cannot be adopted the repository tree is byte-identical before and after (test 20 against ALZ_BIN and an alz-io test)
-- [ ] #3 Nothing adoption writes, moves or deletes lies outside the repository or goes through a link (alz-io tests)
-- [ ] #4 Moved from R5.13: a property test over generated native settings adopts them, builds, and finds the rendered native files equal to the adopted ones
+- [x] #1 Test 20 passes against ALZ_BIN: the adopted repository builds the same settings and agents, the manifest keeps its comments, and check passes (vitest run)
+- [x] #2 When any file cannot be adopted the repository tree is byte-identical before and after (test 20 against ALZ_BIN and an alz-io test)
+- [x] #3 Nothing adoption writes, moves or deletes lies outside the repository or goes through a link (alz-io tests)
+- [x] #4 Moved from R5.13: a property test over generated native settings adopts them, builds, and finds the rendered native files equal to the adopted ones
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -51,4 +51,12 @@ AC2: a refused plan writes nothing: acceptance 20 (secret fixture, readTree befo
 AC3: crates/alz-io/tests/repo_adopt.rs: native file replaced by a link, a layer folder that became a link (nothing written outside); RepoRoot::adopt checks every path with no-follow probes before the first write, moves with linkat then unlinkat (never replaces), writes through folder handles opened with O_NOFOLLOW; crates/alz/tests/adopt.rs: link collisions stop adoption, a settings.json link the build does not write is never read.
 AC4: crates/alz/tests/adopt.rs rendered_native_settings_equal_the_adopted_ones (proptest, 12 cases of generated env and allow/deny/ask lists; adopt, build, check; permissions and env of the rendered .claude/settings.json equal the adopted ones).
 Design: alz-core adopt/natives.rs picks the natives (NotGenerated collisions that are regular files, plus .claude/settings.json and .mcp.json when alz did not generate them; other collisions are unadoptable and reported as collision errors before planning); AdoptionPlan notes now Level::Note; alz-io RepoRoot::adopt(&AdoptionPlan, &AdoptionBasis); alz command/build/adopt.rs; Computed gained stack, placements and manifest_text. Spec §4.3 gained two bullets (unadoptable collisions, the apply rule). Open: the Rust problem text says 'Write the variable as a reference to itself and export it' where the spec lists 'Use "${NAME}" and export it' (R5.13 wording); setting the git identity on --adopt is R6.
+
+Verified by the lead (2026-11-24): merged into the R5 branch (51bb23c); mise run rust:ci and mise run lint exit 0. Test 24's two lock rows assert the spec's wording as reference drift owned by R5.15.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+alz build --adopt picks the native files alz did not generate, plans them with adopt::plan, checks every path with no-follow reads before writing anything, applies layer files, moves (link then unlink, never replacing), removals and the layer.yaml edit through RepoRoot, then builds; a refused plan leaves the repository byte-identical.
+<!-- SECTION:FINAL_SUMMARY:END -->
