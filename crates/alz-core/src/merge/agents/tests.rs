@@ -284,17 +284,17 @@ fn an_overlay_may_not_put_a_neutral_key_in_a_target_map_either() {
 #[test]
 fn native_maps_deep_merge_nested_maps_and_lists_and_stay_per_target() {
     let model = merged_model(with_overlay(
-        "---\nname: a\ndescription: d\nclaude:\n  extras:\n    Stop: [one]\n    Start: [x]\ncodex:\n  sandbox: ro\n---\n",
-        "---\nextends: a\nclaude:\n  extras:\n    Stop: [two, one]\ncodex:\n  sandbox: rw\n  extra: 1\n---\n",
+        "---\nname: a\ndescription: d\nclaude:\n  effort: low\n  disallowedTools: [Bash]\ncodex:\n  extras:\n    Stop: [one]\n    Start: [x]\n  sandbox: ro\n---\n",
+        "---\nextends: a\nclaude:\n  disallowedTools: [Write, Bash]\ncodex:\n  extras:\n    Stop: [two, one]\n  sandbox: rw\n  extra: 1\n---\n",
     ));
     // `Stop` keeps its place and gets `two` after `one`; `Start` stays after it.
     assert_eq!(
         native_of(&model, "a", TargetName::Claude),
-        "{extras: {Stop: [one, two], Start: [x]}}"
+        "{effort: low, disallowedTools: [Bash, Write]}"
     );
     assert_eq!(
         native_of(&model, "a", TargetName::Codex),
-        "{sandbox: rw, extra: 1}"
+        "{extras: {Stop: [one, two], Start: [x]}, sandbox: rw, extra: 1}"
     );
 }
 
@@ -306,11 +306,11 @@ fn native_keys_keep_source_order_and_a_whole_number_key_is_not_hoisted() {
         "personal",
         &[(
             "agents/a.md",
-            "---\nname: a\ndescription: d\nclaude:\n  zeta: 1\n  10: ten\n  9: nine\n  alpha: a\n---\n",
+            "---\nname: a\ndescription: d\ncodex:\n  zeta: 1\n  10: ten\n  9: nine\n  alpha: a\n---\n",
         )],
     )]);
     assert_eq!(
-        native_of(&model, "a", TargetName::Claude),
+        native_of(&model, "a", TargetName::Codex),
         "{zeta: 1, 10: ten, 9: nine, alpha: a}"
     );
 }
@@ -323,7 +323,7 @@ fn a_key_a_later_layer_adds_comes_after_the_existing_ones_and_a_replaced_value_s
             "personal",
             &[(
                 "agents/a.md",
-                "---\nname: a\ndescription: d\nclaude:\n  zeta: 1\n  mid: {b: 1, a: 2}\n  alpha: 3\n---\n",
+                "---\nname: a\ndescription: d\ncodex:\n  zeta: 1\n  mid: {b: 1, a: 2}\n  alpha: 3\n---\n",
             )],
         ),
         layer(
@@ -331,7 +331,7 @@ fn a_key_a_later_layer_adds_comes_after_the_existing_ones_and_a_replaced_value_s
             "client",
             &[(
                 "agents/a.overlay.md",
-                "---\nextends: a\nclaude:\n  10: ten\n  alpha: changed\n  mid: {c: 3, a: 9}\n  aaa: new\n---\n",
+                "---\nextends: a\ncodex:\n  10: ten\n  alpha: changed\n  mid: {c: 3, a: 9}\n  aaa: new\n---\n",
             )],
         ),
         layer(
@@ -339,12 +339,12 @@ fn a_key_a_later_layer_adds_comes_after_the_existing_ones_and_a_replaced_value_s
             "repo",
             &[(
                 "agents/a.overlay.md",
-                "---\nextends: a\nclaude:\n  9: nine\n  zeta: 2\n---\n",
+                "---\nextends: a\ncodex:\n  9: nine\n  zeta: 2\n---\n",
             )],
         ),
     ]);
     assert_eq!(
-        native_of(&model, "a", TargetName::Claude),
+        native_of(&model, "a", TargetName::Codex),
         "{zeta: 2, mid: {b: 1, a: 9, c: 3}, alpha: changed, 10: ten, aaa: new, 9: nine}"
     );
 }
@@ -352,11 +352,11 @@ fn a_key_a_later_layer_adds_comes_after_the_existing_ones_and_a_replaced_value_s
 #[test]
 fn list_items_that_are_mappings_equal_in_another_key_order_are_one_item() {
     let model = merged_model(with_overlay(
-        "---\nname: a\ndescription: d\nclaude:\n  l: [{x: 1, y: 2}, 5]\n---\n",
-        "---\nextends: a\nclaude:\n  l: [{y: 2, x: 1}, 6, 5]\n---\n",
+        "---\nname: a\ndescription: d\ncodex:\n  l: [{x: 1, y: 2}, 5]\n---\n",
+        "---\nextends: a\ncodex:\n  l: [{y: 2, x: 1}, 6, 5]\n---\n",
     ));
     assert_eq!(
-        native_of(&model, "a", TargetName::Claude),
+        native_of(&model, "a", TargetName::Codex),
         "{l: [{x: 1, y: 2}, 5, 6]}"
     );
 }

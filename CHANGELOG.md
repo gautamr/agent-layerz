@@ -43,6 +43,12 @@ All notable changes to agent-layerz are recorded here. The format follows
     does not document as a settings key. Codex `tools.web_search` is a boolean or a table, so it
     is no longer an ordered mode; its `allowed_domains` may not gain entries.
   - An agent's native fields may not hold `claude.mcpServers`, `codex.mcp_servers` or `hooks`.
+  - Under `claude:`, `settings.yaml` accepts only the keys that `docs/target-facts.md` §14 records
+    with a type, and each value must have that type. An unknown key at any depth, a key meant for
+    a user or managed scope, and a value of the wrong type are errors that name the file and the
+    key path and print no value (TASK-79). An agent's `claude:` fields get the same check for the
+    subagent frontmatter keys: `disallowedTools`, `maxTurns`, `autoCompactWindow`, `background`,
+    `omitClaudeMd`, `effort`, `color`, `initialPrompt` and `experimental.cacheTtl`.
   - `permissions.yaml` has the floor fields `disable_bypass_mode`, `block_reads_outside` and
     `block_writes_outside`. Once a layer sets one to `true`, a more specific layer cannot set it
     back to `false`.

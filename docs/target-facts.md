@@ -1,6 +1,6 @@
 # target-facts.md — verified facts about Claude Code and Codex
 
-**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76)
+**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79)
 **Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c); §7.12/§9.4 commit identity (§10–§11 here); §7.13 account selection, §12 items 10–21 (§12 here)
 **Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155). §12: Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`), mise **2026.9.1**
 **Host:** macOS (Darwin 25.6.0), both installed through Homebrew casks
@@ -424,7 +424,7 @@ Run these in a throwaway folder; none of them reads a credential.
 
 ## 13. Security-relevant native settings keys (TASK-76) — checked 2026-11-23
 
-**Tools:** Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`). These are the keys of the one table in `crates/alz-core/src/item/native_keys.rs` (98 path rows: 60 Claude, 38 Codex), which R4.16 uses for floors and reserved keys. Adapters and `settings.yaml` rules may rely on a key only as recorded here.
+**Tools:** Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`). These are the keys of the one table in `crates/alz-core/src/item/native_keys.rs` (101 path rows: 63 Claude, 38 Codex), which R4.16 uses for floors and reserved keys. Adapters and `settings.yaml` rules may rely on a key only as recorded here.
 
 ### 13.0 Sources and method
 
@@ -588,7 +588,216 @@ Found by TASK-76. Items 1 to 7 are applied in `crates/alz-core/src/item/native_k
 6. **Keys that run a command and are not in the table**, all "any file" scope, type string (SMOKE): `awsAuthRefresh`, `awsCredentialExport`, `gcpAuthRefresh`, `otelHeadersHelper` (an executable path or a shell command line). Recommended: `RUNS_A_COMMAND`, like `statusLine`.
 7. **Managed- or user-only keys that are not in the table** (DOCS, from the settings index; type not probed): `sandbox.filesystem.allowManagedReadPathsOnly`, `sandbox.ripgrep`, `sandbox.bwrapPath`, `sandbox.socatPath`, `sandbox.network.tlsTerminate`, `processWrapper`, `policyHelper`, `sshHostCommands`, `forceLoginGatewayUrl`, `allowManagedPermissionRulesOnly`, `disableSideloadFlags`. Recommended: `OUTSIDE_THE_PROJECT`. For Codex: `windows` as a whole.
 8. **`permissions.yaml` fields (owner answer 2)**: `disableBypassPermissionsMode` must be written as the string `"disable"`, never `true`; `blockReadsOutsideWorkingDirectories` and `blockWritesOutsideWorkingDirectories` are booleans, and `false` equals unset. `disableAutoMode` is the string `"disable"` too.
-9. **A wrongly typed value costs the file.** For most keys Claude drops the **whole settings file** (`nothing in them is in effect, including hooks and permission rules`). For `hooks`, `allowedMcpServers`, `deniedMcpServers`, `extraKnownMarketplaces` and `managedMcpServers` it ignores that field only and says so. A value that alz writes into `.claude/settings.json` must have the exact type above.
+9. **Types are checked.** alz writes a value into `.claude/settings.json` only with the exact type recorded above and in §14 (TASK-79).
 10. **Defaults that matter for the "stricter" order**: `sandbox.autoAllowBashIfSandboxed` is `true` by default in the installed 2.1.323, so a layer that leaves it unset leaves the prompts off. `sandbox.allowUnsandboxedCommands` is `true` by default.
 
-Counts. Of the 98 rows, all 98 were checked against DOCS; 94 also have a SMOKE type check; 4 are DOCS only (`claude.mcpServers`, `prependPlugins`, `appendPlugins`, `strictPluginOnlyCustomization`, which 2.1.323 does not type-check in a project file). One row is wrong in kind (correction 1), one carries a wrong reason (2), and two need a changed note (3 and 4); corrections 5 to 7 are keys the table lacks. No key is absent from the sources. Every other row matches in name, type and direction of the order.
+11. **Three keys added by TASK-79** (DOCS, `code.claude.com/docs/en/settings-reference.md`, fetched 2026-11-24; scope "any file" for all three; type not probed with a SMOKE run): `skipWebFetchPreflight` (boolean; `true` skips the WebFetch domain safety check, which sends each requested hostname to the vendor before fetching, so WebFetch then attempts any URL without consulting the blocklist), `forceLoginMethod` (one of `claudeai`, `console`, `gateway`; restricts which kind of account may sign in, and `claudeai` in any file also stops the keyless Console sign-in) and `forceLoginOrgUUID` (one UUID, or an array of UUIDs; in a file that is not managed it pre-selects the organization at login and checks nothing). All three are reserved: the first lowers a safety check, the other two steer how the user signs in (§12 item 16 already lists them among the keys that carry or pin a login). They are rows of the table, so §14 does not list them.
+
+Counts. Of the first 98 rows, all 98 were checked against DOCS; 94 also have a SMOKE type check; 4 are DOCS only (`claude.mcpServers`, `prependPlugins`, `appendPlugins`, `strictPluginOnlyCustomization`, which 2.1.323 does not type-check in a project file). One row is wrong in kind (correction 1), one carries a wrong reason (2), and two need a changed note (3 and 4); corrections 5 to 7 are keys the table lacks. No key is absent from the sources. Every other row matches in name, type and direction of the order.
+
+## 14. Claude settings keys and subagent frontmatter fields with a type (TASK-79) — checked 2026-11-24
+
+**Tools:** Claude Code **2.1.323** (`claude --version`). These are the keys of the typed table in `crates/alz-core/src/item/native_types/claude.rs`, which spec §7.9 and §7.2 use: under `claude:`, `settings.yaml` and an agent's native fields accept only these keys, and check the type of each value. A key may be accepted only if it is recorded here with its name and type; a unit test reads this section and fails for a table key that is not recorded in it.
+
+### 14.0 Sources and method
+
+- DOCS: `code.claude.com/docs/en/settings-reference.md` (every key has a Scope and a Type line), fetched 2026-11-24, and `code.claude.com/docs/en/sub-agents.md` (the frontmatter table), fetched 2026-11-24. The settings page describes a Claude Code newer than 2.1.323; where a key is new, the installed tool does not check it (level D).
+- SMOKE (type, and enum values where it checks them): a project `.claude/settings.json` in a throwaway folder, with `CLAUDE_CONFIG_DIR` and `HOME` set to empty throwaway folders, then `claude -p hi --max-turns 1`, which needs no login for this check. For each key, one value of the documented type must load, and a number and a string (or a list, an object or a wrong enum value, whichever the key's type is not) must give `These settings files did not load … Expected …`, or, for the keys that Claude ignores field by field, a message that says the entry was ignored. Nothing was written under `~/.claude*`.
+- What SMOKE found beyond the types: an object key that Claude does not know (`sandbox.bogusKey`, `spinnerTipsOverride.bogus`, `sandbox.network.bogus`) and an unknown top-level key load without a message. So Claude does not enforce the closed shape that alz asks for; the owner decision of 2026-11-23 (TASK-79) does. A `null` value (`"verbose": null`) does not load, which matches the rule that `null` is a value of the wrong type. `spinnerVerbs` needs both `verbs` and `mode` (an object with one, or none, does not load).
+- Level: `S` = name and type SMOKE (the installed tool refuses a wrong type); `D` = DOCS only, because 2.1.323 loads a wrong type or wrong value without a message (the key is newer than the tool, or the tool does not check it in a project file). The effect and the default of every key are DOCS and are not needed by alz, which only passes the value on.
+
+### 14.1 What the table checks
+
+A type is a boolean, text, a whole number (a YAML integer), a number, one of a list of texts, a list of one type, a mapping with any text keys and one value type (`*` in a path), a mapping with listed keys (each optional unless the note says required; any other key is an error), a mapping with exactly one of the listed keys, or one of several types. A path has `*` for a key of a mapping with any keys and `[]` for a list item. Ranges ("minimum 1", "at most 1"), patterns and the syntax of a path or a URL are not checked.
+
+A key that the security table refuses (§13) is not listed here, even when it has a type; a floor key of §13 is listed and typed.
+
+### 14.2 Claude settings keys that a project file may carry
+
+Keys with a floor (§13) first.
+
+| Key (under `claude:`) | Type | Level | Note |
+|---|---|---|---|
+| `disableAutoMode` | one of disable | S |  |
+| `sandbox` | a mapping | S |  |
+| `sandbox.enabled` | a boolean | S |  |
+| `sandbox.failIfUnavailable` | a boolean | S |  |
+| `sandbox.autoAllowBashIfSandboxed` | a boolean | S |  |
+| `sandbox.excludedCommands` | a list whose items are text | S |  |
+| `sandbox.allowUnsandboxedCommands` | a boolean | S |  |
+| `sandbox.filesystem` | a mapping | S |  |
+| `sandbox.filesystem.allowWrite` | a list whose items are text | S |  |
+| `sandbox.filesystem.denyWrite` | a list whose items are text | S |  |
+| `sandbox.filesystem.denyRead` | a list whose items are text | S |  |
+| `sandbox.filesystem.allowRead` | a list whose items are text | S |  |
+| `sandbox.ignoreViolations` | a mapping whose values are a list whose items are text | S | a command substring maps to a list of violation substrings |
+| `sandbox.enableWeakerNestedSandbox` | a boolean | S |  |
+| `sandbox.enableWeakerNetworkIsolation` | a boolean | S |  |
+| `sandbox.network` | a mapping | S |  |
+| `sandbox.network.allowUnixSockets` | a list whose items are text | S |  |
+| `sandbox.network.allowAllUnixSockets` | a boolean | S |  |
+| `sandbox.network.allowLocalBinding` | a boolean | S |  |
+| `sandbox.network.allowMachLookup` | a list whose items are text | S |  |
+| `sandbox.network.allowedDomains` | a list whose items are text | S |  |
+| `sandbox.network.deniedDomains` | a list whose items are text | S |  |
+| `allowedHttpHookUrls` | a list whose items are text | S |  |
+| `httpHookAllowedEnvVars` | a list whose items are text | S |  |
+| `disableSkillShellExecution` | a boolean | S |  |
+| `allowedMcpServers` | a list whose items are a mapping with exactly one of the keys serverName, serverCommand, serverUrl | S |  |
+| `allowedMcpServers[].serverName` | text | D |  |
+| `allowedMcpServers[].serverCommand` | a list whose items are text | D |  |
+| `allowedMcpServers[].serverUrl` | text | D |  |
+| `deniedMcpServers` | a list whose items are a mapping with exactly one of the keys serverName, serverCommand, serverUrl | S |  |
+| `deniedMcpServers[].serverName` | text | D |  |
+| `deniedMcpServers[].serverCommand` | a list whose items are text | D |  |
+| `deniedMcpServers[].serverUrl` | text | D |  |
+| `disableClaudeAiConnectors` | a boolean | S |  |
+
+All other accepted keys.
+
+| Key (under `claude:`) | Type | Level | Note |
+|---|---|---|---|
+| `$schema` | text | S |  |
+| `advisorModel` | text | S |  |
+| `alwaysThinkingEnabled` | a boolean | S |  |
+| `availableModels` | a list whose items are text | S |  |
+| `effortLevel` | one of low, medium, high, xhigh | D |  |
+| `enforceAvailableModels` | a boolean | S |  |
+| `fallbackModel` | a list whose items are text | S |  |
+| `fastMode` | a boolean | S |  |
+| `fastModePerSessionOptIn` | a boolean | S |  |
+| `language` | text | S |  |
+| `maxEffortLevel` | one of low, medium, high, xhigh, max | D |  |
+| `modelOverrides` | a mapping whose values are text | S |  |
+| `modelSettings` | a mapping whose values are a mapping | D |  |
+| `modelSettings.*.effortLevel` | one of low, medium, high, xhigh | D |  |
+| `modelSettings.*.maxEffortLevel` | one of low, medium, high, xhigh, max | D |  |
+| `modelSettings.*.autoCompactWindow` | a whole number, or one of auto | D |  |
+| `outputStyle` | text | S |  |
+| `promptCacheTtl` | one of 5m, 1h | D |  |
+| `showThinkingSummaries` | a boolean | S |  |
+| `subagentPromptCacheTtl` | one of 5m, 1h | D |  |
+| `switchModelsOnFlag` | a boolean | S |  |
+| `ultracode` | a boolean | D |  |
+| `autoCompactEnabled` | a boolean | S |  |
+| `autoCompactWindow` | a whole number | D | 100000 or more (DOCS); the range is not checked |
+| `autoMemoryDirectory` | text | S |  |
+| `autoMemoryEnabled` | a boolean | S |  |
+| `bashOutputMaxChars` | a whole number | D | positive; Claude clamps it to 4000 to 128000 (DOCS) |
+| `claudeMdExcludes` | a list whose items are text | S |  |
+| `env` | a mapping whose values are text | D | SMOKE: a number as a value is accepted by 2.1.323; alz requires text |
+| `fileCheckpointingEnabled` | a boolean | S |  |
+| `idleCompaction` | a boolean | S |  |
+| `plansDirectory` | text | S |  |
+| `skillListingBudgetFraction` | a number | S | above 0 and at most 1 (DOCS); the range is not checked |
+| `skillListingMaxDescChars` | a whole number | S |  |
+| `autoScrollEnabled` | a boolean | S |  |
+| `companyAnnouncements` | a list whose items are text | S |  |
+| `defaultShell` | one of bash, powershell | S |  |
+| `editorMode` | one of normal, vim | D |  |
+| `emojiCompletionEnabled` | a boolean | S |  |
+| `keybindingFlavor` | one of classic, readline | D |  |
+| `maxProseWidth` | a whole number | D | minimum 40 (DOCS); the range is not checked |
+| `prefersReducedMotion` | a boolean | S |  |
+| `promptSuggestionEnabled` | a boolean | S |  |
+| `respectGitignore` | a boolean | S |  |
+| `respondToBashCommands` | a boolean | S |  |
+| `showClearContextOnPlanAccept` | a boolean | S |  |
+| `showTurnDuration` | a boolean | S |  |
+| `spinnerTipsEnabled` | a boolean | S |  |
+| `spinnerTipsOverride` | a mapping | D |  |
+| `spinnerTipsOverride.tips` | a list whose items are text, or a mapping | D |  |
+| `spinnerTipsOverride.tips[].id` | text | D |  |
+| `spinnerTipsOverride.tips[].text` | text | D |  |
+| `spinnerTipsOverride.tips[].cooldownSessions` | a whole number | D |  |
+| `spinnerTipsOverride.tips[].priority` | a whole number | D |  |
+| `spinnerTipsOverride.tipsFile` | text | D |  |
+| `spinnerTipsOverride.label` | text | D |  |
+| `spinnerTipsOverride.excludeDefault` | a boolean | D |  |
+| `spinnerVerbs` | a mapping | S | `verbs` and `mode` are both required (SMOKE: a file with only one does not load) |
+| `spinnerVerbs.verbs` | a list whose items are text | S |  |
+| `spinnerVerbs.mode` | one of append, replace | S |  |
+| `syntaxHighlightingDisabled` | a boolean | S |  |
+| `terminalProgressBarEnabled` | a boolean | S |  |
+| `terminalTitleFromRename` | a boolean | S |  |
+| `theme` | text | D | the documented values and `custom:<slug>`; only the type is checked |
+| `timeFormat` | one of auto, 12-hour, 24-hour, 24-hour-utc | S (values D) |  |
+| `timeZone` | text | S | an IANA name; only the type is checked |
+| `tui` | one of default, fullscreen | S |  |
+| `verbose` | a boolean | S |  |
+| `viewMode` | one of default, verbose, focus | D |  |
+| `voice` | a mapping | S |  |
+| `voice.enabled` | a boolean | S |  |
+| `voice.autoSubmit` | a boolean | S |  |
+| `voice.mode` | one of hold, tap | S |  |
+| `voiceEnabled` | a boolean | S |  |
+| `wheelScrollAccelerationEnabled` | a boolean | S |  |
+| `attribution` | a mapping, or the boolean false | S | an object, or `false` (needs v2.1.281 or later, DOCS) |
+| `attribution.commit` | text | S |  |
+| `attribution.pr` | text | S |  |
+| `attribution.sessionUrl` | a boolean | D |  |
+| `includeCoAuthoredBy` | a boolean | S |  |
+| `includeGitInstructions` | a boolean | S |  |
+| `prUrlTemplate` | text | S |  |
+| `disableWorkflows` | a boolean | S |  |
+| `enableWorkflows` | a boolean | S |  |
+| `workflowKeywordTriggerEnabled` | a boolean | S |  |
+| `workflowSizeGuideline` | one of unrestricted, small, medium, large | S |  |
+| `disableBundledSkills` | a boolean | S |  |
+| `skillOverrides` | a mapping whose values are one of on, name-only, user-invocable-only, off | S |  |
+| `agent` | text | S |  |
+| `crossSessionInbound` | one of accept, hold, refuse | S |  |
+| `disableAgentView` | a boolean | S |  |
+| `isolatePeerMachines` | a boolean | S |  |
+| `teammateMode` | one of in-process, auto, tmux, iterm2 | D |  |
+| `worktree` | a mapping | S |  |
+| `worktree.baseRef` | one of fresh, head | S |  |
+| `worktree.symlinkDirectories` | a list whose items are text | S |  |
+| `worktree.sparsePaths` | a list whose items are text | S |  |
+| `worktree.bgIsolation` | one of worktree, none | D |  |
+| `agentPushNotifEnabled` | a boolean | S |  |
+| `awaySummaryEnabled` | a boolean | S |  |
+| `disableArtifact` | a boolean | S |  |
+| `disableDeepLinkRegistration` | one of disable | S |  |
+| `disableRemoteControl` | a boolean | S |  |
+| `enableArtifact` | a boolean | S |  |
+| `inputNeededNotifEnabled` | a boolean | S |  |
+| `preferredNotifChannel` | one of auto, terminal_bell, iterm2, iterm2_with_bell, kitty, ghostty, notifications_disabled | D |  |
+| `remote` | a mapping | S |  |
+| `remote.defaultEnvironmentId` | text | S |  |
+| `remoteControlAtStartup` | a boolean | S |  |
+| `autoUpdatesChannel` | one of latest, stable | S |  |
+| `minimumVersion` | text | S |  |
+| `cleanupPeriodDays` | a whole number | S | minimum 1 (DOCS); the range is not checked |
+| `feedbackSurveyRate` | a number | S | between 0 and 1 (DOCS); the range is not checked |
+
+### 14.3 Keys that are not accepted
+
+Not accepted means a `settings` error `is not a Claude Code settings key that alz accepts`.
+
+- **Read from a user or managed scope only** (Scope column of the settings reference, DOCS): `askUserQuestionTimeout`, `availableModelsMatch`, `deniedModels`, `modelPicker`, `modelPricing`, `useAutoModeDuringPlan`, `autoMode.classifyAllShell`, `dialogExpiry`, `footerLinksRegexes`, `spellcheck`, `vimInsertModeRemaps`, `axScreenReader`, `bashEditDiffEnabled`, `autoContinueAtUsageLimit`, `claudeMd`, `worktree.location`, `sshConfigs`, `sshHostAllowlist`, `allowedProviders`, `gatewayInternalNetworks`, `enforceAnthropicSignIn`, `requiredMaximumVersion`, `requiredMinimumVersion`, `browserExternalPageTools`, `disableBrowserExternalNavigation`, `disableMobileSimulatorTools`, `desktopSessionCleanupPeriodDays`, `feedbackDrafts`, `forceRemoteSettingsRefresh`, `managedSourcesBehavior`, `parentSettingsBehavior`, `wslInheritsWindowsSettings`, `allowedChannelPlugins`, `channelsEnabled`, `disableCommandPluginSources`, `pluginSuggestionMarketplaces`, `pluginTrustMessage`, `allowClaudeInChromeWithManagedMcp`, `disableDesktopLocalSessions`, `disableRemotePreviewScripts` and `syncClaudeAiSkills` (user, local or managed). The security table also lists the keys of §13.3 and §13.8 item 7.
+- **Global config keys**, which Claude Code keeps in `~/.claude.json` and not in a settings file: `autoConnectIde`, `autoInstallIdeExtension`, `claudeInChromeDefaultEnabled`, `copyFullResponse`, `copyOnSelect`, `defaultToAgentsView`, `diffTool`, `externalEditorContext`, `leftArrowOpensAgents`, `permissionExplainerEnabled`, `prStatusFooterEnabled`, `teammateDefaultModel`.
+- **Reserved by the owner's decision (TASK-79)**, so refused with a reason, not as unlisted (§13.8 item 11): `skipWebFetchPreflight`, `forceLoginMethod` and `forceLoginOrgUUID`.
+- **Refused by the security table**: the first-class, reserved and floor-by-reason keys of §13 (`model`, `permissions`, `hooks`, `statusLine`, `enabledPlugins`, and the others).
+- **Not a documented key**: any key that the settings reference does not list.
+
+### 14.4 Subagent frontmatter fields under `claude:` in an agent file
+
+DOCS only: `code.claude.com/docs/en/sub-agents.md`, "Supported frontmatter fields", fetched 2026-11-24. A subagent cannot be loaded without a login, so no SMOKE was possible; §1 records that Claude Code ignores an unknown field without a message. `name`, `description`, `tools`, `model`, `permissionMode`, `skills`, `isolation` and `memory` have a neutral field, and `mcpServers` and `hooks` come only through `mcp.yaml` and `hooks.yaml` (§1, spec §7.2), so none of them is in this table.
+
+| Field (under `claude:`) | Type | Level | Note |
+|---|---|---|---|
+| `disallowedTools` | text, or a list whose items are text | D | a comma-separated string or a YAML list, "same format as `tools`" |
+| `maxTurns` | a whole number | D | maximum number of agentic turns |
+| `autoCompactWindow` | a whole number | D | 100000 or more; needs v2.1.296 or later; the range is not checked |
+| `background` | a boolean | D |  |
+| `omitClaudeMd` | a boolean | D | needs v2.1.271 or later |
+| `effort` | one of low, medium, high, xhigh, max | D | the levels available depend on the model |
+| `color` | one of red, blue, green, yellow, purple, orange, pink, cyan | D |  |
+| `initialPrompt` | text | D | auto-submitted as the first turn when the agent runs as the main session agent |
+| `experimental` | a mapping | D | a mapping of experimental options; docs name only `cacheTtl` |
+| `experimental.cacheTtl` | one of 5m, 1h | D | `5m` or `1h`; needs v2.1.248 or later |
+
+### 14.5 Counts
+
+Settings: 147 rows (every key, and every key below an object, a map or a list), checked against the settings reference, of which 111 have a SMOKE type check and 36 are DOCS only (the installed 2.1.323 loads a wrong type without a message, or the row is a key below a map or list that the probe did not reach). Agent frontmatter: 10 rows, all DOCS. The security table of §13 keeps the keys it refuses.

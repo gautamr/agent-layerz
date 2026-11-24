@@ -26,12 +26,16 @@ fn of(files: &[(&str, &str)], target: TargetName) -> Option<Tree> {
         .map(|settings| settings.value().to_tree())
 }
 
-fn tree(yaml: &str) -> Tree {
+fn tree_of(target: TargetName, yaml: &str) -> Tree {
     crate::item::SettingsItems::read(&settings_layer("t", yaml))
         .0
         .into_file()
-        .and_then(|(_, file)| file.of(TargetName::Claude).map(SettingsTree::to_tree))
-        .expect("claude settings")
+        .and_then(|(_, file)| file.of(target).map(SettingsTree::to_tree))
+        .expect("settings of the target")
+}
+
+fn tree(yaml: &str) -> Tree {
+    tree_of(TargetName::Claude, yaml)
 }
 
 #[test]
@@ -40,11 +44,11 @@ fn mappings_merge_key_by_key_and_the_more_specific_scalar_wins() {
         &[
             (
                 "personal",
-                "claude:\n  keep: 1\n  both:\n    x: 1\n    y: 2\n  effort: low\n",
+                "claude:\n  language: a\n  env:\n    X: '1'\n    Y: '2'\n  effortLevel: low\n",
             ),
             (
                 "repo",
-                "claude:\n  both:\n    y: 3\n    z: 4\n  effort: high\n  new: true\n",
+                "claude:\n  env:\n    Y: '3'\n    Z: '4'\n  effortLevel: high\n  verbose: true\n",
             ),
         ],
         TargetName::Claude,
@@ -52,7 +56,7 @@ fn mappings_merge_key_by_key_and_the_more_specific_scalar_wins() {
     assert_eq!(
         merged,
         Some(tree(
-            "claude:\n  keep: 1\n  both:\n    x: 1\n    y: 3\n    z: 4\n  effort: high\n  new: true\n"
+            "claude:\n  language: a\n  env:\n    X: '1'\n    Y: '3'\n    Z: '4'\n  effortLevel: high\n  verbose: true\n"
         ))
     );
 }
@@ -63,11 +67,11 @@ fn two_lists_are_concatenated_without_repeats_and_mappings_in_another_key_order_
         &[
             (
                 "personal",
-                "claude:\n  allowed: [a, b]\n  items:\n    - {k: 1, j: 2}\n",
+                "claude:\n  availableModels: [a, b]\n  spinnerTipsOverride:\n    tips:\n      - {id: a, text: t}\n",
             ),
             (
                 "repo",
-                "claude:\n  allowed: [b, c, a]\n  items:\n    - {j: 2, k: 1}\n    - {k: 3}\n",
+                "claude:\n  availableModels: [b, c, a]\n  spinnerTipsOverride:\n    tips:\n      - {text: t, id: a}\n      - {id: b, text: u}\n",
             ),
         ],
         TargetName::Claude,
@@ -75,21 +79,29 @@ fn two_lists_are_concatenated_without_repeats_and_mappings_in_another_key_order_
     assert_eq!(
         merged,
         Some(tree(
-            "claude:\n  allowed: [a, b, c]\n  items:\n    - {k: 1, j: 2}\n    - {k: 3}\n"
+            "claude:\n  availableModels: [a, b, c]\n  spinnerTipsOverride:\n    tips:\n      - {id: a, text: t}\n      - {id: b, text: u}\n"
         ))
     );
 }
 
 #[test]
 fn a_change_of_kind_is_replaced_by_the_more_specific_value() {
+    // Codex settings have no types here, so a change of kind is a plain replacement; a Claude
+    // value of another kind is refused when the file is read.
     let merged = of(
         &[
-            ("personal", "claude:\n  a: [x]\n  b: 1\n  c: {k: 1}\n"),
-            ("repo", "claude:\n  a: 2\n  b: [y]\n  c: [z]\n"),
+            ("personal", "codex:\n  a: [x]\n  b: 1\n  c: {k: 1}\n"),
+            ("repo", "codex:\n  a: 2\n  b: [y]\n  c: [z]\n"),
         ],
-        TargetName::Claude,
+        TargetName::Codex,
     );
-    assert_eq!(merged, Some(tree("claude:\n  a: 2\n  b: [y]\n  c: [z]\n")));
+    assert_eq!(
+        merged,
+        Some(tree_of(
+            TargetName::Codex,
+            "codex:\n  a: 2\n  b: [y]\n  c: [z]\n"
+        ))
+    );
 }
 
 #[test]
@@ -103,7 +115,7 @@ fn the_merged_settings_are_an_ordered_map_of_the_targets_that_some_layer_set() {
     assert_eq!(targets, [TargetName::Codex]);
     let found = merged(stack(&[
         ("personal", "codex:\n  a: 1\n"),
-        ("repo", "claude:\n  b: 2\n"),
+        ("repo", "claude:\n  verbose: true\n"),
     ]));
     let targets: Vec<TargetName> = found
         .merged()
@@ -118,9 +130,9 @@ fn the_merged_settings_are_an_ordered_map_of_the_targets_that_some_layer_set() {
 #[test]
 fn a_target_keeps_the_layers_that_set_it() {
     let found = merged(stack(&[
-        ("personal", "claude:\n  a: 1\n"),
+        ("personal", "claude:\n  verbose: true\n"),
         ("client", "codex:\n  a: 1\n"),
-        ("repo", "claude:\n  b: 2\n"),
+        ("repo", "claude:\n  fastMode: true\n"),
     ]));
     let model = found.merged().expect("no error was found");
     let claude = model.settings().get(&TargetName::Claude).expect("claude");
@@ -142,7 +154,7 @@ fn a_target_keeps_the_layers_that_set_it() {
 fn a_layer_with_a_refused_top_level_key_is_reported_and_nothing_is_merged() {
     for key in ["__proto__", "constructor", "toString", "Claude", "cursor"] {
         let found = merged(stack(&[
-            ("personal", "claude:\n  a: 1\n"),
+            ("personal", "claude:\n  verbose: true\n"),
             ("repo", &format!("{key}:\n  claude:\n    permissions: x\n")),
         ]));
         assert_eq!(
@@ -159,7 +171,7 @@ fn a_layer_with_a_refused_top_level_key_is_reported_and_nothing_is_merged() {
 #[test]
 fn a_reserved_key_is_refused_naming_the_layer_and_the_file_that_sets_it() {
     let found = merged(stack(&[
-        ("personal", "claude:\n  a: 1\n"),
+        ("personal", "claude:\n  verbose: true\n"),
         ("repo", "claude:\n  disableAllHooks: true\n"),
     ]));
     assert_eq!(
@@ -192,7 +204,7 @@ fn settings_that_set_other_variables_and_names_that_are_plain_keys_merge() {
     let merged = of(
         &[(
             "personal",
-            "claude:\n  env:\n    FOO: x\n  __proto__: y\n  constructor: z\n  toString: w\ncodex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [HOME, PATH]\n    exclude: ['*FOO*']\n",
+            "claude:\n  env:\n    FOO: x\n    __proto__: y\n    constructor: z\n    toString: w\ncodex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [HOME, PATH]\n    exclude: ['*FOO*']\n",
         )],
         TargetName::Claude,
     );
@@ -202,8 +214,8 @@ fn settings_that_set_other_variables_and_names_that_are_plain_keys_merge() {
 #[test]
 fn merging_the_same_stack_twice_gives_equal_results() {
     let files = [
-        ("personal", "claude:\n  a: [1]\n"),
-        ("repo", "claude:\n  a: [2]\n"),
+        ("personal", "claude:\n  availableModels: [a]\n"),
+        ("repo", "claude:\n  availableModels: [b]\n"),
     ];
     assert_eq!(merged(stack(&files)), merged(stack(&files)));
 }
@@ -260,16 +272,24 @@ fn a_floor_key_that_changes_kind_is_refused_even_to_null() {
     for other in ["null", "[a]", "text", "1"] {
         assert_eq!(
             error_lines(&[
-                ("personal", "claude:\n  sandbox:\n    enabled: true\n"),
-                (
-                    "repo",
-                    &format!("claude:\n  sandbox:\n    enabled: {other}\n")
-                ),
+                ("personal", "codex:\n  allow_login_shell: false\n"),
+                ("repo", &format!("codex:\n  allow_login_shell: {other}\n")),
             ]),
-            [floor_error("repo", "claude.sandbox.enabled", KIND)],
+            [floor_error("repo", "codex.allow_login_shell", KIND)],
             "{other}"
         );
     }
+}
+
+#[test]
+fn a_claude_floor_key_of_another_kind_is_refused_by_its_type_before_the_floor_is_looked_at() {
+    assert_eq!(
+        error_lines(&[
+            ("personal", "claude:\n  sandbox:\n    enabled: true\n"),
+            ("repo", "claude:\n  sandbox:\n    enabled: text\n"),
+        ]),
+        ["error [settings] repo:settings.yaml:3:14: 'claude.sandbox.enabled' must be a boolean"]
+    );
 }
 
 #[test]
@@ -365,11 +385,9 @@ fn a_union_list_grows_and_cannot_change_kind() {
                 "claude:\n  sandbox:\n    filesystem:\n      denyRead: none\n"
             ),
         ]),
-        [floor_error(
-            "repo",
-            "claude.sandbox.filesystem.denyRead",
-            KIND
-        )]
+        [
+            "error [settings] repo:settings.yaml:4:17: 'claude.sandbox.filesystem.denyRead' must be a list whose items are text"
+        ]
     );
 }
 
@@ -378,11 +396,11 @@ fn a_file_that_loosens_a_floor_is_not_merged_at_all_and_every_loosening_is_repor
     let found = merged(stack(&[
         (
             "personal",
-            "claude:\n  sandbox:\n    enabled: true\n  a: 1\n",
+            "claude:\n  sandbox:\n    enabled: true\n  verbose: true\n",
         ),
         (
             "repo",
-            "claude:\n  sandbox:\n    enabled: false\n    failIfUnavailable: true\n  disableSkillShellExecution: true\n  b: 2\ncodex:\n  allow_login_shell: true\n",
+            "claude:\n  sandbox:\n    enabled: false\n    failIfUnavailable: true\n  disableSkillShellExecution: true\n  fastMode: true\ncodex:\n  allow_login_shell: true\n",
         ),
     ]));
     assert_eq!(
@@ -396,7 +414,7 @@ fn a_file_that_loosens_a_floor_is_not_merged_at_all_and_every_loosening_is_repor
 fn the_first_layer_to_set_a_floor_key_is_free_to_set_any_value() {
     assert_eq!(
         error_lines(&[
-            ("personal", "claude:\n  a: 1\n"),
+            ("personal", "claude:\n  verbose: true\n"),
             ("repo", "claude:\n  sandbox:\n    enabled: false\n"),
         ]),
         Vec::<String>::new()
