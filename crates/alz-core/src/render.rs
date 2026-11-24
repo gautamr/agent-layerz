@@ -3,6 +3,7 @@
 //! (decision-33).
 
 pub mod action_word;
+pub mod gitignore;
 pub mod glob;
 pub mod header;
 pub mod instructions;
@@ -11,4 +12,5 @@ pub mod lock_of;
 pub mod protected;
 pub(crate) mod sources;
 pub mod tree;
+pub mod write_plan;
 pub mod yaml;

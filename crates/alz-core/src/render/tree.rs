@@ -59,12 +59,15 @@ impl OutputPath {
     /// further is a limit of §4.3, not something alz guesses.
     #[must_use]
     pub fn folded(&self) -> String {
-        self.0
-            .as_str()
-            .nfd()
-            .collect::<String>()
-            .to_ascii_lowercase()
+        fold(&self.0)
     }
+}
+
+/// The key two paths share when a file system would make them one file, for any safe relative
+/// path: see [`OutputPath::folded`].
+#[must_use]
+pub fn fold(path: &SafeRelPath) -> String {
+    path.as_str().nfd().collect::<String>().to_ascii_lowercase()
 }
 
 impl TryFrom<SafeRelPath> for OutputPath {
