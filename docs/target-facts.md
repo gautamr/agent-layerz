@@ -1,6 +1,6 @@
 # target-facts.md — verified facts about Claude Code and Codex
 
-**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79)
+**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79); §15 added 2026-11-24 (cloud provider switches for the live probe, TASK-55.6.15)
 **Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c); §7.12/§9.4 commit identity (§10–§11 here); §7.13 account selection, §12 items 10–21 (§12 here)
 **Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155). §12: Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`), mise **2026.9.1**
 **Host:** macOS (Darwin 25.6.0), both installed through Homebrew casks
@@ -801,3 +801,31 @@ DOCS only: `code.claude.com/docs/en/sub-agents.md`, "Supported frontmatter field
 ### 14.5 Counts
 
 Settings: 147 rows (every key, and every key below an object, a map or a list), checked against the settings reference, of which 111 have a SMOKE type check and 36 are DOCS only (the installed 2.1.323 loads a wrong type without a message, or the row is a key below a map or list that the probe did not reach). Agent frontmatter: 10 rows, all DOCS. The security table of §13 keeps the keys it refuses.
+
+## 15. Cloud provider switches and variables for the live probe (TASK-55.6.15) — checked 2026-11-24
+
+What `alz ls --live` may hand the `claude` program beyond its fixed allowlist (spec §10.3). Level: DOCS only. A provider cannot be reached without cloud credentials, so no SMOKE was possible; nothing under `~/.claude*` or any credential was used. Installed Claude Code: 2.1.323.
+
+### 15.0 Sources
+
+- `https://code.claude.com/docs/en/amazon-bedrock.md`, fetched 2026-11-24 with curl.
+- `https://code.claude.com/docs/en/google-vertex-ai.md`, fetched 2026-11-24 with curl.
+- `https://code.claude.com/docs/en/env-vars.md`, fetched 2026-11-24 with curl (the switch rows and the empty-value rule).
+
+### 15.1 Rows
+
+| Fact | Level | Source and wording |
+|---|---|---|
+| Amazon Bedrock is switched on by `CLAUDE_CODE_USE_BEDROCK`, written `=1` | DOCS | amazon-bedrock, "Set the following environment variables to enable Amazon Bedrock": `export CLAUDE_CODE_USE_BEDROCK=1`; env-vars: "Use Amazon Bedrock" |
+| Bedrock reads these variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_BEARER_TOKEN_BEDROCK`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION` | DOCS | amazon-bedrock, steps 2 and 3: the credential chain and the region order. All but the last start with `AWS_`; the last starts with `ANTHROPIC_` and is covered by that prefix |
+| Google Cloud's Agent Platform (Vertex) is switched on by `CLAUDE_CODE_USE_VERTEX`, written `=1` | DOCS | google-vertex-ai, step 4: `export CLAUDE_CODE_USE_VERTEX=1`; env-vars: "Use Google Cloud's Agent Platform" |
+| Vertex needs `CLOUD_ML_REGION` (`global`, a multi-region such as `us` or `eu`, or a region; default `us-east5`) and `ANTHROPIC_VERTEX_PROJECT_ID` (it wins over `GCLOUD_PROJECT`, `GOOGLE_CLOUD_PROJECT` and the project of the credential file) | DOCS | google-vertex-ai, step 4 and the note on the project |
+| Vertex credentials are Application Default Credentials; `GOOGLE_APPLICATION_CREDENTIALS` names a credential file | DOCS | google-vertex-ai, the sections on authentication and troubleshooting. The page also names `GCLOUD_PROJECT`, which starts with neither `GOOGLE_` nor any allowed prefix, and `VERTEX_REGION_CLAUDE_*` (per-model regions); the owner's rule leaves both out |
+| A switch with an empty value counts as unset for provider selection | DOCS | env-vars: "Claude Code treats the empty value as unset for provider selection" (said of `CLAUDE_CODE_USE_VERTEX`). The docs name no other off value: `0` and `false` are not described for these two switches |
+
+### 15.2 What alz does with them (owner's decision, 2026-11-24)
+
+- A switch is **on** when its variable has a value that is not empty; that is the documented rule. `0` and `false` count as on, because the docs do not make them off.
+- Bedrock on: the probe's child also gets every variable that starts with `AWS_`. Vertex on: it also gets every variable that starts with `GOOGLE_`, `CLOUD_ML_REGION` and `ANTHROPIC_VERTEX_PROJECT_ID`. A switch that is off passes none of its set. The switches themselves pass through the `CLAUDE_CODE_*` prefix.
+- `ANTHROPIC_VERTEX_PROJECT_ID` starts with `ANTHROPIC_`, which the allowlist already passes. alz withholds it while Vertex is off, so "only when switched on" holds for it too.
+- `GCLOUD_PROJECT`, `VERTEX_REGION_CLAUDE_*` and `AWS_*` names in lower case do not pass. This is a gap against the pages if a deployment depends on them; the owner's list is the rule.

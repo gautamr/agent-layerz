@@ -6,6 +6,7 @@
 mod environment;
 mod locate;
 mod pipes;
+mod provider;
 
 use std::ffi::OsString;
 use std::io;
