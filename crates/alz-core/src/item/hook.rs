@@ -141,6 +141,9 @@ impl HookScript {
             .ok()
             .filter(|path| matches!(ItemPath::of(path), ItemPath::HookScript { .. }))
             .ok_or(Problem::ScriptOutside)?;
+        if !path.as_str().chars().all(is_script_name_character) {
+            return Err(Problem::ScriptName(path));
+        }
         match contents.get(&path) {
             Some(bytes) => Ok(Self {
                 bytes: bytes.to_vec(),
@@ -150,6 +153,14 @@ impl HookScript {
             None => Err(Problem::ScriptMissing(path)),
         }
     }
+}
+
+/// Whether a script's path may hold `letter`. The path goes into a command line that a shell
+/// reads, between double quotes, so a quote, `$`, a backtick, a backslash, a space or any other
+/// character a shell treats as more than a name is refused: only ASCII letters, digits, `.`, `_`,
+/// `-` and `/` pass (spec §7.5).
+const fn is_script_name_character(letter: char) -> bool {
+    letter.is_ascii_alphanumeric() || matches!(letter, '.' | '_' | '-' | '/')
 }
 
 /// What a hook does: exactly one of a script of the layer and a command line.
@@ -515,6 +526,7 @@ enum Problem {
     RunOrCommand,
     ScriptOutside,
     ScriptMissing(SafeRelPath),
+    ScriptName(SafeRelPath),
     PathsWithoutTools,
     NativeMatch,
     MatcherOnNeutral,
@@ -536,6 +548,10 @@ impl Problem {
                 .then("script ")
                 .then(QuotedKey::from_untrusted(path.as_str()))
                 .then(" is not in the layer"),
+            Self::ScriptName(path) => head
+                .then("script ")
+                .then(QuotedKey::from_untrusted(path.as_str()))
+                .then(" may only hold ASCII letters, digits, '.', '_', '-' and '/'"),
             Self::PathsWithoutTools => head.then("'match.paths' needs 'match.tools'"),
             Self::NativeMatch => {
                 head.then("a native event takes the target's own 'matcher', not 'match'")

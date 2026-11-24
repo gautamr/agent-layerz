@@ -1322,6 +1322,11 @@ Rules:
   any file below `hooks/`, reference drift, TASK-55.5) or
   `command:` (a command line used as written). In a command, `${PROJECT_DIR}` is the repo root;
   each adapter replaces it with its own variable. `timeout` is in seconds.
+- The path of a `run:` script may hold only ASCII letters, digits, `.`, `_`, `-` and `/`, because
+  the adapter puts it between double quotes in a command line that a shell reads. Any other
+  character (a quote, `$`, a backtick, a space, `;`, a non-ASCII letter) is a `hooks` error,
+  `hook '<id>': script '<path>' may only hold ASCII letters, digits, '.', '_', '-' and '/'`,
+  naming the file and the line.
 - `event` may also be a target's own event, written `<target>:<Event>` (e.g.
   `claude:Notification`). It runs on that target only and takes the target's `matcher` string
   instead of `match`.
