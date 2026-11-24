@@ -111,8 +111,12 @@ pub(super) fn written_edit(section: &Section<'_>, field: &'static str) -> Option
 pub(super) type Segment<'a> = (EditSign, Vec<&'a str>);
 
 /// The segments of `text`, `None` when some part of it is not a segment. White space between
-/// segments is free.
+/// segments is free, but a text of white space alone is not an edit: only the empty text says no
+/// segment (the reference refuses the first and accepts the second).
 pub(super) fn segments(text: &str) -> Option<Vec<Segment<'_>>> {
+    if !text.is_empty() && text.trim().is_empty() {
+        return None;
+    }
     // A local loop: it consumes the text segment by segment, and nothing escapes.
     let mut rest = text.trim_start();
     let mut found = Vec::new();

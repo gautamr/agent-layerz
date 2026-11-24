@@ -4,7 +4,7 @@ title: Settle the order of YAML mapping keys that are whole numbers
 status: To Do
 assignee: []
 created_date: '2026-11-23T03:51:00Z'
-updated_date: '2026-11-23T15:33:00Z'
+updated_date: '2026-11-23T23:56:00Z'
 labels:
   - discovered
   - area:spec
@@ -51,4 +51,6 @@ Evidence that the code matches:
 - crates/alz-core/src/item/agent/ordered_tree.rs, whose module docs give the same rule;
 - the tests native_keys_keep_source_order_and_a_whole_number_key_is_not_hoisted and a_key_a_later_layer_adds_comes_after_the_existing_ones_and_a_replaced_value_stays_in_place in crates/alz-core/src/merge/agents/tests.rs (R4.5).
 mise run lint exit 0. AC #2 (the generated agent file and its acceptance test) is R5's.
+
+AC #2 evidence (R5.4, TASK-55.6.4, uncommitted): Rust alz-core target/claude renders native fields in NativeMap order after the fixed fields (unit test native_fields_hold_the_keys_10_and_9_in_source_order_after_the_fixed_fields, output name, description, "10", "9", effort); acceptance case in test/acceptance/18-native-fields.test.ts (fixture 18-native-fields/repo-key-order) marked referenceDrift TASK-66, expected-fail against the reference (it writes "9", "10" before name), must pass against ALZ_BIN once alz build exists (R5.8). AC not checked.
 <!-- SECTION:NOTES:END -->

@@ -1,6 +1,8 @@
 //! The agent tools alz writes configuration for (spec §8). The adapter trait that goes with each
 //! target is R5's; this module holds the closed set of names that layer files may use.
 
+pub mod claude;
+
 use std::fmt;
 
 use thiserror::Error;

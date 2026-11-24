@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
-use crate::layer::{ItemPath, LayerMeta, LayerName};
+use crate::layer::{ItemPath, LayerContents, LayerMeta, LayerName};
 use crate::path::SafeRelPath;
 use crate::schema::{Checked, SchemaErrors, require, unknown_fields, zip, zip3};
 use crate::stack::ResolvedLayer;
@@ -76,6 +76,7 @@ impl ArgumentHint {
 pub struct SkillFile {
     path: SafeRelPath,
     bytes: Vec<u8>,
+    executable: bool,
 }
 
 impl SkillFile {
@@ -95,6 +96,12 @@ impl SkillFile {
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
+
+    /// Whether the file has the owner-execute bit.
+    #[must_use]
+    pub const fn executable(&self) -> bool {
+        self.executable
+    }
 }
 
 impl fmt::Debug for SkillFile {
@@ -104,6 +111,7 @@ impl fmt::Debug for SkillFile {
             .debug_struct("SkillFile")
             .field("path", &self.path)
             .field("size", &self.bytes.len())
+            .field("executable", &self.executable)
             .finish()
     }
 }
@@ -262,7 +270,7 @@ impl SkillItems {
         let (directories, found) = collect(
             folders
                 .iter()
-                .map(|(folder, files)| read_directory(name, folder, files)),
+                .map(|(folder, files)| read_directory(name, folder, files, layer.contents())),
         );
         let (commands, found_commands) = collect(layer.contents().iter().filter_map(
             |(path, bytes)| match ItemPath::of(path) {
@@ -398,6 +406,7 @@ fn read_directory(
     layer: &LayerName,
     folder: &str,
     files: &[(&SafeRelPath, &str, &[u8])],
+    contents: &LayerContents,
 ) -> Result<Skill, Diagnostics> {
     let directory_at = Where::layer_file(
         Stripped::from_untrusted(layer.as_str()),
@@ -444,6 +453,7 @@ fn read_directory(
                 .map(|(path, _, bytes)| SkillFile {
                     path: (*path).clone(),
                     bytes: bytes.to_vec(),
+                    executable: contents.is_executable(path),
                 })
                 .collect(),
         }))

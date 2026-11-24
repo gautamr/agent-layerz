@@ -102,9 +102,13 @@ fn edit_text(edit: &ListEdit<PermissionRule>) -> String {
     };
     match edit {
         ListEdit::Replace(set) => format!("[{}]", segment("", set).trim_matches(['[', ']'])),
-        ListEdit::Adjust { remove, add } => {
-            format!("{} {}", segment("-", remove), segment("+", add))
-        }
+        // An edit of white space alone is no edit (the reference refuses it), so an empty segment
+        // adds no separator.
+        ListEdit::Adjust { remove, add } => [segment("-", remove), segment("+", add)]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" "),
     }
 }
 

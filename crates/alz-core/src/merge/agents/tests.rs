@@ -634,6 +634,26 @@ fn an_extension_without_text_adds_no_section_and_an_empty_base_gets_no_blank_lin
 }
 
 #[test]
+fn a_layer_kind_prints_stripped_in_the_heading_of_an_overlay_section() {
+    use crate::merge::testing::layer_from_yaml;
+    let model = merged_model(vec![
+        layer(
+            "personal",
+            "personal",
+            &[("agents/a.md", "---\nname: a\ndescription: d\n---\nBase\n")],
+        ),
+        layer_from_yaml(
+            "name: acme\nkind: \"te\\u202Eam\"\nvisibility: private\n",
+            &[("agents/a.overlay.md", "---\nextends: a\n---\nTeam text\n")],
+        ),
+    ]);
+    assert_eq!(
+        agent(&model, "a").value().body().compose(),
+        "Base\n\n## Team context: acme\n\nTeam text"
+    );
+}
+
+#[test]
 fn an_overlay_refines_an_agent_that_its_own_layer_defines() {
     let model = merged_model(vec![layer(
         "personal",

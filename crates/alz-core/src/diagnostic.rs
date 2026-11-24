@@ -152,6 +152,11 @@ pub enum Code {
     Identity,
     /// A layer that declares `account` and may not, or several client layers that do (§7.13).
     Account,
+    /// An agent Claude cannot be given: an empty tools list, or a model that is not a Claude model
+    /// value (§8.1).
+    ClaudeAgent,
+    /// An agent tool with a scope, which Claude cannot keep, a warning (§8.1).
+    ToolScope,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -210,6 +215,8 @@ impl Code {
             Self::Budget => "budget",
             Self::Identity => "identity",
             Self::Account => "account",
+            Self::ClaudeAgent => "claude-agent",
+            Self::ToolScope => "tool-scope",
             Self::Unresolved => "unresolved",
         }
     }

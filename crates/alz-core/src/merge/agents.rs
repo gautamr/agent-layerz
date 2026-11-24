@@ -71,7 +71,7 @@ impl fmt::Display for ContextSection {
         write!(
             formatter,
             "## {} context: {}\n\n{}",
-            self.heading.kind().title(),
+            Stripped::from_untrusted(&self.heading.kind().title()),
             self.heading.name(),
             self.text
         )

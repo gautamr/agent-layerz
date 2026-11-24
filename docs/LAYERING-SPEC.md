@@ -2496,7 +2496,14 @@ target-facts section each item relies on is given in brackets.
     and `claude-` followed by lower-case letters, digits, `.` or `-`.
   - `permissionMode`, `skills` when not empty, `isolation` only for `worktree`, and `memory`
     unless it is `none`, since Claude has no `none` for these.
-  - The native fields of `claude:`, in the order §7.2 gives them.
+  - The native fields of `claude:`, in the order §7.2 gives them. A native value is written by
+    §10.2's emitter, which writes no null, no float and no integer beyond 64 bits: an agent
+    whose native field holds one is the error `claude-agent`, naming the field and the agent's
+    file. The TypeScript `alz` writes them (reference drift, TASK-55.6.4).
+
+  The model is resolved as §7.8 says. A `model` that is not an alias of `models.yaml` is the
+  error `models`, and an alias with no `claude` model is the warning `models`; the agent then
+  has no `model` field. Both name the agent and its file.
 
   The header is a comment line right after the opening `---`, and the body follows the closing
   `---` after a blank line.
@@ -2926,7 +2933,7 @@ How values print in these messages:
 | `layer` | error | a file or folder name with a control or format character (§5.3), a source of a generated header that holds a control or format character or `-->` (§4.3) |
 | `passthrough` | error | a passthrough path that is the path of a generated file after case folding (§4.3, §7.11) |
 | `target` | error | a target that has no adapter (§8) |
-| `claude-agent` | error | an agent with an empty tools list, or whose model is not a Claude model value (§8.1) |
+| `claude-agent` | error | an agent with an empty tools list, whose model is not a Claude model value, or with a native field alz cannot write (§8.1) |
 | `tool-scope` | warning | an agent tool with a scope, which Claude cannot keep (§8.1) |
 | `hook-on-fail` | warning | `on_fail: deny` on an event where Claude cannot block, or cannot block on a crash (§8.1) |
 | `adopt` | error, or note | `--adopt` without a repo layer inside the repository, each problem of the adoption plan; the note says how a native file was adopted (§4.3) |

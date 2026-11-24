@@ -6,14 +6,14 @@
 //! (§7.12). The text is composed from the merged model alone, and the same model gives the same
 //! bytes. Both budgets count the whole text, the Commits section included.
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
+use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::identity::CommitIdentity;
 use crate::layer::LayerName;
-use crate::merge::{InstructionBlock, Merged, MergedClaudeExtra, Origin, Traced};
-use crate::render::header::{SourceRef, SourceRefError, Sources, html_header};
+use crate::merge::{InstructionBlock, Merged, MergedClaudeExtra, Traced};
+use crate::render::header::{SourceRef, Sources, html_header};
+use crate::render::sources::refs_of;
 use crate::render::tree::OutputPath;
 use crate::stack::Budgets;
-use crate::untrusted_text::Stripped;
 
 /// The path of the composed instructions.
 const AGENTS_MD: &str = "AGENTS.md";
@@ -192,39 +192,6 @@ fn commits_section(layer: &LayerName, identity: &CommitIdentity) -> String {
         "- Bots that commit on the hosting service, such as release or CI bots, are exempt from this rule.".to_owned(),
     ]
     .join("\n")
-}
-
-/// The source each origin names, or an error `layer` for each origin whose source cannot stand in
-/// a comment.
-fn refs_of<'a>(
-    origins: impl IntoIterator<Item = &'a Origin>,
-) -> Result<Vec<SourceRef>, Diagnostics> {
-    let (refs, problems): (Vec<_>, Vec<_>) = origins
-        .into_iter()
-        .map(|origin| SourceRef::of_origin(origin).map_err(|problem| source_error(origin, problem)))
-        .partition(Result::is_ok);
-    if problems.is_empty() {
-        Ok(refs.into_iter().flatten().collect())
-    } else {
-        Err(problems.into_iter().filter_map(Result::err).collect())
-    }
-}
-
-/// The error for a source that cannot stand in the header (§4.3).
-fn source_error(origin: &Origin, problem: SourceRefError) -> Diagnostic {
-    let message = match problem {
-        SourceRefError::Unprintable | SourceRefError::ClosesComment => Message::from(
-            "a source of the generated header holds a control or format character or '-->', which would end its comment; rename the file or change the version or ref",
-        ),
-    };
-    Diagnostic::error(
-        Code::Layer,
-        Some(Where::layer_file(
-            Stripped::from_untrusted(origin.layer().as_str()),
-            Stripped::from_untrusted(origin.file().as_str()),
-        )),
-        message,
-    )
 }
 
 #[cfg(test)]

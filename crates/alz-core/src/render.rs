@@ -9,5 +9,6 @@ pub mod instructions;
 pub mod json;
 pub mod lock_of;
 pub mod protected;
+pub(crate) mod sources;
 pub mod tree;
 pub mod yaml;
