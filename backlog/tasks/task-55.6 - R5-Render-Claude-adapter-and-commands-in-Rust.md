@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6
 title: 'R5: Render, Claude adapter and commands in Rust'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-24T07:17:00Z'
+updated_date: '2026-11-24T08:02:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -178,3 +178,9 @@ R5 plan and subtasks TASK-55.6.1 to TASK-55.6.15 are in. Owner questions 1 to 10
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+R5 is in main as one commit (e40b2f8, PR #14): render, the Claude adapter, the repository writer, adoption and build, check, diff, ls (--live), explain, doctor and init in Rust. 1083 acceptance cases; the 256 failing are R6's account and identity cases, listed in test/ci/r6-pending.json and checked by the blocking ubuntu job. Review follow-ups: TASK-84 to TASK-89.
+<!-- SECTION:FINAL_SUMMARY:END -->
