@@ -37,6 +37,7 @@ fn facts() -> Facts {
         client_root: None,
         workspace: vec![],
         ancestors: vec![],
+        blocked: vec![],
         build: Diagnostics::new(),
     }
 }
@@ -204,4 +205,33 @@ fn build_errors_are_problems_and_warnings_are_listed() {
         text.contains("build: 1 error, 1 warning\n  error [skill] broken\n  warning [skill] odd\n")
     );
     assert!(text.ends_with("doctor: 1 problem\n"));
+}
+
+#[test]
+fn a_blocked_folder_is_warned_about_once_and_is_not_a_problem() {
+    let mut facts = facts();
+    facts.blocked = vec![stripped("/home/me/.claude-alz-blocked")];
+    let report = Report::of(&facts);
+    assert_eq!(report.problems(), 0);
+    let text = report.to_string();
+    assert_eq!(text.matches("blocked folder").count(), 1, "{text}");
+    assert!(text.contains(
+        "claude account dirs:\n  none found\nclaude: not found; version check skipped\nwarning: /home/me/.claude-alz-blocked is a blocked folder (§7.13), not an account; delete it\nbuild: 0 errors, 0 warnings\n"
+    ));
+    assert!(text.ends_with("doctor: ok\n"));
+}
+
+#[test]
+fn both_blocked_folders_get_a_warning_whatever_the_targets() {
+    let mut facts = facts();
+    facts.claude = None;
+    facts.blocked = vec![
+        stripped("/home/me/.claude-alz-blocked"),
+        stripped("/home/me/.codex-alz-blocked"),
+    ];
+    let text = Report::of(&facts).to_string();
+    assert_eq!(
+        text,
+        "agent-layerz doctor: /work/repo\nwarning: /home/me/.claude-alz-blocked is a blocked folder (§7.13), not an account; delete it\nwarning: /home/me/.codex-alz-blocked is a blocked folder (§7.13), not an account; delete it\nbuild: 0 errors, 0 warnings\ndoctor: ok\n"
+    );
 }

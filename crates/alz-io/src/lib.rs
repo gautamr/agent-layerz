@@ -16,7 +16,7 @@ pub use account::{
     ResolvedFolder, ResolvedUserConfig, Root, RootSearch, Stage, StateDir, StateError,
     StateProblem, Updated, find_root,
 };
-pub use account_names::claude_account_folders;
+pub use account_names::{blocked_folders, claude_account_folders};
 pub use env::{EnvSnapshot, WorkingDirectory};
 pub use fs::{
     AdoptionBasis, Applied, CacheDir, CacheError, Changed, Dir, GitConfigSeal, IndexError,

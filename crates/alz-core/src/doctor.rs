@@ -107,6 +107,9 @@ pub struct Facts {
     pub workspace: Vec<WorkspaceFolder>,
     /// The folders above the repository except the client root, nearest first.
     pub ancestors: Vec<Ancestor>,
+    /// The blocked folders (spec §7.13) that exist, `~/.claude-alz-blocked` first. They are not
+    /// account folders, whatever the targets.
+    pub blocked: Vec<Stripped>,
     /// What the build found.
     pub build: Diagnostics,
 }
@@ -197,6 +200,10 @@ fn claude_lines(claude: &ClaudeFacts) -> (Vec<String>, usize) {
     (lines, problems)
 }
 
+fn blocked_line(folder: &Stripped) -> String {
+    format!("warning: {folder} is a blocked folder (§7.13), not an account; delete it")
+}
+
 fn client_root_lines(root: &ClientRoot) -> Vec<String> {
     let files = [
         (root.has_claude_md, "CLAUDE.md"),
@@ -259,6 +266,7 @@ impl Report {
         let build = facts.build.error_count();
         let lines: Vec<String> = std::iter::once(format!("agent-layerz doctor: {}", facts.root))
             .chain(claude)
+            .chain(facts.blocked.iter().map(blocked_line))
             .chain(facts.client_root.iter().flat_map(client_root_lines))
             .chain(facts.workspace.iter().filter_map(workspace_line))
             .chain(facts.ancestors.iter().flat_map(ancestor_lines))
