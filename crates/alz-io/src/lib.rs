@@ -1,6 +1,7 @@
 //! Every effect of agent-layerz: file system, processes and environment, each reached through
 //! a capability type (decision-23). Only this crate calls `rustix` (decision-27).
 
+mod account;
 mod account_names;
 mod env;
 mod fs;
@@ -9,10 +10,14 @@ mod resolve;
 mod surroundings;
 mod tool;
 
+pub use account::{
+    AccountFiles, FileStatus, Home, IgnoreReason, Loaded, ResolvedAllowState, ResolvedFolder,
+    ResolvedUserConfig,
+};
 pub use account_names::claude_account_folders;
 pub use env::{EnvSnapshot, WorkingDirectory};
 pub use fs::{
-    AdoptionBasis, Applied, CacheDir, CacheError, Dir, IndexError, Published, ReadError,
+    AdoptionBasis, Applied, CacheDir, CacheError, Dir, IndexError, Published, ReadError, ReadFile,
     ReadOnlyDir, RepoError, RepoRoot, RepositoryPaths, TempEntry, WalkError,
 };
 pub use git::{

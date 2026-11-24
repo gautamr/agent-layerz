@@ -15,6 +15,7 @@ mod write_below;
 pub use cache_dir::{CacheDir, Published, RepositoryPaths, TempEntry};
 pub use cache_error::{CacheError, IndexError};
 pub use dir::Dir;
+pub use read_below::ReadFile;
 pub use read_error::ReadError;
 pub use read_only_dir::ReadOnlyDir;
 pub use repo_root::{AdoptionBasis, Applied, RepoError, RepoRoot};
