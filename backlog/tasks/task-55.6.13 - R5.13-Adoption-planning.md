@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6.13
 title: 'R5.13: Adoption planning'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-24T03:42:00Z'
 labels:
   - area:rust
   - area:adopt
