@@ -1,5 +1,5 @@
 //! The layers of the fixtures whose Claude files the goldens hold, read at compile time. Generated
-//! once from the fixture folders; the layer files are those the reference read.
+//! once from the fixture folders; the layer files are those of the fixtures.
 
 use super::{Golden, Layer};
 

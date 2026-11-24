@@ -1,8 +1,7 @@
-//! alz's own stable JSON emitter (decision-33, spec §6 "Name order"): the bytes the reference's
-//! `stableJson` writes, `JSON.stringify(value, null, 2)` plus a line feed, with the keys of every
-//! object in code point order, which is the byte order of their UTF-8 text and so Rust's `str`
-//! order. The reference sorts by UTF-16 unit and, for a numeric key, moves it first (an array
-//! index key is hoisted by JavaScript); both are reference drift (TASK-64) and not written here.
+//! alz's own stable JSON emitter (decision-33, spec §6 "Name order"): two-space indentation
+//! and a line feed at the end, with the keys of every object in code point order, which is the byte
+//! order of their UTF-8 text and so Rust's `str` order. A key is never ordered by UTF-16 unit, and
+//! a key that is a whole number is a plain string in that order (TASK-64).
 //!
 //! [`emit`] is pure and total. Nesting is as deep as the value is; a value that alz builds from
 //! typed data is shallow, and one read from a file is at most 128 deep (`json::MAX_DEPTH`).
@@ -90,9 +89,9 @@ fn number_text(number: JsonNumber) -> String {
     }
 }
 
-/// A float as JavaScript's `Number.prototype.toString` writes it: the shortest digits that read
+/// A float as the shortest digits that read
 /// back as the same number, in positional form from 1e-6 up to 1e21 and in exponent form outside.
-/// `JSON.stringify` writes `null` for a number that is not finite, and `0` for negative zero.
+/// alz writes `null` for a number that is not finite, and `0` for negative zero.
 fn float_text(float: f64) -> String {
     if !float.is_finite() {
         return "null".to_owned();

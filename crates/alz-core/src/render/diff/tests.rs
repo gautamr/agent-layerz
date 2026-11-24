@@ -129,7 +129,7 @@ fn an_insertion_between_lines_counts_its_context_on_both_sides() {
 #[test]
 fn equal_texts_have_no_diff() {
     assert_eq!(compare(b"a\n", b"a\n"), Comparison::Unchanged);
-    // A mode change alone and an empty file have the headers and no hunk, as in the reference.
+    // A mode change alone and an empty file have the headers and no hunk.
     assert_eq!(
         rendered("a\n", "a\n"),
         "--- a/dir/file.md\n+++ b/dir/file.md\n"

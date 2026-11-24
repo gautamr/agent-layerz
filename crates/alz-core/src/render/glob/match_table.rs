@@ -1,5 +1,5 @@
-//! Parity table: for each pattern, the paths among [`PATHS`] that the reference matcher
-//! (`matchesGlob` of `src/core/glob.ts`) accepts. Generated once by running the reference.
+//! Match table: for each pattern, the paths among [`PATHS`] that the glob of spec §7.2 accepts.
+//! Kept by hand: a change to the glob rules changes this table in the same commit.
 
 /// The paths each pattern is tried against.
 pub(super) const PATHS: &[&str] = &[
@@ -53,7 +53,7 @@ pub(super) const PATHS: &[&str] = &[
     "a/",
 ];
 
-/// Each pattern with the paths of [`PATHS`] the reference matches; all others it rejects.
+/// Each pattern with the paths of [`PATHS`] it matches; all others it rejects.
 pub(super) const MATCHES: &[(&str, &[&str])] = &[
     (
         "backlog/**",

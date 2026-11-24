@@ -1,5 +1,5 @@
 //! A small JSON reader for the golden samples: strings, booleans, null, numbers, arrays and objects
-//! with their keys in file order. The samples are JSON because the reference wrote them; no JSON
+//! with their keys in file order. The samples are JSON because they hold values of any shape; no JSON
 //! dependency is worth a decision for one fixture.
 
 /// A JSON value of the sample file.

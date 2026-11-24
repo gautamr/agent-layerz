@@ -2,12 +2,12 @@
 //!
 //! The scan answers one question, which kinds of token a text holds, and never returns the text
 //! that matched: a finding is a [`SecretKind`], so no diagnostic built from one can print a secret.
-//! The shapes are the reference's, compiled with `regex-lite` (decision-38) once, with the size
+//! The shapes are the spec's, compiled with `regex-lite` (decision-38) once, with the size
 //! and nest limits that bound every pattern alz compiles. Matching uses `is_match`, which runs in
 //! time proportional to the pattern times the text.
 //!
-//! `\b` and `\w` are ASCII only here, as in JavaScript without the `u` flag. `\s` is written as an
-//! explicit class of the characters that JavaScript's `\s` has, because `regex-lite`'s is ASCII
+//! `\b` and `\w` are ASCII only here, as the spec says. `\s` is written as an
+//! explicit class of the characters that the spec's `\s` names, because `regex-lite`'s is ASCII
 //! only and a no-break space between a key and its value must not hide a credential.
 
 use std::fmt;

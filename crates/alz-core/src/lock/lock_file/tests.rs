@@ -9,7 +9,7 @@ use crate::lock::{ContentHash, FileHash, Lock, LockError, LockField, LockedLayer
 use crate::path::SafeRelPath;
 use crate::stack::{GitRef, Source};
 
-/// This repository's own lock, written by the TypeScript `alz`.
+/// This repository's own lock, written by `alz build`.
 const REPOSITORY_LOCK: &[u8] = include_bytes!("../../../../../layer.lock");
 
 const SHA: &str = "b8b1dadfa8feded6f6d93583dd449585eaafb9f8";

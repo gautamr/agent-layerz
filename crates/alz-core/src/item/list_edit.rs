@@ -112,7 +112,7 @@ pub(super) type Segment<'a> = (EditSign, Vec<&'a str>);
 
 /// The segments of `text`, `None` when some part of it is not a segment. White space between
 /// segments is free, but a text of white space alone is not an edit: only the empty text says no
-/// segment (the reference refuses the first and accepts the second).
+/// segment (the spec refuses the first and accepts the second).
 pub(super) fn segments(text: &str) -> Option<Vec<Segment<'_>>> {
     if !text.is_empty() && text.trim().is_empty() {
         return None;

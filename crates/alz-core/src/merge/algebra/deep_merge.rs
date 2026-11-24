@@ -55,7 +55,7 @@ impl Tree {
     /// The merge is associative over kind-consistent trees, those where every path holds a list,
     /// a mapping or a scalar in all the trees merged. It is not associative when a path changes
     /// kind (a list, then a scalar, then a list): the fold gives the last list, and merging the
-    /// last two first gives both lists. The fold is what the reference does and what the owner
+    /// last two first gives both lists. The fold is what the spec says and what the owner
     /// kept (TASK-55.5, answer 5), so the law is stated for kind-consistent trees only.
     ///
     /// The recursion is as deep as the tree, which the YAML and JSON limits bound.

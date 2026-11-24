@@ -1,5 +1,5 @@
 //! The Claude files of agents, skills, commands, slot stubs and rules: byte for byte against the
-//! reference's output for the fixtures, and the rules of §8.1 case by case.
+//! expected output for the fixtures, and the rules of §8.1 case by case.
 
 mod settings;
 pub(crate) mod stacks;
@@ -18,7 +18,7 @@ pub(crate) struct Layer {
     pub(crate) files: &'static [(&'static str, &'static str)],
 }
 
-/// A file of the reference's output: its path and its text.
+/// A file of the expected output: its path and its text.
 pub(crate) type Golden = (&'static str, &'static str);
 
 fn model(layers: &[Layer], options: &str) -> Merged {
@@ -43,7 +43,7 @@ fn path(text: &str) -> OutputPath {
 
 /// Renders the stack and compares each golden file, and the paths the adapter made for these
 /// three folders, byte for byte.
-fn matches_reference(layers: &[Layer], options: &str, golden: &[Golden]) -> ClaudeFiles {
+fn matches_expected(layers: &[Layer], options: &str, golden: &[Golden]) -> ClaudeFiles {
     let files = ClaudeFiles::of(&model(layers, options));
     assert!(!files.diagnostics().has_errors(), "{}", files.diagnostics());
     let made: Vec<&str> = files.tree().paths().map(OutputPath::as_str).collect();
@@ -54,7 +54,7 @@ fn matches_reference(layers: &[Layer], options: &str, golden: &[Golden]) -> Clau
         assert_eq!(
             String::from_utf8_lossy(&file.bytes),
             *text,
-            "{name} differs from the reference"
+            "{name} differs from the expected file"
         );
         assert_eq!(file.mode, FileMode::Regular, "{name}");
     }
@@ -64,13 +64,13 @@ fn matches_reference(layers: &[Layer], options: &str, golden: &[Golden]) -> Clau
 const STRICT: &str = "options:\n  strict_slots: true\n";
 
 #[test]
-fn fixture_01_matches_the_reference_byte_for_byte() {
-    matches_reference(stacks::CASE_01, STRICT, stacks::GOLDEN_01);
+fn fixture_01_is_written_byte_for_byte() {
+    matches_expected(stacks::CASE_01, STRICT, stacks::GOLDEN_01);
 }
 
 #[test]
-fn fixture_03_matches_the_reference_and_warns_of_the_scoped_tool() {
-    let files = matches_reference(stacks::CASE_03, "", stacks::GOLDEN_03);
+fn fixture_03_is_written_and_warns_of_the_scoped_tool() {
+    let files = matches_expected(stacks::CASE_03, "", stacks::GOLDEN_03);
     assert_eq!(
         lines(files.diagnostics()),
         [
@@ -80,18 +80,18 @@ fn fixture_03_matches_the_reference_and_warns_of_the_scoped_tool() {
 }
 
 #[test]
-fn fixture_04_matches_the_reference_byte_for_byte() {
-    matches_reference(stacks::CASE_04, "", stacks::GOLDEN_04);
+fn fixture_04_is_written_byte_for_byte() {
+    matches_expected(stacks::CASE_04, "", stacks::GOLDEN_04);
 }
 
 #[test]
-fn fixture_05_matches_the_reference_byte_for_byte() {
-    matches_reference(stacks::CASE_05, "", stacks::GOLDEN_05);
+fn fixture_05_is_written_byte_for_byte() {
+    matches_expected(stacks::CASE_05, "", stacks::GOLDEN_05);
 }
 
 #[test]
-fn fixture_06_matches_the_reference_with_the_slot_stub() {
-    matches_reference(
+fn fixture_06_is_written_with_the_slot_stub() {
+    matches_expected(
         stacks::CASE_06,
         "options:\n  strict_slots: false\n",
         stacks::GOLDEN_06,
@@ -99,18 +99,18 @@ fn fixture_06_matches_the_reference_with_the_slot_stub() {
 }
 
 #[test]
-fn fixture_17_matches_the_reference_byte_for_byte() {
-    matches_reference(stacks::CASE_17, "", stacks::GOLDEN_17);
+fn fixture_17_is_written_byte_for_byte() {
+    matches_expected(stacks::CASE_17, "", stacks::GOLDEN_17);
 }
 
 #[test]
-fn fixture_18_matches_the_reference_byte_for_byte() {
-    matches_reference(stacks::CASE_18, "", stacks::GOLDEN_18);
+fn fixture_18_is_written_byte_for_byte() {
+    matches_expected(stacks::CASE_18, "", stacks::GOLDEN_18);
 }
 
 #[test]
-fn fixture_22_matches_the_reference_byte_for_byte() {
-    matches_reference(stacks::CASE_22, "", stacks::GOLDEN_22);
+fn fixture_22_is_written_byte_for_byte() {
+    matches_expected(stacks::CASE_22, "", stacks::GOLDEN_22);
 }
 
 // One layer of agents, built here.

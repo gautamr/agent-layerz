@@ -1,5 +1,5 @@
 //! The Unicode format characters (general category Cf) of Unicode 17.0, the version whose `\p{Cf}`
-//! Node 22 uses, so the Rust and the TypeScript `alz` strip the same text (decision-26).
+//! spec §10.1 names (decision-26).
 //!
 //! The table is written by hand. The test below checks it against `extracted/DerivedGeneralCategory.txt`
 //! of UCD 17.0, vendored under `tests/fixtures/unicode/`; when they differ it prints the ranges to paste.

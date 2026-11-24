@@ -163,13 +163,13 @@ mod tests {
     // ---- what is written ----
 
     #[test]
-    fn the_written_bytes_equal_the_reference_samples_and_the_core_emitter() {
+    fn the_written_bytes_equal_the_samples_and_the_core_emitter() {
         let machine = Machine::new();
         let first = entry(&machine, "repo", "client-a", "/hub/layer");
         writer(&machine)
             .update(&AllowChange::Set(first.clone()))
             .expect("written");
-        // The sample the TypeScript reference writes for one entry with two targets is checked in
+        // The sample for one entry with two targets is checked in
         // the core's unit test; here the same text is recorded for the file itself.
         let sample = format!(
             "{HEADER}- root: {}\n  account:\n    claude: client-a\n  source: /hub/layer\n",

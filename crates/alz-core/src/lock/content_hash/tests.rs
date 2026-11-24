@@ -33,10 +33,10 @@ fn sha256_matches_the_standard_vectors() {
     );
 }
 
-/// Vectors computed by the test-side formula of R1.2 (`test/spec/content-hash.ts`, run on real
-/// directories with the same files), recorded in TASK-55.3.7's notes. The formula orders by code
+/// Vectors computed by the formula of spec §6 (R1.2) on real directories with the same files,
+/// recorded in TASK-55.3.7's notes. The formula orders by code
 /// point, so the layer with a character above U+FFFF and one in U+E000-U+FFFF is the case where
-/// the TypeScript `alz` itself differs (reference drift, decision-30).
+/// an order by UTF-16 unit would differ.
 #[test]
 fn content_hash_matches_the_test_side_formula_on_the_vectors() {
     type Vector<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a str);
@@ -88,7 +88,7 @@ fn content_hash_matches_the_test_side_formula_on_the_vectors() {
 #[test]
 fn files_the_hash_does_not_cover_never_enter_it() {
     // `.env` files, `.DS_Store` and `node_modules` are in the walk's way and in this list on
-    // purpose: the vector is the one the reference computes without them.
+    // purpose: the vector is the one the spec's formula gives without them.
     assert_eq!(
         hash_of(&[
             ("x.md", "x"),

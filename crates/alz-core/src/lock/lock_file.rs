@@ -265,7 +265,7 @@ fn file_entry(
 impl Lock {
     /// Reads the lock from the bytes of `layer.lock`: at most 1 MiB of strict UTF-8, one JSON
     /// document nested at most 128 deep, no duplicate key (§5.3). Keys the lock does not know are
-    /// ignored, as the reference does, and not written back.
+    /// ignored and not written back.
     ///
     /// # Errors
     ///

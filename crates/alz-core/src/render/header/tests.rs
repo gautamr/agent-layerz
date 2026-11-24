@@ -16,10 +16,10 @@ fn file(label: LayerLabel, path: &str) -> SourceRef {
     SourceRef::layer_file(label, SafeRelPath::try_from(path).expect("a path")).expect("a source")
 }
 
-// The strings below are what the reference's `headerText`, `htmlHeader` and
-// `insertFrontmatterComment` return for the same sources: the first three appear in
-// fixtures/02-instructions and 03-agent-overlay; the rest were produced by running the
-// reference (TASK-55.6.2).
+// The strings below are the headers that spec §10.3 gives for the same sources (the text header,
+// the HTML header and the frontmatter comment): the first three appear in
+// fixtures/02-instructions and 03-agent-overlay; the rest are written out by hand
+// (TASK-55.6.2).
 
 #[test]
 fn the_html_header_is_the_one_in_the_instructions_fixture() {
@@ -100,7 +100,7 @@ fn the_comment_goes_in_as_the_first_line_of_the_frontmatter() {
 }
 
 #[test]
-fn windows_line_endings_become_line_feeds_in_the_whole_file_as_in_the_reference() {
+fn windows_line_endings_become_line_feeds_in_the_whole_file() {
     assert_eq!(
         insert_frontmatter_header(
             "---\r\nname: x\r\ndescription: y\r\n---\r\nbody\r\n",

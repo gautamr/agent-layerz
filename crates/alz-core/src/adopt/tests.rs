@@ -1,4 +1,4 @@
-//! Tests of adoption planning: each adopted kind against the files the reference writes for the
+//! Tests of adoption planning: each adopted kind against the files the spec says it becomes for the
 //! fixtures of tests 14 and 20, the problems that reject a plan whole (TASK-73), and the laws of
 //! the `layer.yaml` edit.
 
@@ -144,7 +144,7 @@ fn fixture_20() -> Vec<(&'static str, &'static str)> {
 }
 
 #[test]
-fn adopting_fixture_20_plans_the_layer_files_the_reference_writes() {
+fn adopting_fixture_20_plans_the_layer_files() {
     let world = world(MANIFEST, &[]);
     let plan = run(&world, &fixture_20()).expect("a plan");
 
@@ -498,9 +498,9 @@ proptest! {
     }
 }
 
-/// Two aliases of one model: the reference takes the one its merged `models.yaml` lists first,
-/// with integer-like names ahead of the others, as a JavaScript object does; name order does not
-/// decide. Expected values are what the reference wrote for the same layers.
+/// Two aliases of one model: alz takes the one its merged `models.yaml` lists first,
+/// with integer-like names ahead of the others, as the spec's name order puts them; alphabetical order does not
+/// decide. Expected values are the spec's, written out by hand.
 #[test]
 fn an_alias_tie_follows_the_order_the_stack_defines_them_in() {
     let model_of = |models: &str| {
@@ -524,10 +524,10 @@ fn an_alias_tie_follows_the_order_the_stack_defines_them_in() {
     );
 }
 
-/// The reference writes the float of a native settings file as JavaScript prints a number.
-/// Expected text is what the reference wrote for the same file.
+/// The float of a native settings file is written as the shortest decimal that reads back (spec §6).
+/// Expected text is written out by hand.
 #[test]
-fn a_float_of_native_settings_is_written_as_the_reference_writes_it() {
+fn a_float_of_native_settings_is_written_as_a_decimal_number() {
     let world = world(MANIFEST, &[]);
     let settings = r#"{"skillListingBudgetFraction": 0.5, "cleanupPeriodDays": 30}"#;
     let plan = run(&world, &[(".claude/settings.json", settings)]).expect("a plan");
@@ -537,7 +537,7 @@ fn a_float_of_native_settings_is_written_as_the_reference_writes_it() {
     );
 }
 
-/// The emitter writes a null as the reference does; whether the layer may hold it is the schema's
+/// The emitter writes a null as `null`; whether the layer may hold it is the schema's
 /// to say, and the settings schema has no key that takes one, so the reader check refuses the plan.
 #[test]
 fn a_null_of_native_settings_is_refused_by_the_layer_reader_not_by_the_emitter() {

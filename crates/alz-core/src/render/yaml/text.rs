@@ -1,9 +1,9 @@
-//! How a piece of text is written: plain, quoted or as a block. The rules are the reference's
-//! (the `yaml` package, 2.9.1, with line folding off), tested against its samples. In short:
+//! How a piece of text is written: plain, quoted or as a block. The rules are spec §10.2's
+//! (block style, line folding off), tested against the samples. In short:
 //!
 //! 1. Text with a character that alz's reader refuses (U+0000 to U+0008, U+000B to U+001F,
 //!    U+007F to U+009F, U+2028, U+2029) is always double-quoted, and those characters are written
-//!    as escapes. The reference writes U+007F to U+009F, U+2028 and U+2029 raw (drift, TASK-73).
+//!    as escapes. None of them is written raw (TASK-73).
 //! 2. Otherwise text is plain unless YAML would read it differently: it starts with an
 //!    indicator, holds `: ` or ` #`, ends in a space or a colon, is empty, or reads as null, a
 //!    boolean, an integer or a float in the YAML 1.2 core schema. Such text is quoted, with
@@ -23,7 +23,7 @@ enum Style {
 }
 
 /// `text` as a scalar. `implicit_key` says it is a mapping key, and `indent` is the indent of
-/// the context the reference gives it: the key's or value's own nesting, not the entry's.
+/// the context it has: the key's or value's own nesting, not the entry's.
 pub(super) fn scalar(text: &str, implicit_key: bool, indent: &str) -> String {
     if has_control_character(text) {
         return double_quoted(text, implicit_key, indent);
@@ -38,7 +38,7 @@ pub(super) fn scalar(text: &str, implicit_key: bool, indent: &str) -> String {
     }
 }
 
-/// Whether the reference would write the text plainly, quoted or as a block.
+/// Whether the text is written plainly, quoted or as a block.
 fn plain_style(text: &str, implicit_key: bool, indent: &str) -> Style {
     let multi_line = text.contains('\n');
     if implicit_key && multi_line {
@@ -73,7 +73,7 @@ fn plain_style(text: &str, implicit_key: bool, indent: &str) -> Style {
     }
 }
 
-/// Text that the reference writes without quotes and alz's reader reads back as another value or
+/// Text that plain style would write and alz's reader reads back as another value or
 /// refuses, so alz quotes it (the round-trip law; the samples of class
 /// `reference-reads-differently` pin each case): text that starts with a byte order mark, and text
 /// of only spaces and line feeds that has both, which a block would not keep. Signed and binary
@@ -86,8 +86,7 @@ fn is_read_differently(text: &str) -> bool {
 
 /// A character that alz's reader refuses and alz writes only as an escape (spec §10.2 rule 1):
 /// U+0000 to U+0008, U+000B to U+001F (not tab and not line feed), U+007F to U+009F, U+2028 and
-/// U+2029. The reference writes U+007F to U+009F raw inside double quotes and U+2028 and U+2029
-/// raw (reference drift, TASK-73).
+/// U+2029. None of them is written raw, not even inside double quotes (TASK-73).
 fn is_escaped_character(c: char) -> bool {
     matches!(
         c,
@@ -103,7 +102,7 @@ fn has_control_character(text: &str) -> bool {
     text.chars().any(is_escaped_character)
 }
 
-/// The reference's test for text that plain style cannot hold.
+/// The test for text that plain style cannot hold.
 fn needs_quotes_or_block(text: &str) -> bool {
     let mut chars = text.chars();
     let first = chars.next();
@@ -177,7 +176,7 @@ fn without_sign(text: &str) -> &str {
 
 /// Decimal integers with an optional sign, and `0o` and `0x` integers, which the core schema has
 /// without a sign. alz's reader also reads a sign on those and the `0b` form, so the emitter
-/// quotes them where the reference does not (a deviation, with `is_read_differently`).
+/// quotes them (with `is_read_differently`).
 fn is_integer(text: &str) -> bool {
     let unsigned = without_sign(text);
     let radix = |prefix: &str, valid: fn(char) -> bool| {
@@ -262,7 +261,7 @@ fn after_line_feed_runs(text: &str, suffix: &str, at_end: bool) -> String {
         })
 }
 
-/// `text` as JSON writes a string, which is where the reference starts a double-quoted scalar.
+/// `text` as JSON writes a string, which is where a double-quoted scalar starts.
 fn json_string(text: &str) -> String {
     let body: String = text
         .chars()
@@ -301,7 +300,7 @@ fn yaml_escape(code: &str, json_escape: &str) -> String {
 /// Below this many UTF-16 code units of JSON a line feed in double quotes stays an escape.
 const MIN_MULTI_LINE_UNITS: usize = 40;
 
-/// Double-quoted text as the reference writes it: JSON with YAML's escapes, and where the text is
+/// Double-quoted text: JSON with YAML's escapes, and where the text is
 /// long and holds line feeds, real line breaks (a blank line stands for a line feed). It walks the
 /// JSON text with a cursor because each escape decides how many characters follow it.
 fn double_quoted(text: &str, implicit_key: bool, indent: &str) -> String {

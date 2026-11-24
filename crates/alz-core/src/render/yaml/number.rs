@@ -1,5 +1,5 @@
-//! Numbers with a fraction or an exponent, written as the reference writes them: the shortest
-//! digits that read back as the same number, laid out as JavaScript's `Number::toString` does,
+//! Numbers with a fraction or an exponent, written as the shortest
+//! digits that read back as the same number, in positional form from 1e-6 up to 1e21 and in exponent form outside,
 //! `.inf`, `-.inf` and `.nan` for what has no digits, and `-0` for the negative zero.
 
 use std::num::FpCategory;
@@ -91,9 +91,9 @@ mod tests {
         EmitFloat::new(number).text()
     }
 
-    /// Each pair is what `YAML.stringify` of the reference wrote for the number (yaml 2.9.1).
+    /// Each pair is a number and the text spec §6 gives for it.
     #[test]
-    fn numbers_are_written_as_the_reference_writes_them() {
+    fn numbers_are_written_as_the_shortest_decimal_that_reads_back() {
         for (number, text) in [
             (0.5, "0.5"),
             (-0.5, "-0.5"),

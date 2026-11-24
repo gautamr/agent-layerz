@@ -1,5 +1,5 @@
-//! Tests of the emitter: every golden sample from the TypeScript reference byte for byte, the
-//! orders the spec fixes where the reference differs, and the law that what alz writes alz reads.
+//! Tests of the emitter: every golden sample byte for byte, the
+//! orders the spec fixes for keys, and the law that what alz writes alz reads.
 
 use std::collections::BTreeMap;
 
@@ -9,7 +9,7 @@ use proptest::prelude::{Strategy, any, prop_assert_eq, prop_oneof, proptest};
 use crate::json::{JsonNumber, JsonObject, JsonValue, parse};
 use crate::render::json::emit;
 
-/// What `crates/alz-core/tools/json-emit-samples.mjs` wrote from the reference.
+/// The golden samples, each `{ name, input, json }`; see `tests/fixtures/json-emit/README.md`.
 const SAMPLES: &str = include_str!("../../../tests/fixtures/json-emit/samples.json");
 
 fn text(value: &JsonValue, key: &str) -> String {
@@ -23,7 +23,7 @@ fn text(value: &JsonValue, key: &str) -> String {
 }
 
 #[test]
-fn every_sample_of_the_reference_is_written_byte_for_byte() {
+fn every_sample_is_written_byte_for_byte() {
     let JsonValue::Array(samples) = parse(SAMPLES.as_bytes()).expect("the samples are JSON") else {
         panic!("a list of samples");
     };
@@ -61,7 +61,7 @@ fn int(number: i128) -> JsonValue {
 #[test]
 fn keys_are_in_code_point_order_not_utf16_order() {
     // U+1F600 is above U+FFFF and U+FF5E is below it: by code point U+FF5E comes first, by UTF-16
-    // unit (what the reference does) U+1F600 comes first (reference drift, TASK-64).
+    // unit U+1F600 would come first, which the spec does not do (TASK-64).
     let written = emit(&object(&[
         ("\u{1f600}", int(1)),
         ("\u{ff5e}", int(2)),
@@ -75,8 +75,8 @@ fn keys_are_in_code_point_order_not_utf16_order() {
 
 #[test]
 fn a_key_that_is_an_array_index_is_a_plain_string_in_name_order() {
-    // JavaScript moves `10` and `9` before every other key, in numeric order (reference drift,
-    // TASK-64). The spec sorts them as strings: `-x` < `10` < `9` < `a`.
+    // Moving `10` and `9` before every other key, in numeric order, is not what the spec says
+    // (TASK-64). The spec sorts them as strings: `-x` < `10` < `9` < `a`.
     let written = emit(&object(&[
         ("a", int(1)),
         ("9", int(2)),
@@ -96,7 +96,7 @@ fn a_path_sorts_as_one_string() {
 }
 
 #[test]
-fn floats_are_written_as_javascript_writes_them() {
+fn floats_are_written_as_the_shortest_decimal_that_reads_back() {
     let cases = [
         (0.0, "0"),
         (-0.0, "0"),

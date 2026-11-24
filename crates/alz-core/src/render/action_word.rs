@@ -92,7 +92,7 @@ const fn scalar_word(scalar: AgentScalar) -> &'static str {
 }
 
 /// The segments as the layer wrote them, joined by a space: `+[a] -[b]`, `[a, b]`. An edit written
-/// as a string without a segment reads as nothing, as the reference prints it.
+/// as a string without a segment reads as nothing.
 impl fmt::Display for WrittenEdit {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let words = self

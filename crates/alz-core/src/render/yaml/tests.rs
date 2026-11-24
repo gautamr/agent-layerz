@@ -1,4 +1,4 @@
-//! Tests of the emitter: every golden sample from the TypeScript reference byte for byte, the
+//! Tests of the emitter: every golden sample byte for byte, the
 //! law that what alz writes alz reads back, and the shape of the map type.
 
 mod json;
@@ -12,7 +12,7 @@ use crate::yaml::{Node, Value, YamlText, parse};
 
 use json::Json;
 
-/// What `crates/alz-core/tools/yaml-emit-samples.mjs` wrote from the reference.
+/// The golden samples; see `tests/fixtures/yaml-emit/README.md`.
 const SAMPLES: &str = include_str!("../../../tests/fixtures/yaml-emit/samples.json");
 
 /// One golden sample.
@@ -21,7 +21,8 @@ struct Sample {
     class: String,
     input: EmitValue,
     yaml: String,
-    /// Set for a sample whose reference output alz deliberately does not write.
+    /// Set for a sample whose `yaml` is text that alz does not write (spec §10.2): the case is
+    /// tested by the tests of the rule, over the sample's input.
     drift: Option<String>,
 }
 
@@ -62,7 +63,7 @@ fn emit_value(json: &Json) -> EmitValue {
                     .map(|(key, value)| (key.clone(), emit_value(value)))
                     .collect(),
             )
-            .expect("the reference wrote unique keys"),
+            .expect("the samples have unique keys"),
         ),
     }
 }
@@ -92,7 +93,7 @@ fn samples() -> Vec<Sample> {
 }
 
 #[test]
-fn every_golden_sample_of_the_reference_is_reproduced_byte_for_byte() {
+fn every_golden_sample_is_reproduced_byte_for_byte() {
     let all = samples();
     let failures: Vec<String> = all
         .iter()
@@ -101,7 +102,7 @@ fn every_golden_sample_of_the_reference_is_reproduced_byte_for_byte() {
             let written = emit(&sample.input);
             (written != sample.yaml).then(|| {
                 format!(
-                    "{}\n--- reference\n{}\n--- alz\n{written}\n",
+                    "{}\n--- expected\n{}\n--- alz\n{written}\n",
                     sample.name, sample.yaml
                 )
             })
@@ -204,32 +205,16 @@ fn what_alz_writes_for_every_golden_input_reads_back_as_the_same_value() {
     assert!(readable.len() > 500 && !refused.is_empty());
 }
 
-#[test]
-fn a_sample_marked_as_drift_is_written_differently_from_the_reference() {
-    let all = samples();
-    let drifts: Vec<&Sample> = all.iter().filter(|sample| sample.drift.is_some()).collect();
-    let same: Vec<&str> = drifts
-        .iter()
-        .filter(|sample| emit(&sample.input) == sample.yaml)
-        .map(|sample| sample.name.as_str())
-        .collect();
-    assert!(
-        same.is_empty(),
-        "marked as drift but written as the reference does: {same:#?}"
-    );
-    assert!(drifts.len() > 30);
-}
-
 fn written(text: &str) -> String {
     emit(&EmitValue::Seq(vec![EmitValue::Text(text.to_owned())]))
 }
 
 #[test]
-fn text_the_reference_leaves_plain_and_alz_would_read_as_a_number_is_quoted() {
+fn text_that_alz_would_read_as_a_number_is_quoted() {
     for text in ["0b101", "+0b1", "-0b1", "+0o17", "-0o17", "+0x1f", "-0x1f"] {
         assert_eq!(written(text), format!("- \"{text}\"\n"));
     }
-    // What the core schema does not read as a number stays plain, as in the reference.
+    // What the core schema does not read as a number stays plain.
     for text in ["0B1", "0b", "0b12", "1_000", "0x", "017x"] {
         assert_eq!(written(text), format!("- {text}\n"));
     }
@@ -249,7 +234,7 @@ fn text_of_only_spaces_and_line_feeds_is_quoted() {
 
 #[test]
 fn text_with_a_c1_control_character_or_a_unicode_line_separator_is_written_as_escapes() {
-    // TASK-73, reference drift: the reference writes these raw.
+    // TASK-73, spec §10.2 rule 1: these are never written raw.
     for (text, escape) in [
         ("\u{7f}", "\\x7f"),
         ("\u{80}", "\\x80"),
@@ -271,12 +256,12 @@ fn text_with_a_c1_control_character_or_a_unicode_line_separator_is_written_as_es
             format!("\"a{escape}b\": 1\n")
         );
     }
-    // U+00A0 is not one of them: it stays as the reference writes it.
+    // U+00A0 is not one of them: it stays as it is.
     assert_eq!(written("a\u{a0}b"), "- a\u{a0}b\n");
 }
 
 #[test]
-fn drift_samples_of_escaped_characters_hold_none_raw_and_the_reference_holds_one() {
+fn escaped_characters_are_never_written_raw_for_the_inputs_of_the_samples_that_hold_them() {
     let raw = |text: &str| {
         text.chars()
             .any(|c| matches!(c, '\u{7f}'..='\u{9f}' | '\u{2028}' | '\u{2029}'))
@@ -291,11 +276,6 @@ fn drift_samples_of_escaped_characters_hold_none_raw_and_the_reference_holds_one
     assert!(affected.len() > 40, "only {} samples", affected.len());
     for sample in affected {
         let alz = emit(&sample.input);
-        assert!(
-            raw(&sample.yaml),
-            "{}: the reference wrote none raw",
-            sample.name
-        );
         assert!(!raw(&alz), "{}: alz wrote one raw: {alz:?}", sample.name);
         // The reader refuses them even escaped (spec section 7.13).
         assert!(
@@ -307,8 +287,7 @@ fn drift_samples_of_escaped_characters_hold_none_raw_and_the_reference_holds_one
 }
 
 #[test]
-fn drift_samples_of_a_space_between_line_feeds_have_one_escaped_space_and_read_back_when_readable()
-{
+fn a_space_between_line_feeds_is_one_escaped_space_for_the_inputs_of_the_samples_that_hold_it() {
     let all = samples();
     let affected: Vec<&Sample> = all
         .iter()
@@ -319,11 +298,6 @@ fn drift_samples_of_a_space_between_line_feeds_have_one_escaped_space_and_read_b
     assert!(affected.len() >= 10, "only {} samples", affected.len());
     for sample in &affected {
         let alz = emit(&sample.input);
-        assert!(
-            sample.yaml.contains("\\\\ "),
-            "{}: the reference wrote none",
-            sample.name
-        );
         assert!(
             !alz.contains("\\\\ "),
             "{}: alz wrote one: {alz:?}",
@@ -355,7 +329,7 @@ fn value_map(text: &str) -> EmitValue {
 
 #[test]
 fn a_space_between_two_line_feeds_in_long_double_quoted_text_reads_back_as_written() {
-    // TASK-73, reference drift: the reference writes the space as a backslash twice and a space,
+    // TASK-73, spec §10.2: the space is written as one escaped space, not as a backslash twice and a space,
     // which reads back as a backslash. The text ends in a blank after its last line feed, so a
     // block cannot hold it and it is double-quoted; it has no character that alz's reader
     // refuses, so it reads back.
@@ -374,7 +348,7 @@ fn a_space_between_two_line_feeds_in_long_double_quoted_text_reads_back_as_writt
 #[test]
 fn a_space_between_two_line_feeds_is_written_as_one_escaped_space() {
     // The case of TASK-73 as found: the text holds U+0001, which alz's reader refuses, so only
-    // the bytes are checked. The reference writes `\\ ` where alz writes `\ `.
+    // the bytes are checked. alz writes `\ `, never `\\ `.
     let written = emit(&value_map(&format!("{}\n \nb\u{1}", "a".repeat(40))));
     assert_eq!(
         written,
@@ -407,8 +381,8 @@ fn alphabet() -> impl Strategy<Value = char> {
 
 /// Text of 30 to 50 letters, then a run that puts a space between two line feeds or not, a few
 /// characters, and an ending that is blank after a line feed or not (a block cannot keep that, so
-/// the text is double-quoted). This is where the reference's long double-quoted text and alz's
-/// reader part ways (TASK-73), and where the plain generator seldom reaches.
+/// the text is double-quoted). This is where the folding of long double-quoted text and alz's
+/// reader meet (TASK-73), and where the plain generator seldom reaches.
 fn long_text() -> impl Strategy<Value = String> {
     (
         30..50_usize,
@@ -525,8 +499,8 @@ proptest! {
 
     #[test]
     fn emit_then_parse_gives_back_the_value(inner in emit_values()) {
-        // alz writes a list or a mapping at the top. The reference writes a top-level block of
-        // text with a leading space (`|1-` and the line at column 0) in a way no reader gets back.
+        // alz writes a list or a mapping at the top: a top-level block of text with a leading space
+        // (`|1-` and the line at column 0) is one no reader gets back.
         let value = EmitValue::Seq(vec![inner]);
         let written = emit(&value);
         let read = load(&written);

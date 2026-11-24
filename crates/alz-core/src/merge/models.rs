@@ -40,9 +40,9 @@ impl MergedModels {
         &self.aliases
     }
 
-    /// The aliases in the order the reference lists them, which decides which of two aliases of
+    /// The aliases in the order the spec lists them, which decides which of two aliases of
     /// one model adoption reuses (spec §4.3): names that are array indexes (`7`) first, ascending,
-    /// as a JavaScript object lists its keys, then the others in the order a layer first wrote
+    /// as the spec puts integer-like keys, then the others in the order a layer first wrote
     /// them, the most general layer first.
     pub fn aliases_in_definition_order(&self) -> impl Iterator<Item = &ModelAlias> {
         let (mut indexes, names): (Vec<_>, Vec<_>) = self

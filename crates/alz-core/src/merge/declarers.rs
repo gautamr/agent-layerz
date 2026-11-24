@@ -11,7 +11,7 @@
 //! The rule is pure. Each layer's position, kind, visibility and [`Placement`] are the facts it
 //! looks at; the file system told `alz-io` where each layer lies.
 //!
-//! The reference behaves the same way; the consumers (the git identity setup, `alz account which`
+//! The spec says the same; the consumers (the git identity setup, `alz account which`
 //! and `alz account allow`) are R6's and read the winner from [`Merged`](super::Merged).
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
