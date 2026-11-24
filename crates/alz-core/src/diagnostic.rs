@@ -148,6 +148,10 @@ pub enum Code {
     /// In `alz check`, a generated file that is missing, differs or is stale, and a lock that is
     /// out of date (§10.3).
     Check,
+    /// In `alz explain`, a name the merged result does not have (§10.3).
+    Explain,
+    /// In `alz ls --live`, a probe that failed or a built item Claude did not load (§10.3).
+    Ls,
     /// The repository could not be listed or written: a failure of the operating system, or a
     /// change under the writer's hands (§4.3 "Writing").
     Write,
@@ -226,6 +230,8 @@ impl Code {
             Self::Passthrough => "passthrough",
             Self::Collision => "collision",
             Self::Check => "check",
+            Self::Explain => "explain",
+            Self::Ls => "ls",
             Self::Write => "write",
             Self::Protected => "protected",
             Self::Budget => "budget",
