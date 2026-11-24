@@ -69,6 +69,19 @@ name that is opened afterwards:
 - A link is still followed only where the spec allows it, with `readlinkat` and a check of each
   resolved prefix.
 
+**Amended 2026-11-24 (owner, R6).** rustix gains two features, each for one task:
+- `termios`, in `alz-io`, for the confirmation prompt of `alz account allow` (TASK-55.7.11):
+  `isatty` for the terminal check, and reading and setting the terminal's settings so that, while
+  an answer is read, the interrupt key sends no signal and ends the line, and Ctrl-C answers no
+  (spec §7.13 "Trust"). Line editing and echo stay on, and the saved settings are restored on
+  every path.
+- `pty`, dev only, in `alz-test-support`, for the pseudo-terminal driver that runs `alz account
+  allow` in tests (TASK-55.7.1). `alz-test-support` is only ever a dev-dependency, so the `alz`
+  binary is built without this feature.
+
+`alz-test-support` is thus the one other alz crate that may depend on rustix directly. The rule
+that only `alz-io` calls rustix still holds for every crate the binary is built from.
+
 ## Consequences
 
 - `unsafe_code = "forbid"` still holds in every alz crate. rustix's own unsafe code stays inside
@@ -94,3 +107,13 @@ name that is opened afterwards:
   - The walk's tests also cover a FIFO, a folder and a device in place of a file, which must be
     refused without blocking; a file that grows past the cap between `fstat` and the read; and a
     name swapped for a link between two calls, which must not change what was checked.
+- **Amended 2026-11-24 (owner, R6):**
+  - `deny.toml`: the rustix entry's `wrappers` gains `alz-test-support` next to `alz-io` and
+    `tempfile`, with the reason "decision-27: the pseudo-terminal driver, dev only", in the change
+    that adds the driver (TASK-55.7.1). No other crate is added.
+  - `alz-io`'s rustix dependency gains `termios` (TASK-55.7.11); `alz-test-support`'s enables
+    `pty` only. TASK-55.7.1 records, with `cargo tree`, that the release build of `alz` has neither
+    `alz-test-support` nor the `pty` feature.
+  - The prompt's tests, through the driver, cover the settings restored after an answer, after
+    the end of input, after Ctrl-C and after an error, and a terminal whose settings cannot be
+    read, which asks nothing.
