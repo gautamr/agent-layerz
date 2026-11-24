@@ -4,6 +4,7 @@ title: Take agent-layerz off npm after the Rust release
 status: To Do
 assignee: []
 created_date: '2026-11-24T17:45:00Z'
+updated_date: '2026-11-24T18:25:00Z'
 labels:
   - owner:human
   - area:release
@@ -26,3 +27,9 @@ decision-39: no npm distribution; the owner removes the package. npm's unpublish
 - [ ] #1 npm view agent-layerz shows no package, or a deprecation message pointing to the GitHub releases and Homebrew (owner comment with the output)
 - [ ] #2 The owner records in a comment whether the name was kept (deprecated) or given up (unpublished)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-24): unpublish the npm package agent-layerz rather than deprecate it, accepting that the name may be claimed later. The owner does it.
+<!-- SECTION:NOTES:END -->
