@@ -3308,7 +3308,12 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   `LOGNAME`, `TMPDIR`, `TERM`, `LANG`, `LC_*`, `CLAUDE_CONFIG_DIR`, `XDG_CONFIG_HOME`,
   `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, `ANTHROPIC_*`, `CLAUDE_CODE_*`,
   `SSL_CERT_*`, `NODE_EXTRA_CA_CERTS` and the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`,
-  `ALL_PROXY`, `NO_PROXY`, either case). After 180 seconds its process group is ended. At most
+  `ALL_PROXY`, `NO_PROXY`, either case). A cloud provider's variables pass only while its switch is on, which means
+  the value `1` or `true` (ASCII case-insensitive, white space not trimmed; any other value,
+  empty, `0` and `false` included, is off): `AWS_*` when `CLAUDE_CODE_USE_BEDROCK` is on, and
+  `GOOGLE_*`, `GCLOUD_PROJECT`, `VERTEX_REGION_CLAUDE_*`, `CLOUD_ML_REGION` and
+  `ANTHROPIC_VERTEX_PROJECT_ID` when `CLAUDE_CODE_USE_VERTEX` is on (target-facts §15). Without
+  the switch none of them passes, `ANTHROPIC_VERTEX_PROJECT_ID` included. The version call of `alz doctor` takes none of them. After 180 seconds its process group is ended. At most
   4 MiB of its standard output and 64 KiB of its standard error are read; the rest is dropped.
   Everything it prints is untrusted and shown stripped (class 1).
 - A probe that fails is `error [ls] <reason>`: `could not run <bin>: <not found | it did not finish

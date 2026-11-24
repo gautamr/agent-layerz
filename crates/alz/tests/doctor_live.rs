@@ -64,6 +64,16 @@ mod tests {
         }
 
         fn alz(&self, arguments: &[&str], environment: &[(&str, &Path)]) -> Run {
+            self.alz_with(arguments, environment, &[])
+        }
+
+        /// As `alz`, with more variables whose values are text.
+        fn alz_with(
+            &self,
+            arguments: &[&str],
+            environment: &[(&str, &Path)],
+            text: &[(&str, &str)],
+        ) -> Run {
             let mut alz: Command = cargo_bin_cmd!("alz");
             alz.current_dir(&self.repository)
                 .env_remove("CLAUDE_CONFIG_DIR")
@@ -77,6 +87,9 @@ mod tests {
                 .timeout(Duration::from_secs(60))
                 .args(arguments);
             for (name, value) in environment {
+                alz.env(name, value);
+            }
+            for (name, value) in text {
                 alz.env(name, value);
             }
             let output = alz.output().expect("alz runs and ends in time");
@@ -286,6 +299,61 @@ mod tests {
                 .contains("warning [claude] Ignoring 1 permissions.additionalDirectories entry\n"),
             "{}",
             run.stderr
+        );
+    }
+
+    const INIT_EVENT: &str = r#"{"type":"system","subtype":"init","agents":["architect","Explore"],"skills":["review"],"mcp_servers":[]}"#;
+
+    /// The names, never the values, of the variables the probe's child saw that belong to a
+    /// cloud provider or to the planted `GITHUB_TOKEN`, sorted, one per line.
+    fn cloud_names_the_probe_saw(switches: &[(&str, &str)]) -> String {
+        let workspace = live_workspace();
+        let seen = workspace.scratch.join("seen-names");
+        let claude = workspace.claude(&format!(
+            "#!/bin/sh\n[ -z \"$GITHUB_TOKEN\" ] || exit 4\nenv | sed 's/=.*//' | grep -E '^(AWS_|GOOGLE_|GCLOUD_|VERTEX_REGION_|CLOUD_ML_|ANTHROPIC_VERTEX_|CLAUDE_CODE_USE_|GITHUB_)' | sort > '{}'\nprintf '%s\\n' '{INIT_EVENT}'\n",
+            seen.display()
+        ));
+        let planted = [
+            ("AWS_PROFILE", "planted"),
+            ("GOOGLE_APPLICATION_CREDENTIALS", "planted"),
+            ("CLOUD_ML_REGION", "planted"),
+            ("ANTHROPIC_VERTEX_PROJECT_ID", "planted"),
+            ("GCLOUD_PROJECT", "planted"),
+            ("VERTEX_REGION_CLAUDE_HAIKU_4_5", "planted"),
+        ];
+        let text: Vec<(&str, &str)> = planted.iter().chain(switches).copied().collect();
+        let run = workspace.alz_with(&["ls", "--live"], &[("ALZ_CLAUDE_BIN", &claude)], &text);
+        assert_eq!(run.code, 0, "{}{}", run.stdout, run.stderr);
+        workspace
+            .scratch
+            .read_text("seen-names")
+            .expect("the fake claude wrote the names it saw")
+    }
+
+    #[test]
+    fn ls_live_hands_claude_a_providers_variables_only_when_its_switch_is_on() {
+        assert_eq!(cloud_names_the_probe_saw(&[]), "");
+        assert_eq!(
+            cloud_names_the_probe_saw(&[
+                ("CLAUDE_CODE_USE_BEDROCK", "0"),
+                ("CLAUDE_CODE_USE_VERTEX", "false")
+            ]),
+            "CLAUDE_CODE_USE_BEDROCK\nCLAUDE_CODE_USE_VERTEX\n"
+        );
+        assert_eq!(
+            cloud_names_the_probe_saw(&[("CLAUDE_CODE_USE_BEDROCK", "TRUE")]),
+            "AWS_PROFILE\nCLAUDE_CODE_USE_BEDROCK\n"
+        );
+        assert_eq!(
+            cloud_names_the_probe_saw(&[("CLAUDE_CODE_USE_VERTEX", "1")]),
+            "ANTHROPIC_VERTEX_PROJECT_ID\nCLAUDE_CODE_USE_VERTEX\nCLOUD_ML_REGION\nGCLOUD_PROJECT\nGOOGLE_APPLICATION_CREDENTIALS\nVERTEX_REGION_CLAUDE_HAIKU_4_5\n"
+        );
+        assert_eq!(
+            cloud_names_the_probe_saw(&[
+                ("CLAUDE_CODE_USE_BEDROCK", "1"),
+                ("CLAUDE_CODE_USE_VERTEX", "1")
+            ]),
+            "ANTHROPIC_VERTEX_PROJECT_ID\nAWS_PROFILE\nCLAUDE_CODE_USE_BEDROCK\nCLAUDE_CODE_USE_VERTEX\nCLOUD_ML_REGION\nGCLOUD_PROJECT\nGOOGLE_APPLICATION_CREDENTIALS\nVERTEX_REGION_CLAUDE_HAIKU_4_5\n"
         );
     }
 

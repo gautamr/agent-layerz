@@ -1,6 +1,7 @@
 //! What the `claude` program sees: nothing but what the call needs, taken from alz's own
 //! environment (spec §10.3). Variables are chosen by name, so a variable that holds a secret for
-//! some other program is never handed over.
+//! some other program is never handed over. The variables of a cloud provider are the exception
+//! while its switch is on (`provider`).
 
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStrExt;
@@ -9,6 +10,7 @@ use std::time::Duration;
 use alz_core::env::EnvVars;
 
 use super::locate::absolute_entries;
+use super::provider::Providers;
 
 /// What a run is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,7 +45,7 @@ impl Purpose {
         }
     }
 
-    fn takes(self, name: &OsStr) -> bool {
+    fn takes(self, name: &OsStr, providers: Providers) -> bool {
         let bytes = name.as_bytes();
         let common = matches!(
             bytes,
@@ -62,19 +64,21 @@ impl Purpose {
         match self {
             Self::Version => common,
             Self::Probe => {
-                common
-                    || [
-                        b"ANTHROPIC_".as_slice(),
-                        b"CLAUDE_CODE_",
-                        b"SSL_CERT_",
-                        b"NODE_EXTRA_CA_CERTS",
-                    ]
-                    .iter()
-                    .any(|prefix| bytes.starts_with(prefix))
-                    || matches!(
-                        bytes.to_ascii_uppercase().as_slice(),
-                        b"HTTP_PROXY" | b"HTTPS_PROXY" | b"ALL_PROXY" | b"NO_PROXY"
-                    )
+                providers.take(name)
+                    || (!providers.withholds(name)
+                        && (common
+                            || [
+                                b"ANTHROPIC_".as_slice(),
+                                b"CLAUDE_CODE_",
+                                b"SSL_CERT_",
+                                b"NODE_EXTRA_CA_CERTS",
+                            ]
+                            .iter()
+                            .any(|prefix| bytes.starts_with(prefix))
+                            || matches!(
+                                bytes.to_ascii_uppercase().as_slice(),
+                                b"HTTP_PROXY" | b"HTTPS_PROXY" | b"ALL_PROXY" | b"NO_PROXY"
+                            )))
             }
         }
     }
@@ -91,11 +95,12 @@ pub(super) fn child_environment(purpose: Purpose, vars: &EnvVars) -> EnvVars {
                 .collect()
         })
     });
+    let providers = Providers::switched_on_in(vars);
     path.into_iter()
         .map(|path| ("PATH".into(), path))
         .chain(
             vars.iter()
-                .filter(|(name, _)| purpose.takes(name))
+                .filter(|(name, _)| purpose.takes(name, providers))
                 .map(|(name, value)| (name.to_owned(), value.to_owned())),
         )
         .collect()
@@ -157,6 +162,51 @@ mod tests {
                 "https_proxy"
             ]
         );
+    }
+
+    #[test]
+    fn the_probe_gets_a_providers_variables_only_while_its_switch_is_on() {
+        let process = [
+            ("HOME", "/h"),
+            ("GITHUB_TOKEN", "t"),
+            ("AWS_PROFILE", "a"),
+            ("GOOGLE_APPLICATION_CREDENTIALS", "g"),
+            ("CLOUD_ML_REGION", "r"),
+            ("ANTHROPIC_VERTEX_PROJECT_ID", "p"),
+            ("GCLOUD_PROJECT", "q"),
+        ];
+        let with = |switch: &'static str| {
+            let pairs: Vec<(&str, &str)> = process.iter().copied().chain([(switch, "1")]).collect();
+            names(&child_environment(Purpose::Probe, &vars(&pairs)))
+        };
+        assert_eq!(
+            names(&child_environment(Purpose::Probe, &vars(&process))),
+            ["HOME"]
+        );
+        assert_eq!(
+            with("CLAUDE_CODE_USE_BEDROCK"),
+            ["AWS_PROFILE", "CLAUDE_CODE_USE_BEDROCK", "HOME"]
+        );
+        assert_eq!(
+            with("CLAUDE_CODE_USE_VERTEX"),
+            [
+                "ANTHROPIC_VERTEX_PROJECT_ID",
+                "CLAUDE_CODE_USE_VERTEX",
+                "CLOUD_ML_REGION",
+                "GCLOUD_PROJECT",
+                "GOOGLE_APPLICATION_CREDENTIALS",
+                "HOME"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_version_call_never_gets_a_providers_variables() {
+        let env = child_environment(
+            Purpose::Version,
+            &vars(&[("CLAUDE_CODE_USE_BEDROCK", "1"), ("AWS_PROFILE", "a")]),
+        );
+        assert_eq!(names(&env), Vec::<String>::new());
     }
 
     #[test]
