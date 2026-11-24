@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T00:01:00Z'
+updated_date: '2026-11-24T03:03:00Z'
 labels:
   - area:rust
   - area:cli
@@ -43,4 +43,6 @@ Plan for this step: crates/alz/src/command/{pipeline,build,check}.rs.
 From R5.2 (2026-11-24): the layer walk must raise error [layer] naming the layer for a file name with a control or format character (SourceRef and OutputPath refuse them as typed values only), and a layer version with a control character or '-->' (LayerLabel) is a layer error in the renderer.
 
 From R5.4 (2026-11-24): the walk in alz-io (fs/scan.rs read_file knows the executable bit) must fill LayerContents::with_executable so skill scripts, hook scripts (R5.5) and passthrough files (R5.6) keep their mode; until then they render as regular files.
+
+From R5.6 (2026-11-24): write only Rendered::to_write() (None when any error exists), pass Rendered::managed_folders() and protected() to plan_writes; make whole-tree golden trees for every fixture the acceptance suite builds (03 and 15 have none yet).
 <!-- SECTION:NOTES:END -->

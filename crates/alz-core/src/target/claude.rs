@@ -174,4 +174,4 @@ fn output_path(text: &str) -> Result<OutputPath, Diagnostic> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

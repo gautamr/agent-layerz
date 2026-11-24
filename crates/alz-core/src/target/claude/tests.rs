@@ -2,7 +2,7 @@
 //! reference's output for the fixtures, and the rules of §8.1 case by case.
 
 mod settings;
-mod stacks;
+pub(crate) mod stacks;
 
 use proptest::prelude::{Strategy, prop_assert_eq, proptest};
 
@@ -13,13 +13,13 @@ use crate::merge::testing::{layer_from_yaml, merged_with};
 use crate::render::tree::{FileMode, OutputPath};
 
 /// A layer of a fixture: its `layer.yaml` and its other files.
-pub(super) struct Layer {
-    yaml: &'static str,
-    files: &'static [(&'static str, &'static str)],
+pub(crate) struct Layer {
+    pub(crate) yaml: &'static str,
+    pub(crate) files: &'static [(&'static str, &'static str)],
 }
 
 /// A file of the reference's output: its path and its text.
-pub(super) type Golden = (&'static str, &'static str);
+pub(crate) type Golden = (&'static str, &'static str);
 
 fn model(layers: &[Layer], options: &str) -> Merged {
     let found = merged_with(

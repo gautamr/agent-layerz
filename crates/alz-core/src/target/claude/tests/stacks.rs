@@ -3,7 +3,7 @@
 
 use super::{Golden, Layer};
 
-pub(super) const CASE_01: &[Layer] = &[
+pub(crate) const CASE_01: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/01-determinism/personal/layer.yaml"),
         files: &[
@@ -129,7 +129,7 @@ pub(super) const CASE_01: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_03: &[Layer] = &[
+pub(crate) const CASE_03: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/03-agent-overlay/personal/layer.yaml"),
         files: &[
@@ -183,7 +183,7 @@ pub(super) const CASE_03: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_04: &[Layer] = &[
+pub(crate) const CASE_04: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/04-tool-narrowing/personal/layer.yaml"),
         files: &[
@@ -214,7 +214,7 @@ pub(super) const CASE_04: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_05: &[Layer] = &[
+pub(crate) const CASE_05: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/05-skill-override/personal/layer.yaml"),
         files: &[(
@@ -237,7 +237,7 @@ pub(super) const CASE_05: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_06: &[Layer] = &[
+pub(crate) const CASE_06: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/06-slots/personal/layer.yaml"),
         files: &[],
@@ -248,7 +248,7 @@ pub(super) const CASE_06: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_17: &[Layer] = &[
+pub(crate) const CASE_17: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/17-rules/personal/layer.yaml"),
         files: &[
@@ -281,7 +281,7 @@ pub(super) const CASE_17: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_18: &[Layer] = &[
+pub(crate) const CASE_18: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/18-native-fields/personal/layer.yaml"),
         files: &[(
@@ -304,7 +304,7 @@ pub(super) const CASE_18: &[Layer] = &[
     },
 ];
 
-pub(super) const CASE_22: &[Layer] = &[
+pub(crate) const CASE_22: &[Layer] = &[
     Layer {
         yaml: include_str!("../../../../../../test/fixtures/22-ls/personal/layer.yaml"),
         files: &[(
@@ -317,7 +317,7 @@ pub(super) const CASE_22: &[Layer] = &[
         files: &[],
     },
 ];
-pub(super) const GOLDEN_01: &[Golden] = &[
+pub(crate) const GOLDEN_01: &[Golden] = &[
     (
         ".claude/agents/reviewer.md",
         include_str!(
@@ -356,7 +356,7 @@ pub(super) const GOLDEN_01: &[Golden] = &[
     ),
 ];
 
-pub(super) const GOLDEN_03: &[Golden] = &[
+pub(crate) const GOLDEN_03: &[Golden] = &[
     (
         ".claude/agents/architect.md",
         include_str!(
@@ -377,7 +377,7 @@ pub(super) const GOLDEN_03: &[Golden] = &[
     ),
 ];
 
-pub(super) const GOLDEN_04: &[Golden] = &[
+pub(crate) const GOLDEN_04: &[Golden] = &[
     (
         ".claude/agents/builder.md",
         include_str!(
@@ -392,21 +392,21 @@ pub(super) const GOLDEN_04: &[Golden] = &[
     ),
 ];
 
-pub(super) const GOLDEN_05: &[Golden] = &[(
+pub(crate) const GOLDEN_05: &[Golden] = &[(
     ".claude/skills/stack-conventions/SKILL.md",
     include_str!(
         "../../../../tests/fixtures/claude-files/05-skill-override/.claude/skills/stack-conventions/SKILL.md"
     ),
 )];
 
-pub(super) const GOLDEN_06: &[Golden] = &[(
+pub(crate) const GOLDEN_06: &[Golden] = &[(
     ".claude/skills/domain-glossary/SKILL.md",
     include_str!(
         "../../../../tests/fixtures/claude-files/06-slots/.claude/skills/domain-glossary/SKILL.md"
     ),
 )];
 
-pub(super) const GOLDEN_17: &[Golden] = &[
+pub(crate) const GOLDEN_17: &[Golden] = &[
     (
         ".claude/rules/backend.md",
         include_str!("../../../../tests/fixtures/claude-files/17-rules/.claude/rules/backend.md"),
@@ -417,14 +417,14 @@ pub(super) const GOLDEN_17: &[Golden] = &[
     ),
 ];
 
-pub(super) const GOLDEN_18: &[Golden] = &[(
+pub(crate) const GOLDEN_18: &[Golden] = &[(
     ".claude/agents/architect.md",
     include_str!(
         "../../../../tests/fixtures/claude-files/18-native-fields/.claude/agents/architect.md"
     ),
 )];
 
-pub(super) const GOLDEN_22: &[Golden] = &[(
+pub(crate) const GOLDEN_22: &[Golden] = &[(
     ".claude/agents/architect.md",
     include_str!("../../../../tests/fixtures/claude-files/22-ls/.claude/agents/architect.md"),
 )];

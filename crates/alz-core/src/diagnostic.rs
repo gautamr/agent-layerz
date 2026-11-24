@@ -160,6 +160,8 @@ pub enum Code {
     /// A hook with `on_fail: deny` on an event where Claude cannot block, or cannot block on a
     /// crash, a warning (§8.1).
     HookOnFail,
+    /// A target that has no adapter, such as `codex` (§8).
+    Target,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -221,6 +223,7 @@ impl Code {
             Self::ClaudeAgent => "claude-agent",
             Self::ToolScope => "tool-scope",
             Self::HookOnFail => "hook-on-fail",
+            Self::Target => "target",
             Self::Unresolved => "unresolved",
         }
     }
