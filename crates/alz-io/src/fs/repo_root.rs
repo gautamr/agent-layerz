@@ -3,6 +3,7 @@
 //! plan the pure core made. Every path it takes is a [`SafeRelPath`], so nothing names a place
 //! outside the root.
 
+mod create;
 mod error;
 mod list;
 mod probe;
@@ -16,8 +17,10 @@ use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::render::tree::{FileTree, OutputPath, fold};
 use alz_core::render::write_plan::{ClearPlan, Disk, Observed, gitignore_path, lock_path};
 
+use crate::EnvSnapshot;
 use crate::fs::dir::Dir;
 use crate::fs::walk_error::WalkError;
+use crate::resolve::folders::account_folders;
 
 pub use error::RepoError;
 pub use write::Applied;
@@ -43,6 +46,36 @@ impl RepoRoot {
     /// The errors of [`Dir::open`].
     pub fn open(path: &AbsolutePath, folders: &AccountFolders) -> Result<Self, WalkError> {
         Dir::open(path, folders).map(Self::new)
+    }
+
+    /// Opens the repository at `directory` with the account folders of `env`.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`Dir::open`].
+    pub fn at(env: &EnvSnapshot, directory: &AbsolutePath) -> Result<Self, WalkError> {
+        Self::open(directory, &account_folders(env))
+    }
+
+    /// What is at `path`, looked at without following a link: nothing, a regular file, a link or
+    /// something else.
+    ///
+    /// # Errors
+    ///
+    /// [`RepoError`] when the operating system fails.
+    pub fn look_at(&self, path: &SafeRelPath) -> Result<Observed, RepoError> {
+        probe::probe(self.root.handle(), path)
+    }
+
+    /// Creates the file `path` with `bytes`, which must not exist: a file, a folder or a link
+    /// there is [`RepoError::Exists`], and a link in a folder above it is
+    /// [`RepoError::Changed`]. Missing folders are made.
+    ///
+    /// # Errors
+    ///
+    /// [`RepoError`] for the reasons above and for a failure of the operating system.
+    pub fn create_new(&self, path: &SafeRelPath, bytes: &[u8]) -> Result<(), RepoError> {
+        create::create_new(self.root.handle(), path, bytes)
     }
 
     /// Looks at what the plan asks about, without following a link: each path of `tree`, each path

@@ -2,7 +2,7 @@
 //! decisions with a directory handle, the cache and the git runner.
 
 mod clone;
-mod folders;
+pub(crate) mod folders;
 mod locate;
 mod pinned_tree;
 mod placement;

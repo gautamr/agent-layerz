@@ -18,9 +18,10 @@ use alz_core::stack::resolution_failure::layer_unreadable;
 use alz_core::stack::{ResolvedLayer, Source};
 use alz_core::yaml::MAX_BYTES;
 use alz_core::{Diagnostic, Diagnostics, Stripped, leak_guard};
-use alz_io::{EnvSnapshot, ReadError, ReadOnlyDir, StackResolver, WorkingDirectory};
+use alz_io::{ReadError, ReadOnlyDir, StackResolver};
 
 use crate::cli::LintArgs;
+use crate::command::Surroundings;
 use crate::report::emit_diagnostics;
 
 /// The directory linted when `--layer` is not given.
@@ -33,13 +34,6 @@ struct Outcome {
     /// The linted layers' names, for the summary line (§10.1). A stack whose manifest or lock is
     /// invalid has none: no layer was reached.
     summary: Option<Stripped>,
-}
-
-/// Where and with what environment the command runs, both taken once when the process started.
-#[derive(Debug, Clone, Copy)]
-pub struct Surroundings<'a> {
-    pub env: &'a EnvSnapshot,
-    pub directory: &'a WorkingDirectory,
 }
 
 /// Runs `alz lint`, writes the diagnostics to `stderr` and the summary to `stdout`, and returns

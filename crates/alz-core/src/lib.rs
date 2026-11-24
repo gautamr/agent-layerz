@@ -20,6 +20,7 @@ pub mod markdown;
 pub mod merge;
 pub mod path;
 pub mod render;
+pub mod scaffold;
 pub mod schema;
 pub mod secret;
 pub mod stack;

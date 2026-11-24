@@ -3298,6 +3298,9 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   other characters than `a` to `z` and `0` to `9` replaced by `-`, and `-` trimmed at both ends.
 - A `--stack` value that starts with `github:` or `git:` is a source as written. Any other is a
   `path:` source, and `<dir>@<ref>` pins a ref when the text after the last `@` holds no `/`.
+  A value that is not a source (§5.2), whose pin is not a git ref (§5.2) or that holds a control
+  character is `error [init] a --stack value <rule>` (the value is never printed), exit 1, and
+  nothing is written; the TypeScript `alz` writes it as given (reference drift, decision-30).
 - `--hub <dir>` adds `path:<dir>/layer` when `<dir>/layer/layer.yaml` exists, pinned to the newest
   tag `git tag --list 'layer-v*' --sort=-v:refname` gives, by §6's git rules, and prints
   `using the hub's client layer <source> at <ref>`. A tag that is not a valid git ref (§5.2) is

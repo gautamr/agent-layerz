@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T00:04:00Z'
+updated_date: '2026-11-24T00:18:00Z'
 labels:
   - area:rust
   - area:cli
@@ -34,3 +34,13 @@ Plan for this step (§10 init, §4.4).
 - [ ] #2 alz init --hub pins the hub layer to its newest layer-v* tag, and a tag that is not a valid ref is refused before anything is written (test 16's init cases and a unit test)
 - [ ] #3 alz init never overwrites an existing file (alz-io test)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementation (branch feat/rust-r5.12-init). Pure scaffold in alz-core scaffold/ (files.rs, hub.rs, stack_option.rs, layer_name.rs, error.rs); effects in alz-io: RepoRoot::{at, look_at, create_new} (create-only: temp file linked to its name, so a file, folder or link at the path is RepoError::Exists and a link above it is RepoError::Changed) and GitRunner::layer_tags (git tag --list 'layer-v*' --sort=-v:refname, TreeRead environment); wiring in crates/alz/src/command/init.rs (Surroundings moved to command.rs).
+AC1 evidence: unit tests scaffold/files/tests.rs compare every scaffolded file with bytes from the reference's alz init run once in a scratch folder (esbuild bundle of src/cli, never changed); crates/alz/tests/init.rs asserts the files, modes (0644) and the created/next lines for --kind repo and --kind layer; acceptance 21-init-stack case 2 (stack, pinned path, github sources) passes against the release binary, and case 1's init assertions pass up to its build step (build is another R5 command).
+AC2 evidence: unit tests hub.rs (tag not a git ref -> HubTagNotARef) and call/tests.rs (layer_tags args, read); init.rs tests: newest tag in version order (0.10.0 over 0.9.0), no tag -> no pin, 'layer-v1@2' -> 'error [init] the newest layer-v* tag of the hub is not a valid git ref', exit 1, nothing written. test 16 has no alz init case; the hub init case is in test 21.
+AC3 evidence: alz-io tests/repo_create.rs (existing file kept, link at path refused with target untouched, link in a folder above refused, folder at path refused, mode 0644, no temp file left) plus alz tests/init.rs (existing layer.yaml, .layer/layer.yaml and mise.toml kept; .layer link not followed; link in .layer/instructions refused).
+Checks: mise run rust:ci green (fmt, clippy -D warnings, tests, doc, MSRV, deny, audit); mise run lint green. Acceptance with ALZ_BIN=release build: 21 passes 1 of 2 (the other waits on build); 26/28/29/36 init cases wait on R6 identity (TASK-55.7) or build. Open: --stack value errors and control characters are unspecified in the spec, so a sentence was added to 10.3; no Code::Init variant was added (alz-core diagnostic.rs untouched to avoid a clash with R5.5), the line is printed as 'error [init] ...' by the command; a hub or stack text with YAML-significant characters (' #', ': ') is written as given, as the reference does.
+<!-- SECTION:NOTES:END -->

@@ -18,6 +18,15 @@ use crate::fs::repo_root::probe::{Below, folder_at, step_into};
 /// Counts the temporary files this process has made, so two never share a name.
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
+/// A name for a temporary file that no other file of this process has.
+pub(super) fn temporary_name() -> String {
+    format!(
+        ".alz-{}-{}.tmp",
+        std::process::id(),
+        NEXT_TEMPORARY.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
 /// What an apply did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Applied {
@@ -100,7 +109,11 @@ pub(super) fn apply(root: &OwnedFd, plan: &ClearPlan) -> Result<Applied, RepoErr
 /// The folder of `path` below `root`, made when it is missing, each step opened with
 /// `O_NOFOLLOW`. A step that is a link or not a folder means the repository changed since the
 /// plan.
-fn folder_for(root: &OwnedFd, parents: &[&str], path: &SafeRelPath) -> Result<OwnedFd, RepoError> {
+pub(super) fn folder_for(
+    root: &OwnedFd,
+    parents: &[&str],
+    path: &SafeRelPath,
+) -> Result<OwnedFd, RepoError> {
     parents.iter().try_fold(
         root.try_clone()
             .map_err(|e| RepoError::io("writing", path, e))?,
@@ -131,11 +144,7 @@ fn write_file(
         .split_last()
         .ok_or_else(|| RepoError::changed(path))?;
     let directory = folder_for(root, parents, path)?;
-    let temporary = format!(
-        ".alz-{}-{}.tmp",
-        std::process::id(),
-        NEXT_TEMPORARY.fetch_add(1, Ordering::Relaxed)
-    );
+    let temporary = temporary_name();
     let failed = |source: io::Error| RepoError::io("writing", path, source);
     let written = write_temporary(&directory, &temporary, bytes, executable).and_then(|()| {
         fs::renameat(&directory, temporary.as_str(), &directory, *name).map_err(io::Error::from)
@@ -153,7 +162,7 @@ fn write_file(
     }
 }
 
-fn write_temporary(
+pub(super) fn write_temporary(
     directory: &OwnedFd,
     temporary: &str,
     bytes: &[u8],
