@@ -169,7 +169,7 @@ pub(super) fn folder_for(
                 Ok(()) | Err(Errno::EXIST) => {}
                 Err(errno) => return Err(RepoError::io("writing", path, errno.into())),
             }
-            match step_into(&directory, segment).map_err(|e| RepoError::io("writing", path, e))? {
+            match step_into(&directory, *segment).map_err(|e| RepoError::io("writing", path, e))? {
                 Below::Folder(handle) => Ok(handle),
                 Below::Stop(_) => Err(RepoError::changed(path)),
             }

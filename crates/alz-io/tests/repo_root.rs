@@ -10,6 +10,7 @@ mod tests {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::path::{Path, PathBuf};
 
+    use alz_core::Stripped;
     use alz_core::account::AccountFolders;
     use alz_core::layer::Visibility;
     use alz_core::lock::{FileHash, Lock};
@@ -483,16 +484,20 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_that_cannot_be_named_makes_the_override_search_refuse() {
+    fn a_folder_that_is_no_safe_relative_path_is_searched_for_an_override() {
         let place = Place::new();
         place.write("docs/AGENTS.override.md", "hides");
-        // A folder name that is no safe relative path cannot be entered by name; the walk must not
-        // pass it over as if nothing below it could matter.
+        // A folder name that is no safe relative path cannot be named as a `SafeRelPath`, but
+        // Codex reads what lies in it, so the search enters it by the name the file system holds.
         fs::create_dir(place.repo().join("odd\\name")).expect("made");
-        let found = place.root().files_named("AGENTS.override.md");
-        assert!(
-            matches!(found, Err(RepoError::UnnameableEntry { .. })),
-            "a folder that cannot be named is a refusal, not a skip: {found:?}"
+        fs::write(place.repo().join("odd\\name/AGENTS.override.md"), "hides").expect("written");
+        let found = place
+            .root()
+            .files_named("AGENTS.override.md")
+            .expect("the search enters the folder");
+        assert_eq!(
+            found.iter().map(Stripped::as_str).collect::<Vec<_>>(),
+            ["docs/AGENTS.override.md", "odd\\name/AGENTS.override.md"]
         );
     }
 
@@ -508,7 +513,7 @@ mod tests {
             .files_named("AGENTS.override.md")
             .expect("a file name that cannot be an override is skipped");
         assert_eq!(
-            found.iter().map(SafeRelPath::as_str).collect::<Vec<_>>(),
+            found.iter().map(Stripped::as_str).collect::<Vec<_>>(),
             ["docs/AGENTS.override.md"]
         );
     }

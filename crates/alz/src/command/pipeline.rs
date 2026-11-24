@@ -195,9 +195,7 @@ fn shadowing_files(repository: &RepoRoot) -> Diagnostics {
             .map(|path| {
                 Diagnostic::error(
                     Code::Collision,
-                    Some(Where::repository_file(Stripped::from_untrusted(
-                        path.as_str(),
-                    ))),
+                    Some(Where::repository_file(path.clone())),
                     Message::new(
                         "AGENTS.override.md silently shadows the generated AGENTS.md; remove it",
                     ),

@@ -13,6 +13,7 @@ mod write;
 
 use std::collections::BTreeSet;
 
+use alz_core::Stripped;
 use alz_core::account::AccountFolders;
 use alz_core::adopt::AdoptionPlan;
 use alz_core::identity::{Blocker, GitConfigPlace};
@@ -92,7 +93,7 @@ impl RepoRoot {
     /// # Errors
     ///
     /// [`RepoError`] when the operating system fails, when a managed folder holds an entry whose
-    /// name is not a safe relative path, or when it holds too many entries.
+    /// name is not a safe relative path.
     pub fn observe(
         &self,
         tree: &FileTree,
@@ -175,12 +176,14 @@ impl RepoRoot {
     }
 
     /// Every file named `name` anywhere in the repository, in path order, found without following
-    /// a link and without entering `.git` or `node_modules`.
+    /// a link and without entering `.git`, `.DS_Store` or `node_modules`. A folder may hold any
+    /// number of entries and sit at any depth, and its name need not be valid Unicode: the paths
+    /// are given as they are shown, not as safe relative paths.
     ///
     /// # Errors
     ///
-    /// [`RepoError`] when the operating system fails or a folder holds too many entries.
-    pub fn files_named(&self, name: &str) -> Result<Vec<SafeRelPath>, RepoError> {
+    /// [`RepoError`] when the operating system fails.
+    pub fn files_named(&self, name: &str) -> Result<Vec<Stripped>, RepoError> {
         list::files_named(self.root.handle(), name)
     }
 

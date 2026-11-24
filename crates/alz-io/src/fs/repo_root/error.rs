@@ -27,14 +27,6 @@ pub enum RepoError {
         /// The folder, stripped.
         folder: String,
     },
-    /// A managed folder holds more entries than the writer looks at.
-    #[error("{folder} holds more than {limit} entries")]
-    TooManyEntries {
-        /// The folder, stripped.
-        folder: String,
-        /// The limit.
-        limit: usize,
-    },
     /// Something is at a path that was to be created: a file, a folder or a link. Nothing was
     /// written there.
     #[error("{path} already exists")]

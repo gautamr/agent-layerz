@@ -292,11 +292,16 @@ link, or a file where a folder is needed, after the plan was made, the write sto
 that names the path, and nothing is written through it.
 
 **The search for `AGENTS.override.md`.** The build looks for the file in every folder of the
-repository, never entering a link, `.git`, `.DS_Store` or `node_modules`. A file whose name is not
-valid Unicode or not a safe relative path cannot be that file and is passed over. A folder whose
-name is not valid Unicode or not a safe relative path cannot be searched, so the build refuses: the
-error `write` with the message `<folder> holds an entry whose name alz cannot read`, nothing
-written (the TypeScript `alz` does not search such a folder, reference drift, TASK-55.6.15).
+repository, never entering a link, `.git`, `.DS_Store` or `node_modules`; `.git` is the name byte for
+byte, so `.GIT` is searched. A folder that git ignores, a build folder included, is searched like any
+other: Codex reads the file by directory (target-facts §8.4), and no recorded fact exempts an ignored
+one. Each folder is listed once, and there is no limit on the entries in a folder, on the depth of the
+tree or on the length of a path. A folder is entered by the name the file system holds, so one whose
+name is not valid Unicode or not a safe relative path is searched like any other. An entry named
+`AGENTS.override.md` that is not a folder, a link included, is a collision; its path is shown as text
+with control characters removed and each byte that is not Unicode replaced by U+FFFD. A folder that
+cannot be read is the error `write` that names it (the TypeScript `alz` caps a folder at 10000 entries
+and does not search a folder whose name is not valid Unicode, reference drift, TASK-84).
 
 **Writing.** The build writes nothing when it reports any error, a collision included. Each file
 is written as a temporary file in its folder and renamed over its path, with mode `0644`, or
@@ -4207,7 +4212,7 @@ finds each case.
 | TASK-55.6 | 22 | `ls` lists in name order; `explain` prints the diagnostic prefix |
 | TASK-55.6.13, TASK-55.6.14 | 20 | adoption keeps agents with native hooks out; hook scripts move to `hooks/scripts/` |
 | TASK-55.6.7 | 39 | the writer's rules: a file the lock lists whose bytes differ from the recorded ones, a generated path below a link and another kind of entry at a generated path are collisions; such a file, `layer.yaml` and files under `.layer/` are never deleted or overwritten; a passthrough file that is a case variant of a generated one is the error `passthrough`, and a layer file at a case variant of a protected path is warned about and not written |
-| TASK-55.6.15 | 24, 28 | wording of a refused lock, cache entry or pinned tree (§5.3, §6); a file name with a control character is refused before names are compared; the search for `AGENTS.override.md` refuses a folder it cannot enter |
+| TASK-55.6.15 | 24, 28 | wording of a refused lock, cache entry or pinned tree (§5.3, §6); a file name with a control character is refused before names are compared; the search for `AGENTS.override.md` refused a folder it cannot name (replaced by TASK-84: it enters such a folder) |
 | TASK-55.7 | 12, 42 | `alz doctor` does not read `ALZ_ACCOUNT_DIRS`; it does not list a blocked folder (`~/.claude-alz-blocked`) as an account folder and warns once for each that exists (TASK-50.4); `alz build` and `alz check` in a repository that is `$HOME` or lies inside the folder `CLAUDE_CONFIG_DIR` names stop with exit 1 and print no account note (§6, §10.3) |
 | TASK-59, TASK-60, TASK-61, TASK-62 | 34, 35 | YAML aliases, depth and size limits, manifest entry errors |
 | TASK-63 | 36 | a build in a linked worktree leaves the index alone |
