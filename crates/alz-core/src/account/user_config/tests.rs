@@ -84,7 +84,7 @@ fn a_top_level_that_is_not_a_mapping_ignores_the_whole_file_with_one_warning() {
         assert_eq!(
             warnings(&reading),
             [
-                "warning [account-config] accounts.yaml:1:1: the file is ignored: its top level must be a mapping"
+                "warning [account-config-shape] accounts.yaml:1:1: the file is ignored: its top level must be a mapping"
             ],
             "{document:?}"
         );
@@ -98,7 +98,7 @@ fn an_unknown_key_is_ignored_with_one_warning_that_quotes_only_the_key() {
     assert_eq!(
         warnings(&reading),
         [
-            "warning [account-config] accounts.yaml:2:1: the key 'secret_token' is not known and is ignored"
+            "warning [account-config-key] accounts.yaml:2:1: the key 'secret_token' is not known and is ignored"
         ]
     );
     assert_eq!(reading.value().default_name(), Some(&name("personal")));
@@ -130,7 +130,7 @@ fn a_default_name_that_is_not_an_account_name_is_ignored_without_printing_it() {
         assert_eq!(
             warnings(&reading),
             [
-                "warning [account-config] accounts.yaml:1:15: default_name must be an account name; it is ignored"
+                "warning [account-config-default-name] accounts.yaml:1:15: default_name must be an account name; it is ignored"
             ],
             "{value}"
         );
@@ -186,7 +186,9 @@ fn a_folders_value_that_is_not_a_mapping_is_ignored_and_a_null_is_nothing() {
     let reading = read("folders: [a]\n");
     assert_eq!(
         warnings(&reading),
-        ["warning [account-config] accounts.yaml:1:10: 'folders' must be a mapping; it is ignored"]
+        [
+            "warning [account-config-shape] accounts.yaml:1:10: 'folders' must be a mapping; it is ignored"
+        ]
     );
     for document in ["folders:\n", "folders: ~\n", "folders: {}\n"] {
         let reading = read(document);

@@ -80,7 +80,7 @@ impl ResolvedUserConfig {
         let clashing = clashing(&kept);
         let clash_warning = (!clashing.is_empty()).then(|| {
             Diagnostic::warning(
-                Code::AccountConfig,
+                Code::AccountConfigDuplicate,
                 Some(file.clone()),
                 Message::new(
                     "two folders keys resolve to the same directory with different accounts; \
@@ -114,7 +114,7 @@ enum Fate {
 fn fate(rule: &FolderRule, home: &AbsolutePath, folders: &AccountFolders, file: &Where) -> Fate {
     let refuse = || {
         Fate::Refused(Diagnostic::warning(
-            Code::AccountConfig,
+            Code::AccountConfigFolder,
             Some(file.clone()),
             Message::new("the folders key ")
                 .then(QuotedKey::from_untrusted(&key_text(rule.key())))
@@ -338,7 +338,7 @@ fn entry_fate(entry: AllowEntry, number: NonZeroUsize, folders: &AccountFolders)
 /// A warning that holds an entry's position only.
 fn entry_warning(file: &Where, number: NonZeroUsize, reason: &'static str) -> Diagnostic {
     Diagnostic::warning(
-        Code::AccountAllowed,
+        Code::AccountAllowedEntry,
         Some(file.clone()),
         Message::new("entry ")
             .then(number.get())
@@ -362,7 +362,7 @@ fn duplicate_warning(file: &Where, numbers: &[NonZeroUsize]) -> Diagnostic {
                 separated.then(number.get())
             });
     Diagnostic::warning(
-        Code::AccountAllowed,
+        Code::AccountAllowedEntry,
         Some(file.clone()),
         listed.then(" are ignored (they have the same root)"),
     )

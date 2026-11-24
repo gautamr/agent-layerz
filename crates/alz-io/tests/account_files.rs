@@ -151,7 +151,7 @@ mod tests {
         let warning = files.home_warning().expect("one warning").to_string();
         assert_eq!(
             warning,
-            "warning [account-config] HOME is not an absolute path; accounts.yaml and allowed.yaml \
+            "warning [account-home] HOME is not an absolute path; accounts.yaml and allowed.yaml \
              are ignored and no account folder is set"
         );
         for kind in KINDS {
@@ -554,11 +554,7 @@ mod tests {
             assert_eq!(
                 warnings,
                 vec![format!(
-                    "warning [{}] {} is not an absolute path; {} is looked for in the default place",
-                    match kind {
-                        Kind::Config => "account-config",
-                        Kind::State => "account-allowed",
-                    },
+                    "warning [account-xdg-relative] {} is not an absolute path; {} is looked for in the default place",
                     kind.variable(),
                     kind.name()
                 )]
@@ -655,7 +651,7 @@ mod tests {
         assert_eq!(
             warnings,
             vec![
-                "warning [account-config] accounts.yaml (~/.config/agent-layerz/accounts.yaml) is \
+                "warning [account-file-ignored] accounts.yaml (~/.config/agent-layerz/accounts.yaml) is \
                  ignored: group or others can write it"
                     .to_owned()
             ]
@@ -759,7 +755,7 @@ mod tests {
         assert_eq!(
             lines,
             vec![
-                "warning [account-config] ~/.config/agent-layerz/accounts.yaml: \
+                "warning [account-config-duplicate] ~/.config/agent-layerz/accounts.yaml: \
                  two folders keys resolve to the same directory with different accounts; both are ignored"
                     .to_owned()
             ]

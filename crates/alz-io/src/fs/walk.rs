@@ -12,8 +12,8 @@
 use std::io;
 use std::os::fd::{AsFd, OwnedFd};
 
-use alz_core::account::AccountFolders;
-use alz_core::path::{AbsolutePath, Entry, LinkTarget, Name, RealPathWalk, Resolved, Step};
+use alz_core::account::{AccountFolders, Relation};
+use alz_core::path::{AbsolutePath, Entry, LinkTarget, Name, RealPathWalk, Resolved, Step, Stop};
 use rustix::fs::{self, AtFlags, FileType, Mode, OFlags};
 use rustix::io::Errno;
 
@@ -32,6 +32,49 @@ pub(super) struct Found {
 pub(super) fn find(path: &AbsolutePath, folders: &AccountFolders) -> Result<Found, WalkError> {
     let chain = Chain::at_root()?;
     drive(chain, RealPathWalk::start(path, folders))
+}
+
+/// Where a walk that only locates a directory ended (spec §7.13 "Paths").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Located {
+    /// The real path of a directory that exists; no handle is opened.
+    Directory(AbsolutePath),
+    /// The walk reached an account folder or a configured folder, and asked about no name inside.
+    /// This is the real path of that folder as the walk reached it.
+    Inside {
+        /// Which kind of folder; always one that [`Relation::is_inside`].
+        relation: Relation,
+        /// Its real path.
+        at: AbsolutePath,
+    },
+    /// The path is `$HOME` or above it.
+    AtOrAboveHome,
+}
+
+/// Finds the real path of `path` one component at a time, as [`find`] does, without opening the
+/// directory at the end and without refusing a path that only holds a configured folder.
+pub(crate) fn locate(path: &AbsolutePath, folders: &AccountFolders) -> Result<Located, WalkError> {
+    let mut chain = Chain::at_root()?;
+    let mut step = RealPathWalk::locate(path, folders);
+    loop {
+        step = match step {
+            Step::Lstat(request) => {
+                let entry = chain.lstat(request.path())?;
+                request.answer(entry)
+            }
+            Step::Readlink(request) => {
+                let target = chain.readlink(request.path())?;
+                request.answer(&target)
+            }
+            Step::Done(Resolved::Existing(real)) => return Ok(Located::Directory(real)),
+            Step::Done(Resolved::Missing { .. }) => return Err(WalkError::Missing),
+            Step::Stopped(Stop::Inside { relation, at }) => {
+                return Ok(Located::Inside { relation, at });
+            }
+            Step::Stopped(Stop::Refused(Relation::Home)) => return Ok(Located::AtOrAboveHome),
+            Step::Stopped(other) => return Err(other.into()),
+        };
+    }
 }
 
 /// The folders opened so far, outermost first: a cache of handles for the prefix that was last

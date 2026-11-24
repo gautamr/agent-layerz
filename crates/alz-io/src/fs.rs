@@ -8,7 +8,7 @@ mod read_error;
 mod read_only_dir;
 mod repo_root;
 mod scan;
-mod walk;
+pub(crate) mod walk;
 mod walk_error;
 mod write_below;
 

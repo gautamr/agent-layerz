@@ -93,7 +93,14 @@ impl WorkingDirectory {
     /// The working directory of this process, as it is now.
     #[must_use]
     pub fn capture() -> Self {
-        Self(std::env::current_dir().ok().and_then(|directory| {
+        Self::capture_with(std::env::current_dir)
+    }
+
+    /// The working directory `lookup` gives. A run asks once, here, and passes the value down;
+    /// a test counts the calls through a `lookup` of its own.
+    #[must_use]
+    pub fn capture_with(lookup: impl FnOnce() -> std::io::Result<std::path::PathBuf>) -> Self {
+        Self(lookup().ok().and_then(|directory| {
             directory
                 .to_str()
                 .and_then(|text| AbsolutePath::try_from(text).ok())

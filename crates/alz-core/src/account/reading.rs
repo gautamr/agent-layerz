@@ -82,7 +82,7 @@ pub(super) fn unreadable(error: &YamlError, file: &Where) -> Diagnostic {
         .position()
         .map_or_else(|| file.clone(), |position| file.clone().at(position));
     Diagnostic::warning(
-        error.kind().code(),
+        Code::AccountFileIgnored,
         Some(at),
         error.kind().message().then("; the file is ignored"),
     )
