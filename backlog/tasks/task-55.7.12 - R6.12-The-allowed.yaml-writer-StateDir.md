@@ -1,9 +1,11 @@
 ---
 id: TASK-55.7.12
 title: 'R6.12: The allowed.yaml writer (StateDir)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-24T08:16:00Z'
+updated_date: '2026-11-24T10:28:00Z'
 labels:
   - area:rust
   - area:accounts

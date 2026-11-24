@@ -4,6 +4,7 @@ title: 'R6.9: Account resolution as a pure decision, and the text of alz account
 status: To Do
 assignee: []
 created_date: '2026-11-24T08:16:00Z'
+updated_date: '2026-11-24T10:27:00Z'
 labels:
   - area:rust
   - area:accounts
@@ -31,3 +32,9 @@ Plan for this step (§7.13 "Resolution", "A named account that cannot apply fail
 - [ ] #2 Property: the first step that names an account wins, a foreign value replaces steps 3 to 5 but never 1 and 2, and a target the allowed entry does not name is skipped without failing (proptest)
 - [ ] #3 Property: no report line holds a control or format character or a name that breaks the name rule, whatever the paths and sources hold (proptest)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R6.7 (2026-11-24), lead decisions: (1) a working directory inside a configured folder is placed by that folder's real path, nothing below it is looked at, so an allowed.yaml root strictly below the configured folder is not matched (stricter); R6.16's spec pass or R6.9 adds that sentence to §7.13; use RootSearch::known_directory() for the folders rule match. (2) The account warnings must print exactly the spec's §10.3 lines (the reference's): no file:line:column prefix, keys quoted as the spec writes them — align crates/alz-io/src/account/{files,resolved}.rs and the alz-core account readers with §10.3, with tests against the spec's strings. (3) account-default-name-folder is produced here.
+<!-- SECTION:NOTES:END -->
