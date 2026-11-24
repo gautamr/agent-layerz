@@ -626,3 +626,24 @@ fn a_key_that_an_object_requires_is_a_settings_error_when_it_is_missing() {
         ]
     );
 }
+
+#[test]
+fn a_key_that_lowers_a_safety_check_or_steers_sign_in_is_refused_with_its_reason() {
+    let lowers = "it turns off a safety check of Claude Code, which no layer may lower";
+    let steers = "it steers how the user signs in, which a repository layer may not set";
+    for (key, value, reason) in [
+        ("skipWebFetchPreflight", "true", lowers),
+        ("forceLoginMethod", "console", steers),
+        ("forceLoginOrgUUID", "secret-value", steers),
+        ("forceLoginOrgUUID", "[secret-value]", steers),
+    ] {
+        let found = refused(&format!("claude:\n  {key}: {value}\n"));
+        assert_eq!(
+            found,
+            [format!(
+                "error [settings] personal:settings.yaml:2:3: 'claude.{key}' is not set in settings.yaml: {reason}"
+            )]
+        );
+        assert!(found.iter().all(|line| !line.contains("secret-value")));
+    }
+}
