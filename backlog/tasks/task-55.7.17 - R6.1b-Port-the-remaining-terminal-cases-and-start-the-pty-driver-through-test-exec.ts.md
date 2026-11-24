@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T10:46:00Z'
-updated_date: '2026-11-24T11:53:00Z'
+updated_date: '2026-11-24T11:56:00Z'
 labels:
   - area:test
   - area:rust
@@ -43,4 +43,6 @@ Deviations, on purpose: (a) display control-character check asserts stdout only,
 Left (TS-only, no acceptance twin possible): the fs-trace cases (no write outside the state dir, no subprocess, no open in an account folder), the import-graph and stdin source scans, createTerminal in-process cases, the updateAllowed uid-unknown case and the in-process writer lock input; the lock cases are covered through the binary instead. The reference copies are all kept. Not done: the concurrency case does not assert that some process met a held lock (the reference read that from its driver); only the end state (9 sorted unique entries, no leftovers).
 
 Correction of the counts above: 113 new cases (131 in files 40-42, was 18); 109 new entries in r6-pending.json (127 of the 131 fail against the Rust binary, 18 of them listed before); 4 pass for real against Rust (the hint cases that need no allow: no hint without a declared account, no hint inside CLAUDE_CONFIG_DIR or at HOME, check's own comparison failing).
+
+Follow-up: the two hint cases (repository inside the CLAUDE_CONFIG_DIR folder, repository that is HOME) assert the spec's behaviour again, exit 1 with an error diagnostic and no hint (spec 6 and 10.1), as referenceDrift('TASK-55.7', ...): expected failures against the TypeScript bundle, passing against the Rust binary. Deviation (b) above is withdrawn. Counts unchanged: 1214 cases, floor 1214, 356 failing and listed.
 <!-- SECTION:NOTES:END -->

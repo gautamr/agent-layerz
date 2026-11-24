@@ -28,6 +28,7 @@ import {
   TERMINAL_CASE_MS,
   which,
 } from "../allow-terminal";
+import { referenceDrift } from "../drift";
 import { snapshot } from "../helpers";
 
 vi.setConfig({ testTimeout: TERMINAL_CASE_MS });
@@ -244,20 +245,31 @@ describe("§13.20 the hint on build and check at a terminal, edge cases", () => 
     expect(hintLines(result.stderr)).toHaveLength(1);
   });
 
-  it("prints no hint for a repository inside the folder CLAUDE_CONFIG_DIR names", async () => {
-    const s = await ready();
-    const result = await atTerminal(s, ["build"], { CLAUDE_CONFIG_DIR: `${s.real}/repo` });
-    // The exit status is not asserted: a directory that touches an account folder stops the
-    // command (spec 6), which the Rust alz does and the reference does not. Either way: no hint.
-    expect(hintLines(result.stderr)).toEqual([]);
-  });
+  // A directory that touches an account folder stops the command (spec 6, 10.1: exit 1 with an error
+  // diagnostic); the reference builds there and exits 0 (decision-30).
+  referenceDrift(
+    "TASK-55.7",
+    "prints no hint for a repository inside the folder CLAUDE_CONFIG_DIR names, and stops with exit 1",
+    async () => {
+      const s = await ready();
+      const result = await atTerminal(s, ["build"], { CLAUDE_CONFIG_DIR: `${s.real}/repo` });
+      expect(result.code, result.stderr).toBe(1);
+      expect(result.stderr).toContain("error [");
+      expect(hintLines(result.stderr)).toEqual([]);
+    },
+  );
 
-  it("prints no hint for a repository that is $HOME", async () => {
-    const s = await ready();
-    const result = await atTerminal(s, ["build"], { HOME: `${s.real}/repo` });
-    // The exit status is not asserted, as for CLAUDE_CONFIG_DIR above.
-    expect(hintLines(result.stderr)).toEqual([]);
-  });
+  referenceDrift(
+    "TASK-55.7",
+    "prints no hint for a repository that is $HOME, and stops with exit 1",
+    async () => {
+      const s = await ready();
+      const result = await atTerminal(s, ["build"], { HOME: `${s.real}/repo` });
+      expect(result.code, result.stderr).toBe(1);
+      expect(result.stderr).toContain("error [");
+      expect(hintLines(result.stderr)).toEqual([]);
+    },
+  );
 
   it("prints exactly the miss line when XDG_CACHE_HOME moved under mise and the layers name an account", async () => {
     const s = await ready();
