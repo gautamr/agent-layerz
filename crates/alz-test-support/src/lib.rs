@@ -3,6 +3,7 @@
 //! The helpers use only the standard library and the `mkfifo` tool, so no test depends on a
 //! third-party temporary-directory crate. They never read the real home directory.
 
+pub mod pty;
 mod scratch_dir;
 mod tree;
 

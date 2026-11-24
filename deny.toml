@@ -59,7 +59,7 @@ deny = [
     # fails any other direct dependent. Add a crate here only when it appears in the graph, with the
     # reason. cargo-deny prints a warning for a wrapper it does not meet; that is expected until
     # tempfile joins the graph.
-    { name = "rustix", wrappers = ["alz-io", "tempfile"], reason = "decision-27: only alz-io depends on rustix; tempfile is the named third-party exception" },
+    { name = "rustix", wrappers = ["alz-io", "alz-test-support", "tempfile"], reason = "decision-27: only alz-io depends on rustix; alz-test-support is the other alz exception, for the pseudo-terminal driver, dev only (amended 2026-11-24); tempfile is the named third-party exception" },
     # decision-36: only alz-core depends on sha1, to compute git's own object ids.
     { name = "sha1", wrappers = ["alz-core"], reason = "decision-36: only alz-core depends on sha1" },
     # decision-38: only alz-core depends on regex-lite, for the leak guard and the secret scan.
