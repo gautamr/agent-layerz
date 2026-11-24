@@ -14,7 +14,7 @@ use crate::yaml::{Node, Value};
 use super::NativeFile;
 use super::draft::Draft;
 use super::names;
-use super::values::{from_node, map, text, texts};
+use super::values::{from_agent_node, map, text, texts};
 
 /// The fields that map to a neutral field one to one.
 const SAME: [&str; 4] = ["description", "skills", "isolation", "memory"];
@@ -156,7 +156,7 @@ fn field(key: &str, value: &Node, from: &str, draft: &mut Draft<'_>) -> Field {
                 Field::Dropped
             }
         },
-        _ => match from_node(value) {
+        _ => match from_agent_node(value) {
             Ok(value) => SAME.iter().find(|same| **same == key).map_or_else(
                 || Field::Native(key.to_owned(), value.clone()),
                 |same| Field::Neutral(same, value.clone()),
@@ -206,8 +206,7 @@ fn entry_text(node: &Node) -> String {
 pub(super) fn model_alias(model: &str, from: &str, draft: &mut Draft<'_>) -> Option<String> {
     let models = draft.ctx.merged.models();
     let existing = models
-        .aliases()
-        .keys()
+        .aliases_in_definition_order()
         .find(|alias| {
             models
                 .model(alias, TargetName::Claude)

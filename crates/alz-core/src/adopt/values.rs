@@ -3,11 +3,13 @@
 //! layer file merge into what is on disk.
 
 use crate::json::{JsonNumber, JsonValue};
-use crate::render::yaml::{EmitMap, EmitValue};
+use crate::render::yaml::{EmitFloat, EmitMap, EmitValue};
 use crate::yaml::{Node, Value};
 
 /// Why a value cannot be written to a layer file: the emitter of §10.2 writes text, booleans,
-/// integers of 64 bits, lists and mappings with text keys, and nothing else.
+/// null, numbers, lists and mappings with text keys, and nothing else. A whole number beyond 64
+/// bits is refused, as is a value of a native agent field that is a null or a fraction (the Claude
+/// agent writer does not write them).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Unwritable {
     /// `null`.
@@ -64,12 +66,14 @@ pub(super) fn map<K: Into<String>>(entries: impl IntoIterator<Item = (K, EmitVal
 /// The JSON value as a value the emitter writes.
 pub(super) fn from_json(value: &JsonValue) -> Result<EmitValue, Unwritable> {
     match value {
-        JsonValue::Null => Err(Unwritable::Null),
+        JsonValue::Null => Ok(EmitValue::Null),
         JsonValue::Bool(flag) => Ok(EmitValue::Bool(*flag)),
         JsonValue::Number(JsonNumber::Int(number)) => i64::try_from(*number)
             .map(EmitValue::Int)
             .map_err(|_beyond_64_bits| Unwritable::TooLarge),
-        JsonValue::Number(JsonNumber::Float(_)) => Err(Unwritable::Fraction),
+        JsonValue::Number(JsonNumber::Float(number)) => {
+            Ok(EmitValue::Float(EmitFloat::new(*number)))
+        }
         JsonValue::Text(text) => Ok(EmitValue::Text(text.clone())),
         JsonValue::Array(items) => items
             .iter()
@@ -87,12 +91,12 @@ pub(super) fn from_json(value: &JsonValue) -> Result<EmitValue, Unwritable> {
 /// The YAML node as a value the emitter writes.
 pub(super) fn from_node(node: &Node) -> Result<EmitValue, Unwritable> {
     match node.value() {
-        Value::Null => Err(Unwritable::Null),
+        Value::Null => Ok(EmitValue::Null),
         Value::Bool(flag) => Ok(EmitValue::Bool(*flag)),
         Value::Int(number) => i64::try_from(*number)
             .map(EmitValue::Int)
             .map_err(|_beyond_64_bits| Unwritable::TooLarge),
-        Value::Float(_) => Err(Unwritable::Fraction),
+        Value::Float(number) => Ok(EmitValue::Float(EmitFloat::new(*number))),
         Value::Text(text) => Ok(EmitValue::Text(text.clone())),
         Value::Seq(items) => items
             .iter()
@@ -110,6 +114,29 @@ pub(super) fn from_node(node: &Node) -> Result<EmitValue, Unwritable> {
                 | Value::Seq(_)
                 | Value::Map(_) => Err(Unwritable::KeyNotText),
             })
+            .collect::<Result<Vec<_>, _>>()
+            .and_then(entries_map),
+    }
+}
+
+/// The YAML node as a value of a native agent field: [`from_node`], and no null and no fraction.
+pub(super) fn from_agent_node(node: &Node) -> Result<EmitValue, Unwritable> {
+    from_node(node).and_then(whole_values)
+}
+
+fn whole_values(value: EmitValue) -> Result<EmitValue, Unwritable> {
+    match value {
+        EmitValue::Null => Err(Unwritable::Null),
+        EmitValue::Float(_) => Err(Unwritable::Fraction),
+        EmitValue::Text(_) | EmitValue::Bool(_) | EmitValue::Int(_) => Ok(value),
+        EmitValue::Seq(items) => items
+            .into_iter()
+            .map(whole_values)
+            .collect::<Result<Vec<_>, _>>()
+            .map(EmitValue::Seq),
+        EmitValue::Map(map) => map
+            .entries()
+            .map(|(key, value)| whole_values(value.clone()).map(|value| (key.to_owned(), value)))
             .collect::<Result<Vec<_>, _>>()
             .and_then(entries_map),
     }

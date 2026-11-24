@@ -321,6 +321,18 @@ written by the rules above, links included.
   (§5, §7, §9.2) together with the layer files it adds to. Any text the reader would refuse, such
   as a control, format or line separator character, a name outside its grammar or a key the schema
   refuses, is a problem that names the native file and never prints the text (TASK-73).
+- A concrete model that an agent or `settings.json` names reuses the alias of the merged stack
+  that has the model for Claude. When several do, the first in the order the reference lists
+  them wins: names that are whole numbers (array indexes) first, ascending, then the others in the
+  order a layer first wrote them, the most general layer first and each file in its own order.
+  Otherwise the model is added to `models.yaml` as an alias of its own name, or `claude-<name>`
+  when a general layer owns that name.
+- A float of `settings.json` or `.mcp.json` is written to the layer as the emitter writes it
+  (§10.2), as the reference does; whether the layer may hold it is the schema's to say (a typed
+  number key accepts it, a key of another type refuses it in the reader check).
+  A `null` is written the same way and no settings key takes one, so the reader check refuses it.
+  A native agent field that holds a null or a float stays refused, because the agent writer does
+  not write one (§8.1). A whole number beyond 64 bits is refused.
 - A problem prints text from the native files stripped (§10.1, class 1).
 - Problems come in two phases. First each native file is converted, and every problem of every
   file is listed. The reader check of the planned layer runs only when all conversions succeeded,
@@ -330,7 +342,7 @@ written by the rules above, links included.
   regular file, a file larger than the writer compares, an input of alz) stops `--adopt` before
   anything is planned: the error `collision` at each, and the repository is unchanged. A native
   file that is a link and that the build does not write, such as `.mcp.json`, is not read and not
-  adopted.
+  adopted, and one note `adopt` names its path.
 - The plan is applied only to the files it names, and only while each holds the bytes it was
   planned from: `layer.yaml`, each native file it moves or removes and each layer file it adds to
   are compared first, and a layer file it creates must not exist. If one differs, or a folder
@@ -2577,10 +2589,10 @@ target-facts section each item relies on is given in brackets.
   - `permissionMode`, `skills` when not empty, `isolation` only for `worktree`, and `memory`
     unless it is `none`, since Claude has no `none` for these.
   - The native fields of `claude:`, in the order §7.2 gives them. A native value is written by
-    §10.2's emitter, which writes no null, no float and no integer beyond 64 bits. The types of
-    §7.2 already refuse a null or a float in a typed field (code `agent`, at read), so only a
-    whole number beyond 64 bits reaches the emitter: an agent whose native field holds one is the
-    error `claude-agent`, naming the field and the agent's file. The TypeScript `alz` writes it
+    §10.2's emitter, but the agent writer passes it no null, no float and no integer beyond 64
+    bits. The types of §7.2 already refuse a null or a float in a typed field (code `agent`, at
+    read), so only a whole number beyond 64 bits reaches the writer: an agent whose native field
+    holds one is the error `claude-agent`, naming the field and the agent's file. The TypeScript `alz` writes it
     (reference drift, TASK-55.6.4).
 
   The model is resolved as §7.8 says. A `model` that is not an alias of `models.yaml` is the
@@ -3096,18 +3108,24 @@ end. The golden samples in `crates/alz-core/tests/fixtures/yaml-emit/samples.jso
 reference by `crates/alz-core/tools/yaml-emit-samples.mjs`, pin the bytes; each sample's `class`
 names the rule it shows, and a `drift` field marks a sample alz writes differently.
 
-**Values.** Text, `true` and `false`, integers, lists, and mappings with text keys, in the order
+**Values.** Text, `true` and `false`, `null`, numbers, lists, and mappings with text keys, in the order
 the caller gives (§6 where a section is sorted), with no key twice. Mapping entries read from
 layer YAML keep their source order only where the spec says so: the native fields of an agent
 (§7.2, TASK-66). Everywhere else they are sorted by key in code-point order, settings and MCP
 servers included. A key that is a whole number is ordered like any other key. Nothing else is written: no
-null, float, anchor, alias, tag or comment.
+anchor, alias, tag or comment.
 
 **Layout.**
 - The document is the top-level value and one line feed. The top-level value is a mapping or a
   list. alz never writes a top-level scalar, so this section gives no rule for one.
-- An integer is decimal, with `-` when negative, exact over the 64-bit range. An empty list is
-  `[]` and an empty mapping `{}`.
+- An integer is decimal, with `-` when negative, exact over the 64-bit range. A number with a
+  fraction or an exponent, or a whole number beyond 64 bits that a source gives as a float, is
+  written as the reference writes a JavaScript number: the shortest digits that read back as the
+  same number, in plain notation from `1e-6` up to 21 digits and as `d.ddde+x` or `d.ddde-x`
+  beyond (`0.5`, `0.000001`, `100000000000000000000`, `1e+21`, `1e-7`), `-0` for a negative
+  zero, and `.inf`, `-.inf` and `.nan`. `null` is written as `null`. Adoption (§4.3) refuses a
+  whole number beyond 64 bits that a source gives as an integer. An empty list is `[]` and an
+  empty mapping `{}`.
 - A list writes each item as `- <item>`, a mapping each entry as `<key>: <value>`, one per line
   at the collection's indent.
 - A non-empty list or mapping that is the value of an entry starts on the next line, two spaces
@@ -3804,6 +3822,7 @@ finds each case.
 | TASK-64 | 33 | name order by code point (AGENTS.md, settings.json, content hash) |
 | TASK-68 | 26 | the first line left after control characters are removed |
 | TASK-71 | 24 | credentials in a layer source are refused |
+| TASK-73 | 38 | text the reference writes plain that alz would read as an integer is quoted; a space between line feeds in long double-quoted text is one escaped space (§10.2) |
 | TASK-79 | 37 | Claude settings keys and agent fields need a recorded type |
 
 ## 14. Rollout (generic, for any client)

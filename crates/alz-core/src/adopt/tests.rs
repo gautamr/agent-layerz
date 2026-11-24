@@ -28,8 +28,12 @@ struct World {
 }
 
 fn world(manifest_text: &str, repo_files: &[(&str, &str)]) -> World {
+    world_with_models(MODELS, manifest_text, repo_files)
+}
+
+fn world_with_models(models: &str, manifest_text: &str, repo_files: &[(&str, &str)]) -> World {
     let layers = vec![
-        layer_from_yaml(PERSONAL, &[("models.yaml", MODELS)]),
+        layer_from_yaml(PERSONAL, &[("models.yaml", models)]),
         layer_from_yaml(REPO_LAYER, repo_files),
     ];
     let node = parse_document(manifest_text.as_bytes()).expect("a manifest");
@@ -491,5 +495,70 @@ proptest! {
             all
         });
         prop_assert_eq!(read, expected);
+    }
+}
+
+/// Two aliases of one model: the reference takes the one its merged `models.yaml` lists first,
+/// with integer-like names ahead of the others, as a JavaScript object does; name order does not
+/// decide. Expected values are what the reference wrote for the same layers.
+#[test]
+fn an_alias_tie_follows_the_order_the_stack_defines_them_in() {
+    let model_of = |models: &str| {
+        let world = world_with_models(models, MANIFEST, &[]);
+        let plan = run(&world, &[(".claude/agents/architect.md", ARCHITECT)]).expect("a plan");
+        file(&plan, "agents/architect.md")
+            .lines()
+            .find_map(|line| line.strip_prefix("model: "))
+            .map(str::to_owned)
+            .expect("a model line")
+    };
+    assert_eq!(
+        model_of("aliases:\n  zeta: { claude: opus }\n  alpha: { claude: opus }\n"),
+        "zeta"
+    );
+    assert_eq!(
+        model_of(
+            "aliases:\n  zeta: { claude: opus }\n  \"10\": { claude: opus }\n  \"7\": { claude: opus }\n"
+        ),
+        "\"7\""
+    );
+}
+
+/// The reference writes the float of a native settings file as JavaScript prints a number.
+/// Expected text is what the reference wrote for the same file.
+#[test]
+fn a_float_of_native_settings_is_written_as_the_reference_writes_it() {
+    let world = world(MANIFEST, &[]);
+    let settings = r#"{"skillListingBudgetFraction": 0.5, "cleanupPeriodDays": 30}"#;
+    let plan = run(&world, &[(".claude/settings.json", settings)]).expect("a plan");
+    assert_eq!(
+        file(&plan, "settings.yaml"),
+        "claude:\n  skillListingBudgetFraction: 0.5\n  cleanupPeriodDays: 30\n"
+    );
+}
+
+/// The emitter writes a null as the reference does; whether the layer may hold it is the schema's
+/// to say, and the settings schema has no key that takes one, so the reader check refuses the plan.
+#[test]
+fn a_null_of_native_settings_is_refused_by_the_layer_reader_not_by_the_emitter() {
+    let world = world(MANIFEST, &[]);
+    let settings = r#"{"sandbox": {"ignoreViolations": {"x": null}}}"#;
+    let refused = run(&world, &[(".claude/settings.json", settings)]).expect_err("refused");
+    let lines = problems(&refused);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(
+        lines[0].starts_with("error [adopt] .claude/settings.json: the repo layer that adoption plans would be refused: error [settings]"),
+        "{lines:?}"
+    );
+}
+
+/// A float of a native agent stays refused: the Claude agent writer does not write one.
+#[test]
+fn a_float_or_a_null_of_a_native_agent_is_still_refused() {
+    let world = world(MANIFEST, &[]);
+    for field in ["maxTurns: 2.5", "maxTurns: null"] {
+        let agent = format!("---\nname: a\ndescription: d\n{field}\n---\nBody.\n");
+        let refused = run(&world, &[(".claude/agents/a.md", &agent)]).expect_err("refused");
+        assert_eq!(refused.diagnostics().iter().count(), 1, "{field}");
     }
 }

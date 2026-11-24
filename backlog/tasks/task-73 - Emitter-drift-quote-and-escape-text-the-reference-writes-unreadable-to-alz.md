@@ -4,7 +4,7 @@ title: 'Emitter drift: quote and escape text the reference writes unreadable to 
 status: In Progress
 assignee: []
 created_date: '2026-11-23T06:27:00Z'
-updated_date: '2026-11-24T05:55:00Z'
+updated_date: '2026-11-24T06:12:00Z'
 labels:
   - discovered
   - area:rust
@@ -51,4 +51,6 @@ Lead (2026-11-23): the emitter fixes (escaping, line-break read-back) land in R2
 2026-11-24 implementer (R5.13, TASK-55.6.13): AC#4 partly: adoption refuses text the layer reader would refuse before planning anything (adopt/check.rs merges the planned repo layer with the manifest as it would be edited; test text_the_layer_reader_refuses_rejects_the_plan_and_the_problem_names_the_native_file uses U+2028 in a settings.json env value; the problem names .claude/settings.json and prints the reader line stripped). The emitter drift cases themselves and the output-parity listing stay with R2.8 and R5.15.
 
 Verified by the lead (2026-11-24): AC #1 and #2 by render::yaml's drift sample tests (escaped C1 and line separators, the escaped space between line feeds, round trip; mise run rust:ci); AC #3: spec §10.2 marks these as reference drift (TASK-73), nothing as planned. AC #4 (an acceptance case per §10.2 drift sample) is left: R5's acceptance suite has none yet.
+
+Implementer (2026-11-24), AC #4 partly: acceptance cases in test/acceptance/38-emitter-drift.test.ts (referenceDrift TASK-73) check alz's own bytes for the integer-like text quoting and the escaped space between line feeds; reference: expected failures, Rust: pass. The C1, U+2028, U+2029 escapes and U+FEFF quoting have no path through build or adopt (the reader and adoption refuse them first); they are pinned by the golden samples (cargo test) and need alz account allow (R6, TASK-55.7) for an acceptance case. Also the emitter now writes floats and null as the reference does (spec 10.2). AC left unticked.
 <!-- SECTION:NOTES:END -->

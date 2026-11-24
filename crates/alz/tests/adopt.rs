@@ -212,6 +212,55 @@ mod tests {
         assert!(!place.tree().contains_key("repo/.claude/settings.json"));
     }
 
+    #[test]
+    fn a_link_the_build_does_not_write_is_skipped_with_one_note_naming_its_path() {
+        let place = Place::new();
+        place.scratch.make_dirs("repo/.claude").expect("made");
+        for link in ["repo/.claude/settings.json", "repo/.mcp.json"] {
+            let target = if link.contains(".claude") {
+                "../../outside/secret.txt"
+            } else {
+                "../outside/secret.txt"
+            };
+            place.scratch.make_link(link, target).expect("a link");
+        }
+        let run = place.alz(&["build", "--adopt"]);
+        assert_eq!(run.code, 0, "{}", run.stderr);
+        for path in [".claude/settings.json", ".mcp.json"] {
+            let notes: Vec<&str> = run
+                .stderr
+                .lines()
+                .filter(|line| line.starts_with(&format!("note [adopt] {path}: ")))
+                .collect();
+            assert_eq!(notes.len(), 1, "{}", run.stderr);
+        }
+        assert_eq!(
+            place
+                .scratch
+                .read_text("outside/secret.txt")
+                .unwrap_or_default(),
+            "keep"
+        );
+    }
+
+    #[test]
+    fn a_number_key_with_a_fraction_survives_adopt_build_and_check() {
+        let settings = "{\"skillListingBudgetFraction\": 0.5, \"cleanupPeriodDays\": 30}\n";
+        let place = Place::new().with(".claude/settings.json", settings);
+        let first = place.alz(&["build", "--adopt"]);
+        assert_eq!(first.code, 0, "{}", first.stderr);
+        assert_eq!(
+            place.text(".layer/settings.yaml").unwrap_or_default(),
+            "claude:\n  skillListingBudgetFraction: 0.5\n  cleanupPeriodDays: 30\n"
+        );
+        let rendered = place.text(".claude/settings.json").unwrap_or_default();
+        assert_eq!(meaning(&rendered), meaning(settings));
+        let again = place.alz(&["build"]);
+        assert_eq!(again.code, 0, "{}", again.stderr);
+        let check = place.alz(&["check"]);
+        assert_eq!(check.code, 0, "{}{}", check.stdout, check.stderr);
+    }
+
     /// A permission rule of a tool, with an argument: `Tool(arg)`.
     fn rules(tool: &'static str) -> impl Strategy<Value = BTreeSet<String>> {
         btree_set("[a-z][a-z0-9./*-]{0,9}", 0..4).prop_map(move |args| {

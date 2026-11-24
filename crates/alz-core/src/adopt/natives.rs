@@ -4,9 +4,12 @@
 
 use std::collections::BTreeMap;
 
+use crate::diagnostic::{Code, Diagnostic, Message, Where};
 use crate::lock::Lock;
 use crate::path::SafeRelPath;
 use crate::render::write_plan::{Collision, CollisionReason, Disk, Observed, owns};
+
+use crate::untrusted_text::Stripped;
 
 use super::NativeFile;
 
@@ -22,6 +25,7 @@ pub struct Candidates {
     natives: BTreeMap<SafeRelPath, NativeFile>,
     agents_md: Option<Vec<u8>>,
     unadoptable: Vec<Collision>,
+    skipped_links: Vec<SafeRelPath>,
 }
 
 impl Candidates {
@@ -35,6 +39,24 @@ impl Candidates {
     #[must_use]
     pub fn agents_md(&self) -> Option<&[u8]> {
         self.agents_md.as_deref()
+    }
+
+    /// A note for each file that adoption always takes and that is a link the build does not
+    /// write: it is not read and not adopted, and the note names its path.
+    #[must_use]
+    pub fn notes(&self) -> Vec<Diagnostic> {
+        self.skipped_links
+            .iter()
+            .map(|path| {
+                Diagnostic::note(
+                    Code::Adopt,
+                    Some(Where::repository_file(Stripped::from_untrusted(
+                        path.as_str(),
+                    ))),
+                    Message::new("is a link, which adoption does not follow; it was not adopted"),
+                )
+            })
+            .collect()
     }
 
     /// The collisions adoption cannot clear: a link, a file that is not a regular file, a file too
@@ -83,6 +105,13 @@ pub fn candidates(
                 }
             }),
         unadoptable: unadoptable.into_iter().cloned().collect(),
+        skipped_links: beside
+            .iter()
+            .filter(|(path, observed)| {
+                ADOPT_ALWAYS.contains(&path.as_str()) && matches!(observed, Observed::Link)
+            })
+            .map(|(path, _)| path.clone())
+            .collect(),
     }
 }
 

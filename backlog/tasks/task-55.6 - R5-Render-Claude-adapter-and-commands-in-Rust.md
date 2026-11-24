@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T18:16:00Z'
+updated_date: '2026-11-24T06:09:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -156,6 +156,8 @@ Owner questions for R5 (each with options and a recommendation; R5.1 is labelled
 Not a question, recorded: the Codex adapter is out of R5 (the reference has none; targets: [codex] stays error [target]); the note that the Codex TOML emitter quotes every key holding a dot belongs to TASK-18.
 
 Owner answers (2026-11-23): (1) ownership: a file is alz's own only if it carries the generated mark, or the lock lists it and its current bytes match the hash the lock recorded; anything else is never overwritten or deleted (R5.7, R5.8); (4) serde_json float_roundtrip is enabled, as an amendment to decision-33 (R5.1); (10) an ubuntu CI job runs mise run test, and later the acceptance suite against the Rust binary, added in R5 by the release-engineer (new subtask). Lead decisions: (2) any path under a link is refused; (3) alz's own Myers diff, jsdiff's exact bytes not required; (5) emit exactly what the reference emits, nothing new on an UNVERIFIED fact, and a docs task for gaps; (6) control and format characters in layer file names, and a header ref holding '-->', are refused; (7) golden trees made once from the reference and checked by a Rust test; (8) alz's own minimal text edit of layer.yaml on adopt, keeping comments; (9) identity checks and the account-allow hint stay in R6. New tasks blocking R5: TASK-79 (Claude settings keys with a recorded type only) and TASK-80 (Codex wrongly typed key behaviour).
+
+From R5.15 (implementer, 2026-11-24): reference drift list, spec 13 'The reference drift list', by task: TASK-52 (36: layers and cache inside an account folder or the home folder refused); TASK-53 (36: empty or relative XDG_CACHE_HOME counts as unset); TASK-55.3 (26, 29, 34, 35: YAML tags, escapes decoding to control characters, version 1.10, account fields as schema errors); TASK-55.4 (24: refused hook or source neither run nor written); TASK-55.5 (37: unknown Claude or Codex keys in settings.yaml refused); TASK-55.5.6 (04: an overlay may not widen a path or command scope); TASK-55.5.12 (24: nested env checked to depth 128, not 32); TASK-55.5.16 (24, 37: agent native mcpServers, mcp_servers, hooks refused as agent; floor field flags); TASK-55.6 (22: ls in name order, explain prints the diagnostic prefix); TASK-55.6.13 and .14 (20: adoption keeps agents with native hooks out, hook scripts move to hooks/scripts/); TASK-55.6.15 (24, 28: wording of refused lock, cache entry, pinned tree; control-character file names; AGENTS.override.md search); TASK-59 to 62 (34, 35: YAML aliases, depth and size limits, manifest entry errors); TASK-63 (36: linked worktree leaves the index alone); TASK-64 (33: name order by code point); TASK-68 (26: first line left after control characters removed); TASK-71 (24: credentials in a layer source refused); TASK-73 (38: text quoted as an integer risk, one escaped space between line feeds); TASK-79 (37: settings keys and agent fields need a recorded type).
 <!-- SECTION:NOTES:END -->
 
 ## Comments

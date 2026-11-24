@@ -115,10 +115,10 @@ fn apply(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> Result<(), u8> {
-    let notes = adoption
+    let notes = found
         .notes()
-        .iter()
-        .cloned()
+        .into_iter()
+        .chain(adoption.notes().iter().cloned())
         .fold(Diagnostics::new(), Diagnostics::with);
     emit_diagnostics(&notes, stderr);
     let Some(layer) = computed.stack.layers().last() else {
