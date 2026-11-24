@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@release-engineer'
 created_date: '2026-11-24T17:45:00Z'
+updated_date: '2026-11-24T18:25:00Z'
 labels:
   - area:release
   - area:docs
@@ -31,3 +32,9 @@ The first Rust release replaces the npm 0.1.0 for users. Its layer checks are st
 - [ ] #3 CHANGELOG.md and the release notes describe every security fix shipped since 0.1.0, with the owner's approval of wording and timing in a comment
 - [ ] #4 README's install section names only the release binaries, Homebrew and the local install (diff)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-24): the private security tasks are disclosed with the 0.2.0 release (a Security section in CHANGELOG and the release notes, optionally GitHub advisories); until then they stay private, then their files are committed and closed.
+<!-- SECTION:NOTES:END -->
