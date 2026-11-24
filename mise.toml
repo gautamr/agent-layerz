@@ -120,12 +120,12 @@ run = "sh scripts/install-local-rust.sh"
 
 [tasks."alz:build"]
 description = "Rebuild this repo's agent config with the current code (dogfooding)"
-run = "npm run -s build && node dist/cli.js build"
+run = "cargo build --release --locked --package alz && target/release/alz build"
 
 [tasks."alz:check"]
 description = "Fail if this repo's generated agent config is out of date"
-run = "npm run -s build && node dist/cli.js check"
+run = "cargo build --release --locked --package alz && target/release/alz check"
 
 [tasks."alz:ls"]
 description = "List this repo's agents, skills, rules, hooks and MCP servers by layer"
-run = "npm run -s build && node dist/cli.js ls"
+run = "cargo build --release --locked --package alz && target/release/alz ls"

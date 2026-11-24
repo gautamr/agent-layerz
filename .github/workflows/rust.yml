@@ -99,6 +99,59 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: mise run rust:msrv
 
+  # This repository's own agent config (AGENTS.md, CLAUDE.md, .claude/, .mcp.json, layer.lock) must
+  # match what the Rust alz of the same commit builds from .layer/ and the layers it stacks
+  # (TASK-55.9.2, TASK-14). `alz check` rebuilds in memory and writes nothing. `--skip-identity`
+  # because a runner has no owner identity (spec section 14, CI). The input is this repository's own
+  # layers and lock, built by the binary of this commit; the job holds no secret.
+  #
+  # layer.yaml stacks the personal layer as `path:../agent-layerz-personal`, which a runner cannot
+  # resolve until it is published and stacked through `github:` (TASK-13, owner). While layer.yaml
+  # still names a `path:` source outside the repository, the check cannot run: the job says so with
+  # a warning annotation and skips only the check. The first change that replaces the path source
+  # activates the check with no workflow edit.
+  agent-config:
+    name: agent config is current
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find out whether every layer can be resolved here
+        id: layers
+        run: |
+          if grep -Eq '^[[:space:]]*-[[:space:]]*source:[[:space:]]*path:\.\.' layer.yaml; then
+            echo "resolvable=false" >> "$GITHUB_OUTPUT"
+            echo "::warning file=layer.yaml::alz check skipped: a layer is stacked through a path outside the repository that this runner cannot resolve (TASK-13)"
+          else
+            echo "resolvable=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the pinned Rust toolchain through mise
+        if: steps.layers.outputs.resolvable == 'true'
+        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: ${{ env.PINNED_MISE_VERSION }}
+          sha256: ${{ env.PINNED_MISE_SHA256_LINUX_X64 }}
+          install_args: rust
+          cache: false
+          persist_github_token: "false"
+
+      - name: Cache cargo dependencies
+        if: steps.layers.outputs.resolvable == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-bin: "false"
+
+      - name: Build alz and check the generated config and layer.lock
+        if: steps.layers.outputs.resolvable == 'true'
+        run: mise run alz:check -- --skip-identity
+
   # Supply chain: cargo-deny (advisories, licences, bans, sources) and cargo-audit. Linux only:
   # both read Cargo.lock and the advisory databases, not the compiled code, and the cargo-audit
   # release in mise is built for Intel macOS only. This is the only job that also runs on the
