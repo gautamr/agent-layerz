@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use alz_core::explain::ItemType;
 use alz_core::layer::Visibility;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -26,6 +27,54 @@ pub enum Command {
     Init(InitArgs),
     /// Validate a layer, or a repository's stack manifest and lock.
     Lint(LintArgs),
+    /// List what the stack builds, by section, with the layer that decides each item.
+    Ls,
+    /// Show which layers contributed to an item, then the merged output file.
+    Explain(ExplainArgs),
+}
+
+/// The kind of item `alz explain` takes (§10.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ItemTypeArg {
+    /// An agent.
+    Agent,
+    /// A skill.
+    Skill,
+    /// A command.
+    Command,
+    /// A path-scoped rule.
+    Rule,
+    /// A hook.
+    Hook,
+    /// An MCP server.
+    Mcp,
+    /// An instruction file, by its file name.
+    Instruction,
+}
+
+impl From<ItemTypeArg> for ItemType {
+    fn from(argument: ItemTypeArg) -> Self {
+        match argument {
+            ItemTypeArg::Agent => Self::Agent,
+            ItemTypeArg::Skill => Self::Skill,
+            ItemTypeArg::Command => Self::Command,
+            ItemTypeArg::Rule => Self::Rule,
+            ItemTypeArg::Hook => Self::Hook,
+            ItemTypeArg::Mcp => Self::Mcp,
+            ItemTypeArg::Instruction => Self::Instruction,
+        }
+    }
+}
+
+/// The arguments of `alz explain` (§10.3).
+#[derive(Debug, Args)]
+pub struct ExplainArgs {
+    /// The kind of item.
+    #[arg(value_enum, value_name = "type")]
+    pub item_type: ItemTypeArg,
+    /// The item's name; for an instruction, its file name such as `00-core.md`.
+    #[arg(value_name = "name")]
+    pub name: String,
 }
 
 /// The arguments of `alz check` (§10).

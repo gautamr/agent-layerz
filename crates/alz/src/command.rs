@@ -3,8 +3,10 @@
 
 pub mod build;
 pub mod check;
+pub mod explain;
 pub mod init;
 pub mod lint;
+pub mod ls;
 mod pipeline;
 mod repo_files;
 

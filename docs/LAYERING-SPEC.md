@@ -3257,7 +3257,9 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
 - Each section starts with `<section> (<count>)`, then one line per item:
   `  <name padded with spaces to 28 characters> <layer>`. `<layer>` is the name of the most
   specific layer that contributed to the item.
-- Items are in name order, hooks in stack and file order, and servers in `mcp.enable` order.
+- Items are in name order, hooks in stack and file order, and servers in `mcp.enable` order. The
+  slot stubs are listed with the skills, with `slot stub` for their layer. The TypeScript `alz`
+  lists skills and commands in the order the layers define them (reference drift, TASK-55.6).
 - `--live` needs the `claude` target, else `error [ls] --live needs the claude target`. It prints
   a blank line and `asking <bin> what it loads here (one short model call)…`, then runs `<bin>`
   (`ALZ_CLAUDE_BIN`, else `claude`) once in the repository. The arguments are `-p "Reply with
@@ -3300,7 +3302,10 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   `.claude/skills/<name>/SKILL.md`, `.claude/rules/<name>.md`, `.claude/settings.json` for a
   hook, `.mcp.json` and `AGENTS.md`.
 - A name the merged result does not have is `error [explain] no <type> named '<name>' in the
-  merged result`, and exit 1.
+  merged result`, and exit 1. The TypeScript `alz` prints the message without the diagnostic
+  prefix (reference drift, TASK-55.6).
+- The text of the output files is stripped of control and format characters, line feeds kept
+  (§10.1).
 
 **`alz doctor`.** Its report goes to standard output, line by line:
 - `agent-layerz doctor: <repository root>`.

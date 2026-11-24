@@ -6,7 +6,7 @@
 
 use alz_core::lint::{self, LockFile};
 use alz_core::lock::Lock;
-use alz_core::merge::merge;
+use alz_core::merge::{Merged, merge};
 use alz_core::path::AbsolutePath;
 use alz_core::render::gitignore::Generated;
 use alz_core::render::rendered::{Rendered, render};
@@ -22,10 +22,12 @@ use crate::command::repo_files::{WORKING_DIRECTORY, read_in, read_lock};
 /// The file that hides the generated `AGENTS.md` from Codex (target-facts §8.4).
 const OVERRIDE_FILE: &str = "AGENTS.override.md";
 
-/// What a build made in memory: the files, the lock it would write and the lock that was there.
+/// What a build made in memory: the merged model, the files, the lock it would write and the lock
+/// that was there.
 #[derive(Debug)]
 pub struct Computed {
     pub manifest: Manifest,
+    pub merged: Merged,
     pub rendered: Rendered,
     pub lock: Lock,
     pub previous: Option<Lock>,
@@ -148,6 +150,7 @@ fn resolve_and_render(
         diagnostics: found,
         computed: Some(Computed {
             manifest,
+            merged: merged.clone(),
             rendered,
             lock,
             previous,
