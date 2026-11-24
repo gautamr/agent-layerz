@@ -8,8 +8,10 @@ use std::os::unix::ffi::OsStrExt;
 
 use alz_core::env::EnvVars;
 
-/// The providers that are switched on in an environment. Each is on when its switch variable has
-/// a value that is not empty: Claude Code treats an empty value as unset for provider selection.
+/// The providers that are switched on in an environment. Each is on when its switch variable is
+/// `1` or `true` (ASCII case-insensitive, white space not trimmed). The docs show `=1` and say an
+/// empty value is unset; they name no other off value, so any other value is off: fewer
+/// credentials reach the child when in doubt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Providers {
     bedrock: bool,
@@ -19,20 +21,30 @@ pub(super) struct Providers {
 impl Providers {
     /// What `vars` switches on.
     pub(super) fn switched_on_in(vars: &EnvVars) -> Self {
-        let is_set = |name: &str| vars.get(name).is_some_and(|value| !value.is_empty());
+        let is_on = |name: &str| {
+            vars.get(name).is_some_and(|value| {
+                let bytes = value.as_bytes();
+                bytes == b"1" || bytes.eq_ignore_ascii_case(b"true")
+            })
+        };
         Self {
-            bedrock: is_set("CLAUDE_CODE_USE_BEDROCK"),
-            vertex: is_set("CLAUDE_CODE_USE_VERTEX"),
+            bedrock: is_on("CLAUDE_CODE_USE_BEDROCK"),
+            vertex: is_on("CLAUDE_CODE_USE_VERTEX"),
         }
     }
 
     /// Whether `name` is a variable of a provider that is switched on: `AWS_*` for Bedrock;
-    /// `GOOGLE_*`, `CLOUD_ML_REGION` and `ANTHROPIC_VERTEX_PROJECT_ID` for Vertex. The switch
+    /// `GOOGLE_*`, `GCLOUD_PROJECT`, `VERTEX_REGION_CLAUDE_*`, `CLOUD_ML_REGION` and
+    /// `ANTHROPIC_VERTEX_PROJECT_ID` for Vertex. The switch
     /// variables themselves are `CLAUDE_CODE_*` and pass with that prefix.
     pub(super) fn take(self, name: &OsStr) -> bool {
         let bytes = name.as_bytes();
         (self.bedrock && bytes.starts_with(b"AWS_"))
-            || (self.vertex && (bytes.starts_with(b"GOOGLE_") || Self::is_vertex_setting(bytes)))
+            || (self.vertex
+                && (bytes.starts_with(b"GOOGLE_")
+                    || bytes.starts_with(b"VERTEX_REGION_CLAUDE_")
+                    || bytes == b"GCLOUD_PROJECT"
+                    || Self::is_vertex_setting(bytes)))
     }
 
     /// Whether `name` is a variable of a provider that is switched off, and so is withheld even
@@ -64,12 +76,14 @@ mod tests {
 
     /// The names of `NAMES` that `vars` lets through.
     fn passing(vars: &EnvVars) -> Vec<&'static str> {
-        const NAMES: [&str; 8] = [
+        const NAMES: [&str; 10] = [
             "AWS_PROFILE",
             "AWS_BEARER_TOKEN_BEDROCK",
             "GOOGLE_APPLICATION_CREDENTIALS",
             "CLOUD_ML_REGION",
             "ANTHROPIC_VERTEX_PROJECT_ID",
+            "GCLOUD_PROJECT",
+            "VERTEX_REGION_CLAUDE_HAIKU_4_5",
             "GITHUB_TOKEN",
             "AWSX",
             "aws_profile",
@@ -87,12 +101,25 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_switch_is_no_switch() {
-        let env = vars(&[
-            ("CLAUDE_CODE_USE_BEDROCK", ""),
-            ("CLAUDE_CODE_USE_VERTEX", ""),
-        ]);
-        assert_eq!(passing(&env), Vec::<&str>::new());
+    fn a_switch_set_to_anything_but_1_or_true_is_off() {
+        for value in ["", "0", "false", "yes", "on", " 1", "1 ", "TRUE1", "2"] {
+            let env = vars(&[
+                ("CLAUDE_CODE_USE_BEDROCK", value),
+                ("CLAUDE_CODE_USE_VERTEX", value),
+            ]);
+            assert_eq!(passing(&env), Vec::<&str>::new(), "value {value:?}");
+        }
+    }
+
+    #[test]
+    fn a_switch_set_to_1_or_true_in_any_case_is_on() {
+        for value in ["1", "true", "TRUE", "True", "tRuE"] {
+            assert_eq!(
+                passing(&vars(&[("CLAUDE_CODE_USE_BEDROCK", value)])),
+                ["AWS_PROFILE", "AWS_BEARER_TOKEN_BEDROCK"],
+                "value {value:?}"
+            );
+        }
     }
 
     #[test]
@@ -119,7 +146,9 @@ mod tests {
             [
                 "GOOGLE_APPLICATION_CREDENTIALS",
                 "CLOUD_ML_REGION",
-                "ANTHROPIC_VERTEX_PROJECT_ID"
+                "ANTHROPIC_VERTEX_PROJECT_ID",
+                "GCLOUD_PROJECT",
+                "VERTEX_REGION_CLAUDE_HAIKU_4_5"
             ]
         );
     }
@@ -136,7 +165,9 @@ mod tests {
                 "AWS_BEARER_TOKEN_BEDROCK",
                 "GOOGLE_APPLICATION_CREDENTIALS",
                 "CLOUD_ML_REGION",
-                "ANTHROPIC_VERTEX_PROJECT_ID"
+                "ANTHROPIC_VERTEX_PROJECT_ID",
+                "GCLOUD_PROJECT",
+                "VERTEX_REGION_CLAUDE_HAIKU_4_5"
             ]
         );
     }

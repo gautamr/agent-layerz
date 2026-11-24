@@ -310,7 +310,7 @@ mod tests {
         let workspace = live_workspace();
         let seen = workspace.scratch.join("seen-names");
         let claude = workspace.claude(&format!(
-            "#!/bin/sh\nenv | sed 's/=.*//' | grep -E '^(AWS_|GOOGLE_|CLOUD_ML_|ANTHROPIC_VERTEX_|CLAUDE_CODE_USE_|GITHUB_)' | sort > '{}'\nprintf '%s\\n' '{INIT_EVENT}'\n",
+            "#!/bin/sh\n[ -z \"$GITHUB_TOKEN\" ] || exit 4\nenv | sed 's/=.*//' | grep -E '^(AWS_|GOOGLE_|GCLOUD_|VERTEX_REGION_|CLOUD_ML_|ANTHROPIC_VERTEX_|CLAUDE_CODE_USE_|GITHUB_)' | sort > '{}'\nprintf '%s\\n' '{INIT_EVENT}'\n",
             seen.display()
         ));
         let planted = [
@@ -318,6 +318,8 @@ mod tests {
             ("GOOGLE_APPLICATION_CREDENTIALS", "planted"),
             ("CLOUD_ML_REGION", "planted"),
             ("ANTHROPIC_VERTEX_PROJECT_ID", "planted"),
+            ("GCLOUD_PROJECT", "planted"),
+            ("VERTEX_REGION_CLAUDE_HAIKU_4_5", "planted"),
         ];
         let text: Vec<(&str, &str)> = planted.iter().chain(switches).copied().collect();
         let run = workspace.alz_with(&["ls", "--live"], &[("ALZ_CLAUDE_BIN", &claude)], &text);
@@ -332,19 +334,26 @@ mod tests {
     fn ls_live_hands_claude_a_providers_variables_only_when_its_switch_is_on() {
         assert_eq!(cloud_names_the_probe_saw(&[]), "");
         assert_eq!(
-            cloud_names_the_probe_saw(&[("CLAUDE_CODE_USE_BEDROCK", "1")]),
+            cloud_names_the_probe_saw(&[
+                ("CLAUDE_CODE_USE_BEDROCK", "0"),
+                ("CLAUDE_CODE_USE_VERTEX", "false")
+            ]),
+            "CLAUDE_CODE_USE_BEDROCK\nCLAUDE_CODE_USE_VERTEX\n"
+        );
+        assert_eq!(
+            cloud_names_the_probe_saw(&[("CLAUDE_CODE_USE_BEDROCK", "TRUE")]),
             "AWS_PROFILE\nCLAUDE_CODE_USE_BEDROCK\n"
         );
         assert_eq!(
             cloud_names_the_probe_saw(&[("CLAUDE_CODE_USE_VERTEX", "1")]),
-            "ANTHROPIC_VERTEX_PROJECT_ID\nCLAUDE_CODE_USE_VERTEX\nCLOUD_ML_REGION\nGOOGLE_APPLICATION_CREDENTIALS\n"
+            "ANTHROPIC_VERTEX_PROJECT_ID\nCLAUDE_CODE_USE_VERTEX\nCLOUD_ML_REGION\nGCLOUD_PROJECT\nGOOGLE_APPLICATION_CREDENTIALS\nVERTEX_REGION_CLAUDE_HAIKU_4_5\n"
         );
         assert_eq!(
             cloud_names_the_probe_saw(&[
                 ("CLAUDE_CODE_USE_BEDROCK", "1"),
                 ("CLAUDE_CODE_USE_VERTEX", "1")
             ]),
-            "ANTHROPIC_VERTEX_PROJECT_ID\nAWS_PROFILE\nCLAUDE_CODE_USE_BEDROCK\nCLAUDE_CODE_USE_VERTEX\nCLOUD_ML_REGION\nGOOGLE_APPLICATION_CREDENTIALS\n"
+            "ANTHROPIC_VERTEX_PROJECT_ID\nAWS_PROFILE\nCLAUDE_CODE_USE_BEDROCK\nCLAUDE_CODE_USE_VERTEX\nCLOUD_ML_REGION\nGCLOUD_PROJECT\nGOOGLE_APPLICATION_CREDENTIALS\nVERTEX_REGION_CLAUDE_HAIKU_4_5\n"
         );
     }
 

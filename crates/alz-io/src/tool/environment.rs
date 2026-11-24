@@ -173,6 +173,7 @@ mod tests {
             ("GOOGLE_APPLICATION_CREDENTIALS", "g"),
             ("CLOUD_ML_REGION", "r"),
             ("ANTHROPIC_VERTEX_PROJECT_ID", "p"),
+            ("GCLOUD_PROJECT", "q"),
         ];
         let with = |switch: &'static str| {
             let pairs: Vec<(&str, &str)> = process.iter().copied().chain([(switch, "1")]).collect();
@@ -192,6 +193,7 @@ mod tests {
                 "ANTHROPIC_VERTEX_PROJECT_ID",
                 "CLAUDE_CODE_USE_VERTEX",
                 "CLOUD_ML_REGION",
+                "GCLOUD_PROJECT",
                 "GOOGLE_APPLICATION_CREDENTIALS",
                 "HOME"
             ]
