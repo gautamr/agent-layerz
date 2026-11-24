@@ -397,8 +397,9 @@ fn nothing_is_written_when_nothing_is_set_and_no_server_is_enabled() {
 #[test]
 fn settings_keys_are_in_code_point_order_whole_numbers_included() {
     // U+FF61 is one UTF-16 unit above the high surrogate of U+1F600: UTF-16 order puts the emoji
-    // first, code point order puts it last (spec §6, TASK-64).
-    let settings = "claude:\n  \"\u{FF61}\": 1\n  \"\u{1F600}\": 1\n  \"10\": 1\n  \"9\": 1\n  \"-x\": 1\n  \"a\": 1\n";
+    // first, code point order puts it last (spec §6, TASK-64). `modelOverrides` is a free map of
+    // text, so it takes any key (TASK-79).
+    let settings = "claude:\n  modelOverrides:\n    \"\u{FF61}\": m\n    \"\u{1F600}\": m\n    \"10\": m\n    \"9\": m\n    \"-x\": m\n    \"a\": m\n";
     let files = render(&[Part::new(REPO, vec![("settings.yaml", settings)])], "");
     let text = String::from_utf8(
         files
@@ -411,7 +412,7 @@ fn settings_keys_are_in_code_point_order_whole_numbers_included() {
     .expect("UTF-8");
     let keys: Vec<&str> = text
         .lines()
-        .filter_map(|line| line.strip_prefix("  \""))
+        .filter_map(|line| line.strip_prefix("    \""))
         .filter_map(|line| line.split_once("\": "))
         .map(|(key, _)| key)
         .collect();

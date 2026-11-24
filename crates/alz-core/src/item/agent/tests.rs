@@ -419,6 +419,10 @@ fn a_claude_field_of_the_wrong_type_is_an_agent_error_naming_the_key_path_and_ne
             "error [agent] personal:agents/helper.md:5:22: 'claude.autoCompactWindow' must be a whole number",
         ),
         (
+            "claude:\n  maxTurns: null\n",
+            "error [agent] personal:agents/helper.md:5:13: 'claude.maxTurns' must be a whole number",
+        ),
+        (
             "claude:\n  background: secret-value\n",
             "error [agent] personal:agents/helper.md:5:15: 'claude.background' must be a boolean",
         ),

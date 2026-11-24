@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { referenceDrift } from "../drift";
 import { fixture, layers, readFile } from "../helpers";
 
 describe("§7.2 native agent fields", () => {
@@ -21,19 +20,14 @@ describe("§7.2 native agent fields", () => {
     expect(result.stderr).toContain("'claude.tools' has a neutral field");
   });
 
-  // Reference drift (TASK-66): the reference writes whole-number keys first, in numeric order;
-  // the spec (§7.2) keeps every native key in source order, after the fixed fields.
-  referenceDrift(
-    "TASK-66",
-    "native keys that are whole numbers keep their source order after the fixed fields",
-    async () => {
-      const ws = fixture("18-native-fields");
-      const result = await layers(ws, "repo-key-order", ["build"]);
-      expect(result.code).toBe(0);
-      const agent = readFile(ws, "repo-key-order/.claude/agents/keyed.md");
-      expect(agent).toContain(
-        'name: keyed\ndescription: Keeps its native keys in source order\n"10": ten\n"9": nine\neffort: high\n---\n',
-      );
-    },
-  );
+  // Spec §7.2: every native key keeps its source order after the fixed fields, not name order.
+  it("native keys keep their source order after the fixed fields", async () => {
+    const ws = fixture("18-native-fields");
+    const result = await layers(ws, "repo-key-order", ["build"]);
+    expect(result.code).toBe(0);
+    const agent = readFile(ws, "repo-key-order/.claude/agents/keyed.md");
+    expect(agent).toContain(
+      "name: keyed\ndescription: Keeps its native keys in source order\nmaxTurns: 9\neffort: high\ncolor: blue\n---\n",
+    );
+  });
 });

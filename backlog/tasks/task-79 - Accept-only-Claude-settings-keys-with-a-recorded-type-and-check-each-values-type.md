@@ -3,9 +3,10 @@ id: TASK-79
 title: >-
   Accept only Claude settings keys with a recorded type, and check each value's
   type
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-24T03:14:00Z'
 labels:
   - area:rust
   - area:security
@@ -24,7 +25,19 @@ Owner decision (2026-11-23): settings.yaml under claude: accepts only keys whose
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every accepted Claude settings key has a recorded name and type in target-facts and a row in the table; any other key in settings.yaml is a settings error
-- [ ] #2 A value of the wrong type for an accepted key is a settings error naming the file and the key path, with no value printed; tests per type
-- [ ] #3 Neutral acceptance rows through lint, and the spec states the rule with its reference drift
+- [x] #1 Every accepted Claude settings key has a recorded name and type in target-facts and a row in the table; any other key in settings.yaml is a settings error
+- [x] #2 A value of the wrong type for an accepted key is a settings error naming the file and the key path, with no value printed; tests per type
+- [x] #3 Neutral acceptance rows through lint, and the spec states the rule with its reference drift
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done in PR #12 (merged 2026-11-24).
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+settings.yaml under claude: and agents' claude: fields accept only keys whose name and type are recorded in target-facts §14 (147 settings rows, 10 agent fields); a value of the wrong type or another key is an error naming the file and key path without the value; three more keys reserved. Merged as PR #12.
+<!-- SECTION:FINAL_SUMMARY:END -->

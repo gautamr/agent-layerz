@@ -2,8 +2,8 @@
 name: keyed
 description: Keeps its native keys in source order
 claude:
-  10: ten
-  9: nine
+  maxTurns: 9
   effort: high
+  color: blue
 ---
 Body.

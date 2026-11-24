@@ -4,7 +4,7 @@ title: Settle the order of YAML mapping keys that are whole numbers
 status: To Do
 assignee: []
 created_date: '2026-11-23T03:51:00Z'
-updated_date: '2026-11-23T23:56:00Z'
+updated_date: '2026-11-24T03:14:00Z'
 labels:
   - discovered
   - area:spec
@@ -53,4 +53,8 @@ Evidence that the code matches:
 mise run lint exit 0. AC #2 (the generated agent file and its acceptance test) is R5's.
 
 AC #2 evidence (R5.4, TASK-55.6.4, uncommitted): Rust alz-core target/claude renders native fields in NativeMap order after the fixed fields (unit test native_fields_hold_the_keys_10_and_9_in_source_order_after_the_fixed_fields, output name, description, "10", "9", effort); acceptance case in test/acceptance/18-native-fields.test.ts (fixture 18-native-fields/repo-key-order) marked referenceDrift TASK-66, expected-fail against the reference (it writes "9", "10" before name), must pass against ALZ_BIN once alz build exists (R5.8). AC not checked.
+
+R5 (TASK-79 merged): agent keys under claude: are typed with fixed names, so a whole-number key cannot reach an agent's claude: map any more (only codex: is untyped). Acceptance case 18 'repo-key-order' now uses maxTurns, effort, color in non-alphabetical source order; the reference keeps named keys in source order, so it passes against the reference and is a plain it(), no longer referenceDrift. Whole-number key ordering is still shown in Rust by the settings test (modelOverrides map, code-point order). AC #2 as worded (agent keys 10 and 9) is no longer expressible for claude:; spec 7.2 says only an untyped map (codex:) can hold such a key. Left for the architect: decide whether AC #2 is met or needs a codex: case.
+
+Lead decision (2026-11-24): TASK-79 refuses agent claude: fields that are not recorded, so whole-number keys can no longer appear there. AC #2 is met for Claude by test 18's source-order case (maxTurns, effort, color after the fixed fields), which the reference passes too (no drift); it is checked against the Rust binary once alz build exists (R5.8). Whole-number keys stay possible only under codex:, which the Codex adapter renders (TASK-18 carries that case).
 <!-- SECTION:NOTES:END -->

@@ -1214,7 +1214,8 @@ Rules:
   - A key keeps the place of its first appearance, in stack order.
   - A key that a later layer adds comes after the existing ones.
   - A later value replaces or merges in place, without moving its key.
-  - A key that is a whole number (`9`, `10`) is an ordinary key and keeps its place.
+  - A key that is a whole number (`9`, `10`) is an ordinary key and keeps its place. Only an
+    untyped map can hold one: `codex:`, since the typed `claude:` fields have fixed names.
 
   A generated agent file writes the neutral fields first, then the native fields in this
   order. The TypeScript `alz` writes whole-number keys first, in numeric order, because it reads
@@ -2549,9 +2550,11 @@ target-facts section each item relies on is given in brackets.
   - `permissionMode`, `skills` when not empty, `isolation` only for `worktree`, and `memory`
     unless it is `none`, since Claude has no `none` for these.
   - The native fields of `claude:`, in the order §7.2 gives them. A native value is written by
-    §10.2's emitter, which writes no null, no float and no integer beyond 64 bits: an agent
-    whose native field holds one is the error `claude-agent`, naming the field and the agent's
-    file. The TypeScript `alz` writes them (reference drift, TASK-55.6.4).
+    §10.2's emitter, which writes no null, no float and no integer beyond 64 bits. The types of
+    §7.2 already refuse a null or a float in a typed field (code `agent`, at read), so only a
+    whole number beyond 64 bits reaches the emitter: an agent whose native field holds one is the
+    error `claude-agent`, naming the field and the agent's file. The TypeScript `alz` writes it
+    (reference drift, TASK-55.6.4).
 
   The model is resolved as §7.8 says. A `model` that is not an alias of `models.yaml` is the
   error `models`, and an alias with no `claude` model is the warning `models`; the agent then
@@ -2985,7 +2988,7 @@ How values print in these messages:
 | `layer` | error | a file or folder name with a control or format character (§5.3), a source of a generated header that holds a control or format character or `-->` (§4.3) |
 | `passthrough` | error | a passthrough path that is the path of a generated file after case folding (§4.3, §7.11) |
 | `target` | error | a target that has no adapter (§8) |
-| `claude-agent` | error | an agent with an empty tools list, whose model is not a Claude model value, or with a native field alz cannot write (§8.1) |
+| `claude-agent` | error | an agent with an empty tools list, whose model is not a Claude model value, or with a native whole number beyond 64 bits, which alz cannot write (§8.1) |
 | `tool-scope` | warning | an agent tool with a scope, which Claude cannot keep (§8.1) |
 | `hook-on-fail` | warning | `on_fail: deny` on an event where Claude cannot block, or cannot block on a crash (§8.1) |
 | `adopt` | error, or note | `--adopt` without a repo layer inside the repository, each problem of the adoption plan; the note says how a native file was adopted (§4.3) |
