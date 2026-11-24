@@ -71,8 +71,16 @@ fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
             &mut io::stderr(),
         )),
         Ok(Cli {
-            command: Command::Ls,
+            command: Command::Ls(args),
         }) => ExitCode::from(command::ls::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Doctor,
+        }) => ExitCode::from(command::doctor::run(
             Surroundings { env, directory },
             &mut io::stdout(),
             &mut io::stderr(),

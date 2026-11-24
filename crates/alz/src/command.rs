@@ -4,9 +4,11 @@
 pub mod build;
 pub mod check;
 pub mod diff;
+pub mod doctor;
 pub mod explain;
 pub mod init;
 pub mod lint;
+mod live_probe;
 pub mod ls;
 mod pipeline;
 mod repo_files;

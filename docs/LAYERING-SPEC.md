@@ -3273,7 +3273,20 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   (`ALZ_CLAUDE_BIN`, else `claude`) once in the repository. The arguments are `-p "Reply with
   OK." --output-format stream-json --verbose --max-turns 1`, and alz reads the `system` `init`
   event (target-facts §0.2).
-- A probe that fails is `error [ls] <reason>`.
+- `<bin>` is found as an absolute path: an absolute `ALZ_CLAUDE_BIN` as it is, a name without `/`
+  (the default `claude` too) in the absolute entries of `PATH`, in order, as the first regular file
+  with an execute bit. A relative path, or an empty or relative `PATH` entry, names nothing, so a
+  program in the repository is never run. The program runs in its own process group with no
+  standard input and an environment cleared to `PATH` (its absolute entries), `HOME`, `USER`,
+  `LOGNAME`, `TMPDIR`, `TERM`, `LANG`, `LC_*`, `CLAUDE_CONFIG_DIR`, `XDG_CONFIG_HOME`,
+  `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, `ANTHROPIC_*`, `CLAUDE_CODE_*`,
+  `SSL_CERT_*`, `NODE_EXTRA_CA_CERTS` and the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`,
+  `ALL_PROXY`, `NO_PROXY`, either case). After 180 seconds its process group is ended. At most
+  4 MiB of its standard output and 64 KiB of its standard error are read; the rest is dropped.
+  Everything it prints is untrusted and shown stripped (class 1).
+- A probe that fails is `error [ls] <reason>`: `could not run <bin>: <not found | it did not finish
+  within 180 seconds | cannot start it | cannot talk to it>`, or `<bin> printed no init event:
+  <first line of its standard error>`.
 - A built agent or skill that Claude did not load is `error [ls] agent '<name>' was built but
   Claude did not load it` (or `skill`). An enabled server Claude did not start is
   `error [ls] mcp '<id>' is enabled but Claude did not start it`, and one it did not connect is
@@ -3325,7 +3338,12 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   it into a layer)`, and `    note: <folder>/CLAUDE.md is loaded into every session as well`.
   alz lists names in those folders and checks whether `CLAUDE.md` exists. It opens no file there
   (§9.1).
-- The version, from `<bin> --version`: `claude: not found; version check skipped`, or
+- The version, from `<bin> --version`, found and run as for `ls --live` but with the environment
+  of `PATH`, `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `TERM`, `LANG`, `LC_*`, `CLAUDE_CONFIG_DIR` and the
+  `XDG_*_HOME` variables only, a deadline of 10 seconds and 64 KiB of output. The first
+  `x.y.z` in its output is the version. A program that is not found, does not start, fails, is
+  too slow or prints no version is `not found`. The line is `claude: not found; version check
+  skipped`, or
   `claude: <version> (verified range >=<min> <<below>)`, or `warning: claude <version> is outside
   the verified range >=<min> <<below>; re-check docs/target-facts.md`.
 - For a hub, `warning: client root <client root>/<file> exists; remove it (put client content in

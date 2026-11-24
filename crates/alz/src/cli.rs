@@ -30,9 +30,20 @@ pub enum Command {
     /// Validate a layer, or a repository's stack manifest and lock.
     Lint(LintArgs),
     /// List what the stack builds, by section, with the layer that decides each item.
-    Ls,
+    Ls(LsArgs),
+    /// Check the account folders, the Claude version and the folders around the repository.
+    Doctor,
     /// Show which layers contributed to an item, then the merged output file.
     Explain(ExplainArgs),
+}
+
+/// The arguments of `alz ls` (§10.3).
+#[derive(Debug, Args)]
+pub struct LsArgs {
+    /// Also ask Claude what it loaded here (one short model call) and fail on any built item it
+    /// did not load.
+    #[arg(long)]
+    pub live: bool,
 }
 
 /// The kind of item `alz explain` takes (§10.3).

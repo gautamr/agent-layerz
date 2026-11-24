@@ -38,6 +38,9 @@ pub struct Computed {
 pub struct Pipeline {
     pub diagnostics: Diagnostics,
     pub computed: Option<Computed>,
+    /// The stack manifest, when it was read, even if a later step failed; `alz doctor` still
+    /// reports on the hub and the workspace folders then.
+    pub manifest: Option<Manifest>,
 }
 
 impl Pipeline {
@@ -45,6 +48,7 @@ impl Pipeline {
         Self {
             diagnostics,
             computed: None,
+            manifest: None,
         }
     }
 }
@@ -96,7 +100,13 @@ pub fn compute(surroundings: Surroundings<'_>, repository: &RepoRoot) -> Pipelin
     };
     match lint::read_stack(&document, lock) {
         Err(diagnostics) => Pipeline::failed(diagnostics),
-        Ok(files) => resolve_and_render(surroundings, repository, files.manifest, files.lock),
+        Ok(files) => {
+            let manifest = files.manifest.clone();
+            Pipeline {
+                manifest: Some(manifest),
+                ..resolve_and_render(surroundings, repository, files.manifest, files.lock)
+            }
+        }
     }
 }
 
@@ -147,6 +157,7 @@ fn resolve_and_render(
     }
     let lock = rendered.lock(stack);
     Pipeline {
+        manifest: None,
         diagnostics: found,
         computed: Some(Computed {
             manifest,

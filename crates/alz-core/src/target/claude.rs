@@ -7,6 +7,7 @@
 
 mod agents;
 mod document;
+pub mod facts;
 mod frontmatter;
 mod hooks;
 mod mcp;

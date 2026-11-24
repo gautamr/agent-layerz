@@ -181,6 +181,9 @@ pub enum Code {
     /// `--adopt` without a repo layer inside the repository, or a problem of the adoption plan
     /// (§4.3).
     Adopt,
+    /// A line that Claude printed on its standard error, or as text that is not JSON, during
+    /// `alz ls --live` (§10.3).
+    Claude,
 }
 
 impl Code {
@@ -246,6 +249,7 @@ impl Code {
             Self::Target => "target",
             Self::Unresolved => "unresolved",
             Self::Adopt => "adopt",
+            Self::Claude => "claude",
         }
     }
 }
