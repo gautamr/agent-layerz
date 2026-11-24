@@ -4,6 +4,7 @@ title: 'R6.16: R6 acceptance, parity and the drift list'
 status: To Do
 assignee: []
 created_date: '2026-11-24T08:16:00Z'
+updated_date: '2026-11-24T10:51:00Z'
 labels:
   - area:rust
   - area:test
@@ -36,3 +37,9 @@ Plan for this step (doc-5 R6 gate).
 - [ ] #3 mise run rust:ci, mise run lint, mise run test and mise run alz:check exit 0 on the R6 branch
 - [ ] #4 TASK-72 #1 and the account forms of TASK-52 #4 and TASK-69 #5 are checked off with the evidence in their notes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R6.5 (2026-11-24) for the spec: (1) drop '.git/config resolves outside the repository' from §9.4 and §10.3 and the Blocker enum — a link at .git/config is always 'not a regular file' now; (2) state that after a Refused stop (the place stopped being writable between two keys) the refusal line is printed, then the findings; (3) init skips the identity step whenever the build has any error (render-time ones included).
+<!-- SECTION:NOTES:END -->

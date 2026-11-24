@@ -2,10 +2,7 @@
 //! §9.4 "Writing"). git follows a link at the file it writes (`docs/target-facts.md` §11), so
 //! these probes run right before and again right after each write.
 
-use std::ffi::OsStr;
 use std::os::fd::OwnedFd;
-use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
 
 use alz_core::identity::{Blocker, GitConfigPlace};
 use rustix::fs::{self, AtFlags, FileType, Mode, OFlags};
@@ -70,36 +67,14 @@ fn config_is_plain(git: &OwnedFd) -> Result<(), Blocker> {
         Err(_) => Err(Blocker::Uninspectable),
         Ok(status) => match FileType::from_raw_mode(status.st_mode) {
             FileType::RegularFile => Ok(()),
-            FileType::Symlink => Err(link_blocker(git)),
-            FileType::Directory
+            FileType::Symlink
+            | FileType::Directory
             | FileType::Fifo
             | FileType::Socket
             | FileType::CharacterDevice
             | FileType::BlockDevice
             | FileType::Unknown => Err(Blocker::ConfigNotRegular),
         },
-    }
-}
-
-/// Why a link at `.git/config` is refused: its target leaves the repository when it is absolute
-/// or climbs with `..`; any other target is a link that stays below `.git`. Either way nothing is
-/// written. (An absolute target that lies inside the repository is reported as outside too: the
-/// folder alone cannot tell, and the refusal is the same.)
-fn link_blocker(git: &OwnedFd) -> Blocker {
-    match fs::readlinkat(git, "config", Vec::new()) {
-        Ok(target) => {
-            let target = Path::new(OsStr::from_bytes(target.to_bytes()));
-            if target.is_absolute()
-                || target
-                    .components()
-                    .any(|part| matches!(part, std::path::Component::ParentDir))
-            {
-                Blocker::ConfigOutside
-            } else {
-                Blocker::ConfigNotRegular
-            }
-        }
-        Err(_) => Blocker::ConfigNotRegular,
     }
 }
 

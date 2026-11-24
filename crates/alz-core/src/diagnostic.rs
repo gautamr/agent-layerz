@@ -617,6 +617,20 @@ impl Diagnostics {
         self
     }
 
+    /// The same diagnostics with every error a warning, for a command that goes on after a
+    /// problem another command fails on (`alz init`, spec §10.3).
+    #[must_use]
+    pub fn errors_as_warnings(self) -> Self {
+        self.into_iter()
+            .map(|mut diagnostic| {
+                if diagnostic.level == Level::Error {
+                    diagnostic.level = Level::Warning;
+                }
+                diagnostic
+            })
+            .collect()
+    }
+
     /// The diagnostics in the order they were found.
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> + '_ {
         self.0.iter()
@@ -693,6 +707,17 @@ mod tests {
 
     fn position(line: u32, column: u32) -> Position {
         Position::new(line, column).expect("a position counted from 1")
+    }
+
+    #[test]
+    fn errors_become_warnings_and_everything_else_stays() {
+        let all = Diagnostics::new()
+            .with(Diagnostic::error(Code::Layer, None, Message::new("bad")))
+            .with(Diagnostic::note(Code::Identity, None, Message::new("fyi")));
+        assert_eq!(
+            all.errors_as_warnings().to_string(),
+            "warning [layer] bad\nnote [identity] fyi\n"
+        );
     }
 
     #[test]

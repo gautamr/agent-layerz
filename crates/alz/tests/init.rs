@@ -181,7 +181,13 @@ mod tests {
             "--hub",
             "../hub",
         ]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "note [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n"
+            )
+        );
         let manifest = place.text("layer.yaml").expect("a manifest");
         assert!(
             manifest.starts_with(
@@ -267,7 +273,13 @@ mod tests {
             .write("repo/mise.toml", "# mine\n")
             .expect("written");
         let run = place.alz(&["init", "--name", "repo"]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "warning [layer] path:./.layer:layer.yaml:1:1: kind is required\nwarning [layer] path:./.layer:layer.yaml:1:1: visibility is required\n"
+            )
+        );
         assert_eq!(
             run.stdout,
             format!(
@@ -306,7 +318,13 @@ mod tests {
             .make_link("repo/.layer", "../outside")
             .expect("linked");
         let run = place.alz(&["init", "--name", "repo"]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "warning [layer] missing layer.yaml in layer 'path:./.layer'\n"
+            )
+        );
         assert_eq!(place.files("outside"), Vec::<String>::new());
         assert!(place.scratch.exists("repo/layer.yaml"));
     }
@@ -372,7 +390,13 @@ mod tests {
             "--hub",
             "../hub",
         ]);
-        assert_eq!((run.code, run.stderr.as_str()), (0, ""));
+        assert_eq!(
+            (run.code, run.stderr.as_str()),
+            (
+                0,
+                "note [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n"
+            )
+        );
         assert!(
             run.stdout
                 .starts_with("using the hub's client layer path:../hub/layer at layer-v0.10.0\n"),

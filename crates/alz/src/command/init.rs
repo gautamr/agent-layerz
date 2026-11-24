@@ -4,15 +4,15 @@
 //!
 //! `alz-core` decides what is written and `alz-io`'s repository root writes it, create-only: a
 //! file that exists, a link included, is never replaced. Everything that can be refused is
-//! checked before the first file is written. The commit identity step that follows a scaffold
-//! (§9.4) is a later command's work and prints nothing here.
+//! checked before the first file is written. After the scaffold of a repository, the stack is
+//! resolved as `alz build` does and a declared commit identity is set in `.git/config` (§9.4).
 
 use std::ffi::OsString;
 use std::fmt;
 use std::io::{self, Write};
 use std::path::Path;
 
-use alz_core::Stripped;
+use alz_core::identity::Command as IdentityCommand;
 use alz_core::layer::Visibility;
 use alz_core::render::write_plan::Observed;
 use alz_core::scaffold::{
@@ -21,10 +21,13 @@ use alz_core::scaffold::{
 };
 use alz_core::stack::StackEntry;
 use alz_core::yaml::MAX_BYTES;
+use alz_core::{Code, Level, Stripped};
 use alz_io::{Deadlines, EnvSnapshot, GitRunner, ReadOnlyDir, RepoError, RepoRoot, WalkError};
 
 use crate::cli::{InitArgs, InitKind};
 use crate::command::Surroundings;
+use crate::command::identity::{self, Step};
+use crate::command::pipeline;
 
 /// Why `alz init` stopped.
 #[derive(Debug)]
@@ -107,8 +110,66 @@ fn init(args: &InitArgs, surroundings: Surroundings<'_>) -> Finished {
             code: 1,
             ..Finished::default()
         },
-        Ok(plan) => create(&plan),
+        Ok(plan) => {
+            let created = create(&plan);
+            match (plan.kind, created.code) {
+                (InitKind::Repo, 0) => created.then(&identity_after_scaffold(&plan, surroundings)),
+                (InitKind::Repo | InitKind::Layer, _) => created,
+            }
+        }
     }
+}
+
+impl Finished {
+    /// What this run printed, followed by `later`'s, which ends it.
+    fn then(self, later: &Self) -> Self {
+        Self {
+            stdout: format!("{}{}", self.stdout, later.stdout),
+            stderr: format!("{}{}", self.stderr, later.stderr),
+            code: later.code,
+        }
+    }
+}
+
+/// The note that ends the step when a layer source cannot be resolved yet.
+const NOT_RESOLVED_YET: &str = "note [identity] the stack could not be resolved yet, so no commit identity was set; `alz build --adopt` will set it\n";
+
+/// Resolves the stack of the new repository as `alz build` does, and sets the commit identity it
+/// declares (§9.4, §10.3). A source that cannot be resolved yet only gets a note. Any other
+/// problem with the stack or a declaration is a warning and nothing is written, a refused
+/// `account` declaration included; the scaffold succeeded, so the exit code stays 0 unless a check
+/// after a write failed.
+fn identity_after_scaffold(plan: &Plan, surroundings: Surroundings<'_>) -> Finished {
+    let built = pipeline::compute(surroundings, &plan.root);
+    let unresolved = built
+        .diagnostics
+        .iter()
+        .any(|found| found.level() == Level::Error && found.code() == Code::Source);
+    if unresolved {
+        return Finished {
+            stderr: NOT_RESOLVED_YET.to_owned(),
+            ..Finished::default()
+        };
+    }
+    let warnings = Finished {
+        stderr: built.diagnostics.clone().errors_as_warnings().to_string(),
+        ..Finished::default()
+    };
+    let step = built
+        .computed
+        .as_ref()
+        .and_then(identity::declared_of)
+        .zip(surroundings.directory.path());
+    let Some((declared, directory)) = step else {
+        return warnings;
+    };
+    let outcome =
+        Step::new(declared, surroundings.env, &plan.root, directory).set_up(IdentityCommand::Init);
+    warnings.then(&Finished {
+        stdout: outcome.stdout,
+        stderr: outcome.diagnostics.to_string(),
+        code: u8::from(outcome.diagnostics.has_errors()),
+    })
 }
 
 /// Checks everything that can be refused, and decides what is written.

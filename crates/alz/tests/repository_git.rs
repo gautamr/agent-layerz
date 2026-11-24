@@ -297,7 +297,7 @@ mod tests {
         place.remove(&config);
         place.symlink(&target, &config);
         let result = place.on(&place.repo(), &[], |git, _| git.set_up(&declared()));
-        assert_eq!(result, SetupResult::Blocked(Blocker::ConfigOutside));
+        assert_eq!(result, SetupResult::Blocked(Blocker::ConfigNotRegular));
         assert_eq!(place.read_text(&target), "[core]\n\tbare = false\n");
         assert!(Place::is_link(&config), "the link is still in place");
     }

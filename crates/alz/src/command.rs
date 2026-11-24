@@ -6,6 +6,7 @@ pub mod check;
 pub mod diff;
 pub mod doctor;
 pub mod explain;
+mod identity;
 pub mod init;
 pub mod lint;
 mod live_probe;
