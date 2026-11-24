@@ -9,6 +9,7 @@ use alz_core::path::SafeRelPath;
 use alz_core::render::write_plan::{MAX_COMPARED_BYTES, Observed};
 use rustix::fs::{self, AtFlags, FileType, Mode, OFlags};
 use rustix::io::Errno;
+use rustix::path::Arg;
 
 use crate::fs::read_below::{read_at_most, require_regular};
 use crate::fs::read_error::ReadError;
@@ -24,7 +25,7 @@ pub(super) enum Below {
 
 /// Opens the folder `name` in `directory` with `O_NOFOLLOW`. A name that is absent, a link or not
 /// a folder stops the walk with what it is.
-pub(super) fn step_into(directory: &OwnedFd, name: &str) -> io::Result<Below> {
+pub(super) fn step_into<N: Arg + Copy>(directory: &OwnedFd, name: N) -> io::Result<Below> {
     match fs::openat(
         directory,
         name,
@@ -39,7 +40,7 @@ pub(super) fn step_into(directory: &OwnedFd, name: &str) -> io::Result<Below> {
 }
 
 /// What the entry `name` is, looked at with `lstat` after the open of it was refused.
-fn classify(directory: &OwnedFd, name: &str) -> io::Result<Observed> {
+fn classify<N: Arg>(directory: &OwnedFd, name: N) -> io::Result<Observed> {
     match fs::statat(directory, name, AtFlags::SYMLINK_NOFOLLOW) {
         Ok(status) => Ok(match FileType::from_raw_mode(status.st_mode) {
             FileType::Symlink => Observed::Link,

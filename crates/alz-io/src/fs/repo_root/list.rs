@@ -1,52 +1,63 @@
 //! Listing folders below the repository root without following a link.
 
+use std::ffi::{CStr, CString};
 use std::os::fd::OwnedFd;
+use std::rc::Rc;
 
 use alz_core::Stripped;
 use alz_core::path::SafeRelPath;
 use rustix::fs::{self, AtFlags, Dir, FileType};
 
 use crate::fs::repo_root::error::RepoError;
-use crate::fs::repo_root::probe::{Below, folder_at};
+use crate::fs::repo_root::probe::{Below, folder_at, step_into};
 
-/// The most entries the writer looks at in one folder tree.
-const MAX_ENTRIES: usize = 10_000;
-
-/// One entry of a folder. `name` is `None` when the file system's name for it is not valid
-/// Unicode.
+/// One entry of a folder: its name as the file system holds it, and whether it is a folder. A link
+/// is no folder.
 struct Entry {
-    name: Option<String>,
+    name: CString,
     is_folder: bool,
 }
 
-/// The entries of `handle`, which is `folder` (the repository root when `None`). Each is looked at
-/// with `lstat`, so a link is no folder. A name that is not valid Unicode is kept as `None`.
-fn listing(handle: &OwnedFd, folder: Option<&SafeRelPath>) -> Result<Vec<Entry>, RepoError> {
-    let label = folder_label(folder);
+/// Calls `each` with every entry of `handle`, which is `label`, without collecting them. A folder
+/// is told by the type the directory gives, and by `lstat` where it gives none, so a link is never
+/// a folder. Any number of entries is accepted.
+fn for_each_entry(
+    handle: &OwnedFd,
+    label: &dyn Fn() -> String,
+    mut each: impl FnMut(&CStr, bool),
+) -> Result<(), RepoError> {
     let failed = |errno: rustix::io::Errno| RepoError::Io {
         operation: "listing",
-        path: label.clone(),
+        path: label(),
         source: errno.into(),
     };
-    let mut found = Vec::new();
     for entry in Dir::read_from(handle).map_err(failed)? {
         let entry = entry.map_err(failed)?;
         if matches!(entry.file_name().to_bytes(), b"." | b"..") {
             continue;
         }
-        if found.len() >= MAX_ENTRIES {
-            return Err(RepoError::TooManyEntries {
-                folder: label,
-                limit: MAX_ENTRIES,
-            });
-        }
-        let status =
-            fs::statat(handle, entry.file_name(), AtFlags::SYMLINK_NOFOLLOW).map_err(failed)?;
-        found.push(Entry {
-            name: entry.file_name().to_str().ok().map(str::to_owned),
-            is_folder: FileType::from_raw_mode(status.st_mode) == FileType::Directory,
-        });
+        let kind = entry.file_type();
+        let is_folder = if kind == FileType::Unknown {
+            let status =
+                fs::statat(handle, entry.file_name(), AtFlags::SYMLINK_NOFOLLOW).map_err(failed)?;
+            FileType::from_raw_mode(status.st_mode) == FileType::Directory
+        } else {
+            kind == FileType::Directory
+        };
+        each(entry.file_name(), is_folder);
     }
+    Ok(())
+}
+
+/// The entries of `handle`, which is `folder` (the repository root when `None`).
+fn listing(handle: &OwnedFd, folder: Option<&SafeRelPath>) -> Result<Vec<Entry>, RepoError> {
+    let mut found = Vec::new();
+    for_each_entry(handle, &|| folder_label(folder), |name, is_folder| {
+        found.push(Entry {
+            name: name.to_owned(),
+            is_folder,
+        });
+    })?;
     Ok(found)
 }
 
@@ -67,7 +78,9 @@ fn entries(
         .map(|entry| {
             entry
                 .name
-                .map(|name| (name, entry.is_folder))
+                .to_str()
+                .ok()
+                .map(|name| (name.to_owned(), entry.is_folder))
                 .ok_or_else(|| RepoError::UnnameableEntry {
                     folder: folder_label(folder),
                 })
@@ -135,65 +148,99 @@ pub(super) fn files_below(
                 found.push(path);
             }
         }
-        if found.len().saturating_add(pending.len()) > MAX_ENTRIES {
-            return Err(RepoError::TooManyEntries {
-                folder: Stripped::from_untrusted(folder.as_str()).to_string(),
-                limit: MAX_ENTRIES,
-            });
-        }
     }
     found.sort();
     Ok(found)
 }
 
 /// Folders the walk of the whole repository never enters: version control and what tools install.
-const NOT_WALKED: [&str; 3] = [".git", ".DS_Store", "node_modules"];
+/// `.git` is compared byte for byte: on a file system that folds case the directory gives the name
+/// it holds, and on one that does not, `.GIT` is a folder like any other.
+const NOT_WALKED: [&[u8]; 3] = [b".git", b".DS_Store", b"node_modules"];
 
-/// Every file named `name` anywhere in the repository, in path order. Folders are entered from an
-/// explicit stack and no link is followed; a link is no file. An entry whose name is no valid
-/// Unicode or no safe relative path cannot be named, so it is skipped when it is no folder (it is
-/// not the file looked for), and refused as [`RepoError::UnnameableEntry`] when it is a folder:
-/// what lies below it cannot be searched, and passing it over would hide a file.
-pub(super) fn files_named(root: &OwnedFd, name: &str) -> Result<Vec<SafeRelPath>, RepoError> {
-    let mut pending: Vec<Option<SafeRelPath>> = vec![None];
-    let mut found = Vec::new();
-    while let Some(next) = pending.pop() {
-        let listed = match &next {
-            None => listing(root, None)?,
-            Some(folder) => match folder_at(root, folder.segments())
-                .map_err(|source| RepoError::io("listing", folder, source))?
-            {
-                Below::Folder(handle) => listing(&handle, Some(folder))?,
-                Below::Stop(_) => continue,
-            },
-        };
-        for entry in listed {
-            // Folders the walk never enters are passed over before their name is parsed: `.git`
-            // is no safe relative path.
-            if entry.is_folder
-                && entry
-                    .name
-                    .as_deref()
-                    .is_some_and(|n| NOT_WALKED.contains(&n))
-            {
-                continue;
+/// A folder the walk has still to enter: where it lies, and the open parent it is entered from.
+/// The parent stays open only while a sibling is pending, so a chain of folders holds one handle.
+struct Pending {
+    parent: Rc<OwnedFd>,
+    name: CString,
+    path: Vec<u8>,
+}
+
+/// `parent` and `name` joined with `/`; `parent` is empty for the repository root.
+fn joined(parent: &[u8], name: &CStr) -> Vec<u8> {
+    let separator: &[u8] = if parent.is_empty() { b"" } else { b"/" };
+    [parent, separator, name.to_bytes()].concat()
+}
+
+/// The path as a person reads it: control characters removed, a name that is no Unicode shown
+/// with replacement characters.
+fn shown(path: &[u8]) -> Stripped {
+    Stripped::from_untrusted(&String::from_utf8_lossy(path))
+}
+
+fn walked_label(path: &[u8]) -> String {
+    if path.is_empty() {
+        String::from("the repository root")
+    } else {
+        shown(path).to_string()
+    }
+}
+
+/// Visits every entry of the repository once, each folder listed once, the folders below the root
+/// entered one from the handle of its parent (never from the root again), with no limit on the
+/// entries of a folder or the depth, and no link followed. `visit` gets the path of the folder
+/// (empty for the root), the entry's name as bytes and whether it is a folder. A folder in
+/// [`NOT_WALKED`] is visited as an entry and not entered. A folder that is gone, or has become a
+/// link, since it was listed is passed over.
+fn walk(root: &OwnedFd, mut visit: impl FnMut(&[u8], &CStr, bool)) -> Result<(), RepoError> {
+    let mut pending: Vec<Pending> = Vec::new();
+    let mut list = |handle: Rc<OwnedFd>, path: Vec<u8>, pending: &mut Vec<Pending>| {
+        for_each_entry(&handle, &|| walked_label(&path), |name, is_folder| {
+            visit(&path, name, is_folder);
+            if is_folder && !NOT_WALKED.contains(&name.to_bytes()) {
+                pending.push(Pending {
+                    parent: Rc::clone(&handle),
+                    name: name.to_owned(),
+                    path: joined(&path, name),
+                });
             }
-            let path = entry
-                .name
-                .as_deref()
-                .and_then(|entry_name| join(next.as_ref(), entry_name));
-            match (entry.name.as_deref(), path) {
-                (Some(_), Some(path)) if entry.is_folder => pending.push(Some(path)),
-                (Some(entry_name), Some(path)) if entry_name == name => found.push(path),
-                (_, None) if entry.is_folder => {
-                    return Err(RepoError::UnnameableEntry {
-                        folder: folder_label(next.as_ref()),
-                    });
-                }
-                _ => {}
-            }
+        })
+    };
+    let first = root.try_clone().map_err(|source| RepoError::Io {
+        operation: "listing",
+        path: walked_label(b""),
+        source,
+    })?;
+    list(Rc::new(first), Vec::new(), &mut pending)?;
+    while let Some(Pending { parent, name, path }) = pending.pop() {
+        let opened = step_into(&parent, name.as_c_str()).map_err(|source| RepoError::Io {
+            operation: "listing",
+            path: walked_label(&path),
+            source,
+        })?;
+        drop(parent);
+        if let Below::Folder(handle) = opened {
+            list(Rc::new(handle), path, &mut pending)?;
         }
     }
-    found.sort();
-    Ok(found)
+    Ok(())
 }
+
+/// Every file named `name` anywhere in the repository, in path order, as it is shown (see
+/// [`shown`]). Each folder is listed once and no link is followed; an entry that is no folder
+/// counts, a link included, since a link named so is read by the tool. A folder whose name is not
+/// valid Unicode or not a safe relative path is entered like any other: the walk goes by the
+/// names the file system holds, and only what it finds is shown.
+pub(super) fn files_named(root: &OwnedFd, name: &str) -> Result<Vec<Stripped>, RepoError> {
+    let mut found: Vec<Vec<u8>> = Vec::new();
+    walk(root, |folder, entry, is_folder| {
+        if !is_folder && entry.to_bytes() == name.as_bytes() {
+            found.push(joined(folder, entry));
+        }
+    })?;
+    found.sort();
+    Ok(found.iter().map(|path| shown(path)).collect())
+}
+
+#[cfg(test)]
+mod tests;
