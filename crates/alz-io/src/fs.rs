@@ -18,5 +18,5 @@ pub use dir::Dir;
 pub use read_below::ReadFile;
 pub use read_error::ReadError;
 pub use read_only_dir::ReadOnlyDir;
-pub use repo_root::{AdoptionBasis, Applied, RepoError, RepoRoot};
+pub use repo_root::{AdoptionBasis, Applied, Changed, GitConfigSeal, RepoError, RepoRoot};
 pub use walk_error::WalkError;

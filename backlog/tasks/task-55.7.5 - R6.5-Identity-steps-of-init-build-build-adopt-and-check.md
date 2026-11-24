@@ -4,6 +4,7 @@ title: 'R6.5: Identity steps of init, build, build --adopt and check'
 status: To Do
 assignee: []
 created_date: '2026-11-24T08:15:00Z'
+updated_date: '2026-11-24T10:23:00Z'
 labels:
   - area:rust
   - area:identity
@@ -35,3 +36,9 @@ Plan for this step (§9.4, §10, §10.3).
 - [ ] #2 With no commit_identity declared, init, build and check run no git command for the identity and print no identity line (acceptance case with gitProxy, or an alz integration test)
 - [ ] #3 golden_trees.rs compares the [identity] lines by level and code for every fixture (cargo test)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R6.4 (2026-11-24): turn RepositoryGit's SetupResult (Blocked, Planned { plan, written, stopped }), Stopped (Refused, Tampered { field, changed }) and the IdentityCheck pieces into the report lines of §10.3; Tampered is error [identity] and stops init and build --adopt with exit 1.
+<!-- SECTION:NOTES:END -->

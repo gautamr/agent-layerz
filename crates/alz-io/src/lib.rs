@@ -17,11 +17,13 @@ pub use account::{
 pub use account_names::claude_account_folders;
 pub use env::{EnvSnapshot, WorkingDirectory};
 pub use fs::{
-    AdoptionBasis, Applied, CacheDir, CacheError, Dir, IndexError, Published, ReadError, ReadFile,
-    ReadOnlyDir, RepoError, RepoRoot, RepositoryPaths, TempEntry, WalkError,
+    AdoptionBasis, Applied, CacheDir, CacheError, Changed, Dir, GitConfigSeal, IndexError,
+    Published, ReadError, ReadFile, ReadOnlyDir, RepoError, RepoRoot, RepositoryPaths, TempEntry,
+    WalkError,
 };
 pub use git::{
-    Deadlines, GitFailure, GitRunner, GitRunnerError, Launcher, ReadScope, run_if_requested,
+    Deadlines, GitFailure, GitRunner, GitRunnerError, KeyWrite, Launcher, ReadScope, RepositoryGit,
+    SetupResult, Stopped, run_if_requested,
 };
 pub use resolve::{
     FetchedLayer, Fetcher, GitLayer, PinnedLayer, PinnedRead, PinnedTreeReader, ReadHow,
