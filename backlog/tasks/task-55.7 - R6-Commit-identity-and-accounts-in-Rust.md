@@ -1,11 +1,11 @@
 ---
 id: TASK-55.7
 title: 'R6: Commit identity and accounts in Rust'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-24T16:02:00Z'
+updated_date: '2026-11-24T17:14:00Z'
 labels:
   - area:rust
   - area:security
@@ -26,7 +26,7 @@ doc-5 phase R6: commit identity, alz account which and alz account allow, with t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tests 26, 30, 31 and 32 pass against the Rust binary
+- [x] #1 Tests 26, 30, 31 and 32 pass against the Rust binary
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -108,4 +108,12 @@ R6 gate (lead, 2026-11-24, at the R6.16 commit): the full acceptance project aga
 R6 unit-review fixes. alz account allow: the refusals of the writer are worded from typed values in alz-core (Refusal::State, Refusal::Unwritable with AllowCommand, Refusal::Writer), with no string surgery; allowed.yaml has one problem type with one text (alz-core AllowFileProblem, used by the refusal, the account note and StateError::State); a failure to gather prints the diagnostic itself, one level with its own code. A system failure of the writer's place now reads 'allowed.yaml cannot be written: <problem>' as the spec words it. alz init: only a source that is not there to read yet (missing path: directory, failed fetch, unresolved ref) gets the identity note; every other problem, a refused source included, is printed as a warning, before the note when both occur. Account resolution holds the cache root to the rule of spec section 6 (owner and not writable by group or others, read with fstat) and does not read a pathref@ index file another user owns; both are the miss 'unreadable' (no new miss reason); spec section 7.13 states it.
 
 R6 CI fix (Linux): pty-run was ended by SIGHUP when the last close of its end of the terminal came before it had exited (stdin closed while the program was still ending). It now keeps a duplicate of its end open until the process exits (pty/terminal.rs keep_open_until_exit); Failure no longer holds the terminal. New test in crates/alz-test-support/tests/pty_run.rs. account_allow.rs: the pipe case tolerates a broken pipe (alz refuses before reading).
+
+Merged to main as 4ff8dd3 (PR #16, owner approved, 2026-11-24), with the two spec sentences of the review fixes. CI green on the merged tree: rust ubuntu and macOS, the acceptance project against the Rust binary (1223 cases), supply chain, workflows.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+R6: commit identity and accounts in the Rust alz. Identity steps of init, build, build --adopt and check; alz account which, allow and --remove; the allow hint; doctor's blocked folders; a Rust pty driver for the terminal cases. Every acceptance case passes against the Rust binary.
+<!-- SECTION:FINAL_SUMMARY:END -->
