@@ -8,7 +8,7 @@
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
-    use std::time::{Duration, Instant};
+    use std::time::{Duration, Instant, SystemTime};
 
     use alz_core::env::EnvVars;
     use alz_io::{EnvSnapshot, Purpose, ToolError, ToolRunner};
@@ -127,19 +127,31 @@ mod tests {
     fn a_program_that_ends_by_itself_leaves_nothing_of_its_group_running() {
         let scratch = ScratchDir::new().expect("scratch");
         let marker = scratch.join("child-survived");
+        let begun = scratch.join("program-begun");
+        // The program notes that it runs (a shell builtin, so no process starts for it), leaves a
+        // child that sleeps six seconds, and ends.
         let script = format!(
-            "#!/bin/sh\n(sleep 6; echo alive > '{}') &\necho done\n",
+            "#!/bin/sh\n: > '{}'\n(sleep 6; echo alive > '{}') &\necho done\n",
+            begun.display(),
             marker.display()
         );
         let runner = runner_for(&scratch, &script, Purpose::Version);
-        let started = Instant::now();
         let output = runner.run(&arguments(&[]), scratch.path()).expect("runs");
+        let since_begun = SystemTime::now()
+            .duration_since(
+                std::fs::metadata(&begun)
+                    .and_then(|metadata| metadata.modified())
+                    .expect("the program began"),
+            )
+            .expect("the program began before now");
         assert!(output.success);
         assert_eq!(output.stdout, b"done\n");
-        // Well before the child's six seconds, with room for a loaded machine.
+        // Counted from the moment the program ran, not from the call: the first run of a file that
+        // was just written can wait seconds for the system to check it on a loaded machine
+        // (TASK-91), and that wait is not the runner's. Well before the child's six seconds.
         assert!(
-            started.elapsed() < Duration::from_secs(4),
-            "the readers finished when the group was ended, not when the child's sleep did"
+            since_begun < Duration::from_secs(4),
+            "the readers finished when the group was ended, not when the child's sleep did: {since_begun:?}"
         );
         std::thread::sleep(Duration::from_secs(7));
         assert!(
