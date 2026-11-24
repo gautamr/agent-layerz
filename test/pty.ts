@@ -1,12 +1,13 @@
-import { spawn } from "node:child_process";
-import { type CliResult, isStartedPid, killGroup } from "./exec";
-import { ptyRun, tmpRoot } from "./run-root";
+import { type CliResult, spawnInteractive } from "./exec";
+import { ptyRun } from "./run-root";
 
 /**
  * A command run for a person at a terminal: `pty-run` gives it a pseudo-terminal as standard input
  * and leaves standard output and standard error as pipes, so the tests tell the streams apart. What
  * `type` sends is typed at the terminal (a line, or `CTRL_C`), and `endInput` is the terminal's
  * end of file. The driver kills the command at its deadline, which is shorter than the test's.
+ * `pty-run` itself starts through `spawnInteractive` (test/exec.ts): its own process group, the
+ * timeout and an allow-listed environment.
  */
 export interface PtySession {
   /** Everything the command has written to standard error so far. */
@@ -26,90 +27,25 @@ export const CTRL_C = "\u0003";
 
 export interface PtyOptions {
   cwd: string;
-  /** Exactly this environment, plus TMPDIR. */
+  /** PATH when it holds none, this environment and TMPDIR: never the test process's own. */
   env: Record<string, string>;
   /** How long the command may run; the driver kills it a second earlier. */
   timeoutMs?: number;
 }
 
-const occurrences = (text: string, part: string): number => text.split(part).length - 1;
-
 /** Starts `file args` on a pseudo-terminal in `options.cwd`. */
 export function startOnPty(file: string, args: readonly string[], options: PtyOptions): PtySession {
   const timeoutMs = options.timeoutMs ?? 15_000;
-  const child = spawn(ptyRun(), ["--deadline-ms", String(timeoutMs - 1000), "--", file, ...args], {
-    cwd: options.cwd,
-    env: { ...options.env, TMPDIR: tmpRoot() },
-    stdio: ["pipe", "pipe", "pipe"],
-    detached: true,
-  });
-  let out = "";
-  let err = "";
-  const watchers = new Set<() => void>();
-  child.stdout.on("data", (chunk: Buffer) => {
-    out += chunk.toString("utf8");
-  });
-  child.stderr.on("data", (chunk: Buffer) => {
-    err += chunk.toString("utf8");
-    for (const watcher of [...watchers]) watcher();
-  });
-  child.stdin.on("error", () => {
-    // The command ended without reading what was typed: its exit code says why.
-  });
-  const pgid = child.pid;
-  const ended = new Promise<CliResult>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      killGroup(pgid);
-      reject(
-        new Error(
-          `pty-run ${file} ${args.join(" ")} outlived ${timeoutMs} ms; stderr: ${JSON.stringify(err)}`,
-        ),
-      );
-    }, timeoutMs);
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(new Error(`pty-run could not start: ${error.message}`));
-    });
-    child.on("close", (code, signal) => {
-      clearTimeout(timer);
-      if (isStartedPid(pgid)) killGroup(pgid);
-      if (code === null) {
-        reject(new Error(`pty-run ended on signal ${signal}; stderr: ${JSON.stringify(err)}`));
-      } else resolve({ code, stdout: out, stderr: err });
-    });
-  });
-  // A rejection nobody awaits yet (the test is still typing) is reported by `done`.
-  ended.catch(() => undefined);
+  const child = spawnInteractive(
+    ptyRun(),
+    ["--deadline-ms", String(timeoutMs - 1000), "--", file, ...args],
+    { cwd: options.cwd, env: options.env, timeoutMs },
+  );
   return {
-    stderrSoFar: () => err,
-    waitForStderr: (text, times = 1) =>
-      new Promise<void>((resolve, reject) => {
-        const check = () => {
-          if (occurrences(err, text) >= times) {
-            watchers.delete(check);
-            resolve();
-          }
-        };
-        watchers.add(check);
-        check();
-        ended.then(
-          (result) => {
-            watchers.delete(check);
-            reject(
-              new Error(
-                `the command ended (exit ${result.code}) before ${JSON.stringify(text)} appeared on stderr: ${JSON.stringify(err)}; stdout: ${JSON.stringify(result.stdout)}`,
-              ),
-            );
-          },
-          (error: unknown) => reject(error),
-        );
-      }),
-    type: (text) => {
-      child.stdin.write(text);
-    },
-    endInput: () => {
-      child.stdin.end();
-    },
-    done: () => ended,
+    stderrSoFar: child.stderrSoFar,
+    waitForStderr: child.waitForStderr,
+    type: child.write,
+    endInput: child.end,
+    done: child.done,
   };
 }

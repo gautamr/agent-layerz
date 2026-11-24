@@ -997,6 +997,446 @@
     {
       "test": "§13.20 the lock file, through twelve terminals is safe across real processes: twelve runs at once leave one entry for the root",
       "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) shows the root, the accounts, the layer, its source, ref and revision, and the recorded source",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) writes private folders and a private file, leaves no lock or temporary file, and says what to do next",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) writes nothing for yes",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) reads two answers that arrive in one chunk, one for each question",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) records the real root when run from a subdirectory or from a symbolic link",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) replaces the entry for the same root and keeps every other one, sorted, unresolved roots included",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) records only the targets the declaration names",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 what is shown, asked and written, through a terminal (R6.1b) keeps a linked allowed.yaml a link and writes its target; a dangling link refuses",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 alz account allow --remove, the rest, through a terminal (R6.1b) shows the recorded entry, asks with the recorded source, and keeps the file private",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 alz account allow --remove, the rest, through a terminal (R6.1b) does nothing, and creates nothing, when there is no file or no entry",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 alz account allow --remove, the rest, through a terminal (R6.1b) asks for the recorded names, and a wrong answer changes nothing",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 alz account allow --remove, the rest, through a terminal (R6.1b) works on a cache miss",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the lock file, the rest, through a terminal (R6.1b) waits for a lock that goes away, then succeeds",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the lock file, the rest, through a terminal (R6.1b) never removes a lock it did not create: it refuses, names it and leaves it",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the lock file, the rest, through a terminal (R6.1b) does not follow a lock that is a link",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the lock file, the rest, through a terminal (R6.1b) is safe across real processes: eight distinct roots and four runs on a shared one leave one sorted entry per root",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1b, TASK-55.7.17); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    }
+  ],
+  "test/acceptance/41-account-allow-refusals-terminal.test.ts": [
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDECODE set (remove: false, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDECODE set (remove: false, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDECODE set (remove: true, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDECODE set (remove: true, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDE_CODE_CHILD_SESSION set (remove: false, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDE_CODE_CHILD_SESSION set (remove: false, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDE_CODE_CHILD_SESSION set (remove: true, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CLAUDE_CODE_CHILD_SESSION set (remove: true, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with AI_AGENT set (remove: false, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with AI_AGENT set (remove: false, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with AI_AGENT set (remove: true, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with AI_AGENT set (remove: true, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_THREAD_ID set (remove: false, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_THREAD_ID set (remove: false, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_THREAD_ID set (remove: true, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_THREAD_ID set (remove: true, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_SESSION_ID set (remove: false, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_SESSION_ID set (remove: false, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_SESSION_ID set (remove: true, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_SESSION_ID set (remove: true, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_CI set (remove: false, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_CI set (remove: false, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_CI set (remove: true, value \"\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) refuses with CODEX_CI set (remove: true, value \"marker-value-4f1c9\") even on a terminal, without asking",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) has no way to answer for the person: --yes is a usage error, even on a terminal",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) has no way to answer for the person: -y is a usage error, even on a terminal",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) has no way to answer for the person: --force is a usage error, even on a terminal",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 who may run alz account allow, at a terminal (AC 1) has no way to answer for the person: extra is a usage error, even on a terminal",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a file that group can write, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a file that others can write, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a directory that group can write, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a parent below HOME that group can write, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a parent below HOME that group can write, with no state folder yet, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses XDG_STATE_HOME moved while mise is active, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses XDG_STATE_HOME moved while direnv is active, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses XDG_STATE_HOME inside the repository, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses XDG_STATE_HOME inside an account folder, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a folder in place of the file, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a FIFO in place of the file, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a file over 1 MiB, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses invalid YAML, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a mapping at the top, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses an entry with a relative root, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses an entry with a bad account name, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses an entry whose root is not a real path, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses two entries for one root, with the reason, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for a file that group can write",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for a file that others can write",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for a directory that group can write",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for a parent below HOME that group can write",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for a file over 1 MiB",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for invalid YAML",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for a mapping at the top",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for an entry with a relative root",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for an entry with a bad account name",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for an entry whose root is not a real path",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses `--remove` the same way for two entries for one root",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 states alz account allow refuses at a terminal, and changes nothing (decision-20) refuses a relative HOME",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) says only to run alz build on a cache miss: a lock that is missing",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) says only to run alz build on a cache miss: a cached layer that no longer matches the lock",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) says only to run alz build on a cache miss: a cache that XDG_CACHE_HOME moved under mise",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) refuses when the layers name no account, and names --remove when this root has an entry",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) refuses the reserved name alz-blocked",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) refuses when several client layers declare",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) refuses when layer.yaml cannot be read, but --remove still works",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 what the layers say decides whether alz account allow can run, at a terminal (AC 1) refuses outside a repository, inside an account folder and inside a configured folder",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a state directory inside a git work tree, for a missing file and an existing one",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a link whose target directory is inside a git work tree",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) follows a link to an empty file",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) follows a link to a file that holds only []",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) follows a link to a file that starts with alz's own header",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a link to a file somebody else wrote, and changes nothing",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a link to a file with a comment of another program, and changes nothing",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a file reached through a linked folder when it is not alz's, before any prompt",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) writes a file reached through a linked folder when it is empty, and keeps the link",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a link placed inside a git work tree even when its target is outside every work tree",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    },
+    {
+      "test": "§13.20 where allowed.yaml may live, and what a link may point at, at a terminal (decision-20 amendment) refuses a link to a directory",
+      "reason": "a refusal of `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) at a terminal (R6.1b, TASK-55.7.17); passes when they exist"
+    }
+  ],
+  "test/acceptance/42-account-allow-hint-terminal.test.ts": [
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) starts a fresh clone on the default account and applies the named one after allow",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) prints the allow command from build and check on a terminal only, and changes nothing else",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) prints no hint once allowed, and a ref bump keeps the approval",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) skips the account again when the map changes, with both values in the hint, until allowed again",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) skips the account when a target is removed from the map",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) skips the account when the declaring source changes",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) names --remove when the layers no longer declare an account",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) names the reason in the hint when allowed.yaml cannot be trusted",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 a layer's account applies only after allow, and the hint on build and check at a terminal (AC 2) records a remote layer's URL without its ref",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 the hint on build and check at a terminal, edge cases still prints the hint from check when only the git identity differs",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 the hint on build and check at a terminal, edge cases prints exactly the miss line when XDG_CACHE_HOME moved under mise and the layers name an account",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 the hint on build and check at a terminal, edge cases names the problem and 'then run' for a mapping at the top",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 the hint on build and check at a terminal, edge cases names the problem and 'then run' for an ignored entry",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 the hint on build and check at a terminal, edge cases names two entries for one root by position",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 what the person decides on is escaped, not stripped, at a terminal shows a zero-width character in the source as \\u{XXXX}, in the display, the prompt and the hint",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
+    },
+    {
+      "test": "§13.20 what the person decides on is escaped, not stripped, at a terminal shows a Cyrillic homoglyph in the source as \\u{XXXX}, in the display, the prompt and the hint",
+      "reason": "the allow hint of build and check (R6.14 TASK-55.7.14) with `alz account allow` and the terminal gate (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13) and `alz account which` (R6.10 TASK-55.7.10) where the case uses them (R6.1b, TASK-55.7.17)"
     }
   ]
 }

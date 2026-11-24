@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T10:46:00Z'
-updated_date: '2026-11-24T11:15:00Z'
+updated_date: '2026-11-24T11:53:00Z'
 labels:
   - area:test
   - area:rust
@@ -31,3 +31,16 @@ From R6.1 (2026-11-24): the pty driver (crates/alz-test-support pty-run, test/pt
 - [ ] #2 test/pty.ts starts pty-run through test/exec.ts with an allow-listed environment, never ...process.env
 - [ ] #3 mise run test and the r6-pending check exit 0
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+R6.1b implementation (2026-11-24).
+AC1 (partial, see 'left'): ported 112 new terminal cases (131 in files 40-42, was 18 in file 40): 40 = 16 new (prompt display with account folders, private modes and leftovers, 'yes', two answers in one chunk, subdirectory/symlink root, replace/keep/sort entries, only named targets, linked and dangling allowed.yaml, --remove x4, lock wait, foreign lock refused after the 10 s wait, link lock not followed, eight distinct roots + four runs on a shared one; 'already allowed' ending allowed); 41 = 77 (24 marker refusals at a terminal, 4 usage errors, 17 state refusals, 10 --remove refusals, relative HOME, 8 layer-dependent refusals, 11 where-allowed.yaml-may-live and link cases); 42 = 20 (hint on build/check at a terminal x9 incl. markers loop, 9 edge cases, 2 escaping). All pass against the TypeScript bundle (ALZ_BIN unset): 131/131. Against the Rust release binary 110 fail and are listed in test/ci/r6-pending.json (reason names R6.11/R6.13, and R6.14/R6.10 for hint cases); 21 pass for real (those that need no allow). Case floor raised 1101 -> 1214.
+AC2: test/exec.ts gained spawnInteractive (own process group, timeout with the process-group listing, env = PATH + given + TMPDIR, never process.env); test/pty.ts starts pty-run through it. Shared set-up in test/allow-terminal.ts.
+AC3: mise run lint ok; mise run test 56 files, 1309 passed, 288 expected fail; ALZ_BIN=target/release/alz acceptance + check-r6-pending.ts: '1214 cases (floor 1214), 356 failing, 356 listed as R6 pending', exit 0.
+Deviations, on purpose: (a) display control-character check asserts stdout only, because on a terminal the TS line editor writes cursor controls to stderr; (b) 'no hint for a repository that is HOME / inside CLAUDE_CONFIG_DIR' no longer asserts the exit status: spec 6 stops a command in a directory that touches an account folder (Rust does, TS exits 0); (c) check-tamper case appends to the generated file instead of overwriting it, since an overwritten file loses the header and Rust reports a collision; (d) each terminal case has a 60 s timeout (vi.setConfig, TERMINAL_CASE_MS) with 50 s pty-run deadlines, as the machine is often loaded.
+Left (TS-only, no acceptance twin possible): the fs-trace cases (no write outside the state dir, no subprocess, no open in an account folder), the import-graph and stdin source scans, createTerminal in-process cases, the updateAllowed uid-unknown case and the in-process writer lock input; the lock cases are covered through the binary instead. The reference copies are all kept. Not done: the concurrency case does not assert that some process met a held lock (the reference read that from its driver); only the end state (9 sorted unique entries, no leftovers).
+
+Correction of the counts above: 113 new cases (131 in files 40-42, was 18); 109 new entries in r6-pending.json (127 of the 131 fail against the Rust binary, 18 of them listed before); 4 pass for real against Rust (the hint cases that need no allow: no hint without a declared account, no hint inside CLAUDE_CONFIG_DIR or at HOME, check's own comparison failing).
+<!-- SECTION:NOTES:END -->
