@@ -3,6 +3,7 @@
 //! (decision-33).
 
 pub mod action_word;
+pub mod diff;
 pub mod gitignore;
 pub mod glob;
 pub mod header;

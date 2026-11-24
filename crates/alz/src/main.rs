@@ -48,6 +48,13 @@ fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
             &mut io::stderr(),
         )),
         Ok(Cli {
+            command: Command::Diff,
+        }) => ExitCode::from(command::diff::run(
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
             command: Command::Init(args),
         }) => ExitCode::from(command::init::run(
             &args,

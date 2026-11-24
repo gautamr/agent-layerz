@@ -19,6 +19,8 @@ pub enum Level {
     Error,
     /// A problem that is reported and does not fail the command.
     Warning,
+    /// What a command did or found that is no problem; it never changes the exit code (§10.1).
+    Note,
 }
 
 impl Level {
@@ -28,6 +30,7 @@ impl Level {
         match self {
             Self::Error => "error",
             Self::Warning => "warning",
+            Self::Note => "note",
         }
     }
 }
@@ -541,6 +544,17 @@ impl Diagnostic {
         }
     }
 
+    /// A note: what a command found that is no problem. It is reported and changes nothing.
+    #[must_use]
+    pub const fn note(code: Code, at: Option<Where>, message: Message) -> Self {
+        Self {
+            level: Level::Note,
+            code,
+            at,
+            message,
+        }
+    }
+
     /// The level of the diagnostic.
     #[must_use]
     pub const fn level(&self) -> Level {
@@ -785,6 +799,22 @@ mod tests {
     fn a_printable_value_goes_into_a_message_as_it_is() {
         let message = Message::new("target ").then(MessagePart::printable(&Name("claude")));
         assert_eq!(message.to_string(), "target claude");
+    }
+
+    #[test]
+    fn a_note_prints_as_a_note_and_is_neither_an_error_nor_a_warning() {
+        let note = Diagnostic::note(
+            Code::Collision,
+            Some(Where::repository_file(Stripped::from_untrusted("a\u{1b}b"))),
+            "text".into(),
+        );
+        assert_eq!(note.to_string(), "note [collision] ab: text");
+        let diagnostics = Diagnostics::new().with(note);
+        assert!(!diagnostics.has_errors());
+        assert_eq!(
+            (diagnostics.error_count(), diagnostics.warning_count()),
+            (0, 0)
+        );
     }
 
     #[test]

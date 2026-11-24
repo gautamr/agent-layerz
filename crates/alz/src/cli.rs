@@ -22,6 +22,8 @@ pub enum Command {
     Build,
     /// Fail when the generated files or `layer.lock` differ from a fresh build; writes nothing.
     Check(CheckArgs),
+    /// Show the change a build would make, as unified diffs; writes nothing.
+    Diff,
     /// Scaffold a repository's layer manifest and repo layer, or a new layer.
     Init(InitArgs),
     /// Validate a layer, or a repository's stack manifest and lock.

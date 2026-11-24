@@ -3,6 +3,7 @@
 
 pub mod build;
 pub mod check;
+pub mod diff;
 pub mod init;
 pub mod lint;
 mod pipeline;

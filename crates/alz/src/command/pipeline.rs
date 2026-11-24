@@ -10,7 +10,7 @@ use alz_core::merge::merge;
 use alz_core::path::AbsolutePath;
 use alz_core::render::gitignore::Generated;
 use alz_core::render::rendered::{Rendered, render};
-use alz_core::render::write_plan::{WritePlan, plan_writes};
+use alz_core::render::write_plan::{Disk, WritePlan, plan_writes};
 use alz_core::stack::Manifest;
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where, leak_guard};
 use alz_io::{ReadError, RepoError, RepoRoot, StackResolver, WalkError};
@@ -180,6 +180,14 @@ fn shadowing_files(repository: &RepoRoot) -> Diagnostics {
 /// What the writer would do for `computed`, from what is on disk. `None` when the build has an
 /// error, which writes nothing (§4.3 "Writing").
 pub fn plan(repository: &RepoRoot, computed: &Computed) -> Result<Option<WritePlan>, RepoError> {
+    plan_with_disk(repository, computed).map(|planned| planned.map(|(plan, _)| plan))
+}
+
+/// [`plan`] with what the writer observed, which `alz diff` reads the old bytes from.
+pub fn plan_with_disk(
+    repository: &RepoRoot,
+    computed: &Computed,
+) -> Result<Option<(WritePlan, Disk)>, RepoError> {
     computed
         .rendered
         .to_write()
@@ -191,14 +199,15 @@ pub fn plan(repository: &RepoRoot, computed: &Computed) -> Result<Option<WritePl
                     computed.rendered.managed_folders(),
                 )
                 .map(|disk| {
-                    plan_writes(
+                    let plan = plan_writes(
                         tree,
                         &computed.lock,
                         computed.previous.as_ref(),
                         &disk,
                         computed.rendered.protected(),
                         generated(&computed.manifest),
-                    )
+                    );
+                    (plan, disk)
                 })
         })
         .transpose()
