@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.14
 title: 'R5.14: alz build --adopt'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T04:54:00Z'
+updated_date: '2026-11-24T04:56:00Z'
 labels:
   - area:rust
   - area:adopt
@@ -35,6 +35,7 @@ Plan for this step (§4.3, §10).
 - [ ] #1 Test 20 passes against ALZ_BIN: the adopted repository builds the same settings and agents, the manifest keeps its comments, and check passes (vitest run)
 - [ ] #2 When any file cannot be adopted the repository tree is byte-identical before and after (test 20 against ALZ_BIN and an alz-io test)
 - [ ] #3 Nothing adoption writes, moves or deletes lies outside the repository or goes through a link (alz-io tests)
+- [ ] #4 Moved from R5.13: a property test over generated native settings adopts them, builds, and finds the rendered native files equal to the adopted ones
 <!-- AC:END -->
 
 ## Implementation Notes

@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6.11
 title: 'R5.11: alz doctor and alz ls --live'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-24T04:56:00Z'
 labels:
   - area:rust
   - area:cli
