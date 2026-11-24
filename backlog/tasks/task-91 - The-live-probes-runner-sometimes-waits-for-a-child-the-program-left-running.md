@@ -1,11 +1,11 @@
 ---
 id: TASK-91
 title: The live probe's runner sometimes waits for a child the program left running
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T08:23:00Z'
-updated_date: '2026-11-24T08:23:00Z'
+updated_date: '2026-11-24T10:10:00Z'
 labels:
   - bug
   - area:rust
@@ -24,6 +24,18 @@ Seen twice in the stop hook on a loaded machine (2026-11-24): crates/alz-io/test
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The cause is named with evidence (a reproduction under load, or the ordering in tool.rs)
-- [ ] #2 The runner ends the program's group before it waits for the readers, and the test passes 200 times under artificial CPU load
+- [x] #1 The cause is named with evidence (a reproduction under load, or the ordering in tool.rs)
+- [x] #2 The runner ends the program's group before it waits for the readers, and the test passes 200 times under artificial CPU load
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done in PR #15 (merged 2026-11-24): the runner already ended the group before reading the pipes; the test counted the first exec of a fresh script on loaded macOS (4-5 s). It now measures from the program's start. Under load 39/100 failures before, 0/200 after.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The tool runner test measures from the program's start; the runner was correct. Merged as PR #15.
+<!-- SECTION:FINAL_SUMMARY:END -->

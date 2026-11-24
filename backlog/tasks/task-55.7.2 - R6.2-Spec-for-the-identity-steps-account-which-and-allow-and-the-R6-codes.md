@@ -1,15 +1,14 @@
 ---
 id: TASK-55.7.2
 title: 'R6.2: Spec for the identity steps, account which and allow, and the R6 codes'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-24T08:15:00Z'
-updated_date: '2026-11-24T08:46:00Z'
+updated_date: '2026-11-24T10:10:00Z'
 labels:
   - area:rust
   - area:docs
-  - needs:owner-approval
 milestone: m-7
 dependencies: []
 parent_task_id: TASK-55.7
@@ -57,4 +56,12 @@ Evidence:
 - Asserted-string check (scratch script over the toContain, toMatch, includes and toBe literals of tests 24, 26 and 28 to 32, backticks and whitespace normalised): 137 literals were missing from the spec before, 114 after. A template match of the 109 left against the spec's placeholder spans matched 77. The 37 left are not R6 lines (24 source, agent and protected-variable; 26 schema, Commits section, visibility; 28 cache), test data (names, emails, URLs, fixture text), or R6 instances whose placeholder comes first (a root before (layer.yaml is not valid), the markers before set, a map after now), which 10.3 states as templates.
 - Leak grep of the added lines in docs, CHANGELOG, the decision and this task: no match.
 Lead decisions (coordinator, same day): the after-write check is an error; the finer reference codes replace account-config and account-allowed (TASK-55.7.6 has the mapping in its notes). lint after these: exit 0. Owner: the five identity variables the reference removes become the full repository list.
+
+Owner approved the R6 spec (2026-11-24) as committed in 251db27.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The R6 spec is in docs/LAYERING-SPEC.md: the identity step (git config --file through the git runner, no-follow checks before and after, an error when the check after fails), account which / allow / --remove with the prompt, the reference's account codes, the home and owner rules, and the R6 drift in §13; decision-27 amended for termios and the dev-only pty feature. Owner approved.
+<!-- SECTION:FINAL_SUMMARY:END -->
