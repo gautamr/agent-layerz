@@ -3,10 +3,11 @@ id: TASK-55.7.1
 title: >-
   R6.1: Drive alz account allow through a pseudo-terminal in the acceptance
   suite
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-23T03:26:00Z'
-updated_date: '2026-11-24T08:17:00Z'
+updated_date: '2026-11-24T10:11:00Z'
 labels:
   - area:test
   - area:rust
