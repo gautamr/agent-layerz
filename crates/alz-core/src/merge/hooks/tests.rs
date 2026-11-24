@@ -14,32 +14,30 @@ use crate::target::TargetName;
 // The files of acceptance case 08 (§13.8): a locked and an unlocked hook of the personal layer,
 // disabled by one repo or the other.
 const CASE_08_PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/08-locked-hook/personal/layer.yaml");
+    include_str!("../../../../../fixtures/08-locked-hook/personal/layer.yaml");
 const CASE_08_PERSONAL_HOOKS: &str =
-    include_str!("../../../../../test/fixtures/08-locked-hook/personal/hooks/hooks.yaml");
-const CASE_08_BLOCK_SECRETS: &str = include_str!(
-    "../../../../../test/fixtures/08-locked-hook/personal/hooks/scripts/block-secrets.sh"
-);
+    include_str!("../../../../../fixtures/08-locked-hook/personal/hooks/hooks.yaml");
+const CASE_08_BLOCK_SECRETS: &str =
+    include_str!("../../../../../fixtures/08-locked-hook/personal/hooks/scripts/block-secrets.sh");
 const CASE_08_FORMAT: &str =
-    include_str!("../../../../../test/fixtures/08-locked-hook/personal/hooks/scripts/format.sh");
+    include_str!("../../../../../fixtures/08-locked-hook/personal/hooks/scripts/format.sh");
 const CASE_08_REPO_YAML: &str =
-    include_str!("../../../../../test/fixtures/08-locked-hook/repo-locked/.layer/layer.yaml");
+    include_str!("../../../../../fixtures/08-locked-hook/repo-locked/.layer/layer.yaml");
 const CASE_08_LOCKED_HOOKS: &str =
-    include_str!("../../../../../test/fixtures/08-locked-hook/repo-locked/.layer/hooks/hooks.yaml");
-const CASE_08_UNLOCKED_HOOKS: &str = include_str!(
-    "../../../../../test/fixtures/08-locked-hook/repo-unlocked/.layer/hooks/hooks.yaml"
-);
+    include_str!("../../../../../fixtures/08-locked-hook/repo-locked/.layer/hooks/hooks.yaml");
+const CASE_08_UNLOCKED_HOOKS: &str =
+    include_str!("../../../../../fixtures/08-locked-hook/repo-unlocked/.layer/hooks/hooks.yaml");
 
 // The files of acceptance case 19 (§13.19): command hooks and a native event, and a hook that has
 // both run and command.
 const CASE_19_PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/19-hook-commands/personal/layer.yaml");
+    include_str!("../../../../../fixtures/19-hook-commands/personal/layer.yaml");
 const CASE_19_REPO_YAML: &str =
-    include_str!("../../../../../test/fixtures/19-hook-commands/repo/.layer/layer.yaml");
+    include_str!("../../../../../fixtures/19-hook-commands/repo/.layer/layer.yaml");
 const CASE_19_REPO_HOOKS: &str =
-    include_str!("../../../../../test/fixtures/19-hook-commands/repo/.layer/hooks/hooks.yaml");
+    include_str!("../../../../../fixtures/19-hook-commands/repo/.layer/hooks/hooks.yaml");
 const CASE_19_BAD_HOOKS: &str =
-    include_str!("../../../../../test/fixtures/19-hook-commands/bad/.layer/hooks/hooks.yaml");
+    include_str!("../../../../../fixtures/19-hook-commands/bad/.layer/hooks/hooks.yaml");
 
 fn case_08(repo_hooks: &str) -> Vec<ResolvedLayer> {
     vec![

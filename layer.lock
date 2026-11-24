@@ -26,9 +26,9 @@
     ".claude/rules/docs.md": "sha256:444e92ea2c4394addd7f1fe0e2e77ba0777953bc8581a9b4b2d391ddfd23de03",
     ".claude/rules/rust.md": "sha256:b10aafca0a6810c779edb54226d5d8e2262e47ae76a19075aed7f8d352762871",
     ".claude/rules/src.md": "sha256:e99974fd7733a0653fc26aec940c9de6ee24fe7d26c6ad196df7a049aa6bcf7e",
-    ".claude/rules/tests.md": "sha256:6ac5d989246a5b064981993eda859fa471caf3feab0e45fb8f6cbc49708a8a4b",
+    ".claude/rules/tests.md": "sha256:8686e00ed4647f1c80cb09f52995f5dabf6015d6b907cbfaaf27163cf50bd401",
     ".claude/settings.json": "sha256:c469fe5ff8c7ff23eb0f6f963d85703e420c7bd1fc45df2a45c1397f16b7d971",
-    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:7f301c6e0a451cf782747f9a3aadc90f4c66dcba4249f4062ae9710d022833d9",
+    ".claude/skills/add-acceptance-test/SKILL.md": "sha256:0e6c0de782f9158d676e21f6a8b6e6b7ab49d4fc947997dda1d2cb26e27b3d56",
     ".claude/skills/board-conventions/SKILL.md": "sha256:2d16a3a2799071228b0de6f3247136052df527c74836acc9792de72c08dabad7",
     ".claude/skills/bug-triage/SKILL.md": "sha256:7eb46777524add34d53b400c44b70554c9693e66654316359c303307e4533708",
     ".claude/skills/bug/SKILL.md": "sha256:87cccba116416a0fe116b17b95d980736a8d685bb87359d7a527304b4565fe48",
@@ -66,7 +66,7 @@
     ".claude/skills/triage/SKILL.md": "sha256:1eb144a6c119fcb7a90e07f6d0efbad4b2bc65194c84fb68c52c0675558e1cb1",
     ".claude/skills/verify-target-fact/SKILL.md": "sha256:95496d22e8f2e1030735d46dc6514709f65aa52f83c4a5760f521c436b62a8e5",
     ".mcp.json": "sha256:c9fa449c98d80e009db40b6011c37e8ccd2c6c92888bb60e4c7d3d76d45affda",
-    "AGENTS.md": "sha256:8c943484d5f7be2698a507338507c09bce7eb81622f0741e4c6c6578844590fa",
+    "AGENTS.md": "sha256:97d8d80e7b8c0dfe1e3c63e44e8d1640f4bc74594c245f6f08ea62ecb999ae14",
     "CLAUDE.md": "sha256:1e0e37a837d64044fa950a681c73c7d59f15f46c3f2b0448336d78cebc05dc19"
   },
   "layers": [
@@ -78,7 +78,7 @@
       "source": "path:../agent-layerz-personal"
     },
     {
-      "contentHash": "sha256:fc41cd9cf4b234e1fa76c9bda86c5af6eb2104401218738ea58b2bad5450ce44",
+      "contentHash": "sha256:ee0ff3dd45fda1058c679f2beddba0e26c55bebe829eaecbb55401c2a110341c",
       "name": "agent-layerz",
       "source": "path:./.layer"
     }

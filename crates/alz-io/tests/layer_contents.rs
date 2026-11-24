@@ -17,7 +17,7 @@ mod tests {
 
     fn fixtures() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../test/fixtures")
+            .join("../../fixtures")
             .canonicalize()
             .expect("the fixtures are there")
     }

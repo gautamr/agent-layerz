@@ -9,7 +9,7 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
-      "!test/fixtures",
+      "!fixtures",
       "!crates/*/tests/fixtures",
       "!docs",
       "!**/*.md",

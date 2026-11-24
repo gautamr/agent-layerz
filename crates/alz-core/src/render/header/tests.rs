@@ -18,7 +18,7 @@ fn file(label: LayerLabel, path: &str) -> SourceRef {
 
 // The strings below are what the reference's `headerText`, `htmlHeader` and
 // `insertFrontmatterComment` return for the same sources: the first three appear in
-// test/fixtures/02-instructions and 03-agent-overlay; the rest were produced by running the
+// fixtures/02-instructions and 03-agent-overlay; the rest were produced by running the
 // reference (TASK-55.6.2).
 
 #[test]

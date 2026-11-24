@@ -12,21 +12,21 @@ use crate::stack::ResolvedLayer;
 
 // The files of acceptance case 05 (§13.5), read from the fixture itself.
 const CASE_05_PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/05-skill-override/personal/layer.yaml");
+    include_str!("../../../../../fixtures/05-skill-override/personal/layer.yaml");
 const CASE_05_PERSONAL_SKILL: &str = include_str!(
-    "../../../../../test/fixtures/05-skill-override/personal/skills/stack-conventions/SKILL.md"
+    "../../../../../fixtures/05-skill-override/personal/skills/stack-conventions/SKILL.md"
 );
 const CASE_05_REPO_YAML: &str =
-    include_str!("../../../../../test/fixtures/05-skill-override/repo/.layer/layer.yaml");
+    include_str!("../../../../../fixtures/05-skill-override/repo/.layer/layer.yaml");
 const CASE_05_REPO_SKILL: &str = include_str!(
-    "../../../../../test/fixtures/05-skill-override/repo/.layer/skills/stack-conventions/SKILL.md"
+    "../../../../../fixtures/05-skill-override/repo/.layer/skills/stack-conventions/SKILL.md"
 );
 
 // The layers of acceptance case 06 (§13.6): the personal layer requires `domain-glossary`.
 const CASE_06_PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/06-slots/personal/layer.yaml");
+    include_str!("../../../../../fixtures/06-slots/personal/layer.yaml");
 const CASE_06_REPO_YAML: &str =
-    include_str!("../../../../../test/fixtures/06-slots/repo-strict/.layer/layer.yaml");
+    include_str!("../../../../../fixtures/06-slots/repo-strict/.layer/layer.yaml");
 const LOOSE: &str = "options:\n  strict_slots: false\n";
 const STRICT: &str = "options:\n  strict_slots: true\n";
 

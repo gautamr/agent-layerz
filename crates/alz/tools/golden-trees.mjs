@@ -7,7 +7,7 @@
 //
 //   node crates/alz/tools/golden-trees.mjs
 //
-// The script reads test/fixtures and dist/cli.js and changes neither. For each repository folder
+// The script reads fixtures and dist/cli.js and changes neither. For each repository folder
 // of a fixture (a folder whose `layer.yaml` has a `stack`) it copies the whole fixture to a
 // scratch folder, runs `alz build` there with an isolated HOME, and, when the build exits 0,
 // writes to crates/alz/tests/fixtures/golden/<fixture>/<repo>/:
@@ -36,7 +36,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
-const fixtures = "test/fixtures";
+const fixtures = "fixtures";
 const out = "crates/alz/tests/fixtures/golden";
 const cli = join(process.cwd(), "dist/cli.js");
 const scratch = mkdtempSync(join(tmpdir(), "alz-golden-"));

@@ -10,12 +10,12 @@ use crate::stack::ResolvedLayer;
 
 // The files of acceptance case 04 (§13.4), read from the fixtures themselves.
 const BASE_04: &str =
-    include_str!("../../../../../test/fixtures/04-tool-narrowing/personal/agents/builder.md");
+    include_str!("../../../../../fixtures/04-tool-narrowing/personal/agents/builder.md");
 const WIDEN_04: &str = include_str!(
-    "../../../../../test/fixtures/04-tool-narrowing/repo-widen/.layer/agents/builder.overlay.md"
+    "../../../../../fixtures/04-tool-narrowing/repo-widen/.layer/agents/builder.overlay.md"
 );
 const NARROW_04: &str = include_str!(
-    "../../../../../test/fixtures/04-tool-narrowing/repo-narrow/.layer/agents/builder.overlay.md"
+    "../../../../../fixtures/04-tool-narrowing/repo-narrow/.layer/agents/builder.overlay.md"
 );
 
 const WIDEN_MESSAGE_TAIL: &str = ", which the agent it refines does not grant; an overlay may only remove or narrow tools (allow_widen: true is accepted in a layer that is not public)";

@@ -12,18 +12,17 @@ use super::{PermissionRule, PermissionState};
 // The files of acceptance case 07 (§13.7): a personal layer with a deny list, and a repo layer
 // that removes one of its rules or adds to every list.
 const CASE_07_PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/07-permission-floor/personal/layer.yaml");
+    include_str!("../../../../../fixtures/07-permission-floor/personal/layer.yaml");
 const CASE_07_PERSONAL_PERMISSIONS: &str =
-    include_str!("../../../../../test/fixtures/07-permission-floor/personal/permissions.yaml");
+    include_str!("../../../../../fixtures/07-permission-floor/personal/permissions.yaml");
 const CASE_07_REMOVE_YAML: &str =
-    include_str!("../../../../../test/fixtures/07-permission-floor/repo-remove/.layer/layer.yaml");
-const CASE_07_REMOVE_PERMISSIONS: &str = include_str!(
-    "../../../../../test/fixtures/07-permission-floor/repo-remove/.layer/permissions.yaml"
-);
+    include_str!("../../../../../fixtures/07-permission-floor/repo-remove/.layer/layer.yaml");
+const CASE_07_REMOVE_PERMISSIONS: &str =
+    include_str!("../../../../../fixtures/07-permission-floor/repo-remove/.layer/permissions.yaml");
 const CASE_07_COMBINE_YAML: &str =
-    include_str!("../../../../../test/fixtures/07-permission-floor/repo-combine/.layer/layer.yaml");
+    include_str!("../../../../../fixtures/07-permission-floor/repo-combine/.layer/layer.yaml");
 const CASE_07_COMBINE_PERMISSIONS: &str = include_str!(
-    "../../../../../test/fixtures/07-permission-floor/repo-combine/.layer/permissions.yaml"
+    "../../../../../fixtures/07-permission-floor/repo-combine/.layer/permissions.yaml"
 );
 
 fn case_07(repo_yaml: &str, repo_permissions: &str) -> Vec<ResolvedLayer> {

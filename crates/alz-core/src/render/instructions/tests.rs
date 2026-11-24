@@ -10,7 +10,7 @@ use crate::stack::{Budgets, Manifest};
 /// A file of the acceptance fixtures, read at compile time.
 macro_rules! fixture {
     ($path:literal) => {
-        include_str!(concat!("../../../../../test/fixtures/", $path))
+        include_str!(concat!("../../../../../fixtures/", $path))
     };
 }
 
