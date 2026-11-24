@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-24T02:21:00Z'
 labels:
   - area:rust
   - area:test
@@ -38,3 +39,9 @@ Plan for this step: close R5.
 - [ ] #3 mise run rust:ci, mise run lint and mise run alz:check exit 0, and src/ is identical to main (commands in the notes)
 - [ ] #4 The carried criteria listed in this task's description are checked with evidence, and the R6 remainder is in TASK-55.7's notes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R5.16 (2026-11-24): remove continue-on-error from the acceptance-rust job in .github/workflows/tests.yml and mark the R6 cases (identity, account) as expected failures there, which also closes R5.16's AC #2.
+<!-- SECTION:NOTES:END -->
