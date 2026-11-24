@@ -1334,6 +1334,10 @@ layer.
   `sandbox.socatPath`, `sandbox.network.tlsTerminate`, `processWrapper`, `policyHelper`,
   `sshHostCommands`, `forceLoginGatewayUrl`, `allowManagedPermissionRulesOnly` and
   `disableSideloadFlags`.
+- Claude `skipWebFetchPreflight`, which turns off a safety check of Claude Code that no layer
+  may lower (TASK-79).
+- Claude `forceLoginMethod` and `forceLoginOrgUUID`, which steer how the user signs in, and a
+  repository layer may not set that (TASK-79).
 - Codex, a key whose values have no order: `auto_review`, `default_permissions`, `permissions`
   and `apps`.
 - Codex `profile`: removed by Codex 0.169.0, which refuses it at load (use `--profile`).

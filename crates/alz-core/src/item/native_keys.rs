@@ -154,6 +154,12 @@ const PLUGIN_SOURCE: KeyRule =
 const ROUTES_TRAFFIC: KeyRule =
     KeyRule::Reserved("it runs a program or routes traffic, and is not a project setting");
 const NO_ORDER: KeyRule = KeyRule::Reserved("its values have no order, so no layer may tighten it");
+/// Keys that lower a safety check of the target.
+const LOWERS_A_CHECK: KeyRule =
+    KeyRule::Reserved("it turns off a safety check of Claude Code, which no layer may lower");
+/// Keys that steer how the user signs in.
+const STEERS_SIGN_IN: KeyRule =
+    KeyRule::Reserved("it steers how the user signs in, which a repository layer may not set");
 /// Codex ignores these keys in a project's `config.toml`, so they would do nothing there.
 const IGNORED_IN_A_PROJECT: KeyRule =
     KeyRule::Reserved("Codex ignores it in a project's config.toml");
@@ -275,6 +281,9 @@ pub const KEYS: &[NativeKey] = &[
     claude("sshHostCommands", OUTSIDE_THE_PROJECT),
     claude("forceLoginGatewayUrl", OUTSIDE_THE_PROJECT),
     claude("allowManagedPermissionRulesOnly", OUTSIDE_THE_PROJECT),
+    claude("skipWebFetchPreflight", LOWERS_A_CHECK),
+    claude("forceLoginMethod", STEERS_SIGN_IN),
+    claude("forceLoginOrgUUID", STEERS_SIGN_IN),
     claude("disableSideloadFlags", OUTSIDE_THE_PROJECT),
     // Codex: first-class items.
     codex("model", KeyRule::FirstClass("models.yaml")),
