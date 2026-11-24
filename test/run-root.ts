@@ -10,3 +10,6 @@ export const tempDir = (prefix: string): string => mkdtempSync(join(tmpRoot(), p
 
 /** The binary the acceptance suite spawns: ALZ_BIN, or the TypeScript reference built for this run. */
 export const alzBin = (): string => inject("alzBin");
+
+/** The pseudo-terminal driver: `pty-run [--deadline-ms N] -- program args...` (crates/alz-test-support). */
+export const ptyRun = (): string => inject("ptyRun");

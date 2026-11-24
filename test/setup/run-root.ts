@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestProject } from "vitest/node";
-import { buildReference, checkedAlzBin } from "./alz-bin";
+import { buildReference, checkedAlzBin, ptyRunBin } from "./alz-bin";
 import { removeTree } from "./remove-tree";
 import { ROOT_PREFIX, removeStaleRoots } from "./stale-roots";
 
@@ -12,6 +12,8 @@ declare module "vitest" {
     runRoot: string;
     /** The binary the acceptance suite spawns. */
     alzBin: string;
+    /** The pseudo-terminal driver (`pty-run`) that cases needing a person at a terminal spawn. */
+    ptyRun: string;
     /** True when that binary is the TypeScript reference built for this run (ALZ_BIN unset). */
     alzIsReference: boolean;
   }
@@ -37,6 +39,7 @@ export default function setup(project: TestProject): () => void {
     const bin = checked ?? buildReference(join(root, "bin"));
     project.provide("runRoot", root);
     project.provide("alzBin", bin);
+    project.provide("ptyRun", ptyRunBin());
     project.provide("alzIsReference", checked === undefined);
   } catch (error) {
     removeTree(root);

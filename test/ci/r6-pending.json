@@ -924,5 +924,79 @@
       "test": "§13.20 who may run alz account allow: only a person at a terminal (AC 1) refuses with CODEX_THREAD_ID set (remove: true, value \"marker-value-4f1c9\") without a terminal, naming the marker only",
       "reason": "`alz account allow` and the allow hint of build, spec 7.13 (R6, TASK-55.7)"
     }
+  ],
+  "test/acceptance/40-account-allow-terminal.test.ts": [
+    {
+      "test": "§13.20 a pseudo-terminal is a terminal, and a plain spawn is not (positive control) asks under the driver and refuses without it",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) shows the root, the accounts, the layer and the source, asks once per name on standard error, and writes the exact file",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing for y",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing for an empty line",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing for a wrong name",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing for a name in another case",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing for a name inside other text",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing for a wrong second answer",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) writes nothing when the input ends at the first question",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) answers no to Ctrl-C at the question: not confirmed, nothing changed, exit 1",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) is already allowed when the entry is the same: exit 0, no question, the file untouched",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the prompt and what is written, through a terminal (AC 1, AC 2) asks one question for one name, whatever the number of targets",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the repository is read again after the confirmation, through a terminal refuses when the declaration changes while the person confirms",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the repository is read again after the confirmation, through a terminal refuses when layer.yaml no longer parses while the person confirms",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the repository is read again after the confirmation, through a terminal refuses when the stack drops the declaring layer while the person confirms",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the repository is read again after the confirmation, through a terminal says nothing to remove when the entry went away while the person confirms",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 alz account allow --remove, through a terminal removes only this root's entry, keeps the others, and leaves [] after the last",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    },
+    {
+      "test": "§13.20 the lock file, through twelve terminals is safe across real processes: twelve runs at once leave one entry for the root",
+      "reason": "drives alz account allow through the pseudo-terminal driver (R6.1, TASK-55.7.1); passes when the terminal gate and alz account allow exist (R6.11 TASK-55.7.11, R6.13 TASK-55.7.13)"
+    }
   ]
 }
