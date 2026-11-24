@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.8
 title: 'R5.8: alz build and alz check'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T03:03:00Z'
+updated_date: '2026-11-24T03:20:00Z'
 labels:
   - area:rust
   - area:cli
