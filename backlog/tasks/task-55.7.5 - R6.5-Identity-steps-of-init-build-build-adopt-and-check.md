@@ -1,10 +1,11 @@
 ---
 id: TASK-55.7.5
 title: 'R6.5: Identity steps of init, build, build --adopt and check'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-24T08:15:00Z'
-updated_date: '2026-11-24T10:23:00Z'
+updated_date: '2026-11-24T10:24:00Z'
 labels:
   - area:rust
   - area:identity
