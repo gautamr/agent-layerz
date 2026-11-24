@@ -15,6 +15,7 @@ mod hooks;
 mod manifest_edit;
 mod mcp_json;
 mod names;
+mod natives;
 mod settings_json;
 mod values;
 
@@ -30,6 +31,8 @@ use crate::merge::{Merged, Placements};
 use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedStack, Source};
 use crate::untrusted_text::Stripped;
+
+pub use natives::{ADOPT_ALWAYS, Candidates, candidates};
 
 use draft::{Context, Draft};
 

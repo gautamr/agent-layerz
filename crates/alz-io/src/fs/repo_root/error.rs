@@ -67,8 +67,12 @@ impl RepoError {
     }
 
     pub(super) fn changed(path: &SafeRelPath) -> Self {
+        Self::changed_text(path.as_str())
+    }
+
+    pub(super) fn changed_text(path: &str) -> Self {
         Self::Changed {
-            path: Stripped::from_untrusted(path.as_str()).to_string(),
+            path: Stripped::from_untrusted(path).to_string(),
         }
     }
 }

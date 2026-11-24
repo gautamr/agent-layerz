@@ -16,6 +16,7 @@ clap.workspace = true
 [dev-dependencies]
 alz-test-support.workspace = true
 assert_cmd.workspace = true
+proptest.workspace = true
 
 [lints]
 workspace = true

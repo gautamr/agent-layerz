@@ -315,6 +315,19 @@ written by the rules above, links included.
   as a control, format or line separator character, a name outside its grammar or a key the schema
   refuses, is a problem that names the native file and never prints the text (TASK-73).
 - A problem prints text from the native files stripped (§10.1, class 1).
+- A collision that adoption cannot clear (a link or a path under one, an entry that is not a
+  regular file, a file larger than the writer compares, an input of alz) stops `--adopt` before
+  anything is planned: the error `collision` at each, and the repository is unchanged. A native
+  file that is a link and that the build does not write, such as `.mcp.json`, is not read and not
+  adopted.
+- The plan is applied only to the files it names, and only while each holds the bytes it was
+  planned from: `layer.yaml`, each native file it moves or removes and each layer file it adds to
+  are compared first, and a layer file it creates must not exist. If one differs, or a folder
+  above it became a link, the error `write` names the path and nothing is written. Then the layer
+  files are written, the native files move (linked to their new name, which fails when a file is
+  there, then unlinked from the old one, so a moved script keeps its mode), the removed files are
+  deleted, the folders they left empty are removed, and `layer.yaml` is written last. No step
+  follows a link.
 - JSON numbers are read exactly: a float is read as the nearest double, as JavaScript's
   `JSON.parse` reads it (decision-33, amended).
 - A layer file that adoption adds to is read, merged (maps key by key, lists appended without

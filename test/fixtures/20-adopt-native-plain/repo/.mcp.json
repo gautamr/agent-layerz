@@ -1,0 +1,4 @@
+{ "mcpServers": {
+  "backlog": { "command": "backlog", "args": ["mcp", "start"] },
+  "tracker": { "type": "http", "url": "https://tracker.example/mcp" }
+} }

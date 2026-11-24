@@ -20,7 +20,7 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Resolve, merge and render the stack, then write the generated files and `layer.lock`.
-    Build,
+    Build(BuildArgs),
     /// Fail when the generated files or `layer.lock` differ from a fresh build; writes nothing.
     Check(CheckArgs),
     /// Show the change a build would make, as unified diffs; writes nothing.
@@ -77,6 +77,14 @@ pub struct ExplainArgs {
     /// The item's name; for an instruction, its file name such as `00-core.md`.
     #[arg(value_name = "name")]
     pub name: String,
+}
+
+/// The arguments of `alz build` (§10).
+#[derive(Debug, Args)]
+pub struct BuildArgs {
+    /// Turn hand-written agent config into repo-layer sources first (§4.3).
+    #[arg(long)]
+    pub adopt: bool,
 }
 
 /// The arguments of `alz check` (§10).

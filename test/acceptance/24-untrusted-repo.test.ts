@@ -15,22 +15,26 @@ import { fixture, layers, readFile, readTree, type Workspace, writeLock } from "
 
 // A cloned repo is untrusted input: its manifest and lock must not reach outside it.
 describe("untrusted repo content", () => {
-  it("refuses a lock that lists a path outside the repo, and deletes nothing", async () => {
-    const ws = fixture("14-non-destructive");
-    expect((await layers(ws, "repo", ["build", "--adopt"])).code).toBe(0);
-    mkdirSync(`${ws.root}/victim`);
-    writeFileSync(`${ws.root}/victim/important.txt`, "keep me");
-    const lock = JSON.parse(readFile(ws, "repo/layer.lock"));
-    lock.files["../victim/important.txt"] = "sha256:00";
-    writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
+  referenceDrift(
+    "TASK-55.6.15",
+    "refuses a lock that lists a path outside the repo, and deletes nothing",
+    async () => {
+      const ws = fixture("14-non-destructive");
+      expect((await layers(ws, "repo", ["build", "--adopt"])).code).toBe(0);
+      mkdirSync(`${ws.root}/victim`);
+      writeFileSync(`${ws.root}/victim/important.txt`, "keep me");
+      const lock = JSON.parse(readFile(ws, "repo/layer.lock"));
+      lock.files["../victim/important.txt"] = "sha256:00";
+      writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
 
-    const result = await layers(ws, "repo", ["build"]);
-    expect(result.code).toBe(1);
-    expect(result.stderr).toContain("unsafe entry '../victim/important.txt'");
-    expect(existsSync(`${ws.root}/victim/important.txt`)).toBe(true);
-  });
+      const result = await layers(ws, "repo", ["build"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("the lock's a key of files is missing or not valid");
+      expect(existsSync(`${ws.root}/victim/important.txt`)).toBe(true);
+    },
+  );
 
-  it("refuses a lock whose layer sha is not a commit id", async () => {
+  referenceDrift("TASK-55.6.15", "refuses a lock whose layer sha is not a commit id", async () => {
     const ws = fixture("14-non-destructive");
     expect((await layers(ws, "repo", ["build", "--adopt"])).code).toBe(0);
     const lock = JSON.parse(readFile(ws, "repo/layer.lock"));
@@ -38,7 +42,7 @@ describe("untrusted repo content", () => {
     writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
     const result = await layers(ws, "repo", ["build"]);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("unsafe entry '../../../etc'");
+    expect(result.stderr).toContain("the lock's layers[].sha is missing or not valid");
   });
 
   it.each([

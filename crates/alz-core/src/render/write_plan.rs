@@ -11,5 +11,7 @@ pub use plan::{
     plan_writes,
 };
 
+pub(crate) use plan::owns;
+
 #[cfg(test)]
 mod tests;
