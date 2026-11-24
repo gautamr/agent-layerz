@@ -84,7 +84,7 @@ fn a_top_level_that_is_not_a_mapping_ignores_the_whole_file_with_one_warning() {
         assert_eq!(
             warnings(&reading),
             [
-                "warning [account-config] accounts.yaml:1:1: the file is ignored: its top level must be a mapping"
+                "warning [account-config-shape] accounts.yaml is ignored: its top level must be a mapping"
             ],
             "{document:?}"
         );
@@ -98,7 +98,7 @@ fn an_unknown_key_is_ignored_with_one_warning_that_quotes_only_the_key() {
     assert_eq!(
         warnings(&reading),
         [
-            "warning [account-config] accounts.yaml:2:1: the key 'secret_token' is not known and is ignored"
+            "warning [account-config-key] accounts.yaml: the key \"secret_token\" is not known and is ignored"
         ]
     );
     assert_eq!(reading.value().default_name(), Some(&name("personal")));
@@ -109,8 +109,8 @@ fn an_unknown_key_is_stripped_cut_and_doubles_its_quotes() {
     let long = "k".repeat(70);
     let reading = read(&format!("\"it's\\u200B\": 1\n{long}: 2\n"));
     let [quoted, cut] = warnings(&reading).try_into().expect("two warnings");
-    assert!(quoted.ends_with("the key 'it''s' is not known and is ignored"));
-    assert!(cut.contains(&format!("'{}…'", "k".repeat(64))));
+    assert!(quoted.ends_with("the key \"it's\" is not known and is ignored"));
+    assert!(cut.contains(&format!("the key \"{}…\" is not known", "k".repeat(64))));
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn a_default_name_that_is_not_an_account_name_is_ignored_without_printing_it() {
         assert_eq!(
             warnings(&reading),
             [
-                "warning [account-config] accounts.yaml:1:15: default_name must be an account name; it is ignored"
+                "warning [account-config-default-name] accounts.yaml: default_name must be an account name; it is ignored"
             ],
             "{value}"
         );
@@ -146,11 +146,11 @@ fn a_folders_key_that_is_not_an_absolute_path_or_tilde_slash_is_ignored_with_its
     assert_eq!(keys(reading.value()), ["/ok", "~/ok"]);
     let messages = warnings(&reading);
     let expected = [
-        "the folders key 'work/a'",
-        "the folders key '~'",
-        "the folders key '~other/a'",
-        "the folders key 'a number'",
-        "the folders key 'it''s'",
+        "the folders key \"work/a\"",
+        "the folders key \"~\"",
+        "the folders key \"~other/a\"",
+        "the folders key \"a number\"",
+        "the folders key \"it's\"",
     ];
     assert_eq!(messages.len(), expected.len());
     for (message, start) in messages.iter().zip(expected) {
@@ -174,7 +174,7 @@ fn a_folders_value_that_is_not_an_account_name_or_a_target_map_is_ignored() {
     for (message, key) in messages.iter().zip("abcdefgh".chars()) {
         assert!(
             message.contains(&format!(
-                "the folders entry '/{key}' must be an account name or a mapping of target to name, so it is ignored"
+                "the folders entry \"/{key}\" must be an account name or a mapping of target to name, so it is ignored"
             )),
             "{message}"
         );
@@ -186,7 +186,9 @@ fn a_folders_value_that_is_not_a_mapping_is_ignored_and_a_null_is_nothing() {
     let reading = read("folders: [a]\n");
     assert_eq!(
         warnings(&reading),
-        ["warning [account-config] accounts.yaml:1:10: 'folders' must be a mapping; it is ignored"]
+        [
+            "warning [account-config-shape] accounts.yaml: 'folders' must be a mapping; it is ignored"
+        ]
     );
     for document in ["folders:\n", "folders: ~\n", "folders: {}\n"] {
         let reading = read(document);

@@ -10,7 +10,7 @@
 use std::fmt;
 use std::num::NonZeroU32;
 
-use crate::untrusted_text::{Escaped, QuotedKey, Stripped};
+use crate::untrusted_text::{Escaped, Quoted, QuotedKey, Stripped};
 
 /// How serious a diagnostic is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -66,10 +66,40 @@ pub enum Code {
     CacheIndex,
     /// A `.env` file in a layer (§5.3 "`.env` files").
     EnvFile,
-    /// A problem in the owner's `accounts.yaml`, which alz ignores in part or whole (§7.13).
-    AccountConfig,
-    /// A problem in the allow state `allowed.yaml`, which alz ignores in part or whole (§7.13).
-    AccountAllowed,
+    /// `HOME` is not an absolute path, so neither account file is read (§7.13).
+    AccountHome,
+    /// `accounts.yaml` or `allowed.yaml` ignored by §7.13 "Both files", or not valid YAML.
+    AccountFileIgnored,
+    /// An `XDG_CONFIG_HOME` or `XDG_STATE_HOME` that is not absolute (§7.13).
+    AccountXdgRelative,
+    /// `accounts.yaml` inside a git work tree (§7.13).
+    AccountFileInWorkTree,
+    /// `accounts.yaml`'s top level, or its `folders`, is not a mapping (§7.13).
+    AccountConfigShape,
+    /// An unknown key in `accounts.yaml` (§7.13).
+    AccountConfigKey,
+    /// A `default_name` that is not an account name (§7.13).
+    AccountConfigDefaultName,
+    /// A `default_name` that is also an account folder's name (§7.13).
+    AccountDefaultNameFolder,
+    /// An ignored `folders` key or entry of `accounts.yaml` (§7.13).
+    AccountConfigFolder,
+    /// Two `folders` keys that resolve to one directory with different accounts (§7.13).
+    AccountConfigDuplicate,
+    /// `allowed.yaml`'s top level is not a list (§7.13).
+    AccountAllowedShape,
+    /// An ignored `allowed.yaml` entry, or entries with the same root (§7.13).
+    AccountAllowedEntry,
+    /// A `layer.yaml` on the root walk that cannot be used (§7.13 "Paths").
+    AccountManifest,
+    /// An account variable set outside alz (§7.13 "Values set outside alz").
+    AccountForeign,
+    /// An `account` declaration that its layer may not make, reported and not applied (§7.13).
+    AccountDeclarationIgnored,
+    /// An allowed repository whose layers now declare another map or source (§7.13 "Trust").
+    AccountChanged,
+    /// A refusal of `alz account allow`, or the note of `alz build` and `alz check` (§7.13).
+    AccountAllow,
     /// A git that alz refuses: older than the minimum version, or not started (§6 "Git
     /// subprocesses").
     Git,
@@ -201,8 +231,23 @@ impl Code {
             Self::Cache => "cache",
             Self::CacheIndex => "cache-index",
             Self::EnvFile => "env-file",
-            Self::AccountConfig => "account-config",
-            Self::AccountAllowed => "account-allowed",
+            Self::AccountHome => "account-home",
+            Self::AccountFileIgnored => "account-file-ignored",
+            Self::AccountXdgRelative => "account-xdg-relative",
+            Self::AccountFileInWorkTree => "account-file-in-work-tree",
+            Self::AccountConfigShape => "account-config-shape",
+            Self::AccountConfigKey => "account-config-key",
+            Self::AccountConfigDefaultName => "account-config-default-name",
+            Self::AccountDefaultNameFolder => "account-default-name-folder",
+            Self::AccountConfigFolder => "account-config-folder",
+            Self::AccountConfigDuplicate => "account-config-duplicate",
+            Self::AccountAllowedShape => "account-allowed-shape",
+            Self::AccountAllowedEntry => "account-allowed-entry",
+            Self::AccountManifest => "account-manifest",
+            Self::AccountForeign => "account-foreign",
+            Self::AccountDeclarationIgnored => "account-declaration-ignored",
+            Self::AccountChanged => "account-changed",
+            Self::AccountAllow => "account-allow",
             Self::Git => "git",
             Self::DuplicateLayer => "duplicate-layer",
             Self::Visibility => "visibility",
@@ -399,6 +444,7 @@ enum Piece {
     Literal(Stripped),
     Stripped(Stripped),
     Key(QuotedKey),
+    Quoted(Quoted),
     Escaped(Escaped),
     Number(u64),
 }
@@ -433,6 +479,12 @@ impl From<QuotedKey> for MessagePart {
     }
 }
 
+impl From<Quoted> for MessagePart {
+    fn from(text: Quoted) -> Self {
+        Self(Piece::Quoted(text))
+    }
+}
+
 impl From<Escaped> for MessagePart {
     fn from(text: Escaped) -> Self {
         Self(Piece::Escaped(text))
@@ -463,6 +515,7 @@ impl fmt::Display for MessagePart {
         match &self.0 {
             Piece::Literal(text) | Piece::Stripped(text) => text.fmt(formatter),
             Piece::Key(key) => key.fmt(formatter),
+            Piece::Quoted(text) => text.fmt(formatter),
             Piece::Escaped(text) => text.fmt(formatter),
             Piece::Number(number) => number.fmt(formatter),
         }
@@ -511,6 +564,13 @@ impl Message {
         self.0.push(part.into());
         self
     }
+
+    /// The message followed by all of `later`.
+    #[must_use]
+    pub fn and(mut self, later: Self) -> Self {
+        self.0.extend(later.0);
+        self
+    }
 }
 
 impl From<&'static str> for Message {
@@ -533,6 +593,18 @@ pub struct Diagnostic {
     code: Code,
     at: Option<Where>,
     message: Message,
+    reach: Reach,
+}
+
+/// Whether a problem with a layer source only means that the source is not fetched or resolved
+/// yet, which `alz init` reports as a note instead of a warning (§10.3 `init`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reach {
+    /// Any other problem.
+    Other,
+    /// The source is not there to read yet: a missing directory, a failed fetch, a ref that does
+    /// not resolve.
+    NotThereYet,
 }
 
 impl Diagnostic {
@@ -544,6 +616,7 @@ impl Diagnostic {
             code,
             at,
             message,
+            reach: Reach::Other,
         }
     }
 
@@ -555,6 +628,7 @@ impl Diagnostic {
             code,
             at,
             message,
+            reach: Reach::Other,
         }
     }
 
@@ -566,7 +640,21 @@ impl Diagnostic {
             code,
             at,
             message,
+            reach: Reach::Other,
         }
+    }
+
+    /// The same problem, marked as meaning only that a layer source is not fetched or resolved yet.
+    #[must_use]
+    pub const fn source_not_there_yet(mut self) -> Self {
+        self.reach = Reach::NotThereYet;
+        self
+    }
+
+    /// Whether the problem only means that a layer source is not fetched or resolved yet.
+    #[must_use]
+    pub const fn is_source_not_there_yet(&self) -> bool {
+        matches!(self.reach, Reach::NotThereYet)
     }
 
     /// The level of the diagnostic.
@@ -615,6 +703,31 @@ impl Diagnostics {
     pub fn merge(mut self, later: Self) -> Self {
         self.0.extend(later.0);
         self
+    }
+
+    /// The same diagnostics with every error a warning, for a command that goes on after a
+    /// problem another command fails on (`alz init`, spec §10.3).
+    #[must_use]
+    pub fn errors_as_warnings(self) -> Self {
+        self.into_iter()
+            .map(|mut diagnostic| {
+                if diagnostic.level == Level::Error {
+                    diagnostic.level = Level::Warning;
+                }
+                diagnostic
+            })
+            .collect()
+    }
+
+    /// The problems that only mean that a layer source is not there yet, and the others, each in
+    /// the order they were found.
+    #[must_use]
+    pub fn split_source_not_there_yet(self) -> (Self, Self) {
+        let (not_there, others): (Vec<_>, Vec<_>) = self
+            .0
+            .into_iter()
+            .partition(Diagnostic::is_source_not_there_yet);
+        (Self(not_there), Self(others))
     }
 
     /// The diagnostics in the order they were found.
@@ -696,6 +809,17 @@ mod tests {
     }
 
     #[test]
+    fn errors_become_warnings_and_everything_else_stays() {
+        let all = Diagnostics::new()
+            .with(Diagnostic::error(Code::Layer, None, Message::new("bad")))
+            .with(Diagnostic::note(Code::Identity, None, Message::new("fyi")));
+        assert_eq!(
+            all.errors_as_warnings().to_string(),
+            "warning [layer] bad\nnote [identity] fyi\n"
+        );
+    }
+
+    #[test]
     fn an_error_without_a_location_has_no_where() {
         let diagnostic = Diagnostic::error(Code::NoManifest, None, Message::new("no layer.yaml"));
         assert_eq!(diagnostic.to_string(), "error [no-manifest] no layer.yaml");
@@ -749,6 +873,28 @@ mod tests {
         assert_eq!(Position::new(0, 1), None);
         assert_eq!(Position::new(1, 0), None);
         assert_eq!(position(2, 5).to_string(), "2:5");
+    }
+
+    #[test]
+    fn the_problems_of_a_source_not_there_yet_are_told_apart_in_order() {
+        let problem =
+            |text: &'static str| Diagnostic::error(Code::Source, None, Message::new(text));
+        let (not_there, others) = Diagnostics::new()
+            .with(problem("a").source_not_there_yet())
+            .with(problem("b"))
+            .with(problem("c").source_not_there_yet())
+            .split_source_not_there_yet();
+        assert_eq!(
+            not_there
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            ["error [source] a", "error [source] c"]
+        );
+        assert_eq!(
+            others.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            ["error [source] b"]
+        );
     }
 
     #[test]

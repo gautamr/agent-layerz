@@ -130,6 +130,113 @@ export function spawnCaptured(
   });
 }
 
+/** A child the test talks to while it runs: it types into standard input and waits on standard error. */
+export interface InteractiveChild {
+  /** Everything the child has written to standard error so far. */
+  stderrSoFar(): string;
+  /** Resolves once standard error holds `text` at least `times` times; rejects if the child ends first. */
+  waitForStderr(text: string, times?: number): Promise<void>;
+  /** Writes to the child's standard input. */
+  write(text: string): void;
+  /** Ends the child's standard input. */
+  end(): void;
+  /** Resolves with the exit code and both streams when the child has ended. */
+  done(): Promise<CliResult>;
+}
+
+const occurrences = (text: string, part: string): number => text.split(part).length - 1;
+
+/**
+ * Starts a child with all three streams open, for a case that answers it as it runs (a person at a
+ * terminal, through `pty-run`). Like every other child it has its own process group and a timeout
+ * with the failure message of `spawnCaptured`; its environment is PATH, then the one given, then
+ * TMPDIR under the run root, never the test process's own.
+ */
+export function spawnInteractive(
+  file: string,
+  args: readonly string[],
+  options: SpawnOptions,
+): InteractiveChild {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const started = Date.now();
+  const child = spawn(file, args, {
+    cwd: options.cwd,
+    env: { PATH: process.env.PATH ?? "", ...options.env, TMPDIR: tmpRoot() },
+    stdio: ["pipe", "pipe", "pipe"],
+    detached: true,
+  });
+  let out = "";
+  let err = "";
+  const watchers = new Set<() => void>();
+  child.stdout.on("data", (chunk: Buffer) => {
+    out += chunk.toString("utf8");
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    err += chunk.toString("utf8");
+    for (const watcher of [...watchers]) watcher();
+  });
+  child.stdin.on("error", () => {
+    // The child ended without reading what was typed: its exit code says why.
+  });
+  const pgid = child.pid;
+  const ended = new Promise<CliResult>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const listing = isStartedPid(pgid) ? listGroup(pgid) : "(no pid)";
+      killGroup(pgid);
+      reject(new Error(timeoutMessage(file, args, Date.now() - started, err, listing)));
+    }, timeoutMs);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(new Error(`${describeArgv(file, args)} could not start: ${error.message}`));
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      killGroup(pgid);
+      if (code === null) {
+        reject(
+          new Error(
+            `${describeArgv(file, args)} ended on signal ${signal} after ${Date.now() - started} ms\nstderr: ${JSON.stringify(err)}`,
+          ),
+        );
+      } else resolve({ code, stdout: out, stderr: err });
+    });
+  });
+  // A rejection nobody awaits yet (the test is still typing) is reported by `done`.
+  ended.catch(() => undefined);
+  return {
+    stderrSoFar: () => err,
+    waitForStderr: (text, times = 1) =>
+      new Promise<void>((resolve, reject) => {
+        const check = () => {
+          if (occurrences(err, text) >= times) {
+            watchers.delete(check);
+            resolve();
+          }
+        };
+        watchers.add(check);
+        check();
+        ended.then(
+          (result) => {
+            watchers.delete(check);
+            reject(
+              new Error(
+                `the command ended (exit ${result.code}) before ${JSON.stringify(text)} appeared on stderr: ${JSON.stringify(err)}; stdout: ${JSON.stringify(result.stdout)}`,
+              ),
+            );
+          },
+          (error: unknown) => reject(error),
+        );
+      }),
+    write: (text) => {
+      child.stdin.write(text);
+    },
+    end: () => {
+      child.stdin.end();
+    },
+    done: () => ended,
+  };
+}
+
 export interface ToolResult {
   status: number;
   stdout: string;

@@ -129,6 +129,56 @@ fn escape(character: char) -> String {
     }
 }
 
+/// Text from the input as the account lines of §10.3 print it (class 1, in double quotes): stripped
+/// of control and format characters, then written in double quotes with `"` and `\` given a
+/// backslash, so the text cannot close its own quotes. [`from_untrusted`](Self::from_untrusted)
+/// cuts nothing (paths and sources); [`key`](Self::key) keeps the rule for untrusted keys (R2): cut
+/// after 64 code points counted after stripping, with `…` added inside the quotes when it is cut.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Quoted(String);
+
+impl Quoted {
+    /// Strips, escapes and quotes `text`; nothing is cut.
+    #[must_use]
+    pub fn from_untrusted(text: &str) -> Self {
+        Self::of(Stripped::from_untrusted(text).as_str(), false)
+    }
+
+    /// A key taken from the input: stripped, cut after 64 code points counted after stripping
+    /// (the cut never counts the added backslashes), `…` inside the quotes when it is cut.
+    #[must_use]
+    pub fn key(text: &str) -> Self {
+        let stripped = Stripped::from_untrusted(text);
+        let cut = stripped.as_str().chars().nth(QUOTED_KEY_LIMIT).is_some();
+        let kept: String = stripped.as_str().chars().take(QUOTED_KEY_LIMIT).collect();
+        Self::of(&kept, cut)
+    }
+
+    fn of(stripped: &str, cut: bool) -> Self {
+        let body: String = stripped
+            .chars()
+            .flat_map(|character| match character {
+                '"' | '\\' => vec!['\\', character],
+                other => vec![other],
+            })
+            .collect();
+        let ellipsis = if cut { "…" } else { "" };
+        Self(format!("\"{body}{ellipsis}\""))
+    }
+
+    /// The quoted text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for Quoted {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
 /// A key name taken from the input, as a diagnostic prints it (decision-28, spec §10.1): stripped,
 /// cut after 64 code points counted after stripping, with `…` added when it is cut, and shown in
 /// single quotes. A single quote inside the key is written twice, as in a YAML single-quoted
@@ -166,7 +216,7 @@ impl fmt::Display for QuotedKey {
 mod tests {
     use proptest::prelude::{Strategy, any, prop_assert, prop_assert_eq, prop_assert_ne, proptest};
 
-    use super::{Escaped, QuotedKey, Stripped, is_control, is_format};
+    use super::{Escaped, Quoted, QuotedKey, Stripped, is_control, is_format};
 
     fn stripped(text: &str) -> String {
         Stripped::from_untrusted(text).into_string()
@@ -175,6 +225,40 @@ mod tests {
     #[test]
     fn keeps_ordinary_text() {
         assert_eq!(stripped("error: bad flag"), "error: bad flag");
+    }
+
+    #[test]
+    fn a_quoted_key_of_65_code_points_is_cut_at_64_with_an_ellipsis_inside_the_quotes() {
+        let sixty_five = format!("{}\u{7}x", "k".repeat(64));
+        assert_eq!(
+            Quoted::key(&sixty_five).to_string(),
+            format!("\"{}…\"", "k".repeat(64))
+        );
+        let exactly_64 = "k".repeat(64);
+        assert_eq!(
+            Quoted::key(&exactly_64).to_string(),
+            format!("\"{exactly_64}\"")
+        );
+        let over = "k".repeat(65);
+        assert_eq!(
+            Quoted::key(&over).to_string(),
+            format!("\"{}…\"", "k".repeat(64))
+        );
+    }
+
+    #[test]
+    fn a_double_quote_and_a_backslash_inside_a_quoted_text_get_a_backslash_and_the_cut_ignores_them()
+     {
+        assert_eq!(Quoted::key("a\"b\\c").to_string(), "\"a\\\"b\\\\c\"");
+        let quotes = "\"".repeat(64);
+        assert_eq!(
+            Quoted::key(&quotes).to_string(),
+            format!("\"{}\"", "\\\"".repeat(64))
+        );
+        assert_eq!(
+            Quoted::from_untrusted(&"k".repeat(70)).to_string().len(),
+            72
+        );
     }
 
     #[test]

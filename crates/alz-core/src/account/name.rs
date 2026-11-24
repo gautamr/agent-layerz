@@ -31,6 +31,13 @@ impl AccountNameError {
 }
 
 impl AccountName {
+    /// The name `default`, which `allowed.yaml` records for a target whose layer chooses the
+    /// default account.
+    #[must_use]
+    pub fn default_account() -> Self {
+        Self("default".to_owned())
+    }
+
     /// The name as text.
     #[must_use]
     pub fn as_str(&self) -> &str {

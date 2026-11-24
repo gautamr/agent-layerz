@@ -104,6 +104,24 @@ All notable changes to agent-layerz are recorded here. The format follows
   Generated files stay byte-identical to the TypeScript `alz`'s for the same layers, except where
   the spec marks reference drift. These are breaking changes for some repositories, part of the
   minor version bump at the cutover.
+- The Rust `alz` sets and checks the commit identity and has `alz account which`, `alz account
+  allow` and `alz account allow --remove`, as `docs/LAYERING-SPEC.md` §7.13, §9.4, §10.1 and
+  §10.3 say (TASK-55.7). No generated file changes. Where it differs from the TypeScript `alz`:
+  - `allowed.yaml` is written so that it reads back for every repository root, also one whose
+    path holds a C1 control character, U+2028 or U+2029.
+  - The git calls of the identity step ignore every variable that points git at another
+    repository (`GIT_OBJECT_DIRECTORY`, `GIT_NAMESPACE`, `GIT_CEILING_DIRECTORIES` and the
+    others §9.4 lists), not only five of them. alz checks `.git` and `.git/config` right before
+    and right after git writes the identity there, and fails with an error when it finds a link
+    there afterwards.
+  - Account resolution never reads a name inside an account folder through a link planted in
+    the repository. With `HOME` unset it uses the home folder of the real user id, and when the
+    user database has none it fails closed instead of crashing.
+  - Ctrl-C at the `alz account allow` prompt answers no: `not confirmed; nothing changed`, exit 1.
+  - `alz doctor` does not list the blocked folders as accounts and warns when one exists. It no
+    longer reads `ALZ_ACCOUNT_DIRS`.
+
+  These are part of the minor version bump at the cutover.
 - The Rust `alz` sorts names, paths and keys by Unicode code point everywhere, as
   `docs/LAYERING-SPEC.md` (§6, name order) says (TASK-64). The TypeScript `alz` sorts by UTF-16
   unit, which puts a character above U+FFFF, such as most emoji, before one in U+E000–U+FFFF:

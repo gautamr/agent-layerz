@@ -13,7 +13,7 @@ use std::process::ExitCode;
 use alz_io::{EnvSnapshot, WorkingDirectory};
 use clap::Parser;
 
-use crate::cli::{Cli, Command};
+use crate::cli::{AccountArgs, AccountCommand, Cli, Command};
 use crate::command::Surroundings;
 use crate::report::Rendered;
 
@@ -89,6 +89,28 @@ fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
         Ok(Cli {
             command: Command::Explain(args),
         }) => ExitCode::from(command::explain::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command:
+                Command::Account(AccountArgs {
+                    command: AccountCommand::Which(args),
+                }),
+        }) => ExitCode::from(command::account::which::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command:
+                Command::Account(AccountArgs {
+                    command: AccountCommand::Allow(args),
+                }),
+        }) => ExitCode::from(command::account::allow::run(
             &args,
             Surroundings { env, directory },
             &mut io::stdout(),

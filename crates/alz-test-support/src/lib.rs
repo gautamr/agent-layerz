@@ -3,6 +3,7 @@
 //! The helpers use only the standard library and the `mkfifo` tool, so no test depends on a
 //! third-party temporary-directory crate. They never read the real home directory.
 
+pub mod pty;
 mod scratch_dir;
 mod tree;
 
@@ -20,6 +21,30 @@ pub use tree::{TreeFile, copy_tree, folder_names, read_tree};
 /// The error of finding the executable.
 pub fn test_executable() -> io::Result<PathBuf> {
     std::env::current_exe()
+}
+
+/// The path of the `pty-run` driver that was built with the workspace, so that a test of another
+/// crate can run a program under a pseudo-terminal. Cargo puts the driver in the profile folder
+/// (`target/debug`), and the test executable lies below it, in `deps` or in `build/<crate>/..`
+/// depending on the layout, so this looks in each folder above the test executable.
+///
+/// # Errors
+///
+/// The error of finding the test executable, or `NotFound` when no folder above it holds a
+/// `pty-run`: build it with `cargo build -p alz-test-support --bin pty-run`, or run the tests of
+/// the whole workspace, which builds it.
+pub fn pty_run_executable() -> io::Result<PathBuf> {
+    let test = test_executable()?;
+    test.ancestors()
+        .skip(1)
+        .map(|folder| folder.join("pty-run"))
+        .find(|candidate| candidate.is_file())
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                "no pty-run next to the test executable; run cargo build -p alz-test-support --bin pty-run",
+            )
+        })
 }
 
 /// Starts `program` with `args` and `environment` added to this process's own, with no standard

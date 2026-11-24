@@ -175,7 +175,14 @@ const REFUSED_IDENTITIES: [string, string][] = [
 
 describe("§13.18 commit identity", () => {
   describe("schema (§7.12 validation)", () => {
-    it.each(REFUSED_IDENTITIES)(
+    // An escape that decodes to a control character is a YAML error, not a field error (§7.13).
+    const DECODED_CONTROL = [
+      "a control character in the name",
+      "a C1 control character in the name",
+      "a line separator in the name",
+    ];
+
+    it.each(REFUSED_IDENTITIES.filter(([label]) => !DECODED_CONTROL.includes(label)))(
       "rejects %s as a schema error, before build --adopt writes anything",
       async (_label, identity) => {
         const ws = gitFixture();
@@ -192,12 +199,25 @@ describe("§13.18 commit identity", () => {
       },
     );
 
-    // An escape that decodes to a control character is a YAML error, not a field error (§7.13).
-    const DECODED_CONTROL = [
-      "a control character in the name",
-      "a C1 control character in the name",
-      "a line separator in the name",
-    ];
+    for (const [label, identity] of REFUSED_IDENTITIES.filter(([name]) =>
+      DECODED_CONTROL.includes(name),
+    )) {
+      referenceDrift(
+        "TASK-55.3",
+        `rejects ${label} as a YAML error, before build --adopt writes anything`,
+        async () => {
+          const ws = gitFixture();
+          setIdentity(ws, "personal", identity);
+          const before = gitConfig(ws);
+          const result = await layers(ws, "repo", ["build", "--adopt"], ENV);
+          expect(result.code).toBe(1);
+          expect(result.stderr).toContain("error [yaml]");
+          expect(result.stdout).not.toContain("set user.");
+          expect(gitConfig(ws)).toBe(before);
+          expectNoWrongValue(result);
+        },
+      );
+    }
 
     it.each(REFUSED_IDENTITIES.filter(([label]) => !DECODED_CONTROL.includes(label)))(
       "lint --layer rejects %s as a schema error",

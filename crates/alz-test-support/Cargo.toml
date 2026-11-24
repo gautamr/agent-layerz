@@ -10,3 +10,14 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+# decision-27 (amended 2026-11-24): the pseudo-terminal driver, dev only. This crate is only ever a
+# dev-dependency of the others, so the `alz` binary is built without `pty` and `termios`.
+# `termios` is for `tcsetpgrp`, which hands the terminal to the child's process group.
+rustix = { workspace = true, features = ["pty", "termios"] }
+thiserror.workspace = true
+
+[[bin]]
+name = "pty-run"
+path = "src/bin/pty_run.rs"

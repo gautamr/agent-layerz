@@ -1,24 +1,27 @@
 //! `alz check [--skip-identity]` (spec §10.3): the same steps as `alz build` without a write. It
 //! fails when a generated file, or the lock, differs from a fresh build.
 //!
-//! The commit identity comparison (§9.4) is a later task (TASK-55.7): `--skip-identity` is
-//! parsed and has nothing to skip yet.
+//! With a declared commit identity it also compares the identity git would use for a commit
+//! (§9.4), as an error, unless `--skip-identity` is passed.
 
 use std::io::{self, Write};
 
+use alz_core::identity::Command as IdentityCommand;
 use alz_core::render::write_plan::{Change, WritePlan};
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where};
 
 use crate::cli::CheckArgs;
 use crate::command::Surroundings;
+use crate::command::account::hint::{allow_note, names_an_account};
 use crate::command::build::collision_diagnostics;
+use crate::command::identity::{self, Step};
 use crate::command::pipeline;
 use crate::report::emit_diagnostics;
 
 /// Runs `alz check`, writes the problems to `stderr` and the verdict to `stdout` when it passes,
 /// and returns the exit code.
 pub fn run(
-    _args: &CheckArgs,
+    args: &CheckArgs,
     surroundings: Surroundings<'_>,
     stdout: &mut impl Write,
     stderr: &mut impl Write,
@@ -43,20 +46,57 @@ pub fn run(
         }
     };
     let problems = problems_of(&plan);
-    if problems.iter().next().is_some() {
-        let printed = emit_diagnostics(&problems, stderr);
-        let failed = write_text(
-            stderr,
-            "check failed: run `alz build` and commit the result\n",
-        );
-        return failed.map_or(1, |()| printed.max(1));
+    let comparison_failed = problems.iter().next().is_some();
+    let printed = emit_diagnostics(&problems, stderr);
+    // Only when the comparison passed: `alz account allow` needs the lock a build writes.
+    let note_code = emit_diagnostics(
+        &if comparison_failed {
+            Diagnostics::new()
+        } else {
+            allow_note(surroundings, names_an_account(&computed))
+        },
+        stderr,
+    );
+    let identity = identity_problems(args, surroundings, &repository, &computed);
+    let identity_code = emit_diagnostics(&identity, stderr);
+    if comparison_failed || identity.has_errors() {
+        let last = if comparison_failed {
+            "check failed: run `alz build` and commit the result\n"
+        } else {
+            "check failed: the git identity differs from the declared commit identity\n"
+        };
+        return write_text(stderr, last)
+            .map_or(1, |()| printed.max(note_code).max(identity_code).max(1));
     }
     let files = computed.rendered.tree().len();
     write_text(
         stdout,
         &format!("check passed: {files} generated files match the layers and the lock\n"),
     )
-    .map_or(1, |()| code)
+    .map_or(1, |()| code.max(note_code).max(identity_code))
+}
+
+/// The identity step as errors (§9.4), none with `--skip-identity` or without a declaration. With
+/// either, no git command runs.
+fn identity_problems(
+    args: &CheckArgs,
+    surroundings: Surroundings<'_>,
+    repository: &alz_io::RepoRoot,
+    computed: &pipeline::Computed,
+) -> Diagnostics {
+    if args.skip_identity {
+        return Diagnostics::new();
+    }
+    match (
+        identity::declared_of(computed),
+        surroundings.directory.path(),
+    ) {
+        (Some(declared), Some(directory)) => {
+            Step::new(declared, surroundings.env, repository, directory)
+                .check(IdentityCommand::Check)
+        }
+        (Some(_) | None, Some(_) | None) => Diagnostics::new(),
+    }
 }
 
 /// One error for each difference, each collision and an outdated lock, in that order.

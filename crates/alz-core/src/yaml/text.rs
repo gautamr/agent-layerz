@@ -66,6 +66,32 @@ pub const fn is_forbidden_when_decoded(character: char) -> bool {
     !matches!(character, '\t' | '\n') && is_control(character)
 }
 
+/// What a decoded key or value may hold beyond tab and line feed. A file that holds file-system
+/// paths (`allowed.yaml`, spec §7.13 "Allow state") reads the characters that alz writes escaped
+/// and that a path may hold; every other file reads none of them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DecodedText {
+    /// Tab and line feed only.
+    #[default]
+    Strict,
+    /// Also U+007F to U+009F, U+2028 and U+2029, which a path can hold and the emitter escapes.
+    Paths,
+}
+
+impl DecodedText {
+    /// Whether a key or value may not hold `character` once YAML has applied its escapes.
+    #[must_use]
+    pub const fn refuses(self, character: char) -> bool {
+        is_forbidden_when_decoded(character)
+            && match self {
+                Self::Strict => true,
+                Self::Paths => {
+                    !matches!(character, '\u{007F}'..='\u{009F}' | '\u{2028}' | '\u{2029}')
+                }
+            }
+    }
+}
+
 /// The set decision-28 names: U+0000 to U+001F, U+007F to U+009F, U+2028 and U+2029.
 const fn is_control(character: char) -> bool {
     matches!(

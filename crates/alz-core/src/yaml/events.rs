@@ -28,7 +28,7 @@ use serde_saphyr::granit_parser::{ErrorKind, Event, Marker, Parser, ScanError, S
 
 use crate::diagnostic::Position;
 use crate::yaml::error::{YamlError, YamlErrorKind};
-use crate::yaml::text::{YamlText, is_forbidden_when_decoded};
+use crate::yaml::text::{DecodedText, YamlText};
 
 /// Aliases as written in a document.
 pub const MAX_ALIASES: usize = 100;
@@ -68,10 +68,10 @@ impl Checked {
     clippy::disallowed_methods,
     reason = "the yaml::parse pre-pass is the one reader of YAML events (decision-28, TASK-62)"
 )]
-pub fn check(text: &YamlText) -> Result<Checked, YamlError> {
+pub fn check(text: &YamlText, decoded: DecodedText) -> Result<Checked, YamlError> {
     let options = serde_saphyr::granit_parser::options! { emit_unresolved_aliases: true };
     Parser::new_from_str_with_options(text.as_str(), options)
-        .try_fold(Walk::default(), |walk, item| match item {
+        .try_fold(Walk::new(decoded), |walk, item| match item {
             Ok((event, span)) => walk.step(&event, &span),
             Err(failure) => Err(scan_error(&failure)),
         })
@@ -125,8 +125,9 @@ struct Frame {
 }
 
 /// The state of the walk over the events.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct Walk {
+    decoded: DecodedText,
     documents: usize,
     aliases: usize,
     nodes: usize,
@@ -137,6 +138,19 @@ struct Walk {
 }
 
 impl Walk {
+    fn new(decoded: DecodedText) -> Self {
+        Self {
+            decoded,
+            documents: 0,
+            aliases: 0,
+            nodes: 0,
+            replayed: 0,
+            open: Vec::new(),
+            anchors: BTreeMap::new(),
+            positions: Vec::new(),
+        }
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "granit-parser's Event is non_exhaustive, so the compiler cannot check a closed match; stream markers, document ends and anchor metadata need no check"
@@ -154,7 +168,10 @@ impl Walk {
             }
             Event::Scalar(value, _style, anchor, tag) => {
                 refuse_tag(tag.as_deref()).map_err(refuse)?;
-                if value.chars().any(is_forbidden_when_decoded) {
+                if value
+                    .chars()
+                    .any(|character| self.decoded.refuses(character))
+                {
                     return Err(refuse(YamlErrorKind::DecodedControlCharacter));
                 }
                 let mut walk = self.count_node().map_err(refuse)?;

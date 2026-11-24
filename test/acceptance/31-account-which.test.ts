@@ -27,6 +27,7 @@ import {
   writeAccounts,
   writeAllowed,
 } from "../account-workspace";
+import { referenceDrift } from "../drift";
 import { tool } from "../exec";
 import { gitProxy } from "../git-proxy";
 import { type CliResult, readTree, snapshot } from "../helpers";
@@ -807,14 +808,32 @@ describe("§13.19 the two files: where alz reads them from (AC 2)", () => {
     const s = plain();
     writeAllowed(s, [
       hubEntry(s, { root: `${s.ws.home}/gone` }),
-      hubEntry(s, { root: `${s.ws.home}/we\u001b[31mird` }),
+      hubEntry(s, { root: `${s.ws.home}/we"ird` }),
     ]);
     const result = await which(s);
     expect(result.code, result.stderr).toBe(0);
     expect(result.stdout).toContain('  stale approval: "~/gone" does not exist here');
-    expect(result.stdout).toContain('  stale approval: "~/we[31mird" does not exist here');
-    expect(result.stdout).not.toContain("\u001b");
+    expect(result.stdout).toContain('  stale approval: "~/we\\"ird" does not exist here');
   });
+
+  // A control character in YAML is refused once its escapes are applied (spec 5.2, 7.13), so the
+  // Rust alz ignores a file that holds one, and prints none of its text; the reference reads it.
+  referenceDrift(
+    "TASK-55.3",
+    "ignores an allowed.yaml whose root holds an escape for a control character",
+    async () => {
+      const s = plain();
+      writeAllowed(s, [
+        hubEntry(s, { root: `${s.ws.home}/gone` }),
+        hubEntry(s, { root: `${s.ws.home}/we\u001b[31mird` }),
+      ]);
+      const result = await which(s);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.stdout).toContain("(ignored: it is not valid YAML)");
+      expect(result.stdout).not.toContain("stale approval");
+      expect(result.stdout + result.stderr).not.toContain("\u001b");
+    },
+  );
 
   it("ignores accounts.yaml entries that are not valid, one warning each, without echoing account names", async () => {
     const s = plain();
@@ -1228,20 +1247,40 @@ describe("§13.19 quoting: repository text never reaches the terminal raw (AC 1)
     expect(existsSync(`${process.cwd()}/pwned`)).toBe(false);
   });
 
-  it("prints the source of a changed entry with its control characters removed", async () => {
+  // A control character cannot be written in YAML (spec 5.2, 7.13), so a repository's text reaches
+  // the report with a format character (U+202E, right-to-left override), which is stripped too.
+  it("prints the source of a changed entry with its format characters removed", async () => {
     const s = await built();
     accountFolder(s, CLIENT_A, CLIENT_A_API);
     const entry = {
       root: `${s.real}/repo`,
       account: { claude: "client-a" },
-      source: "path:/x\u001b[31m/y\u0007",
+      source: "path:/x\u202e[31m/y\u200f",
     };
     writeAllowed(s, [], JSON.stringify([entry]));
     const result = await which(s);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain('from "path:/x[31m/y"');
-    expect(hasControl(result.stdout + result.stderr)).toBe(false);
+    expect(result.stdout + result.stderr).not.toMatch(/[\u202e\u200f]/);
   });
+
+  referenceDrift(
+    "TASK-55.3",
+    "ignores an allowed.yaml whose source holds an escape for a control character",
+    async () => {
+      const s = await built();
+      accountFolder(s, CLIENT_A, CLIENT_A_API);
+      const entry = {
+        root: `${s.real}/repo`,
+        account: { claude: "client-a" },
+        source: "path:/x\u001b[31m/y\u0007",
+      };
+      writeAllowed(s, [], JSON.stringify([entry]));
+      const result = await which(s);
+      expect(result.stdout).toContain("(ignored: it is not valid YAML)");
+      expect(hasControl(result.stdout + result.stderr)).toBe(false);
+    },
+  );
 });
 
 describe("§13.19 review follow-ups: ordering of the checks, folders that are only contained, bad choices", () => {
@@ -1486,11 +1525,10 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
     it("ignores a link into an account folder, and $HOME itself, as a folders key", async () => {
       const s = plain();
       accountFolder(s, CLIENT_A);
-      symlinkSync(`${s.ws.home}/${CLIENT_A}`, `${s.real}/link-account`);
-      writeAccounts(
-        s,
-        `folders:\n  ${s.real}/link-account: x\n  ~: y\n  ${s.real}/repo: client-b\n`,
-      );
+      // The key is short: a key is printed cut after 64 code points (spec 10.1), and the
+      // workspace path alone can be longer.
+      symlinkSync(`${s.ws.home}/${CLIENT_A}`, `${s.ws.home}/link-account`);
+      writeAccounts(s, `folders:\n  ~/link-account: x\n  ~: y\n  ${s.real}/repo: client-b\n`);
       accountFolder(s, ".claude-client-b");
       const result = await which(s);
       expect(result.stdout).toContain("claude: client-b (source: user config)");
@@ -1568,12 +1606,12 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
   });
 
   describe("repository text with control characters in the changed and ignored warnings", () => {
-    const ESC_URL = (name: string) => `https://example.invalid/${name}\u001b[31m.git`;
+    const ESC_URL = (name: string) => `https://example.invalid/${name}\u202e.git`;
     const layer = (name: string, kind: string, visibility: string, account: string) => ({
       "layer.yaml": `name: ${name}\nkind: ${kind}\nvisibility: ${visibility}\nversion: 0.1.0\n${account}`,
       "instructions/10-x.md": `- ${name}.\n`,
     });
-    const hasEsc = (text: string) => [...text].some((char) => char === "\u001b");
+    const hasEsc = (text: string) => [...text].some((char) => char === "\u202e");
 
     it("quotes the source of an ignored declaration and the sources of a changed entry", async () => {
       const s = plain();
@@ -1603,12 +1641,12 @@ describe("§13.19 review follow-ups: ordering of the checks, folders that are on
           files: layer("group", "group", "private", "account: group-a\n"),
         },
       ]);
-      writeAllowed(s, [hubEntry(s, { source: `https://old.invalid/c\u001b[32m.git` })]);
+      writeAllowed(s, [hubEntry(s, { source: `https://old.invalid/c\u202e.git` })]);
       const result = await which(s);
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain('"git:https://example.invalid/group[31m.git@v1"');
-      expect(result.stderr).toContain('from "https://old.invalid/c[32m.git"');
-      expect(result.stderr).toContain('from "https://example.invalid/client[31m.git"');
+      expect(result.stderr).toContain('"git:https://example.invalid/group.git@v1"');
+      expect(result.stderr).toContain('from "https://old.invalid/c.git"');
+      expect(result.stderr).toContain('from "https://example.invalid/client.git"');
       expect(hasEsc(result.stdout + result.stderr)).toBe(false);
     });
 

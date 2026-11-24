@@ -10,9 +10,9 @@
 use crate::account::declaration::AccountDeclaration;
 use crate::account::folder_key::FolderKey;
 use crate::account::name::AccountName;
-use crate::account::reading::{Reading, tree, unreadable, warning};
-use crate::diagnostic::{Code, Message, Position, Where};
-use crate::untrusted_text::QuotedKey;
+use crate::account::reading::{Reading, tree, unplaced, unreadable, warning};
+use crate::diagnostic::{Code, Message, Where};
+use crate::untrusted_text::Quoted;
 use crate::yaml::fields::KeyPath;
 use crate::yaml::{Mapping, Node, Value};
 
@@ -87,11 +87,9 @@ impl UserConfig {
                     config.then(entry, Self::with)
                 }),
             Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Seq(_) => {
-                Reading::new(Self::default()).warned(warning(
-                    Code::AccountConfig,
-                    file,
-                    node.at(),
-                    Message::new("the file is ignored: its top level must be a mapping"),
+                Reading::new(Self::default()).warned(unplaced(
+                    Code::AccountConfigShape,
+                    Message::new("accounts.yaml is ignored: its top level must be a mapping"),
                 ))
             }
         }
@@ -117,8 +115,8 @@ enum Part {
 }
 
 /// The key as text for a warning: its text, or the kind of value for a key that is not text.
-fn shown(key: &Node) -> QuotedKey {
-    QuotedKey::from_untrusted(match key.value() {
+fn shown(key: &Node) -> Quoted {
+    Quoted::key(match key.value() {
         Value::Text(text) => text,
         kind @ (Value::Null
         | Value::Bool(_)
@@ -129,8 +127,8 @@ fn shown(key: &Node) -> QuotedKey {
     })
 }
 
-fn config_warning(file: &Where, at: Position, message: Message) -> Reading<Part> {
-    Reading::new(Part::Nothing).warned(warning(Code::AccountConfig, file, at, message))
+fn config_warning(code: Code, file: &Where, message: Message) -> Reading<Part> {
+    Reading::new(Part::Nothing).warned(warning(code, file, message))
 }
 
 fn top_level_entry(key: &Node, value: &Node, file: &Where) -> Reading<Part> {
@@ -144,8 +142,8 @@ fn top_level_entry(key: &Node, value: &Node, file: &Where) -> Reading<Part> {
         | Value::Text(_)
         | Value::Seq(_)
         | Value::Map(_) => config_warning(
+            Code::AccountConfigKey,
             file,
-            key.at(),
             Message::new("the key ")
                 .then(shown(key))
                 .then(" is not known and is ignored"),
@@ -157,7 +155,7 @@ fn top_level_entry(key: &Node, value: &Node, file: &Where) -> Reading<Part> {
 fn default_name(value: &Node, file: &Where) -> Reading<Part> {
     match value.value() {
         Value::Text(text) => AccountName::try_from(text.as_str()).map_or_else(
-            |_not_a_name| not_a_default_name(value, file),
+            |_not_a_name| not_a_default_name(file),
             |name| Reading::new(Part::DefaultName(name)),
         ),
         Value::Null
@@ -165,14 +163,14 @@ fn default_name(value: &Node, file: &Where) -> Reading<Part> {
         | Value::Int(_)
         | Value::Float(_)
         | Value::Seq(_)
-        | Value::Map(_) => not_a_default_name(value, file),
+        | Value::Map(_) => not_a_default_name(file),
     }
 }
 
-fn not_a_default_name(value: &Node, file: &Where) -> Reading<Part> {
+fn not_a_default_name(file: &Where) -> Reading<Part> {
     config_warning(
+        Code::AccountConfigDefaultName,
         file,
-        value.at(),
         Message::new("default_name must be an account name; it is ignored"),
     )
 }
@@ -184,8 +182,8 @@ fn folders(value: &Node, file: &Where) -> Reading<Part> {
         Value::Map(mapping) => folder_rules(mapping, file),
         Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Seq(_) => {
             config_warning(
+                Code::AccountConfigShape,
                 file,
-                value.at(),
                 Message::new("'folders' must be a mapping; it is ignored"),
             )
         }
@@ -206,8 +204,8 @@ fn folder_rules(mapping: &Mapping, file: &Where) -> Reading<Part> {
 }
 
 fn folder_rule(key: &Node, value: &Node, file: &Where) -> Reading<Option<FolderRule>> {
-    let ignored = |at: Position, message: Message| {
-        Reading::new(None).warned(warning(Code::AccountConfig, file, at, message))
+    let ignored = |message: Message| {
+        Reading::new(None).warned(warning(Code::AccountConfigFolder, file, message))
     };
     let folder = match key.value() {
         Value::Text(text) => FolderKey::try_from(text.as_str()).ok(),
@@ -220,7 +218,6 @@ fn folder_rule(key: &Node, value: &Node, file: &Where) -> Reading<Option<FolderR
     };
     match folder {
         None => ignored(
-            key.at(),
             Message::new("the folders key ")
                 .then(shown(key))
                 .then(" is not an absolute path or ~/..., so it is ignored"),
@@ -228,12 +225,9 @@ fn folder_rule(key: &Node, value: &Node, file: &Where) -> Reading<Option<FolderR
         Some(folder) => AccountDeclaration::from_node(value, KeyPath::root().field("folders"))
             .map_or_else(
                 |_refused| {
-                    ignored(
-                        key.at(),
-                        Message::new("the folders entry ").then(shown(key)).then(
-                            " must be an account name or a mapping of target to name, so it is ignored",
-                        ),
-                    )
+                    ignored(Message::new("the folders entry ").then(shown(key)).then(
+                        " must be an account name or a mapping of target to name, so it is ignored",
+                    ))
                 },
                 |choice| Reading::new(Some(FolderRule::new(folder, choice))),
             ),

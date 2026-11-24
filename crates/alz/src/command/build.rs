@@ -8,11 +8,14 @@ mod adopt;
 
 use std::io::{self, Write};
 
+use alz_core::identity::Command as IdentityCommand;
 use alz_core::render::write_plan::{Change, Collision, WritePlan};
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where};
 
 use crate::cli::BuildArgs;
 use crate::command::Surroundings;
+use crate::command::account::hint::{allow_note, names_an_account};
+use crate::command::identity::{self, Step};
 use crate::command::pipeline::{self, Computed};
 use crate::report::emit_diagnostics;
 
@@ -59,9 +62,57 @@ pub fn run(
                 &Diagnostics::new().with(pipeline::write_failure(&error)),
                 stderr,
             ),
-            Ok(_) => write_summary(&computed, counts, stdout).map_or(1, |()| code),
+            Ok(_) => match write_summary(&computed, counts, stdout) {
+                Ok(()) => code
+                    .max(emit_diagnostics(
+                        &allow_note(surroundings, names_an_account(&computed)),
+                        stderr,
+                    ))
+                    .max(identity_step(
+                        args,
+                        surroundings,
+                        &repository,
+                        &computed,
+                        stdout,
+                        stderr,
+                    )),
+                Err(io::Error { .. }) => 1,
+            },
         },
     }
+}
+
+/// The commit identity step (spec §9.4, §10.3): `--adopt` sets the declared identity as `alz init`
+/// does, a plain build only warns about a mismatch. Without a declaration nothing runs. Returns
+/// the exit code, 1 only when a check after a write failed.
+fn identity_step(
+    args: &BuildArgs,
+    surroundings: Surroundings<'_>,
+    repository: &alz_io::RepoRoot,
+    computed: &Computed,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> u8 {
+    let (Some(declared), Some(directory)) = (
+        identity::declared_of(computed),
+        surroundings.directory.path(),
+    ) else {
+        return 0;
+    };
+    let step = Step::new(declared, surroundings.env, repository, directory);
+    if args.adopt {
+        let outcome = step.set_up(IdentityCommand::Build);
+        let printed = write_text(stdout, &outcome.stdout);
+        let code = emit_diagnostics(&outcome.diagnostics, stderr);
+        printed.map_or(1, |()| code)
+    } else {
+        emit_diagnostics(&step.check(IdentityCommand::Build), stderr)
+    }
+}
+
+fn write_text(stream: &mut impl Write, text: &str) -> io::Result<()> {
+    stream.write_all(text.as_bytes())?;
+    stream.flush()
 }
 
 /// The errors `collision`, one for each path the writer refuses to touch.

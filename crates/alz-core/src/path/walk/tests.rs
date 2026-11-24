@@ -48,8 +48,17 @@ type Outcome = Result<Resolved, Stop>;
 
 /// Answers every request from the table; returns the requests, as text, and the outcome.
 fn run(folders: &AccountFolders, table: &Table, start: &str) -> (Vec<String>, Outcome) {
+    drive(table, RealPathWalk::start(&path(start), folders))
+}
+
+/// [`run`] for a walk that locates a directory.
+fn locate(folders: &AccountFolders, table: &Table, start: &str) -> (Vec<String>, Outcome) {
+    drive(table, RealPathWalk::locate(&path(start), folders))
+}
+
+fn drive(table: &Table, first: Step<'_>) -> (Vec<String>, Outcome) {
     let mut asked = Vec::new();
-    let mut step = RealPathWalk::start(&path(start), folders);
+    let mut step = first;
     loop {
         step = match step {
             Step::Lstat(request) => {
@@ -457,4 +466,60 @@ proptest! {
         }
         prop_assert!(false, "the walk did not end");
     }
+}
+
+#[test]
+fn locating_a_folder_that_holds_a_configured_folder_finds_its_real_path() {
+    let fs = table(&[("/work", Node::Dir), ("/work/cfg", Node::Dir)]);
+    let (asked, outcome) = locate(&folders(), &fs, "/work");
+    assert_eq!(outcome, Ok(existing("/work")));
+    assert_eq!(asked, ["lstat /work"]);
+    let (_, strict) = run(&folders(), &fs, "/work");
+    assert_eq!(strict, Err(Stop::Refused(Relation::Holds)));
+}
+
+#[test]
+fn locating_inside_a_configured_folder_names_the_folder_and_asks_nothing_inside() {
+    let fs = table(&[
+        ("/work", Node::Dir),
+        ("/work/cfg", Node::Dir),
+        ("/work/cfg/sub", Node::Dir),
+    ]);
+    let (asked, outcome) = locate(&folders(), &fs, "/work/cfg/sub");
+    assert_eq!(
+        outcome,
+        Err(Stop::Inside {
+            relation: Relation::Configured,
+            at: path("/work/cfg")
+        })
+    );
+    never_asked(&asked, "/work/cfg");
+}
+
+#[test]
+fn locating_through_a_planted_link_stops_at_the_account_folder_it_leads_to() {
+    let fs = table(&[
+        ("/Users", Node::Dir),
+        ("/Users/u", Node::Dir),
+        ("/Users/u/.claude-work", Node::Dir),
+        ("/Users/u/.claude-work/x", Node::Dir),
+        ("/repo", Node::Dir),
+        ("/repo/plant", Node::Link("/Users/u/.claude-work/x")),
+    ]);
+    let (asked, outcome) = locate(&folders(), &fs, "/repo/plant");
+    assert_eq!(
+        outcome,
+        Err(Stop::Inside {
+            relation: Relation::AccountFolder,
+            at: path("/Users/u/.claude-work")
+        })
+    );
+    never_asked(&asked, ".claude-work");
+}
+
+#[test]
+fn locating_the_home_folder_or_above_it_is_refused_as_home() {
+    let fs = table(&[("/Users", Node::Dir), ("/Users/u", Node::Dir)]);
+    let (_, outcome) = locate(&folders(), &fs, "/Users/u");
+    assert_eq!(outcome, Err(Stop::Refused(Relation::Home)));
 }

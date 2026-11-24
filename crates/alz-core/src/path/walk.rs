@@ -90,11 +90,21 @@ pub enum Entry {
 }
 
 /// Where a walk ended without a real path.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum Stop {
     /// The path touches an account folder or the home folder (§9.1); the reason is the relation.
     #[error("{0}")]
     Refused(Relation),
+    /// A walk that locates a directory (see [`RealPathWalk::locate`]) reached a name inside an
+    /// account folder or a configured folder, which it never asks about: the relation, and the
+    /// real path of the folder where it stopped.
+    #[error("{relation}")]
+    Inside {
+        /// How the folder relates to the account folders; always [`Relation::is_inside`].
+        relation: Relation,
+        /// The real path of the first name inside, which is the account or configured folder.
+        at: AbsolutePath,
+    },
     /// More than 40 links were followed.
     #[error("too many links")]
     TooManyLinks,
@@ -150,10 +160,21 @@ pub struct Readlink<'f> {
     prefix: AbsolutePath,
 }
 
+/// What the walk is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Intent {
+    /// The caller will open the real path: whatever touches an account folder is refused.
+    Open,
+    /// The caller only wants to know where the path is: a folder that holds a configured folder
+    /// is a place like any other, and the stop inside an account folder says where it was.
+    Locate,
+}
+
 /// A walk in progress: the real path of what is resolved, and the parts that are left.
 #[derive(Debug)]
 pub struct RealPathWalk<'f> {
     folders: &'f AccountFolders,
+    intent: Intent,
     /// What is resolved. Every name in it is a directory, not a link.
     real: Vec<Name>,
     /// What is left, the next part last.
@@ -170,6 +191,20 @@ fn path_of<'n>(names: impl IntoIterator<Item = &'n Name>) -> AbsolutePath {
 impl<'f> RealPathWalk<'f> {
     /// Starts at `/` and walks `path`. Nothing is asked about `/` itself.
     pub fn start(path: &AbsolutePath, folders: &'f AccountFolders) -> Step<'f> {
+        Self::begin(path, folders, Intent::Open)
+    }
+
+    /// Like [`start`](Self::start), for a caller that only wants to know where `path` is, such as
+    /// the working directory (spec §7.13 "Paths"). A path that holds a configured folder is a
+    /// real path, not a refusal, because the repository there stays a root; a name inside an
+    /// account folder or a configured folder is still never asked about, and the walk stops with
+    /// [`Stop::Inside`], which names the folder. `$HOME` itself or above it is [`Stop::Refused`]
+    /// with [`Relation::Home`].
+    pub fn locate(path: &AbsolutePath, folders: &'f AccountFolders) -> Step<'f> {
+        Self::begin(path, folders, Intent::Locate)
+    }
+
+    fn begin(path: &AbsolutePath, folders: &'f AccountFolders, intent: Intent) -> Step<'f> {
         let pending = path
             .components()
             .flat_map(parts)
@@ -179,6 +214,7 @@ impl<'f> RealPathWalk<'f> {
             .collect();
         Self {
             folders,
+            intent,
             real: Vec::new(),
             pending,
             links: 0,
@@ -205,7 +241,13 @@ impl<'f> RealPathWalk<'f> {
     fn ask(self, name: Name) -> Step<'f> {
         let prefix = path_of(self.real.iter().chain([&name]));
         match self.folders.relation(&prefix) {
-            Some(relation) if relation.is_inside() => Step::Stopped(Stop::Refused(relation)),
+            Some(relation) if relation.is_inside() => Step::Stopped(match self.intent {
+                Intent::Open => Stop::Refused(relation),
+                Intent::Locate => Stop::Inside {
+                    relation,
+                    at: prefix,
+                },
+            }),
             Some(_) | None => Step::Lstat(Lstat {
                 walk: self,
                 name,
@@ -216,11 +258,18 @@ impl<'f> RealPathWalk<'f> {
 
     /// The whole real path is found: refused when it touches an account folder in any way.
     fn conclude(&self, whole: &AbsolutePath, resolved: Resolved) -> Step<'f> {
-        self.folders
-            .relation(whole)
-            .map_or(Step::Done(resolved), |relation| {
+        match (self.folders.relation(whole), self.intent) {
+            (None, _) | (Some(Relation::Holds), Intent::Locate) => Step::Done(resolved),
+            (Some(relation), Intent::Locate) if relation.is_inside() => {
+                Step::Stopped(Stop::Inside {
+                    relation,
+                    at: whole.clone(),
+                })
+            }
+            (Some(relation), Intent::Open | Intent::Locate) => {
                 Step::Stopped(Stop::Refused(relation))
-            })
+            }
+        }
     }
 
     fn finish(self) -> Step<'f> {

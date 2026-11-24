@@ -13,7 +13,7 @@ use thiserror::Error;
 
 use crate::account::declaration::NonEmptyTargetMap;
 use crate::account::name::AccountName;
-use crate::account::reading::{Reading, tree, unreadable, warning};
+use crate::account::reading::{Reading, path_tree, unplaced, unreadable, warning};
 use crate::diagnostic::{Code, Message, Where};
 use crate::path::AbsolutePath;
 use crate::render::yaml::{EmitMap, EmitValue, emit};
@@ -161,6 +161,9 @@ pub enum AllowFile {
         state: AllowState,
         /// The entries that were ignored, in file order.
         ignored: Vec<NonZeroUsize>,
+        /// The number, counted from 1, that each entry of `state` has in the file, in the order
+        /// of `state.entries()`. A caller that has to name an entry in a warning uses it.
+        numbers: Vec<NonZeroUsize>,
     },
 }
 
@@ -169,7 +172,7 @@ impl AllowFile {
     /// that is not valid YAML is ignored with one warning.
     #[must_use]
     pub fn from_bytes(bytes: &[u8], file: &Where) -> Reading<Self> {
-        tree(bytes).map_or_else(
+        path_tree(bytes).map_or_else(
             |error| Reading::new(Self::Ignored).warned(unreadable(&error, file)),
             |node| Self::from_node(&node, file),
         )
@@ -190,24 +193,28 @@ impl AllowFile {
                         read
                     })
                 })
-                .map(|read| Self::List {
-                    ignored: read
+                .map(|read| {
+                    let ignored = read
                         .iter()
                         .filter(|(_, outcome)| outcome.is_none())
                         .map(|(number, _)| *number)
-                        .collect(),
-                    state: AllowState::from_entries(
-                        read.into_iter()
-                            .filter_map(|(_, outcome)| outcome)
-                            .collect(),
-                    ),
+                        .collect();
+                    let mut kept: Vec<(NonZeroUsize, AllowEntry)> = read
+                        .into_iter()
+                        .filter_map(|(number, outcome)| outcome.map(|entry| (number, entry)))
+                        .collect();
+                    kept.sort_by(|(_, left), (_, right)| left.root.cmp(&right.root));
+                    let (numbers, entries): (Vec<_>, Vec<_>) = kept.into_iter().unzip();
+                    Self::List {
+                        state: AllowState(entries),
+                        ignored,
+                        numbers,
+                    }
                 }),
             Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Map(_) => {
-                Reading::new(Self::Ignored).warned(warning(
-                    Code::AccountAllowed,
-                    file,
-                    node.at(),
-                    Message::new("the file is ignored: its top level must be a list"),
+                Reading::new(Self::Ignored).warned(unplaced(
+                    Code::AccountAllowedShape,
+                    Message::new("allowed.yaml is ignored: its top level must be a list"),
                 ))
             }
         }
@@ -217,6 +224,7 @@ impl AllowFile {
         Self::List {
             state: AllowState(Vec::new()),
             ignored: Vec::new(),
+            numbers: Vec::new(),
         }
     }
 }
@@ -252,9 +260,8 @@ fn entry(number: NonZeroUsize, item: &Node, file: &Where) -> Reading<Outcome> {
     read_entry(item).map_or_else(
         |misfit| {
             Reading::new((number, None)).warned(warning(
-                Code::AccountAllowed,
+                Code::AccountAllowedEntry,
                 file,
-                item.at(),
                 Message::new("entry ")
                     .then(number.get())
                     .then(" is ignored (")

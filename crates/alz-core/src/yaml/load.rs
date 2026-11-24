@@ -17,7 +17,7 @@ use crate::diagnostic::Position;
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::error::{YamlError, YamlErrorKind};
 use crate::yaml::events::{self, MAX_ALIASES, MAX_DEPTH, MAX_NODES, MAX_REPLAYED_EVENTS};
-use crate::yaml::text::YamlText;
+use crate::yaml::text::{DecodedText, YamlText};
 use crate::yaml::tree::{Mapping, Node, Value};
 
 /// Parses `text` into alz's tree: the event pre-pass, then serde-saphyr.
@@ -30,7 +30,21 @@ use crate::yaml::tree::{Mapping, Node, Value};
 /// The first problem found, as a [`YamlError`]; its text never holds input except one quoted
 /// duplicate key.
 pub fn parse(text: &YamlText) -> Result<Node, YamlError> {
-    let checked = events::check(text)?;
+    parse_decoded(text, DecodedText::Strict)
+}
+
+/// As [`parse`], for a file that holds file-system paths: a key or value may also hold U+007F to
+/// U+009F, U+2028 and U+2029 after YAML has applied its escapes (spec §7.13 "Allow state").
+///
+/// # Errors
+///
+/// As [`parse`].
+pub fn parse_paths(text: &YamlText) -> Result<Node, YamlError> {
+    parse_decoded(text, DecodedText::Paths)
+}
+
+fn parse_decoded(text: &YamlText, decoded: DecodedText) -> Result<Node, YamlError> {
+    let checked = events::check(text, decoded)?;
     if checked.is_empty() {
         return Ok(Node::new(Value::Null, Position::FIRST));
     }

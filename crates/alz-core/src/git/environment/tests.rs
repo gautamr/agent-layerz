@@ -4,7 +4,9 @@ use proptest::collection::btree_map;
 use proptest::prelude::{Just, Strategy, prop_assert, prop_assert_eq, prop_oneof, proptest};
 use proptest::sample::select;
 
-use super::{CloneTransport, GitOperation, child_environment};
+use super::{
+    CloneTransport, GitOperation, RepositoryMessages, child_environment, repository_environment,
+};
 use crate::env::EnvVars;
 
 const REPOSITORY_VARIABLES: [&str; 8] = [
@@ -370,5 +372,57 @@ fn a_value_that_is_not_utf8_passes_byte_for_byte() {
     assert_eq!(
         child_environment(GitOperation::TreeRead, &env).get("SSH_ASKPASS"),
         Some(value.as_os_str())
+    );
+}
+
+#[test]
+fn a_repository_call_drops_every_repository_variable_and_git_config() {
+    let mut pairs: Vec<(&str, &str)> = REPOSITORY_VARIABLES
+        .iter()
+        .map(|name| (*name, "x"))
+        .collect();
+    pairs.push(("GIT_CONFIG", "x"));
+    pairs.push(("KEPT", "y"));
+    let child = repository_environment(&vars(&pairs), RepositoryMessages::Ignored);
+    for name in REPOSITORY_VARIABLES.iter().chain(&["GIT_CONFIG"]) {
+        assert!(child.get(name).is_none(), "{name} must be dropped");
+    }
+    assert_eq!(child.get("KEPT"), Some(OsStr::new("y")));
+}
+
+#[test]
+fn a_repository_call_keeps_the_variables_that_decide_the_identity() {
+    let names = [
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_COMMITTER_NAME",
+        "GIT_COMMITTER_EMAIL",
+        "EMAIL",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_KEY_0",
+        "GIT_CONFIG_VALUE_0",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_NOSYSTEM",
+    ];
+    let pairs: Vec<(&str, &str)> = names.iter().map(|name| (*name, "v")).collect();
+    let child = repository_environment(&vars(&pairs), RepositoryMessages::Ignored);
+    for name in names {
+        assert_eq!(child.get(name), Some(OsStr::new("v")), "{name} must pass");
+    }
+}
+
+#[test]
+fn a_repository_call_never_prompts_and_reads_messages_in_the_c_locale_only_when_asked() {
+    let inherited = vars(&[("GIT_TERMINAL_PROMPT", "1"), ("LC_ALL", "de_DE.UTF-8")]);
+    let plain = repository_environment(&inherited, RepositoryMessages::Ignored);
+    assert_eq!(plain.get("GIT_TERMINAL_PROMPT"), Some(OsStr::new("0")));
+    assert_eq!(plain.get("LC_ALL"), Some(OsStr::new("de_DE.UTF-8")));
+    let read = repository_environment(&inherited, RepositoryMessages::ReadByAlz);
+    assert_eq!(read.get("LC_ALL"), Some(OsStr::new("C")));
+    assert_eq!(
+        read,
+        repository_environment(&read, RepositoryMessages::ReadByAlz)
     );
 }

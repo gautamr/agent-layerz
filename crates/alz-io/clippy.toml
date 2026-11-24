@@ -15,4 +15,5 @@ disallowed-methods = [
     { path = "std::env::vars_os", reason = "the environment is read by EnvSnapshot::capture only" },
     { path = "std::env::remove_var", reason = "the environment is never mutated" },
     { path = "std::env::set_var", reason = "the environment is never mutated" },
+    { path = "std::io::stdin", reason = "standard input is read by alz-io's terminal module only (spec §7.13)" },
 ]

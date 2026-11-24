@@ -10,7 +10,7 @@ use crate::EnvSnapshot;
 
 /// The real path of `path`, with every link resolved. Only the names on the way are looked at,
 /// never what a folder holds.
-pub(super) fn real_path(path: &AbsolutePath) -> Option<AbsolutePath> {
+pub(crate) fn real_path(path: &AbsolutePath) -> Option<AbsolutePath> {
     std::fs::canonicalize(path.as_str()).ok().and_then(|real| {
         real.to_str()
             .and_then(|text| AbsolutePath::try_from(text).ok())
@@ -52,16 +52,22 @@ fn linked_account_folders(home: &AbsolutePath) -> Vec<AbsolutePath> {
 /// no folder is known by name and only the configured ones count.
 pub(crate) fn account_folders(env: &EnvSnapshot) -> AccountFolders {
     let home = absolute(env.home()).unwrap_or_else(AbsolutePath::root);
+    account_folders_at(&home, env)
+}
+
+/// [`account_folders`] for a home folder the caller has already found (HOME as given, or the user
+/// database's, spec §7.13 "Environment").
+pub(crate) fn account_folders_at(home: &AbsolutePath, env: &EnvSnapshot) -> AccountFolders {
     let claude = absolute(env.claude_config_dir());
     let codex = absolute(env.codex_home());
-    let named = AccountFolders::from_env(&home, claude.as_ref(), codex.as_ref());
+    let named = AccountFolders::from_env(home, claude.as_ref(), codex.as_ref());
     let with_home =
-        real_path(&home).map_or_else(|| named.clone(), |real| named.clone().with_real_home(&real));
+        real_path(home).map_or_else(|| named.clone(), |real| named.clone().with_real_home(&real));
     [claude, codex]
         .into_iter()
         .flatten()
         .filter_map(|folder| real_path(&folder))
-        .chain(linked_account_folders(&home))
+        .chain(linked_account_folders(home))
         .fold(with_home, |folders, real| {
             folders.with_real_configured(&real)
         })

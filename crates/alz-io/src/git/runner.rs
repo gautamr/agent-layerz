@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use alz_core::env::EnvVars;
 use alz_core::git::{
     CloneTransport, GitVersion, ObjectCheck, ObjectContent, TreeEntry, UnreadableOutput,
-    VersionRefusal, child_environment,
+    VersionRefusal, child_environment, repository_environment,
 };
 use alz_core::lock::ObjectId;
 use alz_core::path::SafeRelPath;
@@ -20,6 +20,7 @@ use super::deadlines::Deadlines;
 use super::detach::{COULD_NOT_RUN_GIT, Launcher};
 use super::executable::find_git;
 use super::failure::GitFailure;
+use super::repository::{Answer, RepositoryCall};
 use super::spawn::{self, Invocation};
 use crate::EnvSnapshot;
 
@@ -152,6 +153,33 @@ impl GitRunner {
                 status: completed.status,
                 stderr: completed.stderr,
             })
+        }
+    }
+
+    /// Runs a call on the repository being built (spec §9.4): its environment is
+    /// [`repository_environment`], and the answer is whatever git did, success or not. A call
+    /// that could not be started, outran its deadline or wrote more than alz accepts has no exit
+    /// status in the answer.
+    pub(super) fn run_repository(&self, call: &RepositoryCall<'_>) -> Answer {
+        let arguments = call.arguments();
+        let environment = repository_environment(&self.environment, call.messages());
+        let finished = spawn::run(Invocation {
+            launcher: &self.launcher,
+            git: &self.git,
+            arguments: &arguments,
+            environment: &environment,
+            directory: Some(call.directory()),
+            input: None,
+            deadline: self.deadlines.other,
+            stdout_limit: 64 * 1024,
+        });
+        match finished {
+            Ok(done) if !done.stdout_truncated => Answer {
+                code: done.status.code(),
+                stdout: done.stdout,
+                stderr: done.stderr,
+            },
+            Ok(_) | Err(_) => Answer::not_run(),
         }
     }
 

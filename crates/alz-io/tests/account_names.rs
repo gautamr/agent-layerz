@@ -9,7 +9,7 @@ mod tests {
     use std::path::Path;
 
     use alz_core::env::EnvVars;
-    use alz_io::{EnvSnapshot, claude_account_folders};
+    use alz_io::{EnvSnapshot, blocked_folders, claude_account_folders};
     use alz_test_support::{ScratchDir, running_as_root};
 
     fn snapshot(home: &Path, configured: Option<&Path>) -> EnvSnapshot {
@@ -53,6 +53,83 @@ mod tests {
                 "<s>/home/.claude-b"
             ]
         );
+    }
+
+    #[test]
+    fn the_blocked_folders_are_not_accounts_even_when_claude_config_dir_names_one() {
+        let scratch = ScratchDir::new().expect("scratch");
+        for folder in [
+            "home/.claude",
+            "home/.claude-work",
+            "home/.claude-alz-blocked",
+            "home/.codex-alz-blocked",
+        ] {
+            scratch.make_dirs(folder).expect("made");
+        }
+        let blocked = scratch.join("home/.claude-alz-blocked");
+        let env = snapshot(&scratch.join("home"), Some(&blocked));
+        let prefix = scratch.path().to_string_lossy().into_owned();
+        let found: Vec<String> = claude_account_folders(&env)
+            .iter()
+            .map(|folder| folder.path.as_str().replace(&prefix, "<s>"))
+            .collect();
+        assert_eq!(found, ["<s>/home/.claude", "<s>/home/.claude-work"]);
+    }
+
+    #[test]
+    fn each_blocked_folder_that_exists_is_found_by_name_claude_first() {
+        let scratch = ScratchDir::new().expect("scratch");
+        let home = scratch.join("home");
+        let env = snapshot(&home, None);
+        scratch.make_dirs("home").expect("made");
+        assert_eq!(blocked_folders(&env).len(), 0);
+        scratch.make_dirs("home/.codex-alz-blocked").expect("made");
+        scratch.make_dirs("home/.claude-alz-blocked").expect("made");
+        scratch.make_dirs("home/.claude-other").expect("made");
+        let prefix = scratch.path().to_string_lossy().into_owned();
+        let found: Vec<String> = blocked_folders(&env)
+            .iter()
+            .map(|folder| folder.as_str().replace(&prefix, "<s>"))
+            .collect();
+        assert_eq!(
+            found,
+            [
+                "<s>/home/.claude-alz-blocked",
+                "<s>/home/.codex-alz-blocked"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_blocked_folder_is_found_without_opening_anything_in_it() {
+        if running_as_root() {
+            return;
+        }
+        let scratch = ScratchDir::new().expect("scratch");
+        scratch.make_dirs("home/.claude-alz-blocked").expect("made");
+        scratch
+            .write("home/.claude-alz-blocked/.credentials.json", "secret")
+            .expect("written");
+        scratch
+            .set_mode("home/.claude-alz-blocked/.credentials.json", 0o000)
+            .expect("mode");
+        scratch
+            .set_mode("home/.claude-alz-blocked", 0o000)
+            .expect("mode");
+        let found = blocked_folders(&snapshot(&scratch.join("home"), None));
+        scratch
+            .set_mode("home/.claude-alz-blocked", 0o700)
+            .expect("restored");
+        scratch
+            .set_mode("home/.claude-alz-blocked/.credentials.json", 0o600)
+            .expect("restored");
+        assert_eq!(found.len(), 1);
+    }
+
+    #[test]
+    fn without_a_home_there_are_no_blocked_folders() {
+        let env = EnvSnapshot::from_vars(EnvVars::default());
+        assert_eq!(blocked_folders(&env).len(), 0);
     }
 
     #[test]

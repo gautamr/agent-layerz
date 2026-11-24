@@ -164,5 +164,38 @@ pub fn child_environment(operation: GitOperation, env: &EnvVars) -> EnvVars {
     )
 }
 
+/// How the environment of a call on the repository being built reads git's messages (spec §9.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RepositoryMessages {
+    /// The call's messages are not read: the locale passes unchanged.
+    Ignored,
+    /// alz reads git's message to tell "not a git repository" from another failure, so the call
+    /// runs with `LC_ALL=C`.
+    ReadByAlz,
+}
+
+/// The whole environment of a git call on the repository being built (spec §9.4), given alz's
+/// own: every variable that points git at another repository or file is removed, the eight of
+/// [`child_environment`] and `GIT_CONFIG`; `GIT_TERMINAL_PROMPT` is `0`. Every other variable
+/// passes, because the check reports what git would use for a commit here: the `-c` variables
+/// (`GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT`, the numbered pairs), `GIT_CONFIG_GLOBAL`,
+/// `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM`, the four identity variables and `EMAIL`.
+/// `LC_ALL=C` is set when `messages` is [`RepositoryMessages::ReadByAlz`].
+///
+/// The result is a function of its arguments only, and applying it to its own result gives that
+/// result.
+#[must_use]
+pub fn repository_environment(env: &EnvVars, messages: RepositoryMessages) -> EnvVars {
+    let kept = env.clone().keeping(|name| {
+        name.to_str()
+            .is_none_or(|name| !REPOSITORY_VARIABLES.contains(&name) && name != "GIT_CONFIG")
+    });
+    let prompt_off = kept.with("GIT_TERMINAL_PROMPT", "0");
+    match messages {
+        RepositoryMessages::Ignored => prompt_off,
+        RepositoryMessages::ReadByAlz => prompt_off.with("LC_ALL", "C"),
+    }
+}
+
 #[cfg(test)]
 mod tests;

@@ -14,6 +14,6 @@ mod tree;
 mod tests;
 
 pub use error::{YamlError, YamlErrorKind};
-pub use load::parse;
-pub use text::{MAX_BYTES, YamlText};
+pub use load::{parse, parse_paths};
+pub use text::{DecodedText, MAX_BYTES, YamlText};
 pub use tree::{Mapping, Node, Value};

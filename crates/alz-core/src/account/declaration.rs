@@ -22,6 +22,17 @@ pub enum AccountChoice {
     Named(AccountName),
 }
 
+impl AccountChoice {
+    /// The name `allowed.yaml` records for the choice: `default` for the default account.
+    #[must_use]
+    pub fn to_name(&self) -> AccountName {
+        match self {
+            Self::Default => AccountName::default_account(),
+            Self::Named(name) => name.clone(),
+        }
+    }
+}
+
 impl TryFrom<&str> for AccountChoice {
     type Error = AccountNameError;
 

@@ -33,11 +33,11 @@ mod tests {
     /// The level and code of each line of diagnostics, in order. The place and the wording after
     /// them are the Rust `alz`'s own where the specification words a message differently from the
     /// reference (§7.3 `slot-missing` has a place, §9.2 reports a finding once per file); the
-    /// messages are tested where they are made. The commit identity lines of §9.4 belong to
-    /// TASK-55.7 and are left out.
+    /// messages are tested where they are made. The `[identity]` lines of §9.4 are compared like
+    /// the others: a fixture with a declared commit identity, built outside a git repository,
+    /// prints the note that it was not checked.
     fn problem_lines(text: &str) -> Vec<String> {
         text.lines()
-            .filter(|line| !line.contains("[identity]"))
             .map(|line| {
                 line.split_whitespace()
                     .take(2)
