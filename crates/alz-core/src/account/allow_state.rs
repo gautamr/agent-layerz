@@ -161,6 +161,9 @@ pub enum AllowFile {
         state: AllowState,
         /// The entries that were ignored, in file order.
         ignored: Vec<NonZeroUsize>,
+        /// The number, counted from 1, that each entry of `state` has in the file, in the order
+        /// of `state.entries()`. A caller that has to name an entry in a warning uses it.
+        numbers: Vec<NonZeroUsize>,
     },
 }
 
@@ -190,17 +193,23 @@ impl AllowFile {
                         read
                     })
                 })
-                .map(|read| Self::List {
-                    ignored: read
+                .map(|read| {
+                    let ignored = read
                         .iter()
                         .filter(|(_, outcome)| outcome.is_none())
                         .map(|(number, _)| *number)
-                        .collect(),
-                    state: AllowState::from_entries(
-                        read.into_iter()
-                            .filter_map(|(_, outcome)| outcome)
-                            .collect(),
-                    ),
+                        .collect();
+                    let mut kept: Vec<(NonZeroUsize, AllowEntry)> = read
+                        .into_iter()
+                        .filter_map(|(number, outcome)| outcome.map(|entry| (number, entry)))
+                        .collect();
+                    kept.sort_by(|(_, left), (_, right)| left.root.cmp(&right.root));
+                    let (numbers, entries): (Vec<_>, Vec<_>) = kept.into_iter().unzip();
+                    Self::List {
+                        state: AllowState(entries),
+                        ignored,
+                        numbers,
+                    }
                 }),
             Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Map(_) => {
                 Reading::new(Self::Ignored).warned(warning(
@@ -217,6 +226,7 @@ impl AllowFile {
         Self::List {
             state: AllowState(Vec::new()),
             ignored: Vec::new(),
+            numbers: Vec::new(),
         }
     }
 }

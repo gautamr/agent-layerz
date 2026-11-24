@@ -42,6 +42,28 @@ impl EnvSnapshot {
         self.0.get("XDG_CACHE_HOME")
     }
 
+    /// `XDG_CONFIG_HOME`.
+    #[must_use]
+    pub fn xdg_config_home(&self) -> Option<&OsStr> {
+        self.0.get("XDG_CONFIG_HOME")
+    }
+
+    /// `XDG_STATE_HOME`.
+    #[must_use]
+    pub fn xdg_state_home(&self) -> Option<&OsStr> {
+        self.0.get("XDG_STATE_HOME")
+    }
+
+    /// Whether mise or direnv is active: `__MISE_DIFF` or `DIRENV_DIFF` exists, even empty. Only
+    /// the presence is asked, never the value: each holds every variable the manager set,
+    /// secrets included (decision-17).
+    #[must_use]
+    pub fn mise_or_direnv_active(&self) -> bool {
+        ["__MISE_DIFF", "DIRENV_DIFF"]
+            .into_iter()
+            .any(|name| self.0.get(name).is_some())
+    }
+
     /// `CLAUDE_CONFIG_DIR`.
     #[must_use]
     pub fn claude_config_dir(&self) -> Option<&OsStr> {

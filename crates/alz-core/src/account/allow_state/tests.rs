@@ -29,7 +29,7 @@ fn warnings(reading: &Reading<AllowFile>) -> Vec<String> {
 
 fn list(reading: &Reading<AllowFile>) -> (&AllowState, Vec<usize>) {
     match reading.value() {
-        AllowFile::List { state, ignored } => {
+        AllowFile::List { state, ignored, .. } => {
             (state, ignored.iter().map(|number| number.get()).collect())
         }
         AllowFile::Ignored => panic!("the file was ignored"),
@@ -251,13 +251,9 @@ fn an_emitted_state_reads_back_equal() {
     ]);
     let reading = AllowFile::from_bytes(state.to_yaml().as_bytes(), &file());
     assert_eq!(reading.warnings().warning_count(), 0);
-    assert_eq!(
-        reading.value(),
-        &AllowFile::List {
-            state,
-            ignored: Vec::new()
-        }
-    );
+    let (read, ignored) = list(&reading);
+    assert_eq!(read, &state);
+    assert_eq!(ignored, Vec::<usize>::new());
 }
 
 fn any_entry() -> impl Strategy<Value = AllowEntry> {
@@ -283,10 +279,9 @@ proptest! {
             pair[0].chars().cmp(pair[1].chars()).is_le()
         });
         prop_assert!(sorted);
-        prop_assert_eq!(
-            reading.value(),
-            &AllowFile::List { state, ignored: Vec::new() }
-        );
+        let (read, ignored) = list(&reading);
+        prop_assert_eq!(read, &state);
+        prop_assert!(ignored.is_empty());
     }
 }
 
@@ -384,7 +379,7 @@ proptest! {
     fn every_entry_is_kept_or_ignored_with_its_number(items in proptest::collection::vec(item(), 0..6)) {
         let count = items.len();
         let reading = AllowFile::from_node(&node(Value::Seq(items)), &file());
-        let AllowFile::List { state, ignored } = reading.value() else {
+        let AllowFile::List { state, ignored, .. } = reading.value() else {
             return Err(proptest::test_runner::TestCaseError::fail("a list is read as a list"));
         };
         prop_assert_eq!(state.entries().len() + ignored.len(), count);
@@ -392,4 +387,25 @@ proptest! {
         prop_assert!(ignored.windows(2).all(|pair| pair[0] < pair[1]));
         prop_assert!(ignored.iter().all(|number| *number >= NonZeroUsize::MIN));
     }
+}
+
+#[test]
+fn each_entry_that_fits_keeps_its_number_in_the_file_in_the_order_of_the_state() {
+    let reading = read(
+        "- {root: /b, account: {claude: x}, source: s}\n\
+         - nonsense\n\
+         - {root: /a, account: {claude: x}, source: s}\n",
+    );
+    let AllowFile::List {
+        state,
+        ignored,
+        numbers,
+    } = reading.value()
+    else {
+        panic!("the file was ignored");
+    };
+    let roots: Vec<&str> = state.entries().iter().map(|e| e.root().as_str()).collect();
+    assert_eq!(roots, ["/a", "/b"]);
+    assert_eq!(numbers.iter().map(|n| n.get()).collect::<Vec<_>>(), [3, 1]);
+    assert_eq!(ignored.iter().map(|n| n.get()).collect::<Vec<_>>(), [2]);
 }
