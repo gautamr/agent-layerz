@@ -3,9 +3,11 @@ id: TASK-55.7.17
 title: >-
   R6.1b: Port the remaining terminal cases, and start the pty driver through
   test/exec.ts
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-24T10:46:00Z'
+updated_date: '2026-11-24T11:15:00Z'
 labels:
   - area:test
   - area:rust
