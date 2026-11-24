@@ -1,0 +1,106 @@
+//! `alz build` (spec §10.3): resolve, merge and render the stack, then write the files by the
+//! rules of §4.3 and the lock last.
+//!
+//! `--adopt` is a later step (TASK-55.6.14); here a collision is an error.
+
+use std::io::{self, Write};
+
+use alz_core::render::write_plan::{Change, Collision, WritePlan};
+use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where};
+
+use crate::command::Surroundings;
+use crate::command::pipeline::{self, Computed};
+use crate::report::emit_diagnostics;
+
+/// Runs `alz build`, writes the diagnostics to `stderr` and the summary to `stdout`, and returns
+/// the exit code.
+pub fn run(surroundings: Surroundings<'_>, stdout: &mut impl Write, stderr: &mut impl Write) -> u8 {
+    let repository = match pipeline::open_repository(surroundings) {
+        Ok(repository) => repository,
+        Err(diagnostic) => return emit_diagnostics(&Diagnostics::new().with(diagnostic), stderr),
+    };
+    let built = pipeline::compute(surroundings, &repository);
+    let code = emit_diagnostics(&built.diagnostics, stderr);
+    let Some(computed) = built.computed else {
+        return code;
+    };
+    let plan = match pipeline::plan(&repository, &computed) {
+        Ok(Some(plan)) => plan,
+        Ok(None) => return code,
+        Err(error) => {
+            return emit_diagnostics(
+                &Diagnostics::new().with(pipeline::write_failure(&error)),
+                stderr,
+            );
+        }
+    };
+    let counts = Counts::of(&plan);
+    match plan.into_clear() {
+        Err(collisions) => emit_diagnostics(&collision_diagnostics(&collisions), stderr),
+        Ok(clear) => match repository.apply(&clear) {
+            Err(error) => emit_diagnostics(
+                &Diagnostics::new().with(pipeline::write_failure(&error)),
+                stderr,
+            ),
+            Ok(_) => write_summary(&computed, counts, stdout).map_or(1, |()| code),
+        },
+    }
+}
+
+/// The errors `collision`, one for each path the writer refuses to touch.
+pub fn collision_diagnostics(collisions: &[Collision]) -> Diagnostics {
+    collisions
+        .iter()
+        .map(|collision| {
+            Diagnostic::error(
+                Code::Collision,
+                Some(Where::repository_file(Stripped::from_untrusted(
+                    collision.path().as_str(),
+                ))),
+                Message::new(Stripped::from_untrusted(&collision.reason().to_string())),
+            )
+        })
+        .fold(Diagnostics::new(), Diagnostics::with)
+}
+
+/// How many files a plan creates, updates and deletes.
+#[derive(Debug, Clone, Copy)]
+struct Counts {
+    created: usize,
+    updated: usize,
+    deleted: usize,
+}
+
+impl Counts {
+    fn of(plan: &WritePlan) -> Self {
+        let count =
+            |wanted: fn(&Change) -> bool| plan.changes().iter().filter(|c| wanted(c)).count();
+        Self {
+            created: count(|change| matches!(change, Change::Create { .. })),
+            updated: count(|change| matches!(change, Change::Update { .. })),
+            deleted: count(|change| matches!(change, Change::Delete { .. })),
+        }
+    }
+}
+
+/// `built <n> files for <targets>: <c> created, <u> updated, <d> deleted (output visibility: <v>)`.
+fn write_summary(computed: &Computed, counts: Counts, stdout: &mut impl Write) -> io::Result<()> {
+    let files = computed.rendered.tree().len();
+    let targets = computed
+        .manifest
+        .targets()
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    writeln!(
+        stdout,
+        "built {files} file{} for {targets}: {} created, {} updated, {} deleted (output visibility: {})",
+        if files == 1 { "" } else { "s" },
+        counts.created,
+        counts.updated,
+        counts.deleted,
+        computed.lock.visibility.as_str(),
+    )?;
+    stdout.flush()
+}

@@ -1,8 +1,12 @@
 //! The commands of the specification. Each one reads what it needs through `alz-io`, decides with
 //! `alz-core` and returns the exit code; `main` only dispatches.
 
+pub mod build;
+pub mod check;
 pub mod init;
 pub mod lint;
+mod pipeline;
+mod repo_files;
 
 use alz_io::{EnvSnapshot, WorkingDirectory};
 

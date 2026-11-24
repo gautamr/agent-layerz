@@ -1,0 +1,2 @@
+warning [tool-scope] personal:agents/builder.md: agent 'builder': Claude cannot scope a tool per agent, so 'bash:mise run test' becomes 'Bash'; put the scope in permissions.yaml
+warning [tool-scope] personal:agents/writer.md: agent 'writer': Claude cannot scope a tool per agent, so 'write:docs*' becomes 'Write'; put the scope in permissions.yaml

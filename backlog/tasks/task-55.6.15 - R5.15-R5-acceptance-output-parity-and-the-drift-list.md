@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
-updated_date: '2026-11-24T02:21:00Z'
+updated_date: '2026-11-24T03:39:00Z'
 labels:
   - area:rust
   - area:test
@@ -44,4 +44,6 @@ Plan for this step: close R5.
 
 <!-- SECTION:NOTES:BEGIN -->
 From R5.16 (2026-11-24): remove continue-on-error from the acceptance-rust job in .github/workflows/tests.yml and mark the R6 cases (identity, account) as expected failures there, which also closes R5.16's AC #2.
+
+From R5.8 (2026-11-24), to settle in R5.15: (1) parity: the build summary line prints targets in sorted order, the reference in declared order — follow the reference; (2) the AGENTS.override.md walk skips a folder whose entries have names that are not UTF-8 — it must still find an override there (or refuse the build); (3) test 24's 12 rows 'agent frontmatter, claude.mcpServers list/map' expect error protected-variable while the Rust alz reports error agent first (both refuse) — decide by the spec and mark reference drift or reorder the checks; (4) test 24's 'JSON nested deeper than 32 levels' row: the protected-variable scanner needs the depth limit; (5) 3 rows of test 24 need account which/allow (R6).
 <!-- SECTION:NOTES:END -->

@@ -11,6 +11,7 @@ use std::os::fd::OwnedFd;
 use std::os::unix::ffi::OsStrExt;
 
 use alz_core::git::{BlobId, ObjectFormat};
+use alz_core::has_control_or_format;
 use alz_core::layer::{GitFileFacts, LayerScan, MAX_FILE_BYTES, NameProblem, Purpose};
 use alz_core::lock::{is_env_file, is_skipped_name};
 use alz_core::path::{SafeRelPath, SafeRelPathError};
@@ -157,6 +158,11 @@ fn visit(
                 Some(Err(_)) => scan.with_name_problem(NameProblem::NotSafe),
                 Some(Ok(_)) | None => scan,
             };
+            let scan = if has_control_or_format(name) {
+                scan.with_name_problem(NameProblem::ControlOrFormat)
+            } else {
+                scan
+            };
             visit_named(
                 frame,
                 entry,
@@ -256,6 +262,11 @@ fn read_or_record(
                             blob: BlobId::of(format, &bytes).id(),
                         }),
                         None => scan,
+                    };
+                    let scan = if executable {
+                        scan.with_executable(path.clone())
+                    } else {
+                        scan
                     };
                     scan.with_file(path, bytes)
                 }

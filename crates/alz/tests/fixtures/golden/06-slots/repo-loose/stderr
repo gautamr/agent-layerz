@@ -1,0 +1,1 @@
+warning [slot-missing] slot 'domain-glossary' required by personal (requires_slots) is not filled by any layer; emitting a stub skill

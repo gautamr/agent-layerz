@@ -129,6 +129,16 @@ impl RepoRoot {
         Ok(Disk::new(seen, managed, listed))
     }
 
+    /// Every file named `name` anywhere in the repository, in path order, found without following
+    /// a link and without entering `.git` or `node_modules`.
+    ///
+    /// # Errors
+    ///
+    /// [`RepoError`] when the operating system fails or a folder holds too many entries.
+    pub fn files_named(&self, name: &str) -> Result<Vec<SafeRelPath>, RepoError> {
+        list::files_named(self.root.handle(), name)
+    }
+
     /// Applies a plan that has no collision: each file as a temporary file in its folder renamed
     /// into place, the deletes, the folders they left empty, `.gitignore`, and `layer.lock` last.
     /// It stops at the first failure, which leaves every file either as it was or complete, and

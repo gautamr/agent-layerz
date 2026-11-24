@@ -1,0 +1,21 @@
+{
+  "files": {
+    ".claude/settings.json": "sha256:22f9cda4c1207335f488d9c02b2fb42ee0088b66cceeed21758ff8c57a8246f2",
+    "AGENTS.md": "sha256:f883eae85da557c564093effcb902f54bcc08b0ede65aad14aa72a4c35d3e4c5",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:3ed1506b077b48baf3790e2767802e4c4a8278dc03ac10cf390dc324db0a2b50",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:f1dc6d5e9bfe445f3a41f5d4cf19c5707510882326d8f39461bdd4ef2f280268",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

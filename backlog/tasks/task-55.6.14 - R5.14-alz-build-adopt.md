@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:09:00Z'
+updated_date: '2026-11-24T03:39:00Z'
 labels:
   - area:rust
   - area:adopt
@@ -35,3 +36,9 @@ Plan for this step (§4.3, §10).
 - [ ] #2 When any file cannot be adopted the repository tree is byte-identical before and after (test 20 against ALZ_BIN and an alz-io test)
 - [ ] #3 Nothing adoption writes, moves or deletes lies outside the repository or goes through a link (alz-io tests)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From R5.8 (2026-11-24): the build --adopt rows left are test 14 (1 row), test 23 (2 rows) and test 24 (2 rows: a lock outside the repository, a lock sha).
+<!-- SECTION:NOTES:END -->

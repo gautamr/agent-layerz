@@ -4,7 +4,7 @@ title: 'Never read files inside account folders through a path: layer'
 status: In Progress
 assignee: []
 created_date: '2026-11-22T07:23:00Z'
-updated_date: '2026-11-23T11:58:00Z'
+updated_date: '2026-11-24T03:36:00Z'
 labels:
   - discovered
   - area:security
@@ -46,4 +46,6 @@ Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only i
 Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged.
 
 R3.11 (2026-11-23): AC1-3 checked. Lint twins in test/acceptance/36-sources-and-cache-guards.test.ts pass against target/release/alz: layer at the fake HOME, layer above it, a layer reached through a link into ~/.claude-x with the folder at mode 000, and a cache root inside ~/.claude-x (error [cache], nothing created); marked referenceDrift TASK-52 (the reference fails all four). Rust: crates/alz-io/tests/directory_handles.rs (account folders), walk proptest R3.5. AC4 left unchecked: the build forms are written in the same file and fail against the Rust binary until alz build exists (R5, TASK-55.6); account resolution's use of the walk is R6.
+
+R5.8 (TASK-55.6.8, 2026-11-24): build form run against ALZ_BIN=target/release/alz in test 36 (16 passed, 4 Linux-only skipped) and test 24 (259 of 277; none of the 18 failures is this task's rows: --adopt R5.14, account which R6, agent mcpServers and nested JSON R4 follow-up). AC #4 left for the lead to check.
 <!-- SECTION:NOTES:END -->

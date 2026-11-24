@@ -1,0 +1,1 @@
+warning [tool-scope] personal:agents/reviewer.md: agent 'reviewer': Claude cannot scope a tool per agent, so 'bash:git diff *' becomes 'Bash'; put the scope in permissions.yaml

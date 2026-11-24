@@ -32,4 +32,4 @@ pub use diagnostic::{
     Code, Diagnostic, Diagnostics, Level, Message, MessagePart, Place, Position, Printable, Where,
 };
 
-pub use untrusted_text::{Escaped, QuotedKey, Stripped};
+pub use untrusted_text::{Escaped, QuotedKey, Stripped, has_control_or_format};

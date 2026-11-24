@@ -1,0 +1,25 @@
+{
+  "files": {
+    "AGENTS.md": "sha256:2b609049cc8e784c2389fa6b11e3e2116fcae4a693ae8f0c86d1f61f64a7c046",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:e544e02faef1e4281a01866dedc9047d79196adcf0ef8a876e74649ccbe450f2",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:61e37ece736f2fa38fd7e3c6ba82c1d59bfb6ebb1ddb0ba1d3144b8cd1bf05f2",
+      "name": "client",
+      "source": "path:../client"
+    },
+    {
+      "contentHash": "sha256:86d1f3b31d59a55955a64bf5fe8c4c627eadec5670e0f1dc4c3d82ece6b4b318",
+      "name": "repo",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

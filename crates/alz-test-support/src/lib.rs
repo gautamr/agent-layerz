@@ -4,11 +4,13 @@
 //! third-party temporary-directory crate. They never read the real home directory.
 
 mod scratch_dir;
+mod tree;
 
 use std::io;
 use std::path::PathBuf;
 
 pub use scratch_dir::ScratchDir;
+pub use tree::{TreeFile, copy_tree, folder_names, read_tree};
 
 /// The path of the running test executable, so that a test can start itself again, for instance
 /// under a pseudo-terminal.

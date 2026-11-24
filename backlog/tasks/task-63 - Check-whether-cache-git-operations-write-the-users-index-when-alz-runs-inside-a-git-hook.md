@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-22T17:19:00Z'
-updated_date: '2026-11-23T11:58:00Z'
+updated_date: '2026-11-24T03:36:00Z'
 labels:
   - discovered
   - area:security
@@ -47,4 +47,6 @@ Lead (2026-11-23, owner asked the lead to decide): no row in docs/target-facts.m
 Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged. Correction to the lead's note: the oldest supported git is 2.30, not 2.24. `rev-parse` accepts --end-of-options from 2.30, and 2.24 is the floor for checkout only (decision-24's evidence). Owner answer 4: below 2.30, alz stops with error [git], naming the version it found and the minimum.
 
 R3.11 (2026-11-23): AC1-3 checked. Reproduction: a pre-commit hook that snapshots every file under the main .git (index included) before and after running alz lint, in a main checkout and in a linked worktree. Against the Rust binary both leave the repository byte-identical and lint exits 0. Against the TypeScript reference the main-checkout case passes (the index is not changed there) and the linked-worktree case fails, so only the worktree case is referenceDrift TASK-63. Spec 'Git subprocesses' states the rule (R3.1). AC4 left unchecked: the alz check hook form is written and fails against Rust until R5 (check does not exist yet).
+
+R5.8 (TASK-55.6.8, 2026-11-24): build form run against ALZ_BIN=target/release/alz in test 36 (16 passed, 4 Linux-only skipped) and test 24 (259 of 277; none of the 18 failures is this task's rows: --adopt R5.14, account which R6, agent mcpServers and nested JSON R4 follow-up). AC #4 left for the lead to check.
 <!-- SECTION:NOTES:END -->

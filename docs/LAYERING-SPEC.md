@@ -2983,6 +2983,7 @@ How values print in these messages:
 | --- | --- | --- |
 | `collision` | error | a path the build writes that exists and is not alz's own, is a link or lies under one, or is not a regular file; a file in a managed folder that is not alz's own (§4.3); an `AGENTS.override.md` anywhere in the repository, which hides the generated `AGENTS.md` from Codex (target-facts §8.4); a note from `alz diff` for each such path |
 | `check` | error | in `alz check`, a generated file that is missing, differs from a fresh build or is stale, and a `layer.lock` that is out of date (§10.3) |
+| `write` | error | the repository could not be listed or written by `alz build` or `alz check`: a failure of the operating system, a folder with too many entries, or a folder that became a link while the build ran (§4.3), or a working directory alz cannot open |
 | `budget` | error | an `AGENTS.md` longer than `instructions_max_lines` or `instructions_max_bytes`, its Commits section included (§7.1) |
 | `protected` | warning | a file that a layer ships at a protected path, which the build leaves out (§4.5) |
 | `layer` | error | a file or folder name with a control or format character (§5.3), a source of a generated header that holds a control or format character or `-->` (§4.3) |

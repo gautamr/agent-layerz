@@ -1,0 +1,20 @@
+{
+  "files": {
+    "AGENTS.md": "sha256:66232c89677a8cfdad8bddaec2d41f1b61c9b8c91200e201bcb6f58f43140475",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:a07d59a03eb3590c962d3ce70ec6a20f746ff7d1e0da981b118a76e388a06f27",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:a04cd7f4b81e45f8fcc63f8818ce254c7b2e8d836a58194b7c195a17f3cf8902",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

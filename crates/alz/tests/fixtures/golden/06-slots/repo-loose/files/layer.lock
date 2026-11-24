@@ -1,0 +1,21 @@
+{
+  "files": {
+    ".claude/skills/domain-glossary/SKILL.md": "sha256:42713f1aece9b6b9a1a7ae6bbdb6b86e4358e4fc7ec2787ad9708f883a9bf5ad",
+    "AGENTS.md": "sha256:f883eae85da557c564093effcb902f54bcc08b0ede65aad14aa72a4c35d3e4c5",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:03a42b1d7cfa27b2506512003d46cfb8bfb2c79bfbea329e3419e8c7d32eef46",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:a04cd7f4b81e45f8fcc63f8818ce254c7b2e8d836a58194b7c195a17f3cf8902",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

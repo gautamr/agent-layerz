@@ -18,10 +18,22 @@ pub struct Cli {
 /// The commands of the specification that this binary implements (§10).
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Resolve, merge and render the stack, then write the generated files and `layer.lock`.
+    Build,
+    /// Fail when the generated files or `layer.lock` differ from a fresh build; writes nothing.
+    Check(CheckArgs),
     /// Scaffold a repository's layer manifest and repo layer, or a new layer.
     Init(InitArgs),
     /// Validate a layer, or a repository's stack manifest and lock.
     Lint(LintArgs),
+}
+
+/// The arguments of `alz check` (§10).
+#[derive(Debug, Args)]
+pub struct CheckArgs {
+    /// Skip the comparison of the git identity with the declared commit identity (§9.4).
+    #[arg(long)]
+    pub skip_identity: bool,
 }
 
 /// The arguments of `alz lint` (§10).

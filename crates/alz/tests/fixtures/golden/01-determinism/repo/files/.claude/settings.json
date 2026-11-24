@@ -1,0 +1,36 @@
+{
+  "cleanupPeriodDays": 30,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/block-secrets.sh\"",
+            "if": "Read(.env*)",
+            "onFailure": "block",
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/block-secrets.sh\"",
+            "if": "Edit(.env*)",
+            "onFailure": "block",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|Edit"
+      }
+    ]
+  },
+  "model": "sonnet",
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(mise run *)"
+    ],
+    "defaultMode": "default",
+    "deny": [
+      "Read(.env*)",
+      "Bash(rm -rf *)"
+    ]
+  }
+}

@@ -47,6 +47,13 @@ pub(crate) fn is_format(character: char) -> bool {
         .is_ok()
 }
 
+/// Whether `text` holds a character that class 1 removes: a control or a format character.
+#[must_use]
+pub fn has_control_or_format(text: &str) -> bool {
+    text.chars()
+        .any(|character| is_control(character) || is_format(character))
+}
+
 /// Class 1: untrusted text with every control and format character removed, line feed included,
 /// so the text stays on its own line and cannot move the cursor, recolour the screen or reorder
 /// text.

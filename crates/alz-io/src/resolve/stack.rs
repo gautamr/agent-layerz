@@ -14,13 +14,14 @@ use alz_core::cache::{CacheLocation, CacheLocationError};
 use alz_core::layer::{LayerContents, LayerMeta, Purpose, ReadLayer, scan_verdict};
 use alz_core::lint;
 use alz_core::lock::{Lock, LockedLayer};
+use alz_core::merge::Placements;
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::stack::resolution_failure::{
     env_file_in_layer, layer_directory_not_found, layer_touches_account_folder, layer_unreadable,
 };
 use alz_core::stack::{
-    FailedEntry, Manifest, Pin, ResolvedEntry, ResolvedLayer, Source, SourceDir, StackEntry,
-    StackReport, github_origin,
+    FailedEntry, Manifest, Pin, ResolvedEntry, ResolvedLayer, ResolvedStack, Source, SourceDir,
+    StackEntry, StackReport, github_origin,
 };
 use alz_core::yaml::MAX_BYTES;
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped};
@@ -31,6 +32,7 @@ use crate::resolve::clone::{FetchedLayer, Fetcher, GitLayer};
 use crate::resolve::folders::{account_folders, real_path};
 use crate::resolve::locate::locate_git_source;
 use crate::resolve::pinned_tree::{PinnedLayer, PinnedRead, PinnedTreeReader};
+use crate::resolve::placement::placements_of_stack;
 use crate::{EnvSnapshot, WorkingDirectory};
 
 /// Something made once, on the first use. A failure is told to the first user only: the entries
@@ -125,6 +127,17 @@ impl<'a> StackResolver<'a> {
                 .map(|entry| self.entry(entry, lock))
                 .collect(),
         )
+    }
+
+    /// Where each layer of `stack` lies in relation to the repository (§7.12 "Who may declare
+    /// it"): the file system's answer, which the merge takes as a fact.
+    #[must_use]
+    pub fn placements(&self, stack: &ResolvedStack) -> Placements {
+        let repository = RepositoryPaths::new(
+            self.repository.clone(),
+            real_path(&self.repository).unwrap_or_else(|| self.repository.clone()),
+        );
+        placements_of_stack(stack, &repository, &self.folders)
     }
 
     fn entry(&self, entry: &StackEntry, lock: Option<&Lock>) -> Result<ResolvedEntry, FailedEntry> {

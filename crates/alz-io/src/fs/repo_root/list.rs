@@ -130,3 +130,45 @@ pub(super) fn files_below(
     found.sort();
     Ok(found)
 }
+
+/// Folders the walk of the whole repository never enters: version control and what tools install.
+const NOT_WALKED: [&str; 3] = [".git", ".DS_Store", "node_modules"];
+
+/// Every file named `name` anywhere in the repository, in path order. Folders are entered from an
+/// explicit stack and no link is followed; a link is no file. A folder whose entries have names
+/// that are no valid Unicode, or are no safe relative path, is left out: nothing below it can be
+/// named by a generated path.
+pub(super) fn files_named(root: &OwnedFd, name: &str) -> Result<Vec<SafeRelPath>, RepoError> {
+    let mut pending: Vec<Option<SafeRelPath>> = vec![None];
+    let mut found = Vec::new();
+    while let Some(next) = pending.pop() {
+        let listed = match &next {
+            None => entries(root, None),
+            Some(folder) => match folder_at(root, folder.segments())
+                .map_err(|source| RepoError::io("listing", folder, source))?
+            {
+                Below::Folder(handle) => entries(&handle, Some(folder)),
+                Below::Stop(_) => continue,
+            },
+        };
+        let entries = match listed {
+            Ok(entries) => entries,
+            Err(RepoError::UnnameableEntry { .. }) => continue,
+            Err(other) => return Err(other),
+        };
+        for entry in entries {
+            let Some(path) = join(next.as_ref(), &entry.name) else {
+                continue;
+            };
+            if entry.is_folder {
+                if !NOT_WALKED.contains(&entry.name.as_str()) {
+                    pending.push(Some(path));
+                }
+            } else if entry.name == name {
+                found.push(path);
+            }
+        }
+    }
+    found.sort();
+    Ok(found)
+}

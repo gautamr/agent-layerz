@@ -142,6 +142,12 @@ pub enum Code {
     /// Two generated files whose paths differ only by ASCII case or Unicode normalisation, or a
     /// generated path that holds a file alz does not own (§4.3).
     Collision,
+    /// In `alz check`, a generated file that is missing, differs or is stale, and a lock that is
+    /// out of date (§10.3).
+    Check,
+    /// The repository could not be listed or written: a failure of the operating system, or a
+    /// change under the writer's hands (§4.3 "Writing").
+    Write,
     /// A generated path that a protected pattern covers, a warning (§4.5).
     Protected,
     /// An `AGENTS.md` longer than `instructions_max_lines` or `instructions_max_bytes`, its Commits
@@ -216,6 +222,8 @@ impl Code {
             Self::ProtectedVariable => "protected-variable",
             Self::Passthrough => "passthrough",
             Self::Collision => "collision",
+            Self::Check => "check",
+            Self::Write => "write",
             Self::Protected => "protected",
             Self::Budget => "budget",
             Self::Identity => "identity",

@@ -42,8 +42,8 @@ describe("untrusted repo content", () => {
   });
 
   it.each([
-    ["git:--upload-pack=touch PWNED@v1", "cannot start with '-'"],
-    ["github:owner/repo@--upload-pack=touch", "is not a valid git ref"],
+    ["git:--upload-pack=touch PWNED@v1", /cannot start with '-'|does not start with '-'/],
+    ["github:owner/repo@--upload-pack=touch", /is not a valid git ref|must be a git ref/],
   ])("never passes %s to git as an option", async (source, message) => {
     const ws = fixture("14-non-destructive");
     writeFileSync(
@@ -52,7 +52,7 @@ describe("untrusted repo content", () => {
     );
     const result = await layers(ws, "repo", ["build"]);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain(message);
+    expect(result.stderr).toMatch(message);
     expect(existsSync(`${ws.root}/repo/PWNED`)).toBe(false);
   });
 
@@ -64,7 +64,7 @@ describe("untrusted repo content", () => {
     );
     const result = await layers(ws, "repo", ["build"]);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("is not a valid git ref");
+    expect(result.stderr).toMatch(/is not a valid git ref|stack\[\d+\]\.ref must be a git ref/);
   });
 });
 

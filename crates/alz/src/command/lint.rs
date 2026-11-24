@@ -13,19 +13,15 @@ use std::path::Path;
 use alz_core::layer::{LayerContents, Purpose, ReadLayer, scan_verdict};
 use alz_core::lint::{self, LayerLint, LockFile};
 use alz_core::merge::check_alone;
-use alz_core::path::{SafeRelPath, SafeRelPathError};
 use alz_core::stack::resolution_failure::layer_unreadable;
 use alz_core::stack::{ResolvedLayer, Source};
-use alz_core::yaml::MAX_BYTES;
 use alz_core::{Diagnostic, Diagnostics, Stripped, leak_guard};
-use alz_io::{ReadError, ReadOnlyDir, StackResolver};
+use alz_io::{ReadOnlyDir, StackResolver};
 
 use crate::cli::LintArgs;
 use crate::command::Surroundings;
+use crate::command::repo_files::{WORKING_DIRECTORY, read_layer_yaml, read_lock};
 use crate::report::emit_diagnostics;
-
-/// The directory linted when `--layer` is not given.
-const WORKING_DIRECTORY: &str = ".";
 
 /// What a lint run found, and the summary line that goes with it, if it has one.
 #[derive(Debug)]
@@ -198,24 +194,6 @@ fn joined(names: &[Stripped]) -> Stripped {
             .collect::<Vec<_>>()
             .join(", "),
     )
-}
-
-fn read_layer_yaml(directory: &Path, source: &Stripped) -> Result<Vec<u8>, Diagnostic> {
-    read_in(directory, "layer.yaml").map_err(|error| error.into_layer_yaml_diagnostic(source))
-}
-
-fn read_lock(directory: &Path) -> Result<Option<Vec<u8>>, Diagnostic> {
-    match read_in(directory, "layer.lock") {
-        Ok(bytes) => Ok(Some(bytes)),
-        Err(ReadError::Missing) => Ok(None),
-        Err(error) => Err(error.into_lock_diagnostic()),
-    }
-}
-
-/// The regular file `name` of `directory`, at most 1 MiB, never reached through a link.
-fn read_in(directory: &Path, name: &str) -> Result<Vec<u8>, ReadError> {
-    let path = SafeRelPath::try_from(name).map_err(|SafeRelPathError| ReadError::Missing)?;
-    ReadOnlyDir::open(directory)?.read_file(&path, MAX_BYTES)
 }
 
 /// The directory as the person typed it, stripped (§10.1).
