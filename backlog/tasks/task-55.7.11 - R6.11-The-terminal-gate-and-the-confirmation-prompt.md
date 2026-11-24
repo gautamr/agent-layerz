@@ -1,10 +1,11 @@
 ---
 id: TASK-55.7.11
 title: 'R6.11: The terminal gate and the confirmation prompt'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-24T08:16:00Z'
-updated_date: '2026-11-24T08:19:00Z'
+updated_date: '2026-11-24T11:03:00Z'
 labels:
   - area:rust
   - area:accounts

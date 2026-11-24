@@ -1,10 +1,11 @@
 ---
 id: TASK-55.7.15
 title: 'R6.15: alz doctor: the blocked account folders and ALZ_ACCOUNT_DIRS'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-11-24T08:16:00Z'
-updated_date: '2026-11-24T08:19:00Z'
+updated_date: '2026-11-24T11:03:00Z'
 labels:
   - area:rust
   - area:accounts
