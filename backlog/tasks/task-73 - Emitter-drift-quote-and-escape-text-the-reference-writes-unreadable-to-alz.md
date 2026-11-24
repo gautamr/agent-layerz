@@ -1,10 +1,10 @@
 ---
 id: TASK-73
 title: 'Emitter drift: quote and escape text the reference writes unreadable to alz'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T06:27:00Z'
-updated_date: '2026-11-24T04:15:00Z'
+updated_date: '2026-11-24T05:55:00Z'
 labels:
   - discovered
   - area:rust
@@ -35,9 +35,9 @@ Scope: build case 4 in crates/alz-core/src/render/yaml/text.rs, mark its samples
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Text holding U+007F to U+009F, U+2028 or U+2029 is written double-quoted with the escapes of spec §10.2, and its samples carry the drift field (mise run rust:check)
-- [ ] #2 Long double-quoted text with a space between a line feed written as a line break and another line feed reads back as written: alz writes the space as one \ escape, a drift sample pins it, and the round-trip property covers it (mise run rust:check)
-- [ ] #3 Spec §10.2 no longer marks anything as planned under TASK-73 (spec diff)
+- [x] #1 Text holding U+007F to U+009F, U+2028 or U+2029 is written double-quoted with the escapes of spec §10.2, and its samples carry the drift field (mise run rust:check)
+- [x] #2 Long double-quoted text with a space between a line feed written as a line break and another line feed reads back as written: alz writes the space as one \ escape, a drift sample pins it, and the round-trip property covers it (mise run rust:check)
+- [x] #3 Spec §10.2 no longer marks anything as planned under TASK-73 (spec diff)
 - [ ] #4 R5's output parity suite lists every reference drift case of spec §10.2 as known drift and checks alz's own bytes for each (acceptance test)
 <!-- AC:END -->
 
@@ -49,4 +49,6 @@ Scope: build case 4 in crates/alz-core/src/render/yaml/text.rs, mark its samples
 Lead (2026-11-23): the emitter fixes (escaping, line-break read-back) land in R2.8 (TASK-55.3.8). Adoption (R5): alz build --adopt refuses text the reader would refuse (control, format, U+2028/U+2029 characters, invalid names) before it writes anything, with a diagnostic that names the source file and not the text, rather than writing a layer the next build refuses.
 
 2026-11-24 implementer (R5.13, TASK-55.6.13): AC#4 partly: adoption refuses text the layer reader would refuse before planning anything (adopt/check.rs merges the planned repo layer with the manifest as it would be edited; test text_the_layer_reader_refuses_rejects_the_plan_and_the_problem_names_the_native_file uses U+2028 in a settings.json env value; the problem names .claude/settings.json and prints the reader line stripped). The emitter drift cases themselves and the output-parity listing stay with R2.8 and R5.15.
+
+Verified by the lead (2026-11-24): AC #1 and #2 by render::yaml's drift sample tests (escaped C1 and line separators, the escaped space between line feeds, round trip; mise run rust:ci); AC #3: spec §10.2 marks these as reference drift (TASK-73), nothing as planned. AC #4 (an acceptance case per §10.2 drift sample) is left: R5's acceptance suite has none yet.
 <!-- SECTION:NOTES:END -->
