@@ -1,9 +1,10 @@
 ---
 id: TASK-74
 title: Find the cause of the intermittent git-version test failure on Linux CI
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-23T12:09:00Z'
+updated_date: '2026-11-24T03:19:00Z'
 labels:
   - discovered
   - area:rust
@@ -22,6 +23,18 @@ Seen once on PR #8's ubuntu job (commit 4124a4e): crates/alz/tests/git_runner.rs
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The cause is named from a failing run's message, or 50 consecutive Linux CI runs of git_runner pass
-- [ ] #2 If the cause is ETXTBSY or another test-harness race, the fix is in alz-test-support or the tests, not in product code, and a note says why
+- [x] #1 The cause is named from a failing run's message, or 50 consecutive Linux CI runs of git_runner pass
+- [x] #2 If the cause is ETXTBSY or another test-harness race, the fix is in alz-test-support or the tests, not in product code, and a note says why
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Cause (2026-11-24): a parallel test forks while ScratchDir::write_executable still holds a stub script open for writing, so running the stub fails on Linux (ETXTBSY) and the version call sees no output ('found none'). Reproduced in a rust:1.100.0 Linux container (git_runner binary, --test-threads 32, 2 CPUs): the old code failed 7 of 300 runs across several stub tests (a_git_at_2_30..., a_git_below_2_30..., a_git_that_prints_no_version..., the_tree_and_object_calls...); with the fix 0 of 300. Fix in alz-test-support only (no product code): a short-lived /bin/sh child writes the file and sets its mode, so the test process never holds a writable handle that a forked child could inherit.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The git_runner flake was a test-harness ETXTBSY race; alz-test-support now writes stub executables through a child shell. Linux: 7/300 failures before, 0/300 after.
+<!-- SECTION:FINAL_SUMMARY:END -->
