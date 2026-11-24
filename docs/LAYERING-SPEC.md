@@ -1596,8 +1596,18 @@ others, each key optional, and any other key an error at that depth), or one of 
 - The security rules above apply on top. A key they refuse is reported once, by them, and is not
   in the typed table; a floor key is accepted and typed (a floor never sees a value of another
   type, because the read refuses it first).
-- The check looks at names and types only. It does not check a number's range, the syntax of a
-  pattern or a path, or whether a key has an effect in a project file.
+- A number is finite: `.nan`, `.inf` and `-.inf` are a `settings` error like any value of another
+  type, naming the file and the key path and printing no value.
+- A number also has the range that §14.6 records for its key (`cleanupPeriodDays` at least 1,
+  `maxProseWidth` at least 40, `autoCompactWindow` at least 100000, `feedbackSurveyRate` from 0 to 1,
+  and so on), and a value outside it is a `settings` error of the same form
+  (`'claude.cleanupPeriodDays' must be a whole number of at least 1`), even where Claude Code
+  loads it and clamps or ignores it. An entry of `allowedMcpServers` that Claude Code skips (a
+  `serverName` with a character other than a letter, digit, hyphen or underscore, or an empty
+  `serverCommand`) is refused alike. No other text has a format check: Claude Code loads the
+  rest as written (§14.6).
+- The check does not look at the syntax of a pattern or a path, or at whether a key has an effect
+  in a project file.
 - `codex:` has no typed table in this version.
 
 The TypeScript `alz` accepts any key and any value under `claude:` (reference drift, TASK-79).
@@ -3823,7 +3833,7 @@ finds each case.
 | TASK-68 | 26 | the first line left after control characters are removed |
 | TASK-71 | 24 | credentials in a layer source are refused |
 | TASK-73 | 38 | text the reference writes plain that alz would read as an integer is quoted; a space between line feeds in long double-quoted text is one escaped space (§10.2) |
-| TASK-79 | 37 | Claude settings keys and agent fields need a recorded type |
+| TASK-79 | 37 | Claude settings keys and agent fields need a recorded type, finite numbers inside the documented range |
 
 ## 14. Rollout (generic, for any client)
 

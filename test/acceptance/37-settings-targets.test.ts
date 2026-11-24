@@ -405,3 +405,64 @@ describe("§7.2 the fields and value types of an agent's Claude fields", () => {
     );
   });
 });
+
+const OUT_OF_RANGE_SETTINGS_ROWS = [
+  "claude: { feedbackSurveyRate: .nan }\n",
+  "claude: { feedbackSurveyRate: .inf }\n",
+  "claude: { feedbackSurveyRate: -.inf }\n",
+  "claude: { skillListingBudgetFraction: .inf }\n",
+  "claude: { cleanupPeriodDays: 0 }\n",
+  "claude: { cleanupPeriodDays: -3 }\n",
+  "claude: { maxProseWidth: 39 }\n",
+  "claude: { autoCompactWindow: 99999 }\n",
+  "claude: { bashOutputMaxChars: 0 }\n",
+  "claude: { skillListingMaxDescChars: 0 }\n",
+  "claude: { skillListingBudgetFraction: 0 }\n",
+  "claude: { skillListingBudgetFraction: 1.5 }\n",
+  "claude: { feedbackSurveyRate: 1.5 }\n",
+  "claude: { feedbackSurveyRate: -0.1 }\n",
+  "claude: { modelSettings: { m: { autoCompactWindow: 5 } } }\n",
+  "claude: { spinnerTipsOverride: { tips: [{ id: a, text: b, cooldownSessions: 1001 }] } }\n",
+  "claude: { spinnerTipsOverride: { tips: [{ id: a, text: b, priority: 11 }] } }\n",
+  "claude: { allowedMcpServers: [{ serverName: has space }] }\n",
+  "claude: { allowedMcpServers: [{ serverCommand: [] }] }\n",
+];
+
+describe("§7.9 a number is finite and inside the range Claude Code documents (§14.6)", () => {
+  it("numbers at the ends of their ranges lint clean", async () => {
+    const ws = fixture("37-settings-targets");
+    plant(
+      ws,
+      SETTINGS,
+      "claude: { cleanupPeriodDays: 1, maxProseWidth: 40, autoCompactWindow: 100000, bashOutputMaxChars: 1, skillListingMaxDescChars: 1, skillListingBudgetFraction: 1, feedbackSurveyRate: 0, allowedMcpServers: [{ serverName: ok_name-1 }, { serverCommand: [bin] }] }\n",
+    );
+    const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+    expect(result.stderr).toBe("");
+    expect(result.code).toBe(0);
+  });
+
+  describe.each(OUT_OF_RANGE_SETTINGS_ROWS)("file %j", (text) => {
+    referenceDrift(
+      "TASK-79",
+      "alz lint --layer refuses the value and names the file and the key",
+      async () => {
+        const ws = fixture("37-settings-targets");
+        plant(ws, SETTINGS, text);
+        const result = await layers(ws, ".", ["lint", "--layer", "personal"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("error [settings] personal:settings.yaml");
+        expect(result.stderr).toContain("'claude.");
+      },
+    );
+
+    referenceDrift("TASK-79", "alz build refuses the value and writes nothing", async () => {
+      const ws = fixture("37-settings-targets");
+      plant(ws, SETTINGS, text);
+      const tree = readTree(`${ws.root}/repo`);
+      const result = await layers(ws, "repo", ["build"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("error [settings] personal:settings.yaml");
+      expect(readTree(`${ws.root}/repo`)).toEqual(tree);
+    });
+  });
+});

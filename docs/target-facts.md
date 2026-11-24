@@ -608,7 +608,7 @@ Counts. Of the first 98 rows, all 98 were checked against DOCS; 94 also have a S
 
 ### 14.1 What the table checks
 
-A type is a boolean, text, a whole number (a YAML integer), a number, one of a list of texts, a list of one type, a mapping with any text keys and one value type (`*` in a path), a mapping with listed keys (each optional unless the note says required; any other key is an error), a mapping with exactly one of the listed keys, or one of several types. A path has `*` for a key of a mapping with any keys and `[]` for a list item. Ranges ("minimum 1", "at most 1"), patterns and the syntax of a path or a URL are not checked.
+A type is a boolean, text, a whole number (a YAML integer), a number, one of a list of texts, a list of one type, a mapping with any text keys and one value type (`*` in a path), a mapping with listed keys (each optional unless the note says required; any other key is an error), a mapping with exactly one of the listed keys, or one of several types. A path has `*` for a key of a mapping with any keys and `[]` for a list item. A whole number may have a span (at least a minimum, or between two numbers), a number a range between 0 and 1, and a number is finite (`.nan`, `.inf` and `-.inf` are refused). The ranges are recorded in the Note column and in 14.6. Of the text keys only the name of an MCP allowlist entry has a format (14.6); patterns and the syntax of a path or a URL are not checked.
 
 A key that the security table refuses (§13) is not listed here, even when it has a type; a floor key of §13 is listed and typed.
 
@@ -644,8 +644,8 @@ Keys with a floor (§13) first.
 | `httpHookAllowedEnvVars` | a list whose items are text | S |  |
 | `disableSkillShellExecution` | a boolean | S |  |
 | `allowedMcpServers` | a list whose items are a mapping with exactly one of the keys serverName, serverCommand, serverUrl | S |  |
-| `allowedMcpServers[].serverName` | text | D |  |
-| `allowedMcpServers[].serverCommand` | a list whose items are text | D |  |
+| `allowedMcpServers[].serverName` | a name of letters, digits, hyphens and underscores | S | 14.6 |
+| `allowedMcpServers[].serverCommand` | a list of at least one item, whose items are text | S | 14.6 |
 | `allowedMcpServers[].serverUrl` | text | D |  |
 | `deniedMcpServers` | a list whose items are a mapping with exactly one of the keys serverName, serverCommand, serverUrl | S |  |
 | `deniedMcpServers[].serverName` | text | D |  |
@@ -672,7 +672,7 @@ All other accepted keys.
 | `modelSettings` | a mapping whose values are a mapping | D |  |
 | `modelSettings.*.effortLevel` | one of low, medium, high, xhigh | D |  |
 | `modelSettings.*.maxEffortLevel` | one of low, medium, high, xhigh, max | D |  |
-| `modelSettings.*.autoCompactWindow` | a whole number, or one of auto | D |  |
+| `modelSettings.*.autoCompactWindow` | a whole number of at least 100000, or one of auto | D | "a token count of 100000 or more, or auto" (DOCS); 14.6 |
 | `outputStyle` | text | S |  |
 | `promptCacheTtl` | one of 5m, 1h | D |  |
 | `showThinkingSummaries` | a boolean | S |  |
@@ -680,24 +680,24 @@ All other accepted keys.
 | `switchModelsOnFlag` | a boolean | S |  |
 | `ultracode` | a boolean | D |  |
 | `autoCompactEnabled` | a boolean | S |  |
-| `autoCompactWindow` | a whole number | D | 100000 or more (DOCS); the range is not checked |
+| `autoCompactWindow` | a whole number of at least 100000 | D | 100000 or more (DOCS); 14.6 |
 | `autoMemoryDirectory` | text | S |  |
 | `autoMemoryEnabled` | a boolean | S |  |
-| `bashOutputMaxChars` | a whole number | D | positive; Claude clamps it to 4000 to 128000 (DOCS) |
+| `bashOutputMaxChars` | a whole number of at least 1 | D | positive; Claude clamps it to 4000 to 128000 (DOCS), so alz refuses only what is not positive; 14.6 |
 | `claudeMdExcludes` | a list whose items are text | S |  |
 | `env` | a mapping whose values are text | D | SMOKE: a number as a value is accepted by 2.1.323; alz requires text |
 | `fileCheckpointingEnabled` | a boolean | S |  |
 | `idleCompaction` | a boolean | S |  |
 | `plansDirectory` | text | S |  |
-| `skillListingBudgetFraction` | a number | S | above 0 and at most 1 (DOCS); the range is not checked |
-| `skillListingMaxDescChars` | a whole number | S |  |
+| `skillListingBudgetFraction` | a number above 0 and at most 1 | S | 14.6 |
+| `skillListingMaxDescChars` | a whole number of at least 1 | S | a positive integer (DOCS); 0 and -1 refused (SMOKE); 14.6 |
 | `autoScrollEnabled` | a boolean | S |  |
 | `companyAnnouncements` | a list whose items are text | S |  |
 | `defaultShell` | one of bash, powershell | S |  |
 | `editorMode` | one of normal, vim | D |  |
 | `emojiCompletionEnabled` | a boolean | S |  |
 | `keybindingFlavor` | one of classic, readline | D |  |
-| `maxProseWidth` | a whole number | D | minimum 40 (DOCS); the range is not checked |
+| `maxProseWidth` | a whole number of at least 40 | D | "minimum 40. Claude Code ignores any other value" (DOCS); 14.6 |
 | `prefersReducedMotion` | a boolean | S |  |
 | `promptSuggestionEnabled` | a boolean | S |  |
 | `respectGitignore` | a boolean | S |  |
@@ -709,8 +709,8 @@ All other accepted keys.
 | `spinnerTipsOverride.tips` | a list whose items are text, or a mapping | D |  |
 | `spinnerTipsOverride.tips[].id` | text | D |  |
 | `spinnerTipsOverride.tips[].text` | text | D |  |
-| `spinnerTipsOverride.tips[].cooldownSessions` | a whole number | D |  |
-| `spinnerTipsOverride.tips[].priority` | a whole number | D |  |
+| `spinnerTipsOverride.tips[].cooldownSessions` | a whole number from 0 to 1000 | D | "0 to 1000" (DOCS); 14.6 |
+| `spinnerTipsOverride.tips[].priority` | a whole number from -10 to 10 | D | "-10 to 10" (DOCS); 14.6 |
 | `spinnerTipsOverride.tipsFile` | text | D |  |
 | `spinnerTipsOverride.label` | text | D |  |
 | `spinnerTipsOverride.excludeDefault` | a boolean | D |  |
@@ -768,8 +768,30 @@ All other accepted keys.
 | `remoteControlAtStartup` | a boolean | S |  |
 | `autoUpdatesChannel` | one of latest, stable | S |  |
 | `minimumVersion` | text | S |  |
-| `cleanupPeriodDays` | a whole number | S | minimum 1 (DOCS); the range is not checked |
-| `feedbackSurveyRate` | a number | S | between 0 and 1 (DOCS); the range is not checked |
+| `cleanupPeriodDays` | a whole number of at least 1 | S | minimum 1 (DOCS); 0 and -3 refused (SMOKE); 14.6 |
+| `feedbackSurveyRate` | a number from 0 to 1 | S | 14.6 |
+
+### 14.6 Ranges and formats (TASK-55.6 review) — checked 2026-11-24, Claude Code 2.1.323
+
+Method: the SMOKE of 14.0 (project `.claude/settings.json` in a throwaway folder, `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders, `claude -p hi --max-turns 1 </dev/null`; no login, nothing under `~/.claude*`), one run per value. "Refused" is `These settings files did not load` naming the key; "loads" is no message. The DOCS lines are `settings-reference.md`, fetched 2026-11-24.
+
+| Key | Range in the table | DOCS | SMOKE 2.1.323 |
+|---|---|---|---|
+| `cleanupPeriodDays` | at least 1 | "a whole number, minimum 1" | 0, -3 refused (`Number must be greater than or equal to 0`); 1, 5 load; 1.5 refused (`Expected int`) |
+| `skillListingBudgetFraction` | above 0, at most 1 | "a fraction greater than 0 and at most 1" | 0, -0.5 refused; 1.5 refused (`expected number to be <=1`); 1 loads |
+| `skillListingMaxDescChars` | at least 1 | "a positive integer" | 0, -1 refused |
+| `feedbackSurveyRate` | 0 to 1, both included | "number between 0 and 1" | -0.1, 1.5 refused; 0, 1 load |
+| `autoCompactWindow`, `modelSettings.*.autoCompactWindow` | at least 100000 | "a token count of at least 100000" | 99999, 0, -5 **load** without a message (level D) |
+| `bashOutputMaxChars` | at least 1 | "a positive integer; clamped into 4000 to 128000" | 0, -1, 1, 3999, 999999999 **load** (level D; Claude clamps) |
+| `maxProseWidth` | at least 40 | "minimum 40. Claude Code ignores any other value" | 0, -1, 39, 100000 **load** (level D) |
+| `spinnerTipsOverride.tips[].cooldownSessions` | 0 to 1000 | "0 to 1000" | 1001, -1 **load** (level D) |
+| `spinnerTipsOverride.tips[].priority` | -10 to 10 | "-10 to 10" | 11, -11 **load** (level D) |
+
+alz refuses a value outside the range even where 2.1.323 loads it: the range is the documented one, and a value outside it is ignored or clamped by Claude, so the file does not do what its author wrote. A non-finite number (`.nan`, `.inf`, `-.inf`) is refused for every number key; YAML has it, JSON does not, so Claude's file could not hold it.
+
+Text keys with a format that Claude might check, all SMOKE with a malformed value: `minimumVersion` (`bogus`, empty), `timeZone` (`Not/AZone`, empty), `prUrlTemplate` (`not a url`, empty), `$schema`, `theme` (`nonsense`, `custom:Bad Slug!`), `outputStyle`, `language`, `plansDirectory` (empty), `autoMemoryDirectory` (empty), `advisorModel` (empty), `remote.defaultEnvironmentId`, `agent`, `allowedMcpServers[].serverUrl` (`not a url`, empty), `deniedMcpServers[].serverName` (`has space`), `spinnerTipsOverride.tips[].id` (`bad id!`), `worktree.sparsePaths`, `availableModels` (empty item) **all load without a message**. DOCS says an invalid `minimumVersion` "is ignored" and an unknown `timeZone` falls back to the system zone. So alz checks only the type of these.
+
+The one format Claude checks is in the MCP allowlist, and it **skips the entry** with a message (`These settings entries were skipped; the rest of each file is in effect`): `allowedMcpServers[]` with `serverName` `''` or `a.b` (`Server name can only contain letters, numbers, hyphens, and underscores`; `has space` is skipped alike), with `serverCommand: []` (`Server command must have at least one element`), or with more than one of the three keys (the table already requires exactly one). `deniedMcpServers[]` with `serverName: has space` loads. alz refuses the allowlist entries Claude skips; the denylist is checked for type only. A skipped allowlist entry leaves the allowlist narrower than written.
 
 ### 14.3 Keys that are not accepted
 
@@ -789,7 +811,7 @@ DOCS only: `code.claude.com/docs/en/sub-agents.md`, "Supported frontmatter field
 |---|---|---|---|
 | `disallowedTools` | text, or a list whose items are text | D | a comma-separated string or a YAML list, "same format as `tools`" |
 | `maxTurns` | a whole number | D | maximum number of agentic turns |
-| `autoCompactWindow` | a whole number | D | 100000 or more; needs v2.1.296 or later; the range is not checked |
+| `autoCompactWindow` | a whole number of at least 100000 | D | 100000 or more; needs v2.1.296 or later (DOCS) |
 | `background` | a boolean | D |  |
 | `omitClaudeMd` | a boolean | D | needs v2.1.271 or later |
 | `effort` | one of low, medium, high, xhigh, max | D | the levels available depend on the model |

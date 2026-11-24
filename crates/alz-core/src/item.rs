@@ -44,7 +44,7 @@ pub use native_keys::{
     AGENT_KEYS, AgentKey, KEYS, KeyRule, Looseness, Loosening, NativeKey, Step, Strictness,
     loosenings, native_key,
 };
-pub use native_types::{CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, Field, Shape, Typed};
+pub use native_types::{CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, Ends, Field, Shape, Span, Typed};
 pub use passthrough::{PassthroughFile, PassthroughItems};
 pub use permission::{
     Binding, DefaultMode, FloorFlag, PermissionItems, PermissionRefusal, PermissionRule,

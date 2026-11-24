@@ -416,7 +416,7 @@ fn a_claude_field_of_the_wrong_type_is_an_agent_error_naming_the_key_path_and_ne
         ),
         (
             "claude:\n  autoCompactWindow: 1.5\n",
-            "error [agent] personal:agents/helper.md:5:22: 'claude.autoCompactWindow' must be a whole number",
+            "error [agent] personal:agents/helper.md:5:22: 'claude.autoCompactWindow' must be a whole number of at least 100000",
         ),
         (
             "claude:\n  maxTurns: null\n",
