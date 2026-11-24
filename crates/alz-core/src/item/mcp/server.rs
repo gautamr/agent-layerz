@@ -3,7 +3,8 @@
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::schema::{
-    Checked, SchemaError, SchemaErrors, require, text_list, unknown_fields, zip, zip3,
+    Checked, SchemaError, SchemaErrors, require, text_list, unknown_fields, written_text_list, zip,
+    zip3,
 };
 use crate::secret;
 use crate::yaml::fields::{KeyPath, Section};
@@ -53,8 +54,9 @@ pub enum Transport {
     Stdio {
         /// The program to run.
         command: String,
-        /// Its arguments, in order.
-        args: Vec<String>,
+        /// Its arguments, in order; `None` when `args` is not written, which differs from a list
+        /// written empty (`args: []`): the output keeps the difference.
+        args: Option<Vec<String>>,
         /// The names of the environment variables passed through to it; never their values.
         env_from: Vec<EnvVarName>,
     },
@@ -198,7 +200,7 @@ pub(super) fn read_server(
             optional_text(&section, "url"),
         ),
         zip(
-            text_list::<String>(&section, "args"),
+            written_text_list::<String>(&section, "args"),
             text_list::<String>(&section, "env_from"),
         ),
     )

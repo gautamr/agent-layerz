@@ -463,13 +463,29 @@ pub fn text_list<T: for<'a> From<&'a str>>(
     section: &Section<'_>,
     field: &'static str,
 ) -> Checked<Vec<T>> {
-    section.items(field)?.map_or(Ok(Vec::new()), |items| {
-        all(items.into_iter().map(|(path, node)| {
-            Section::text_of(node, path)
-                .map(T::from)
-                .map_err(SchemaErrors::from)
-        }))
-    })
+    written_text_list(section, field).map(Option::unwrap_or_default)
+}
+
+/// Like [`text_list`], but `None` when the field is absent, so a list written empty (`[]`) can be
+/// told from no list.
+///
+/// # Errors
+///
+/// The field's problem when it is not a list, and the problem of each item that is not text.
+pub fn written_text_list<T: for<'a> From<&'a str>>(
+    section: &Section<'_>,
+    field: &'static str,
+) -> Checked<Option<Vec<T>>> {
+    section
+        .items(field)?
+        .map(|items| {
+            all(items.into_iter().map(|(path, node)| {
+                Section::text_of(node, path)
+                    .map(T::from)
+                    .map_err(SchemaErrors::from)
+            }))
+        })
+        .transpose()
 }
 
 /// The field as a value of the validated type `T`, `None` when it is absent.

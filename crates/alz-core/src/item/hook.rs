@@ -107,15 +107,32 @@ pub enum Trigger {
     },
 }
 
-/// A script of the layer: a file below `hooks/scripts/` that the layer holds.
+/// A script of the layer: a file below `hooks/scripts/` that the layer holds, with the bytes the
+/// layer's walk read and whether it has the owner-execute bit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct HookScript(SafeRelPath);
+pub struct HookScript {
+    path: SafeRelPath,
+    bytes: Vec<u8>,
+    executable: bool,
+}
 
 impl HookScript {
     /// The path in the layer, such as `hooks/scripts/block-secrets.sh`.
     #[must_use]
     pub const fn path(&self) -> &SafeRelPath {
-        &self.0
+        &self.path
+    }
+
+    /// The bytes of the script.
+    #[must_use]
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Whether the script has the owner-execute bit, which its copy keeps (§8.1).
+    #[must_use]
+    pub const fn executable(&self) -> bool {
+        self.executable
     }
 
     /// The script that `run` names, which is written relative to `hooks/`.
@@ -125,7 +142,11 @@ impl HookScript {
             .filter(|path| matches!(ItemPath::of(path), ItemPath::HookScript { .. }))
             .ok_or(Problem::ScriptOutside)?;
         match contents.get(&path) {
-            Some(_) => Ok(Self(path)),
+            Some(bytes) => Ok(Self {
+                bytes: bytes.to_vec(),
+                executable: contents.is_executable(&path),
+                path,
+            }),
             None => Err(Problem::ScriptMissing(path)),
         }
     }

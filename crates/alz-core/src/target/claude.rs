@@ -6,14 +6,20 @@
 //! frontmatter fields and tool names (§1), skills and commands (§5) and `paths` in a rule (§9).
 
 mod agents;
+mod document;
 mod frontmatter;
+mod hooks;
+mod mcp;
+mod permissions;
 mod rules;
+mod settings;
 mod skills;
 mod tools;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::merge::Merged;
 use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
+use crate::stack::Workspace;
 
 pub use tools::is_model_value;
 
@@ -29,32 +35,11 @@ impl ClaudeFiles {
     /// Renders every agent, skill, command, slot stub and rule of `merged`.
     #[must_use]
     pub fn of(merged: &Merged) -> Self {
-        let made = [
+        let (tree, diagnostics) = assemble(vec![
             agents::render(merged),
             skills::render(merged),
             rules::render(merged),
-        ];
-        let (tree, collisions) = made.iter().flat_map(|output| output.files.iter()).fold(
-            (FileTree::new(), Diagnostics::new()),
-            |(mut tree, collisions), (path, file)| match tree.insert(path.clone(), file.clone()) {
-                Ok(()) => (tree, collisions),
-                Err(collision) => (
-                    tree,
-                    collisions.with(Diagnostic::error(
-                        Code::Collision,
-                        None,
-                        Message::new("")
-                            .then(crate::Stripped::from_untrusted(&collision.to_string())),
-                    )),
-                ),
-            },
-        );
-        let diagnostics = made
-            .into_iter()
-            .fold(Diagnostics::new(), |all, output| {
-                all.merge(output.diagnostics)
-            })
-            .merge(collisions);
+        ]);
         Self { tree, diagnostics }
     }
 
@@ -75,6 +60,72 @@ impl ClaudeFiles {
     pub fn into_parts(self) -> (FileTree, Diagnostics) {
         (self.tree, self.diagnostics)
     }
+}
+
+/// The files of the Claude adapter for `settings.json`, the hook scripts and `.mcp.json`, and what
+/// the rendering found (spec §8.1). `settings.json` is made from the target's merged settings and
+/// the first-class items (permissions, hooks, the default model, the workspace folders), never
+/// from any other source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaudeSettingsFiles {
+    tree: FileTree,
+    diagnostics: Diagnostics,
+}
+
+impl ClaudeSettingsFiles {
+    /// Renders `.claude/settings.json`, the copied hook scripts and `.mcp.json`.
+    #[must_use]
+    pub fn of(merged: &Merged, workspace: &Workspace) -> Self {
+        let (tree, diagnostics) = assemble(vec![
+            settings::render(merged, workspace),
+            mcp::render(merged),
+        ]);
+        Self { tree, diagnostics }
+    }
+
+    /// The files, by path.
+    #[must_use]
+    pub const fn tree(&self) -> &FileTree {
+        &self.tree
+    }
+
+    /// The errors and warnings of the rendering.
+    #[must_use]
+    pub const fn diagnostics(&self) -> &Diagnostics {
+        &self.diagnostics
+    }
+
+    /// The tree and the diagnostics, handed over.
+    #[must_use]
+    pub fn into_parts(self) -> (FileTree, Diagnostics) {
+        (self.tree, self.diagnostics)
+    }
+}
+
+/// The files of every output in one tree, two outputs of one path a `collision` error, and all
+/// the diagnostics.
+fn assemble(made: Vec<Output>) -> (FileTree, Diagnostics) {
+    let (tree, collisions) = made.iter().flat_map(|output| output.files.iter()).fold(
+        (FileTree::new(), Diagnostics::new()),
+        |(mut tree, collisions), (path, file)| match tree.insert(path.clone(), file.clone()) {
+            Ok(()) => (tree, collisions),
+            Err(collision) => (
+                tree,
+                collisions.with(Diagnostic::error(
+                    Code::Collision,
+                    None,
+                    Message::new("").then(crate::Stripped::from_untrusted(&collision.to_string())),
+                )),
+            ),
+        },
+    );
+    let diagnostics = made
+        .into_iter()
+        .fold(Diagnostics::new(), |all, output| {
+            all.merge(output.diagnostics)
+        })
+        .merge(collisions);
+    (tree, diagnostics)
 }
 
 /// What one kind of item rendered into: files in the order made, and diagnostics.

@@ -1,0 +1,21 @@
+zeta:
+  transport: stdio
+  command: npx
+  args: ["-y", "@zeta/server"]
+  env_from: [ZETA_TOKEN, ALPHA_KEY]
+alpha:
+  transport: sse
+  url: https://alpha.invalid/sse
+beta:
+  transport: http
+  url: https://beta.invalid/mcp
+plain:
+  transport: stdio
+  command: ./plain
+unused:
+  transport: http
+  url: https://unused.invalid/mcp
+empty:
+  transport: stdio
+  command: ./empty
+  args: []

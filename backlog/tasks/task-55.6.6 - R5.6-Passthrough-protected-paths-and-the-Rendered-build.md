@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-23T23:31:00Z'
+updated_date: '2026-11-24T02:19:00Z'
 labels:
   - area:rust
   - area:render
@@ -43,4 +43,6 @@ Plan for this step: the pure entry point `render(&Merged, &Manifest) -> Rendered
 
 <!-- SECTION:NOTES:BEGIN -->
 From R5.3 (2026-11-24): the Rendered build must add AgentsMd::budget_problems(manifest budgets) to the build diagnostics, and when AgentsMd::compose or claude_md returns errors the build writes nothing.
+
+From R5.5 (2026-11-24): wire ClaudeSettingsFiles::of(&Merged, manifest.workspace()) into Rendered beside ClaudeFiles; their paths do not overlap (.claude/settings.json, .claude/hooks/**, .mcp.json).
 <!-- SECTION:NOTES:END -->

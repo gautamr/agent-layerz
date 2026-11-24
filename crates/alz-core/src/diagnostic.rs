@@ -157,6 +157,9 @@ pub enum Code {
     ClaudeAgent,
     /// An agent tool with a scope, which Claude cannot keep, a warning (§8.1).
     ToolScope,
+    /// A hook with `on_fail: deny` on an event where Claude cannot block, or cannot block on a
+    /// crash, a warning (§8.1).
+    HookOnFail,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
@@ -217,6 +220,7 @@ impl Code {
             Self::Account => "account",
             Self::ClaudeAgent => "claude-agent",
             Self::ToolScope => "tool-scope",
+            Self::HookOnFail => "hook-on-fail",
             Self::Unresolved => "unresolved",
         }
     }

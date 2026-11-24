@@ -1,6 +1,6 @@
 //! The native names of Claude Code for the neutral vocabulary (spec §8.1, target-facts §1).
 
-use crate::item::{Memory, NeutralTool, PermissionMode, ToolName};
+use crate::item::{Memory, NeutralTool, PermissionMode, ToolGrant, ToolName};
 
 /// The native name of a tool: the neutral tools by the table of §8.1, an `mcp__` tool as written.
 pub(super) fn tool(name: &ToolName) -> String {
@@ -22,6 +22,15 @@ pub(super) fn tool(name: &ToolName) -> String {
         .to_owned(),
         ToolName::Mcp(_) => name.as_str().to_owned(),
     }
+}
+
+/// The Claude rule of a permission or hook entry: `<tool>:<pattern>` is `<Tool>(<pattern>)` and a
+/// bare `<tool>` is `<Tool>` (target-facts §7b).
+pub(super) fn rule(grant: &ToolGrant) -> String {
+    let native = tool(grant.tool());
+    grant.scope().map_or(native.clone(), |scope| {
+        format!("{native}({})", scope.as_str())
+    })
 }
 
 /// The native `permissionMode` of a neutral mode.

@@ -1,6 +1,7 @@
 //! The Claude files of agents, skills, commands, slot stubs and rules: byte for byte against the
 //! reference's output for the fixtures, and the rules of §8.1 case by case.
 
+mod settings;
 mod stacks;
 
 use proptest::prelude::{Strategy, prop_assert_eq, proptest};

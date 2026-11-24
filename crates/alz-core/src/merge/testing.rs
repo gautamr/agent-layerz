@@ -36,6 +36,17 @@ pub(crate) fn layer_from_yaml(yaml: &str, files: &[(&str, &str)]) -> ResolvedLay
 /// A layer like [`layer_from_yaml`] that came from the pin `rev`, as a stack entry with a `ref`
 /// does: the revision of its headers is `rev` and not its version.
 pub(crate) fn layer_pinned(yaml: &str, files: &[(&str, &str)], rev: Option<&str>) -> ResolvedLayer {
+    layer_executable(yaml, files, rev, &[])
+}
+
+/// A layer like [`layer_pinned`] where the files `executable` have the owner-execute bit, as a
+/// hook script of a fixture has.
+pub(crate) fn layer_executable(
+    yaml: &str,
+    files: &[(&str, &str)],
+    rev: Option<&str>,
+    executable: &[&str],
+) -> ResolvedLayer {
     let node = parse_document(yaml.as_bytes()).expect("valid YAML");
     let meta = LayerMeta::from_yaml(&node).expect("a layer");
     ResolvedLayer::new(
@@ -49,7 +60,12 @@ pub(crate) fn layer_pinned(yaml: &str, files: &[(&str, &str)], rev: Option<&str>
                     text.as_bytes().to_vec(),
                 )
             })
-            .collect::<LayerContents>(),
+            .collect::<LayerContents>()
+            .with_executable(
+                executable
+                    .iter()
+                    .map(|path| SafeRelPath::try_from(*path).expect("a safe path")),
+            ),
         rev.map(|rev| Pin {
             rev: GitRef::try_from(rev).expect("a ref"),
             sha: ObjectId::try_from("0123456789abcdef0123456789abcdef01234567").expect("a commit"),
