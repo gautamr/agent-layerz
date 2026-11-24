@@ -10,8 +10,13 @@ mod files;
 mod home;
 mod ignore;
 mod resolved;
+mod state_dir;
+mod state_error;
+mod state_place;
 
 pub use files::{AccountFiles, FileStatus, Loaded};
 pub use home::Home;
 pub use ignore::IgnoreReason;
 pub use resolved::{ResolvedAllowState, ResolvedFolder, ResolvedUserConfig};
+pub use state_dir::{AllowChange, Stage, StateDir, Updated};
+pub use state_error::{StateError, StateProblem};

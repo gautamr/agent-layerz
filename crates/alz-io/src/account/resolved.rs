@@ -203,9 +203,17 @@ pub struct ResolvedAllowState {
     entries: Vec<AllowEntry>,
     unresolved: Vec<AllowEntry>,
     ignored: Vec<NonZeroUsize>,
+    list: bool,
 }
 
 impl ResolvedAllowState {
+    /// Whether the file's top level is a list. When it is not (or the file is not YAML) the whole
+    /// file is ignored and this holds nothing.
+    #[must_use]
+    pub const fn is_list(&self) -> bool {
+        self.list
+    }
+
     /// The approvals that apply, sorted by root.
     #[must_use]
     pub fn entries(&self) -> &[AllowEntry] {
@@ -297,6 +305,7 @@ impl ResolvedAllowState {
                         })
                         .collect(),
                     ignored: all_ignored,
+                    list: true,
                 };
                 rebuild(resolved, &warnings, extra)
             }

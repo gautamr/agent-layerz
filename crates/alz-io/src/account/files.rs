@@ -25,34 +25,34 @@ const CAP: usize = 1_048_576;
 
 /// Which of the two files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Which {
+pub(super) enum Which {
     UserConfig,
     AllowState,
 }
 
 impl Which {
-    const fn name(self) -> &'static str {
+    pub(super) const fn name(self) -> &'static str {
         match self {
             Self::UserConfig => "accounts.yaml",
             Self::AllowState => "allowed.yaml",
         }
     }
 
-    const fn code(self) -> Code {
+    pub(super) const fn code(self) -> Code {
         match self {
             Self::UserConfig => Code::AccountConfig,
             Self::AllowState => Code::AccountAllowed,
         }
     }
 
-    const fn variable(self) -> &'static str {
+    pub(super) const fn variable(self) -> &'static str {
         match self {
             Self::UserConfig => "XDG_CONFIG_HOME",
             Self::AllowState => "XDG_STATE_HOME",
         }
     }
 
-    const fn fallback(self) -> &'static [&'static str] {
+    pub(super) const fn fallback(self) -> &'static [&'static str] {
         match self {
             Self::UserConfig => &[".config"],
             Self::AllowState => &[".local", "state"],
@@ -134,11 +134,11 @@ struct Trusted {
 /// It reads and never writes: `allowed.yaml` is only written by `alz account allow`.
 #[derive(Debug, Clone)]
 pub struct AccountFiles {
-    home: Home,
-    env: EnvSnapshot,
-    repository: Option<RepositoryPaths>,
-    folders: AccountFolders,
-    owner: Option<u32>,
+    pub(super) home: Home,
+    pub(super) env: EnvSnapshot,
+    pub(super) repository: Option<RepositoryPaths>,
+    pub(super) folders: AccountFolders,
+    pub(super) owner: Option<u32>,
 }
 
 impl AccountFiles {
@@ -385,7 +385,7 @@ impl AccountFiles {
         refuse_if(moved, || IgnoreReason::XdgMoved(which.variable()))
     }
 
-    fn inside_repository(&self, real: &AbsolutePath) -> bool {
+    pub(super) fn inside_repository(&self, real: &AbsolutePath) -> bool {
         self.repository.as_ref().is_some_and(|repository| {
             lies_within(real, repository.real()) || lies_within(real, repository.as_written())
         })
@@ -410,13 +410,17 @@ fn refuse_if(condition: bool, reason: impl FnOnce() -> IgnoreReason) -> Result<(
 
 /// Where an `XDG_*` base is, and how the variable counted: an unset or empty one is unset, a
 /// relative one is unset with a warning (the XDG Base Directory specification).
-struct XdgBase {
-    dir: AbsolutePath,
-    from_variable: bool,
-    relative: bool,
+pub(super) struct XdgBase {
+    pub(super) dir: AbsolutePath,
+    pub(super) from_variable: bool,
+    pub(super) relative: bool,
 }
 
-fn xdg_base(value: Option<&std::ffi::OsStr>, home: &AbsolutePath, fallback: &[&str]) -> XdgBase {
+pub(super) fn xdg_base(
+    value: Option<&std::ffi::OsStr>,
+    home: &AbsolutePath,
+    fallback: &[&str],
+) -> XdgBase {
     let default = |relative| XdgBase {
         dir: joined(home, fallback),
         from_variable: false,
@@ -441,7 +445,7 @@ fn xdg_base(value: Option<&std::ffi::OsStr>, home: &AbsolutePath, fallback: &[&s
 
 /// `base` with `parts` below it. `base` is absolute and `parts` hold no NUL, so the text is an
 /// absolute path; were it not, `base` itself is the answer, which a caller then refuses.
-fn joined(base: &AbsolutePath, parts: &[&str]) -> AbsolutePath {
+pub(super) fn joined(base: &AbsolutePath, parts: &[&str]) -> AbsolutePath {
     let text = std::iter::once(base.as_str().trim_end_matches('/'))
         .chain(parts.iter().copied())
         .collect::<Vec<_>>()
@@ -450,7 +454,7 @@ fn joined(base: &AbsolutePath, parts: &[&str]) -> AbsolutePath {
 }
 
 /// The folder that holds `path`; `/` holds itself.
-fn parent(path: &AbsolutePath) -> AbsolutePath {
+pub(super) fn parent(path: &AbsolutePath) -> AbsolutePath {
     let names: Vec<&str> = path.components().collect();
     prefix(&names, names.len().saturating_sub(1))
 }
@@ -470,7 +474,7 @@ fn prefix(names: &[&str], count: usize) -> AbsolutePath {
 }
 
 /// Why a path has no real path.
-enum Lookup {
+pub(super) enum Lookup {
     Missing,
     Unresolvable,
 }
@@ -485,7 +489,7 @@ impl From<Lookup> for Stop {
 }
 
 /// The real path of `path`: only the names on the way are looked at.
-fn canonical(path: &AbsolutePath) -> Result<AbsolutePath, Lookup> {
+pub(super) fn canonical(path: &AbsolutePath) -> Result<AbsolutePath, Lookup> {
     std::fs::canonicalize(path.as_str())
         .map_err(
             |error| match error.raw_os_error().map(Errno::from_raw_os_error) {
@@ -501,12 +505,12 @@ fn canonical(path: &AbsolutePath) -> Result<AbsolutePath, Lookup> {
 }
 
 /// The real path, or the path itself when there is none.
-fn settled(path: &AbsolutePath) -> AbsolutePath {
+pub(super) fn settled(path: &AbsolutePath) -> AbsolutePath {
     canonical(path).unwrap_or_else(|_missing| path.clone())
 }
 
 /// The path with `~` for the home folder, stripped of control characters, for a warning.
-fn display(path: &AbsolutePath, homes: &[&AbsolutePath]) -> Stripped {
+pub(super) fn display(path: &AbsolutePath, homes: &[&AbsolutePath]) -> Stripped {
     let text = path.as_str();
     homes
         .iter()
@@ -524,7 +528,7 @@ fn display(path: &AbsolutePath, homes: &[&AbsolutePath]) -> Stripped {
 
 /// The `.git` (a folder or a file) that makes `path` part of a git work tree: only `lstat` of
 /// `.git` in each folder above the path, as written; no git runs (spec §7.13 "Both files").
-fn work_tree_marker(path: &AbsolutePath) -> Option<AbsolutePath> {
+pub(super) fn work_tree_marker(path: &AbsolutePath) -> Option<AbsolutePath> {
     let names: Vec<&str> = path.components().collect();
     (0..names.len())
         .rev()
@@ -536,7 +540,7 @@ fn work_tree_marker(path: &AbsolutePath) -> Option<AbsolutePath> {
 /// strictly below `$HOME`, or only `directory` when it lies outside `$HOME`. A directory is weak
 /// when group or others can write it, or the user does not own it (root is accepted outside
 /// `$HOME`).
-fn weak_directory(
+pub(super) fn weak_directory(
     directory: &AbsolutePath,
     home: &AbsolutePath,
     real_home: &AbsolutePath,
