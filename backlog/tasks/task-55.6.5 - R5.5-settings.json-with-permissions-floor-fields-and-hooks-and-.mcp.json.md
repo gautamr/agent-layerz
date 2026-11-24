@@ -1,10 +1,11 @@
 ---
 id: TASK-55.6.5
 title: 'R5.5: settings.json with permissions, floor fields and hooks, and .mcp.json'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
+updated_date: '2026-11-24T00:04:00Z'
 labels:
   - area:rust
   - area:render

@@ -1,9 +1,11 @@
 ---
 id: TASK-55.6.16
 title: 'R5.16: An ubuntu CI job for the TypeScript suite and the acceptance suite'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@release-engineer'
 created_date: '2026-11-23T18:16:00Z'
+updated_date: '2026-11-24T00:04:00Z'
 labels:
   - area:ci
   - area:rust
