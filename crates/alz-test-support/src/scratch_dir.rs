@@ -57,19 +57,43 @@ impl ScratchDir {
 
     /// Writes an executable file `name` (mode 0755) with `contents`.
     ///
+    /// A short-lived `/bin/sh` child writes the file, so this process never holds it open for
+    /// writing. Otherwise a parallel test that forks while the file is open would carry that
+    /// handle into its child, and running the file would fail with `ETXTBSY` on Linux
+    /// (TASK-74).
+    ///
     /// # Errors
     ///
-    /// The error of writing the file or of setting its mode.
+    /// The error of starting the child or of feeding it, or an error naming the child's exit
+    /// status when it could not write the file or set its mode.
     pub fn write_executable(
         &self,
         name: impl AsRef<Path>,
         contents: impl AsRef<[u8]>,
     ) -> io::Result<()> {
-        use std::os::unix::fs::PermissionsExt;
+        use std::io::Write as _;
+        use std::process::Stdio;
 
         let path = self.join(name);
-        fs::write(&path, contents)?;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+        let mut child = Command::new("/bin/sh")
+            .args(["-c", r#"cat > "$1" && chmod 755 "$1""#, "sh"])
+            .arg(&path)
+            .stdin(Stdio::piped())
+            .spawn()?;
+        let fed = child
+            .stdin
+            .take()
+            .map_or(Ok(()), |mut stdin| stdin.write_all(contents.as_ref()));
+        let status = child.wait()?;
+        fed?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(io::Error::other(format!(
+                "writing the executable {} failed: {status}",
+                path.display()
+            )))
+        }
     }
 
     /// The bytes of the file `name`.
