@@ -11,8 +11,9 @@ mod surroundings;
 mod tool;
 
 pub use account::{
-    AccountFiles, FileStatus, Home, IgnoreReason, Loaded, ResolvedAllowState, ResolvedFolder,
-    ResolvedUserConfig,
+    AccountFiles, AccountFolderNames, FileStatus, Home, IgnoreReason, Loaded, ManifestState,
+    NoRoot, OnDisk, Place, PlaceLookup, Repository, ResolvedAllowState, ResolvedFolder,
+    ResolvedUserConfig, Root, RootSearch, find_root,
 };
 pub use account_names::claude_account_folders;
 pub use env::{EnvSnapshot, WorkingDirectory};

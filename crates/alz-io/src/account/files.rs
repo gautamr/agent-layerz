@@ -38,13 +38,6 @@ impl Which {
         }
     }
 
-    const fn code(self) -> Code {
-        match self {
-            Self::UserConfig => Code::AccountConfig,
-            Self::AllowState => Code::AccountAllowed,
-        }
-    }
-
     const fn variable(self) -> &'static str {
         match self {
             Self::UserConfig => "XDG_CONFIG_HOME",
@@ -172,7 +165,7 @@ impl AccountFiles {
     pub fn home_warning(&self) -> Option<Diagnostic> {
         match self.home {
             Home::NotAbsolute => Some(Diagnostic::warning(
-                Code::AccountConfig,
+                Code::AccountHome,
                 None,
                 Message::new(
                     "HOME is not an absolute path; accounts.yaml and allowed.yaml are ignored \
@@ -267,7 +260,7 @@ impl AccountFiles {
         let outcome = self.vet(which, home, &real_home, &base, &path);
         let relative = base.relative.then(|| {
             Diagnostic::warning(
-                which.code(),
+                Code::AccountXdgRelative,
                 None,
                 Message::new(which.variable())
                     .then(" is not an absolute path; ")
@@ -277,7 +270,7 @@ impl AccountFiles {
         });
         let problem = match &outcome {
             Err(Stop::Ignored(reason)) => Some(Diagnostic::warning(
-                which.code(),
+                Code::AccountFileIgnored,
                 None,
                 reason.after(
                     Message::new(which.name())
@@ -293,7 +286,7 @@ impl AccountFiles {
                 work_tree: Some(marker),
                 ..
             }) => Some(Diagnostic::warning(
-                which.code(),
+                Code::AccountFileInWorkTree,
                 None,
                 Message::new(which.name())
                     .then(" (")
@@ -506,7 +499,7 @@ fn settled(path: &AbsolutePath) -> AbsolutePath {
 }
 
 /// The path with `~` for the home folder, stripped of control characters, for a warning.
-fn display(path: &AbsolutePath, homes: &[&AbsolutePath]) -> Stripped {
+pub(super) fn display(path: &AbsolutePath, homes: &[&AbsolutePath]) -> Stripped {
     let text = path.as_str();
     homes
         .iter()

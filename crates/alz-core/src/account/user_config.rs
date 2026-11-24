@@ -88,7 +88,7 @@ impl UserConfig {
                 }),
             Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Seq(_) => {
                 Reading::new(Self::default()).warned(warning(
-                    Code::AccountConfig,
+                    Code::AccountConfigShape,
                     file,
                     node.at(),
                     Message::new("the file is ignored: its top level must be a mapping"),
@@ -129,8 +129,8 @@ fn shown(key: &Node) -> QuotedKey {
     })
 }
 
-fn config_warning(file: &Where, at: Position, message: Message) -> Reading<Part> {
-    Reading::new(Part::Nothing).warned(warning(Code::AccountConfig, file, at, message))
+fn config_warning(code: Code, file: &Where, at: Position, message: Message) -> Reading<Part> {
+    Reading::new(Part::Nothing).warned(warning(code, file, at, message))
 }
 
 fn top_level_entry(key: &Node, value: &Node, file: &Where) -> Reading<Part> {
@@ -144,6 +144,7 @@ fn top_level_entry(key: &Node, value: &Node, file: &Where) -> Reading<Part> {
         | Value::Text(_)
         | Value::Seq(_)
         | Value::Map(_) => config_warning(
+            Code::AccountConfigKey,
             file,
             key.at(),
             Message::new("the key ")
@@ -171,6 +172,7 @@ fn default_name(value: &Node, file: &Where) -> Reading<Part> {
 
 fn not_a_default_name(value: &Node, file: &Where) -> Reading<Part> {
     config_warning(
+        Code::AccountConfigDefaultName,
         file,
         value.at(),
         Message::new("default_name must be an account name; it is ignored"),
@@ -184,6 +186,7 @@ fn folders(value: &Node, file: &Where) -> Reading<Part> {
         Value::Map(mapping) => folder_rules(mapping, file),
         Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Seq(_) => {
             config_warning(
+                Code::AccountConfigShape,
                 file,
                 value.at(),
                 Message::new("'folders' must be a mapping; it is ignored"),
@@ -207,7 +210,7 @@ fn folder_rules(mapping: &Mapping, file: &Where) -> Reading<Part> {
 
 fn folder_rule(key: &Node, value: &Node, file: &Where) -> Reading<Option<FolderRule>> {
     let ignored = |at: Position, message: Message| {
-        Reading::new(None).warned(warning(Code::AccountConfig, file, at, message))
+        Reading::new(None).warned(warning(Code::AccountConfigFolder, file, at, message))
     };
     let folder = match key.value() {
         Value::Text(text) => FolderKey::try_from(text.as_str()).ok(),

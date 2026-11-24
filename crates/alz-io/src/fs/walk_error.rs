@@ -30,7 +30,7 @@ pub enum WalkError {
 impl From<Stop> for WalkError {
     fn from(stop: Stop) -> Self {
         match stop {
-            Stop::Refused(relation) => Self::Refused(relation),
+            Stop::Refused(relation) | Stop::Inside { relation, .. } => Self::Refused(relation),
             Stop::TooManyLinks => Self::TooManyLinks,
             Stop::NotFound => Self::Missing,
             Stop::NotADirectory => Self::NotADirectory,

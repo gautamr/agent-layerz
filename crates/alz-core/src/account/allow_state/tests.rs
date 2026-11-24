@@ -98,7 +98,7 @@ fn a_top_level_that_is_not_a_list_ignores_the_whole_file_with_one_warning() {
         assert_eq!(
             warnings(&reading),
             [
-                "warning [account-allowed] allowed.yaml:1:1: the file is ignored: its top level must be a list"
+                "warning [account-allowed-shape] allowed.yaml:1:1: the file is ignored: its top level must be a list"
             ]
         );
     }
@@ -177,7 +177,7 @@ fn an_entry_that_does_not_fit_is_ignored_with_a_warning_that_holds_its_position_
         assert_eq!(
             warnings(&reading),
             [format!(
-                "warning [account-allowed] allowed.yaml:2:3: entry 2 is ignored ({reason})"
+                "warning [account-allowed-entry] allowed.yaml:2:3: entry 2 is ignored ({reason})"
             )],
             "{document}"
         );

@@ -66,10 +66,32 @@ pub enum Code {
     CacheIndex,
     /// A `.env` file in a layer (§5.3 "`.env` files").
     EnvFile,
-    /// A problem in the owner's `accounts.yaml`, which alz ignores in part or whole (§7.13).
-    AccountConfig,
-    /// A problem in the allow state `allowed.yaml`, which alz ignores in part or whole (§7.13).
-    AccountAllowed,
+    /// `HOME` is not an absolute path, so neither account file is read (§7.13).
+    AccountHome,
+    /// `accounts.yaml` or `allowed.yaml` ignored by §7.13 "Both files", or not valid YAML.
+    AccountFileIgnored,
+    /// An `XDG_CONFIG_HOME` or `XDG_STATE_HOME` that is not absolute (§7.13).
+    AccountXdgRelative,
+    /// `accounts.yaml` inside a git work tree (§7.13).
+    AccountFileInWorkTree,
+    /// `accounts.yaml`'s top level, or its `folders`, is not a mapping (§7.13).
+    AccountConfigShape,
+    /// An unknown key in `accounts.yaml` (§7.13).
+    AccountConfigKey,
+    /// A `default_name` that is not an account name (§7.13).
+    AccountConfigDefaultName,
+    /// A `default_name` that is also an account folder's name (§7.13).
+    AccountDefaultNameFolder,
+    /// An ignored `folders` key or entry of `accounts.yaml` (§7.13).
+    AccountConfigFolder,
+    /// Two `folders` keys that resolve to one directory with different accounts (§7.13).
+    AccountConfigDuplicate,
+    /// `allowed.yaml`'s top level is not a list (§7.13).
+    AccountAllowedShape,
+    /// An ignored `allowed.yaml` entry, or entries with the same root (§7.13).
+    AccountAllowedEntry,
+    /// A `layer.yaml` on the root walk that cannot be used (§7.13 "Paths").
+    AccountManifest,
     /// A git that alz refuses: older than the minimum version, or not started (§6 "Git
     /// subprocesses").
     Git,
@@ -201,8 +223,19 @@ impl Code {
             Self::Cache => "cache",
             Self::CacheIndex => "cache-index",
             Self::EnvFile => "env-file",
-            Self::AccountConfig => "account-config",
-            Self::AccountAllowed => "account-allowed",
+            Self::AccountHome => "account-home",
+            Self::AccountFileIgnored => "account-file-ignored",
+            Self::AccountXdgRelative => "account-xdg-relative",
+            Self::AccountFileInWorkTree => "account-file-in-work-tree",
+            Self::AccountConfigShape => "account-config-shape",
+            Self::AccountConfigKey => "account-config-key",
+            Self::AccountConfigDefaultName => "account-config-default-name",
+            Self::AccountDefaultNameFolder => "account-default-name-folder",
+            Self::AccountConfigFolder => "account-config-folder",
+            Self::AccountConfigDuplicate => "account-config-duplicate",
+            Self::AccountAllowedShape => "account-allowed-shape",
+            Self::AccountAllowedEntry => "account-allowed-entry",
+            Self::AccountManifest => "account-manifest",
             Self::Git => "git",
             Self::DuplicateLayer => "duplicate-layer",
             Self::Visibility => "visibility",

@@ -213,7 +213,7 @@ impl AllowFile {
                 }),
             Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) | Value::Map(_) => {
                 Reading::new(Self::Ignored).warned(warning(
-                    Code::AccountAllowed,
+                    Code::AccountAllowedShape,
                     file,
                     node.at(),
                     Message::new("the file is ignored: its top level must be a list"),
@@ -262,7 +262,7 @@ fn entry(number: NonZeroUsize, item: &Node, file: &Where) -> Reading<Outcome> {
     read_entry(item).map_or_else(
         |misfit| {
             Reading::new((number, None)).warned(warning(
-                Code::AccountAllowed,
+                Code::AccountAllowedEntry,
                 file,
                 item.at(),
                 Message::new("entry ")
