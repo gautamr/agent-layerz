@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@release-engineer'
 created_date: '2026-11-23T18:16:00Z'
-updated_date: '2026-11-24T00:04:00Z'
+updated_date: '2026-11-24T00:10:00Z'
 labels:
   - area:ci
   - area:rust
@@ -28,3 +28,9 @@ Owner (2026-11-23): add an ubuntu job to .github/workflows that runs mise run te
 - [ ] #2 A step runs the acceptance project against the release Rust binary, with the R6 cases listed as expected to fail until R6
 - [ ] #3 mise run workflows:lint passes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added .github/workflows/tests.yml: job 'typescript' (ubuntu-latest, mise node only, npm ci --ignore-scripts, npm cache restore on PRs and save on main, mise run test) and job 'acceptance-rust' (continue-on-error, node+rust, rust-cache, mise run rust:build, ALZ_BIN=$GITHUB_WORKSPACE/target/release/alz mise run test:acceptance; TASK-55.6.15 removes continue-on-error). Pins: mise 2026.9.1 + sha256 as rust.yml, MISE_LOCKED=1, contents: read only, actions/cache v6.1.0 pinned by SHA. Verified locally (macOS): actionlint (with real shellcheck 0.11.0) and zizmor --pedantic --offline clean; mise run lint clean; npm ci --ignore-scripts then mise run test: 50 files passed, 1186 passed, 188 expected fail, 5 skipped (the 5 are the Linux-only 0xFF cases in test 36, gated on process.platform === 'linux', so they run on ubuntu); ALZ_BIN=target/release/alz acceptance locally: 701 failed, 293 passed, exit 1 (the reason for continue-on-error). Not provable locally: the ubuntu run itself, cache save on main, that the 0xFF cases run as expected failures against the reference there.
+<!-- SECTION:NOTES:END -->
