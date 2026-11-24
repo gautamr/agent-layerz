@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T03:26:00Z'
-updated_date: '2026-11-24T10:11:00Z'
+updated_date: '2026-11-24T10:46:00Z'
 labels:
   - area:test
   - area:rust
@@ -50,4 +50,6 @@ Once chosen:
 Owner (2026-11-22): no PTY driver until R6; choose it when R6 ports accounts (Rust driver in alz-test-support, node-pty or python3). The account allow cases stay in the reference project until then. Owner (2026-11-23): moved under R6.
 
 Architect (2026-11-24, R6 plan): the fake-terminal cases this task brings back into test/acceptance pass on the TypeScript bundle but not yet on the Rust alz, so add each of them to test/ci/r6-pending.json (reason: needs alz account allow, R6.13 TASK-55.7.13, or the hint, R6.14 TASK-55.7.14) and raise test/ci/case-floor.json in the same change; R6.13 and R6.14 delete them as they pass. R6.11 (TASK-55.7.11) reuses the driver for the Rust tests of the prompt. Owner question 7 in TASK-55.7 repeats the driver choice.
+
+Lead decisions (2026-11-24): alz-test-support also enables rustix's termios feature (tcsetpgrp), within the owner's dev-only pty choice and no new crate — the decision-27 amendment names it when R6.1 merges; the remaining terminal cases and routing test/pty.ts through test/exec.ts are TASK-55.7.17.
 <!-- SECTION:NOTES:END -->

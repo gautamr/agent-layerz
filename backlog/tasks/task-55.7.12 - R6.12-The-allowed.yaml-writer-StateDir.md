@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T08:16:00Z'
-updated_date: '2026-11-24T10:28:00Z'
+updated_date: '2026-11-24T10:46:00Z'
 labels:
   - area:rust
   - area:accounts
@@ -37,3 +37,9 @@ Plan for this step (§7.13 "Both files", §9.1, decision-20; AGENTS.md invariant
 - [ ] #2 Every refused state leaves allowed.yaml, its folder and the lock file byte-identical, and nothing is ever written inside the repository, an account folder or a git work tree (integration tests and a proptest over generated places)
 - [ ] #3 For ordinary roots the bytes written equal the reference's allowed.yaml for the same entries (parity test against recorded samples)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Lead (2026-11-24): accepted — empty or relative XDG_STATE_HOME counts as unset (spec); the inode check before rename for every existing file (stricter); a Set over 1 MiB refused before any folder is made; StateDir beside AccountFiles to reuse the trust checks.
+<!-- SECTION:NOTES:END -->
