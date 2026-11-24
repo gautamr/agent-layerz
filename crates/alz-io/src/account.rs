@@ -15,6 +15,9 @@ mod listing;
 mod place;
 mod resolved;
 mod root_walk;
+mod state_dir;
+mod state_error;
+mod state_place;
 
 pub use files::{AccountFiles, FileStatus, Loaded};
 pub use home::Home;
@@ -23,3 +26,5 @@ pub use listing::AccountFolderNames;
 pub use place::{OnDisk, Place, PlaceLookup};
 pub use resolved::{ResolvedAllowState, ResolvedFolder, ResolvedUserConfig};
 pub use root_walk::{ManifestState, NoRoot, Repository, Root, RootSearch, find_root};
+pub use state_dir::{AllowChange, Stage, StateDir, Updated};
+pub use state_error::{StateError, StateProblem};
