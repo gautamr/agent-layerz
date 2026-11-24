@@ -21,7 +21,7 @@ use crate::merge::Merged;
 use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
 use crate::stack::Workspace;
 
-pub use tools::is_model_value;
+pub use tools::{is_model_value, neutral_permission_mode, neutral_tool};
 
 /// The files of the Claude adapter for agents, skills, commands, slot stubs and rules, and what
 /// the rendering found.

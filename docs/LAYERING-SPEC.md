@@ -206,7 +206,7 @@ sources first, so an existing repo needs only `alz init` and `alz build --adopt`
 | `CLAUDE.md` | `.layer/targets/claude/CLAUDE.extra.md`, without `@AGENTS.md` and without paragraphs `AGENTS.md` already holds |
 | `.claude/agents/*.md` | neutral agents; native-only fields go under `claude:` (§7.2), concrete models become `models.yaml` aliases; an agent a general layer defines becomes a `mode: replace` overlay |
 | `.claude/skills/**`, `.claude/rules/*.md` | moved unchanged |
-| `.claude/hooks/**` | moved to `.layer/hooks/`; hooks that run them use `run:` |
+| `.claude/hooks/**` | moved to `.layer/hooks/scripts/`; hooks that run them use `run: scripts/<path>` |
 | `.claude/settings.json` | `permissions.yaml`, `hooks/hooks.yaml`, `settings.yaml`, `models.yaml` default, `workspace.add_dirs` |
 | `.mcp.json` | `mcp.yaml` and `mcp.enable` |
 

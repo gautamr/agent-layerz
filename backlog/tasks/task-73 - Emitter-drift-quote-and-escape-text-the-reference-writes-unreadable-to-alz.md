@@ -4,7 +4,7 @@ title: 'Emitter drift: quote and escape text the reference writes unreadable to 
 status: To Do
 assignee: []
 created_date: '2026-11-23T06:27:00Z'
-updated_date: '2026-11-23T06:32:00Z'
+updated_date: '2026-11-24T04:15:00Z'
 labels:
   - discovered
   - area:rust
@@ -47,4 +47,6 @@ Scope: build case 4 in crates/alz-core/src/render/yaml/text.rs, mark its samples
 2026-11-23 architect: a fifth case found while writing spec §10.2. The reference writes a space between a line break and a line feed in long double-quoted text (J of 40 UTF-16 units or more, not a key) as \\ followed by a space, which reads back as a backslash. Shown with node and the yaml package 2.9.1: {k: 'a'.repeat(40) + '\n \nb\u0001'} with lineWidth 0 gives 'k: "aaa…\n\n  \\\\ \n\n  b\\x01"' and parses back as 'aaa…\n\\\nb\u0001' (round trip false). By reading crates/alz-core/src/render/yaml/text.rs (double_quoted: the push of a backslash after a run, then the space-before-line-feed branch) the Rust emitter reproduces it; not run. Reachable for text that rule 1 double-quotes, and for text that a block cannot hold (ends in blanks after its last line feed). Spec §10.2 marks it planned under this task. Also reachable by file names: alz build --adopt names an adopted agent after .claude/agents/<name>.md (src/adapters/claude/adopt-agent.ts), so a file name can carry case-4 characters into generated frontmatter.
 
 Lead (2026-11-23): the emitter fixes (escaping, line-break read-back) land in R2.8 (TASK-55.3.8). Adoption (R5): alz build --adopt refuses text the reader would refuse (control, format, U+2028/U+2029 characters, invalid names) before it writes anything, with a diagnostic that names the source file and not the text, rather than writing a layer the next build refuses.
+
+2026-11-24 implementer (R5.13, TASK-55.6.13): AC#4 partly: adoption refuses text the layer reader would refuse before planning anything (adopt/check.rs merges the planned repo layer with the manifest as it would be edited; test text_the_layer_reader_refuses_rejects_the_plan_and_the_problem_names_the_native_file uses U+2028 in a settings.json env value; the problem names .claude/settings.json and prints the reader line stripped). The emitter drift cases themselves and the output-parity listing stay with R2.8 and R5.15.
 <!-- SECTION:NOTES:END -->
