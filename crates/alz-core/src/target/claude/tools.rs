@@ -67,3 +67,42 @@ pub fn is_model_value(text: &str) -> bool {
                     .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
         })
 }
+
+/// The neutral tool that Claude calls `native`, by the adapter's table of tools; `None` for a name that
+/// table does not make (an `mcp__` tool has no neutral form here, it keeps its name).
+#[must_use]
+pub fn neutral_tool(native: &str) -> Option<NeutralTool> {
+    use NeutralTool::{
+        Agent, Bash, Edit, Glob, Grep, NotebookEdit, Read, Skill, TodoWrite, WebFetch, WebSearch,
+        Write,
+    };
+    [
+        Read,
+        Write,
+        Edit,
+        Grep,
+        Glob,
+        Bash,
+        WebFetch,
+        WebSearch,
+        Agent,
+        NotebookEdit,
+        TodoWrite,
+        Skill,
+    ]
+    .into_iter()
+    .find(|neutral| tool(&ToolName::Neutral(*neutral)) == native)
+}
+
+/// The neutral mode that Claude calls `native`, by the adapter's table of permission modes, and `manual`
+/// as `default`, the name an older Claude used.
+#[must_use]
+pub fn neutral_permission_mode(native: &str) -> Option<PermissionMode> {
+    use PermissionMode::{AcceptEdits, Auto, BypassPermissions, Default, DontAsk, Plan};
+    if native == "manual" {
+        return Some(Default);
+    }
+    [BypassPermissions, Auto, AcceptEdits, Default, DontAsk, Plan]
+        .into_iter()
+        .find(|mode| permission_mode(*mode) == native)
+}

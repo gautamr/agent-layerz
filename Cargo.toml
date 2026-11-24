@@ -24,7 +24,7 @@ rustix = { version = "1.1.6", default-features = false, features = ["std", "fs",
 # decision-32: no derive; alz writes its own visitors. A `[bans]` feature rule in deny.toml keeps it off.
 serde = { version = "=1.0.229", default-features = false, features = ["std"] }
 # decision-33: parse only, into alz's own tree; alz writes JSON with its own emitter. A `[bans]` feature rule in deny.toml keeps the other features off.
-serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
+serde_json = { version = "=1.0.154", default-features = false, features = ["std", "float_roundtrip"] }
 # decision-38: leak-guard patterns and the secret scan, in alz-core only; std and string, nothing else.
 # The pin is repeated in deny.toml.
 regex-lite = { version = "=0.1.9", default-features = false, features = ["std", "string"] }

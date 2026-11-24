@@ -171,6 +171,9 @@ pub enum Code {
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
+    /// `--adopt` without a repo layer inside the repository, or a problem of the adoption plan
+    /// (§4.3).
+    Adopt,
 }
 
 impl Code {
@@ -233,6 +236,7 @@ impl Code {
             Self::HookOnFail => "hook-on-fail",
             Self::Target => "target",
             Self::Unresolved => "unresolved",
+            Self::Adopt => "adopt",
         }
     }
 }
