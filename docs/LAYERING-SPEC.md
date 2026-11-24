@@ -300,8 +300,7 @@ tree or on the length of a path. A folder is entered by the name the file system
 name is not valid Unicode or not a safe relative path is searched like any other. An entry named
 `AGENTS.override.md` that is not a folder, a link included, is a collision; its path is shown as text
 with control characters removed and each byte that is not Unicode replaced by U+FFFD. A folder that
-cannot be read is the error `write` that names it (the TypeScript `alz` caps a folder at 10000 entries
-and does not search a folder whose name is not valid Unicode, reference drift, TASK-84).
+cannot be read is the error `write` that names it.
 
 **Writing.** The build writes nothing when it reports any error, a collision included. Each file
 is written as a temporary file in its folder and renamed over its path, with mode `0644`, or
