@@ -7,19 +7,17 @@ use crate::stack::ResolvedLayer;
 
 // The files of acceptance case 02 (§13.2), read from the fixture itself.
 const PERSONAL_CORE: &str =
-    include_str!("../../../../../test/fixtures/02-instructions/personal/instructions/00-core.md");
+    include_str!("../../../../../fixtures/02-instructions/personal/instructions/00-core.md");
 const PERSONAL_STYLE: &str =
-    include_str!("../../../../../test/fixtures/02-instructions/personal/instructions/10-style.md");
+    include_str!("../../../../../fixtures/02-instructions/personal/instructions/10-style.md");
 const CLIENT_DOMAIN: &str =
-    include_str!("../../../../../test/fixtures/02-instructions/client/instructions/10-domain.md");
-const REPO_STYLE: &str = include_str!(
-    "../../../../../test/fixtures/02-instructions/repo/.layer/instructions/10-style.md"
-);
-const REPO_OWN: &str = include_str!(
-    "../../../../../test/fixtures/02-instructions/repo/.layer/instructions/50-repo.md"
-);
+    include_str!("../../../../../fixtures/02-instructions/client/instructions/10-domain.md");
+const REPO_STYLE: &str =
+    include_str!("../../../../../fixtures/02-instructions/repo/.layer/instructions/10-style.md");
+const REPO_OWN: &str =
+    include_str!("../../../../../fixtures/02-instructions/repo/.layer/instructions/50-repo.md");
 const EXPECTED_AGENTS: &str =
-    include_str!("../../../../../test/fixtures/02-instructions/expected/AGENTS.md");
+    include_str!("../../../../../fixtures/02-instructions/expected/AGENTS.md");
 
 fn merged_model(layers: Vec<ResolvedLayer>) -> Merged {
     let found = merged(layers);

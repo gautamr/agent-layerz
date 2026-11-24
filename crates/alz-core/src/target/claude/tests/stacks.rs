@@ -5,124 +5,120 @@ use super::{Golden, Layer};
 
 pub(crate) const CASE_01: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/01-determinism/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/01-determinism/personal/layer.yaml"),
         files: &[
             (
                 "agents/reviewer.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/agents/reviewer.md"
+                    "../../../../../../fixtures/01-determinism/personal/agents/reviewer.md"
                 ),
             ),
             (
                 "commands/learn.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/commands/learn.md"
+                    "../../../../../../fixtures/01-determinism/personal/commands/learn.md"
                 ),
             ),
             (
                 "hooks/hooks.yaml",
-                include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/hooks/hooks.yaml"
-                ),
+                include_str!("../../../../../../fixtures/01-determinism/personal/hooks/hooks.yaml"),
             ),
             (
                 "hooks/scripts/block-secrets.sh",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/hooks/scripts/block-secrets.sh"
+                    "../../../../../../fixtures/01-determinism/personal/hooks/scripts/block-secrets.sh"
                 ),
             ),
             (
                 "instructions/00-core.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/instructions/00-core.md"
+                    "../../../../../../fixtures/01-determinism/personal/instructions/00-core.md"
                 ),
             ),
             (
                 "mcp.yaml",
-                include_str!("../../../../../../test/fixtures/01-determinism/personal/mcp.yaml"),
+                include_str!("../../../../../../fixtures/01-determinism/personal/mcp.yaml"),
             ),
             (
                 "models.yaml",
-                include_str!("../../../../../../test/fixtures/01-determinism/personal/models.yaml"),
+                include_str!("../../../../../../fixtures/01-determinism/personal/models.yaml"),
             ),
             (
                 "permissions.yaml",
-                include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/permissions.yaml"
-                ),
+                include_str!("../../../../../../fixtures/01-determinism/personal/permissions.yaml"),
             ),
             (
                 "skills/review-checklist/SKILL.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/skills/review-checklist/SKILL.md"
+                    "../../../../../../fixtures/01-determinism/personal/skills/review-checklist/SKILL.md"
                 ),
             ),
             (
                 "skills/review-checklist/references/checklist.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/skills/review-checklist/references/checklist.md"
+                    "../../../../../../fixtures/01-determinism/personal/skills/review-checklist/references/checklist.md"
                 ),
             ),
             (
                 "skills/stack-conventions/SKILL.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/personal/skills/stack-conventions/SKILL.md"
+                    "../../../../../../fixtures/01-determinism/personal/skills/stack-conventions/SKILL.md"
                 ),
             ),
         ],
     },
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/01-determinism/client/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/01-determinism/client/layer.yaml"),
         files: &[
             (
                 "agents/reviewer.overlay.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/client/agents/reviewer.overlay.md"
+                    "../../../../../../fixtures/01-determinism/client/agents/reviewer.overlay.md"
                 ),
             ),
             (
                 "instructions/10-domain.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/client/instructions/10-domain.md"
+                    "../../../../../../fixtures/01-determinism/client/instructions/10-domain.md"
                 ),
             ),
             (
                 "settings.yaml",
-                include_str!("../../../../../../test/fixtures/01-determinism/client/settings.yaml"),
+                include_str!("../../../../../../fixtures/01-determinism/client/settings.yaml"),
             ),
             (
                 "skills/domain-glossary/SKILL.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/client/skills/domain-glossary/SKILL.md"
+                    "../../../../../../fixtures/01-determinism/client/skills/domain-glossary/SKILL.md"
                 ),
             ),
         ],
     },
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/01-determinism/repo/.layer/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/01-determinism/repo/.layer/layer.yaml"),
         files: &[
             (
                 "instructions/50-repo.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/repo/.layer/instructions/50-repo.md"
+                    "../../../../../../fixtures/01-determinism/repo/.layer/instructions/50-repo.md"
                 ),
             ),
             (
                 "permissions.yaml",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/repo/.layer/permissions.yaml"
+                    "../../../../../../fixtures/01-determinism/repo/.layer/permissions.yaml"
                 ),
             ),
             (
                 "skills/stack-conventions/SKILL.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/repo/.layer/skills/stack-conventions/SKILL.md"
+                    "../../../../../../fixtures/01-determinism/repo/.layer/skills/stack-conventions/SKILL.md"
                 ),
             ),
             (
                 "targets/claude/CLAUDE.extra.md",
                 include_str!(
-                    "../../../../../../test/fixtures/01-determinism/repo/.layer/targets/claude/CLAUDE.extra.md"
+                    "../../../../../../fixtures/01-determinism/repo/.layer/targets/claude/CLAUDE.extra.md"
                 ),
             ),
         ],
@@ -131,53 +127,49 @@ pub(crate) const CASE_01: &[Layer] = &[
 
 pub(crate) const CASE_03: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/03-agent-overlay/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/03-agent-overlay/personal/layer.yaml"),
         files: &[
             (
                 "agents/architect.md",
                 include_str!(
-                    "../../../../../../test/fixtures/03-agent-overlay/personal/agents/architect.md"
+                    "../../../../../../fixtures/03-agent-overlay/personal/agents/architect.md"
                 ),
             ),
             (
                 "models.yaml",
-                include_str!(
-                    "../../../../../../test/fixtures/03-agent-overlay/personal/models.yaml"
-                ),
+                include_str!("../../../../../../fixtures/03-agent-overlay/personal/models.yaml"),
             ),
             (
                 "skills/arch-standards/SKILL.md",
                 include_str!(
-                    "../../../../../../test/fixtures/03-agent-overlay/personal/skills/arch-standards/SKILL.md"
+                    "../../../../../../fixtures/03-agent-overlay/personal/skills/arch-standards/SKILL.md"
                 ),
             ),
         ],
     },
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/03-agent-overlay/client/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/03-agent-overlay/client/layer.yaml"),
         files: &[
             (
                 "agents/architect.overlay.md",
                 include_str!(
-                    "../../../../../../test/fixtures/03-agent-overlay/client/agents/architect.overlay.md"
+                    "../../../../../../fixtures/03-agent-overlay/client/agents/architect.overlay.md"
                 ),
             ),
             (
                 "skills/domain-glossary/SKILL.md",
                 include_str!(
-                    "../../../../../../test/fixtures/03-agent-overlay/client/skills/domain-glossary/SKILL.md"
+                    "../../../../../../fixtures/03-agent-overlay/client/skills/domain-glossary/SKILL.md"
                 ),
             ),
         ],
     },
     Layer {
-        yaml: include_str!(
-            "../../../../../../test/fixtures/03-agent-overlay/repo/.layer/layer.yaml"
-        ),
+        yaml: include_str!("../../../../../../fixtures/03-agent-overlay/repo/.layer/layer.yaml"),
         files: &[(
             "agents/architect.overlay.md",
             include_str!(
-                "../../../../../../test/fixtures/03-agent-overlay/repo/.layer/agents/architect.overlay.md"
+                "../../../../../../fixtures/03-agent-overlay/repo/.layer/agents/architect.overlay.md"
             ),
         )],
     },
@@ -185,30 +177,30 @@ pub(crate) const CASE_03: &[Layer] = &[
 
 pub(crate) const CASE_04: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/04-tool-narrowing/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/04-tool-narrowing/personal/layer.yaml"),
         files: &[
             (
                 "agents/builder.md",
                 include_str!(
-                    "../../../../../../test/fixtures/04-tool-narrowing/personal/agents/builder.md"
+                    "../../../../../../fixtures/04-tool-narrowing/personal/agents/builder.md"
                 ),
             ),
             (
                 "agents/writer.md",
                 include_str!(
-                    "../../../../../../test/fixtures/04-tool-narrowing/personal/agents/writer.md"
+                    "../../../../../../fixtures/04-tool-narrowing/personal/agents/writer.md"
                 ),
             ),
         ],
     },
     Layer {
         yaml: include_str!(
-            "../../../../../../test/fixtures/04-tool-narrowing/repo-narrow/.layer/layer.yaml"
+            "../../../../../../fixtures/04-tool-narrowing/repo-narrow/.layer/layer.yaml"
         ),
         files: &[(
             "agents/builder.overlay.md",
             include_str!(
-                "../../../../../../test/fixtures/04-tool-narrowing/repo-narrow/.layer/agents/builder.overlay.md"
+                "../../../../../../fixtures/04-tool-narrowing/repo-narrow/.layer/agents/builder.overlay.md"
             ),
         )],
     },
@@ -216,22 +208,20 @@ pub(crate) const CASE_04: &[Layer] = &[
 
 pub(crate) const CASE_05: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/05-skill-override/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/05-skill-override/personal/layer.yaml"),
         files: &[(
             "skills/stack-conventions/SKILL.md",
             include_str!(
-                "../../../../../../test/fixtures/05-skill-override/personal/skills/stack-conventions/SKILL.md"
+                "../../../../../../fixtures/05-skill-override/personal/skills/stack-conventions/SKILL.md"
             ),
         )],
     },
     Layer {
-        yaml: include_str!(
-            "../../../../../../test/fixtures/05-skill-override/repo/.layer/layer.yaml"
-        ),
+        yaml: include_str!("../../../../../../fixtures/05-skill-override/repo/.layer/layer.yaml"),
         files: &[(
             "skills/stack-conventions/SKILL.md",
             include_str!(
-                "../../../../../../test/fixtures/05-skill-override/repo/.layer/skills/stack-conventions/SKILL.md"
+                "../../../../../../fixtures/05-skill-override/repo/.layer/skills/stack-conventions/SKILL.md"
             ),
         )],
     },
@@ -239,43 +229,39 @@ pub(crate) const CASE_05: &[Layer] = &[
 
 pub(crate) const CASE_06: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/06-slots/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/06-slots/personal/layer.yaml"),
         files: &[],
     },
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/06-slots/repo-loose/.layer/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/06-slots/repo-loose/.layer/layer.yaml"),
         files: &[],
     },
 ];
 
 pub(crate) const CASE_17: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/17-rules/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/17-rules/personal/layer.yaml"),
         files: &[
             (
                 "rules/backend.md",
-                include_str!("../../../../../../test/fixtures/17-rules/personal/rules/backend.md"),
+                include_str!("../../../../../../fixtures/17-rules/personal/rules/backend.md"),
             ),
             (
                 "rules/testing.md",
-                include_str!("../../../../../../test/fixtures/17-rules/personal/rules/testing.md"),
+                include_str!("../../../../../../fixtures/17-rules/personal/rules/testing.md"),
             ),
         ],
     },
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/17-rules/repo/.layer/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/17-rules/repo/.layer/layer.yaml"),
         files: &[
             (
                 "rules/backend.md",
-                include_str!(
-                    "../../../../../../test/fixtures/17-rules/repo/.layer/rules/backend.md"
-                ),
+                include_str!("../../../../../../fixtures/17-rules/repo/.layer/rules/backend.md"),
             ),
             (
                 "rules/testing.md",
-                include_str!(
-                    "../../../../../../test/fixtures/17-rules/repo/.layer/rules/testing.md"
-                ),
+                include_str!("../../../../../../fixtures/17-rules/repo/.layer/rules/testing.md"),
             ),
         ],
     },
@@ -283,22 +269,20 @@ pub(crate) const CASE_17: &[Layer] = &[
 
 pub(crate) const CASE_18: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/18-native-fields/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/18-native-fields/personal/layer.yaml"),
         files: &[(
             "agents/architect.md",
             include_str!(
-                "../../../../../../test/fixtures/18-native-fields/personal/agents/architect.md"
+                "../../../../../../fixtures/18-native-fields/personal/agents/architect.md"
             ),
         )],
     },
     Layer {
-        yaml: include_str!(
-            "../../../../../../test/fixtures/18-native-fields/repo/.layer/layer.yaml"
-        ),
+        yaml: include_str!("../../../../../../fixtures/18-native-fields/repo/.layer/layer.yaml"),
         files: &[(
             "agents/architect.overlay.md",
             include_str!(
-                "../../../../../../test/fixtures/18-native-fields/repo/.layer/agents/architect.overlay.md"
+                "../../../../../../fixtures/18-native-fields/repo/.layer/agents/architect.overlay.md"
             ),
         )],
     },
@@ -306,14 +290,14 @@ pub(crate) const CASE_18: &[Layer] = &[
 
 pub(crate) const CASE_22: &[Layer] = &[
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/22-ls/personal/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/22-ls/personal/layer.yaml"),
         files: &[(
             "agents/architect.md",
-            include_str!("../../../../../../test/fixtures/22-ls/personal/agents/architect.md"),
+            include_str!("../../../../../../fixtures/22-ls/personal/agents/architect.md"),
         )],
     },
     Layer {
-        yaml: include_str!("../../../../../../test/fixtures/22-ls/repo/.layer/layer.yaml"),
+        yaml: include_str!("../../../../../../fixtures/22-ls/repo/.layer/layer.yaml"),
         files: &[],
     },
 ];

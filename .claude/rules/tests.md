@@ -22,4 +22,4 @@ paths:
   and use `gitProxy()` for "git was never run".
 - Temp folders come from `tempDir()` in `test/run-root.ts`, never from `tmpdir`.
 - Never read or write the real `~/.claude*`, `~/.codex*` or `~/.cache` from a test.
-- Fixtures are inputs: a test copies them first and never edits `test/fixtures/` in place.
+- Fixtures are inputs: a test copies them first and never edits `fixtures/` in place.

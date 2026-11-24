@@ -44,7 +44,7 @@ mod tests {
             let work = scratch.join("work");
             copy_tree(
                 &Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../test/fixtures")
+                    .join("../../fixtures")
                     .join(fixture),
                 &work,
             )

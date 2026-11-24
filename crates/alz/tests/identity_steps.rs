@@ -43,7 +43,7 @@ mod tests {
     }
 
     fn fixture() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/26-commit-identity")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/26-commit-identity")
     }
 
     fn real_path() -> std::ffi::OsString {

@@ -9,9 +9,9 @@ use crate::stack::ResolvedLayer;
 // The files of acceptance case 09 (§13.9), read from the fixture itself: the personal layer
 // defines two servers and the repository's manifest enables one of them.
 const CASE_09_PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/09-mcp-allowlist/personal/layer.yaml");
+    include_str!("../../../../../fixtures/09-mcp-allowlist/personal/layer.yaml");
 const CASE_09_PERSONAL_MCP: &str =
-    include_str!("../../../../../test/fixtures/09-mcp-allowlist/personal/mcp.yaml");
+    include_str!("../../../../../fixtures/09-mcp-allowlist/personal/mcp.yaml");
 const CASE_09_ENABLE: &str = "mcp:\n  enable: [context7]\n";
 
 fn id(text: &str) -> McpServerId {

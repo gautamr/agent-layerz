@@ -10,23 +10,21 @@ use crate::target::TargetName;
 
 // The files of acceptance case 03 (§13.3) and case 18 (§13.18), read from the fixtures themselves.
 const BASE_03: &str =
-    include_str!("../../../../../test/fixtures/03-agent-overlay/personal/agents/architect.md");
-const CLIENT_03: &str = include_str!(
-    "../../../../../test/fixtures/03-agent-overlay/client/agents/architect.overlay.md"
-);
+    include_str!("../../../../../fixtures/03-agent-overlay/personal/agents/architect.md");
+const CLIENT_03: &str =
+    include_str!("../../../../../fixtures/03-agent-overlay/client/agents/architect.overlay.md");
 const REPO_03: &str = include_str!(
-    "../../../../../test/fixtures/03-agent-overlay/repo/.layer/agents/architect.overlay.md"
+    "../../../../../fixtures/03-agent-overlay/repo/.layer/agents/architect.overlay.md"
 );
-const EXPECTED_03: &str = include_str!(
-    "../../../../../test/fixtures/03-agent-overlay/expected/.claude/agents/architect.md"
-);
+const EXPECTED_03: &str =
+    include_str!("../../../../../fixtures/03-agent-overlay/expected/.claude/agents/architect.md");
 const BASE_18: &str =
-    include_str!("../../../../../test/fixtures/18-native-fields/personal/agents/architect.md");
+    include_str!("../../../../../fixtures/18-native-fields/personal/agents/architect.md");
 const OVERLAY_18: &str = include_str!(
-    "../../../../../test/fixtures/18-native-fields/repo/.layer/agents/architect.overlay.md"
+    "../../../../../fixtures/18-native-fields/repo/.layer/agents/architect.overlay.md"
 );
 const BAD_18: &str =
-    include_str!("../../../../../test/fixtures/18-native-fields/bad/.layer/agents/reviewer.md");
+    include_str!("../../../../../fixtures/18-native-fields/bad/.layer/agents/reviewer.md");
 
 fn case_03() -> Vec<ResolvedLayer> {
     vec![

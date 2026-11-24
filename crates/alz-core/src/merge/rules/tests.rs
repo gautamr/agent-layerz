@@ -10,13 +10,13 @@ use crate::stack::ResolvedLayer;
 
 // The files of acceptance case 17 (§13.17), read from the fixture itself.
 const PERSONAL_BACKEND: &str =
-    include_str!("../../../../../test/fixtures/17-rules/personal/rules/backend.md");
+    include_str!("../../../../../fixtures/17-rules/personal/rules/backend.md");
 const PERSONAL_TESTING: &str =
-    include_str!("../../../../../test/fixtures/17-rules/personal/rules/testing.md");
+    include_str!("../../../../../fixtures/17-rules/personal/rules/testing.md");
 const REPO_BACKEND: &str =
-    include_str!("../../../../../test/fixtures/17-rules/repo/.layer/rules/backend.md");
+    include_str!("../../../../../fixtures/17-rules/repo/.layer/rules/backend.md");
 const REPO_TESTING: &str =
-    include_str!("../../../../../test/fixtures/17-rules/repo/.layer/rules/testing.md");
+    include_str!("../../../../../fixtures/17-rules/repo/.layer/rules/testing.md");
 
 fn case_17() -> Vec<ResolvedLayer> {
     vec![
@@ -383,10 +383,8 @@ proptest! {
     }
 }
 
-const PERSONAL_YAML: &str =
-    include_str!("../../../../../test/fixtures/17-rules/personal/layer.yaml");
-const REPO_YAML: &str =
-    include_str!("../../../../../test/fixtures/17-rules/repo/.layer/layer.yaml");
+const PERSONAL_YAML: &str = include_str!("../../../../../fixtures/17-rules/personal/layer.yaml");
+const REPO_YAML: &str = include_str!("../../../../../fixtures/17-rules/repo/.layer/layer.yaml");
 
 // Acceptance case 17, explain: the typed contributions give the strings the suite asserts, and
 // the same sources the generated header names.

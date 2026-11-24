@@ -25,7 +25,7 @@ mod tests {
     impl Workspace {
         fn new() -> Self {
             let scratch = ScratchDir::new().expect("a scratch directory");
-            let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures");
+            let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
             copy_tree(&fixtures.join("02-instructions"), &scratch.join("work"))
                 .expect("the fixture is copied");
             scratch.make_dir("home").expect("made");

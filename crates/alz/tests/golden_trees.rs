@@ -17,7 +17,7 @@ mod tests {
 
     /// The fixtures of the acceptance suite, which the golden trees were made from.
     fn fixtures() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures")
     }
 
     fn goldens() -> PathBuf {

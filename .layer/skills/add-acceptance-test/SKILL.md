@@ -17,9 +17,9 @@ checks the TypeScript reference and the Rust `alz`.
 
 ## Layout
 - Test: `test/acceptance/NN-<topic>.test.ts`. Use the next free `NN`.
-- Fixture: `test/fixtures/NN-<topic>/`, usually `personal/` (a layer with `layer.yaml`) and
+- Fixture: `fixtures/NN-<topic>/`, usually `personal/` (a layer with `layer.yaml`) and
   `repo/` (a `layer.yaml` stack plus `.layer/`). Add more layers or repos as the case needs.
-- Expected output, when comparing whole files: `test/fixtures/NN-<topic>/expected/<path>`,
+- Expected output, when comparing whole files: `fixtures/NN-<topic>/expected/<path>`,
   read with `expected(name, path)`.
 - A case that only the TypeScript code can show (in-process runs, fake terminals, source
   scans, resolver internals, the install script) goes in `test/reference/`, not here. Those

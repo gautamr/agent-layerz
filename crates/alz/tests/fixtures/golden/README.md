@@ -1,10 +1,10 @@
 The files the TypeScript reference's `alz build` writes for every repository fixture of the
-acceptance suite (`test/fixtures/<fixture>/<repo>`) that builds, made once by
+acceptance suite (`fixtures/<fixture>/<repo>`) that builds, made once by
 `node crates/alz/tools/golden-trees.mjs` in a scratch copy of the whole fixture with an isolated
 home folder (TASK-55.6.8). For `<fixture>/<repo>`:
 
 - `files/` holds every file the build created, with its bytes and executable bit (git keeps the
-  bit); the repository's own inputs are not copied, so the test reads them from `test/fixtures`.
+  bit); the repository's own inputs are not copied, so the test reads them from `fixtures`.
 - `stdout` and `stderr` hold what the build printed.
 
 `16-hub` builds against a hub that is a git repository tagged `layer-v0.1.0`, made with a fixed

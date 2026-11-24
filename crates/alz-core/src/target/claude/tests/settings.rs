@@ -16,7 +16,7 @@ use crate::stack::Manifest;
 /// The text of a file of an acceptance fixture, read at compile time.
 macro_rules! fixture {
     ($path:literal) => {
-        include_str!(concat!("../../../../../../test/fixtures/", $path))
+        include_str!(concat!("../../../../../../fixtures/", $path))
     };
 }
 
