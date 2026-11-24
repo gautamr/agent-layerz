@@ -1,11 +1,11 @@
 ---
 id: TASK-55.6.6
 title: 'R5.6: Passthrough, protected paths and the Rendered build'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-23T18:08:00Z'
-updated_date: '2026-11-24T02:19:00Z'
+updated_date: '2026-11-24T02:22:00Z'
 labels:
   - area:rust
   - area:render
