@@ -5,9 +5,12 @@
 //! on `alz-io`.
 
 pub mod account;
+pub mod adopt;
 pub mod cache;
 mod diagnostic;
+pub mod doctor;
 pub mod env;
+pub mod explain;
 pub mod git;
 pub mod identity;
 pub mod item;
@@ -15,11 +18,15 @@ pub mod json;
 pub mod layer;
 pub mod leak_guard;
 pub mod lint;
+pub mod listing;
+pub mod live;
 pub mod lock;
 pub mod markdown;
 pub mod merge;
 pub mod path;
+pub mod probe;
 pub mod render;
+pub mod scaffold;
 pub mod schema;
 pub mod secret;
 pub mod stack;
@@ -31,4 +38,4 @@ pub use diagnostic::{
     Code, Diagnostic, Diagnostics, Level, Message, MessagePart, Place, Position, Printable, Where,
 };
 
-pub use untrusted_text::{Escaped, QuotedKey, Stripped};
+pub use untrusted_text::{Escaped, QuotedKey, Stripped, has_control_or_format};

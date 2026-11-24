@@ -1,4 +1,4 @@
-use crate::merge::provenance::Action;
+use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::path::SafeRelPath;
 use crate::target::TargetName;
@@ -35,7 +35,7 @@ fn the_most_specific_layer_wins_per_path_and_other_paths_stay() {
         .provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str(), part.action()))
+        .map(|part| (part.layer().as_str(), part.action().clone()))
         .collect();
     assert_eq!(
         makers,

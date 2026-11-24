@@ -198,7 +198,8 @@ impl GitRunner {
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
             | Outcome::Checks(_)
-            | Outcome::Contents(_) => Err(mismatch()),
+            | Outcome::Contents(_)
+            | Outcome::Lines(_) => Err(mismatch()),
         }
     }
 
@@ -220,7 +221,8 @@ impl GitRunner {
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
             | Outcome::Checks(_)
-            | Outcome::Contents(_) => Err(mismatch()),
+            | Outcome::Contents(_)
+            | Outcome::Lines(_) => Err(mismatch()),
         }
     }
 
@@ -248,7 +250,8 @@ impl GitRunner {
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
             | Outcome::Checks(_)
-            | Outcome::Contents(_) => Err(mismatch()),
+            | Outcome::Contents(_)
+            | Outcome::Lines(_) => Err(mismatch()),
         }
     }
 
@@ -267,7 +270,8 @@ impl GitRunner {
             | Outcome::Path(_)
             | Outcome::Tree(_)
             | Outcome::Checks(_)
-            | Outcome::Contents(_) => Err(mismatch()),
+            | Outcome::Contents(_)
+            | Outcome::Lines(_) => Err(mismatch()),
         }
     }
 
@@ -311,7 +315,8 @@ impl GitRunner {
             | Outcome::Path(_)
             | Outcome::Prefix(_)
             | Outcome::Checks(_)
-            | Outcome::Contents(_) => Err(mismatch()),
+            | Outcome::Contents(_)
+            | Outcome::Lines(_) => Err(mismatch()),
         }
     }
 
@@ -336,7 +341,8 @@ impl GitRunner {
             | Outcome::Path(_)
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
-            | Outcome::Contents(_) => Err(mismatch()),
+            | Outcome::Contents(_)
+            | Outcome::Lines(_) => Err(mismatch()),
         }
     }
 
@@ -361,7 +367,28 @@ impl GitRunner {
             | Outcome::Path(_)
             | Outcome::Prefix(_)
             | Outcome::Tree(_)
-            | Outcome::Checks(_) => Err(mismatch()),
+            | Outcome::Checks(_)
+            | Outcome::Lines(_) => Err(mismatch()),
+        }
+    }
+
+    /// The tags named `layer-v*` in the repository that holds `directory`, the newest version
+    /// first (`git tag --list 'layer-v*' --sort=-v:refname`), each as git printed it.
+    ///
+    /// # Errors
+    ///
+    /// The [`GitFailure`] of the call, such as `directory` not being in a repository.
+    pub fn layer_tags(&self, directory: &Path) -> Result<Vec<OsString>, GitFailure> {
+        match self.run(&GitCall::LayerTags { directory })? {
+            Outcome::Lines(tags) => Ok(tags),
+            Outcome::Nothing
+            | Outcome::Version(_)
+            | Outcome::Object(_)
+            | Outcome::Path(_)
+            | Outcome::Prefix(_)
+            | Outcome::Tree(_)
+            | Outcome::Checks(_)
+            | Outcome::Contents(_) => Err(mismatch()),
         }
     }
 }

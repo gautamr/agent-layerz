@@ -1,6 +1,6 @@
 # target-facts.md — verified facts about Claude Code and Codex
 
-**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79)
+**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79); §15 added 2026-11-24 (cloud provider switches for the live probe, TASK-55.6.15)
 **Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c); §7.12/§9.4 commit identity (§10–§11 here); §7.13 account selection, §12 items 10–21 (§12 here)
 **Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155). §12: Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`), mise **2026.9.1**
 **Host:** macOS (Darwin 25.6.0), both installed through Homebrew casks
@@ -608,7 +608,7 @@ Counts. Of the first 98 rows, all 98 were checked against DOCS; 94 also have a S
 
 ### 14.1 What the table checks
 
-A type is a boolean, text, a whole number (a YAML integer), a number, one of a list of texts, a list of one type, a mapping with any text keys and one value type (`*` in a path), a mapping with listed keys (each optional unless the note says required; any other key is an error), a mapping with exactly one of the listed keys, or one of several types. A path has `*` for a key of a mapping with any keys and `[]` for a list item. Ranges ("minimum 1", "at most 1"), patterns and the syntax of a path or a URL are not checked.
+A type is a boolean, text, a whole number (a YAML integer), a number, one of a list of texts, a list of one type, a mapping with any text keys and one value type (`*` in a path), a mapping with listed keys (each optional unless the note says required; any other key is an error), a mapping with exactly one of the listed keys, or one of several types. A path has `*` for a key of a mapping with any keys and `[]` for a list item. A whole number may have a span (at least a minimum, or between two numbers), a number a range between 0 and 1, and a number is finite (`.nan`, `.inf` and `-.inf` are refused). The ranges are recorded in the Note column and in 14.6. Of the text keys only the name of an MCP allowlist entry has a format (14.6); patterns and the syntax of a path or a URL are not checked.
 
 A key that the security table refuses (§13) is not listed here, even when it has a type; a floor key of §13 is listed and typed.
 
@@ -644,8 +644,8 @@ Keys with a floor (§13) first.
 | `httpHookAllowedEnvVars` | a list whose items are text | S |  |
 | `disableSkillShellExecution` | a boolean | S |  |
 | `allowedMcpServers` | a list whose items are a mapping with exactly one of the keys serverName, serverCommand, serverUrl | S |  |
-| `allowedMcpServers[].serverName` | text | D |  |
-| `allowedMcpServers[].serverCommand` | a list whose items are text | D |  |
+| `allowedMcpServers[].serverName` | a name of letters, digits, hyphens and underscores | S | 14.6 |
+| `allowedMcpServers[].serverCommand` | a list of at least one item, whose items are text | S | 14.6 |
 | `allowedMcpServers[].serverUrl` | text | D |  |
 | `deniedMcpServers` | a list whose items are a mapping with exactly one of the keys serverName, serverCommand, serverUrl | S |  |
 | `deniedMcpServers[].serverName` | text | D |  |
@@ -672,7 +672,7 @@ All other accepted keys.
 | `modelSettings` | a mapping whose values are a mapping | D |  |
 | `modelSettings.*.effortLevel` | one of low, medium, high, xhigh | D |  |
 | `modelSettings.*.maxEffortLevel` | one of low, medium, high, xhigh, max | D |  |
-| `modelSettings.*.autoCompactWindow` | a whole number, or one of auto | D |  |
+| `modelSettings.*.autoCompactWindow` | a whole number of at least 100000, or one of auto | D | "a token count of 100000 or more, or auto" (DOCS); 14.6 |
 | `outputStyle` | text | S |  |
 | `promptCacheTtl` | one of 5m, 1h | D |  |
 | `showThinkingSummaries` | a boolean | S |  |
@@ -680,24 +680,24 @@ All other accepted keys.
 | `switchModelsOnFlag` | a boolean | S |  |
 | `ultracode` | a boolean | D |  |
 | `autoCompactEnabled` | a boolean | S |  |
-| `autoCompactWindow` | a whole number | D | 100000 or more (DOCS); the range is not checked |
+| `autoCompactWindow` | a whole number of at least 100000 | D | 100000 or more (DOCS); 14.6 |
 | `autoMemoryDirectory` | text | S |  |
 | `autoMemoryEnabled` | a boolean | S |  |
-| `bashOutputMaxChars` | a whole number | D | positive; Claude clamps it to 4000 to 128000 (DOCS) |
+| `bashOutputMaxChars` | a whole number of at least 1 | D | positive; Claude clamps it to 4000 to 128000 (DOCS), so alz refuses only what is not positive; 14.6 |
 | `claudeMdExcludes` | a list whose items are text | S |  |
 | `env` | a mapping whose values are text | D | SMOKE: a number as a value is accepted by 2.1.323; alz requires text |
 | `fileCheckpointingEnabled` | a boolean | S |  |
 | `idleCompaction` | a boolean | S |  |
 | `plansDirectory` | text | S |  |
-| `skillListingBudgetFraction` | a number | S | above 0 and at most 1 (DOCS); the range is not checked |
-| `skillListingMaxDescChars` | a whole number | S |  |
+| `skillListingBudgetFraction` | a number above 0 and at most 1 | S | 14.6 |
+| `skillListingMaxDescChars` | a whole number of at least 1 | S | a positive integer (DOCS); 0 and -1 refused (SMOKE); 14.6 |
 | `autoScrollEnabled` | a boolean | S |  |
 | `companyAnnouncements` | a list whose items are text | S |  |
 | `defaultShell` | one of bash, powershell | S |  |
 | `editorMode` | one of normal, vim | D |  |
 | `emojiCompletionEnabled` | a boolean | S |  |
 | `keybindingFlavor` | one of classic, readline | D |  |
-| `maxProseWidth` | a whole number | D | minimum 40 (DOCS); the range is not checked |
+| `maxProseWidth` | a whole number of at least 40 | D | "minimum 40. Claude Code ignores any other value" (DOCS); 14.6 |
 | `prefersReducedMotion` | a boolean | S |  |
 | `promptSuggestionEnabled` | a boolean | S |  |
 | `respectGitignore` | a boolean | S |  |
@@ -709,8 +709,8 @@ All other accepted keys.
 | `spinnerTipsOverride.tips` | a list whose items are text, or a mapping | D |  |
 | `spinnerTipsOverride.tips[].id` | text | D |  |
 | `spinnerTipsOverride.tips[].text` | text | D |  |
-| `spinnerTipsOverride.tips[].cooldownSessions` | a whole number | D |  |
-| `spinnerTipsOverride.tips[].priority` | a whole number | D |  |
+| `spinnerTipsOverride.tips[].cooldownSessions` | a whole number from 0 to 1000 | D | "0 to 1000" (DOCS); 14.6 |
+| `spinnerTipsOverride.tips[].priority` | a whole number from -10 to 10 | D | "-10 to 10" (DOCS); 14.6 |
 | `spinnerTipsOverride.tipsFile` | text | D |  |
 | `spinnerTipsOverride.label` | text | D |  |
 | `spinnerTipsOverride.excludeDefault` | a boolean | D |  |
@@ -768,8 +768,30 @@ All other accepted keys.
 | `remoteControlAtStartup` | a boolean | S |  |
 | `autoUpdatesChannel` | one of latest, stable | S |  |
 | `minimumVersion` | text | S |  |
-| `cleanupPeriodDays` | a whole number | S | minimum 1 (DOCS); the range is not checked |
-| `feedbackSurveyRate` | a number | S | between 0 and 1 (DOCS); the range is not checked |
+| `cleanupPeriodDays` | a whole number of at least 1 | S | minimum 1 (DOCS); 0 and -3 refused (SMOKE); 14.6 |
+| `feedbackSurveyRate` | a number from 0 to 1 | S | 14.6 |
+
+### 14.6 Ranges and formats (TASK-55.6 review) — checked 2026-11-24, Claude Code 2.1.323
+
+Method: the SMOKE of 14.0 (project `.claude/settings.json` in a throwaway folder, `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders, `claude -p hi --max-turns 1 </dev/null`; no login, nothing under `~/.claude*`), one run per value. "Refused" is `These settings files did not load` naming the key; "loads" is no message. The DOCS lines are `settings-reference.md`, fetched 2026-11-24.
+
+| Key | Range in the table | DOCS | SMOKE 2.1.323 |
+|---|---|---|---|
+| `cleanupPeriodDays` | at least 1 | "a whole number, minimum 1" | 0, -3 refused (`Number must be greater than or equal to 0`); 1, 5 load; 1.5 refused (`Expected int`) |
+| `skillListingBudgetFraction` | above 0, at most 1 | "a fraction greater than 0 and at most 1" | 0, -0.5 refused; 1.5 refused (`expected number to be <=1`); 1 loads |
+| `skillListingMaxDescChars` | at least 1 | "a positive integer" | 0, -1 refused |
+| `feedbackSurveyRate` | 0 to 1, both included | "number between 0 and 1" | -0.1, 1.5 refused; 0, 1 load |
+| `autoCompactWindow`, `modelSettings.*.autoCompactWindow` | at least 100000 | "a token count of at least 100000" | 99999, 0, -5 **load** without a message (level D) |
+| `bashOutputMaxChars` | at least 1 | "a positive integer; clamped into 4000 to 128000" | 0, -1, 1, 3999, 999999999 **load** (level D; Claude clamps) |
+| `maxProseWidth` | at least 40 | "minimum 40. Claude Code ignores any other value" | 0, -1, 39, 100000 **load** (level D) |
+| `spinnerTipsOverride.tips[].cooldownSessions` | 0 to 1000 | "0 to 1000" | 1001, -1 **load** (level D) |
+| `spinnerTipsOverride.tips[].priority` | -10 to 10 | "-10 to 10" | 11, -11 **load** (level D) |
+
+alz refuses a value outside the range even where 2.1.323 loads it: the range is the documented one, and a value outside it is ignored or clamped by Claude, so the file does not do what its author wrote. A non-finite number (`.nan`, `.inf`, `-.inf`) is refused for every number key; YAML has it, JSON does not, so Claude's file could not hold it.
+
+Text keys with a format that Claude might check, all SMOKE with a malformed value: `minimumVersion` (`bogus`, empty), `timeZone` (`Not/AZone`, empty), `prUrlTemplate` (`not a url`, empty), `$schema`, `theme` (`nonsense`, `custom:Bad Slug!`), `outputStyle`, `language`, `plansDirectory` (empty), `autoMemoryDirectory` (empty), `advisorModel` (empty), `remote.defaultEnvironmentId`, `agent`, `allowedMcpServers[].serverUrl` (`not a url`, empty), `deniedMcpServers[].serverName` (`has space`), `spinnerTipsOverride.tips[].id` (`bad id!`), `worktree.sparsePaths`, `availableModels` (empty item) **all load without a message**. DOCS says an invalid `minimumVersion` "is ignored" and an unknown `timeZone` falls back to the system zone. So alz checks only the type of these.
+
+The one format Claude checks is in the MCP allowlist, and it **skips the entry** with a message (`These settings entries were skipped; the rest of each file is in effect`): `allowedMcpServers[]` with `serverName` `''` or `a.b` (`Server name can only contain letters, numbers, hyphens, and underscores`; `has space` is skipped alike), with `serverCommand: []` (`Server command must have at least one element`), or with more than one of the three keys (the table already requires exactly one). `deniedMcpServers[]` with `serverName: has space` loads. alz refuses the allowlist entries Claude skips; the denylist is checked for type only. A skipped allowlist entry leaves the allowlist narrower than written.
 
 ### 14.3 Keys that are not accepted
 
@@ -789,7 +811,7 @@ DOCS only: `code.claude.com/docs/en/sub-agents.md`, "Supported frontmatter field
 |---|---|---|---|
 | `disallowedTools` | text, or a list whose items are text | D | a comma-separated string or a YAML list, "same format as `tools`" |
 | `maxTurns` | a whole number | D | maximum number of agentic turns |
-| `autoCompactWindow` | a whole number | D | 100000 or more; needs v2.1.296 or later; the range is not checked |
+| `autoCompactWindow` | a whole number of at least 100000 | D | 100000 or more; needs v2.1.296 or later (DOCS) |
 | `background` | a boolean | D |  |
 | `omitClaudeMd` | a boolean | D | needs v2.1.271 or later |
 | `effort` | one of low, medium, high, xhigh, max | D | the levels available depend on the model |
@@ -801,3 +823,57 @@ DOCS only: `code.claude.com/docs/en/sub-agents.md`, "Supported frontmatter field
 ### 14.5 Counts
 
 Settings: 147 rows (every key, and every key below an object, a map or a list), checked against the settings reference, of which 111 have a SMOKE type check and 36 are DOCS only (the installed 2.1.323 loads a wrong type without a message, or the row is a key below a map or list that the probe did not reach). Agent frontmatter: 10 rows, all DOCS. The security table of §13 keeps the keys it refuses.
+
+## 15. Cloud provider switches and variables for the live probe (TASK-55.6.15) — checked 2026-11-24
+
+What `alz ls --live` may hand the `claude` program beyond its fixed allowlist (spec §10.3). Level: DOCS only. A provider cannot be reached without cloud credentials, so no SMOKE was possible; nothing under `~/.claude*` or any credential was used. Installed Claude Code: 2.1.323.
+
+### 15.0 Sources
+
+- `https://code.claude.com/docs/en/amazon-bedrock.md`, fetched 2026-11-24 with curl.
+- `https://code.claude.com/docs/en/google-vertex-ai.md`, fetched 2026-11-24 with curl.
+- `https://code.claude.com/docs/en/env-vars.md`, fetched 2026-11-24 with curl (the switch rows and the empty-value rule).
+
+### 15.1 Rows
+
+| Fact | Level | Source and wording |
+|---|---|---|
+| Amazon Bedrock is switched on by `CLAUDE_CODE_USE_BEDROCK`, written `=1` | DOCS | amazon-bedrock, "Set the following environment variables to enable Amazon Bedrock": `export CLAUDE_CODE_USE_BEDROCK=1`; env-vars: "Use Amazon Bedrock" |
+| Bedrock reads these variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_BEARER_TOKEN_BEDROCK`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION` | DOCS | amazon-bedrock, steps 2 and 3: the credential chain and the region order. All but the last start with `AWS_`; the last starts with `ANTHROPIC_` and is covered by that prefix |
+| Google Cloud's Agent Platform (Vertex) is switched on by `CLAUDE_CODE_USE_VERTEX`, written `=1` | DOCS | google-vertex-ai, step 4: `export CLAUDE_CODE_USE_VERTEX=1`; env-vars: "Use Google Cloud's Agent Platform" |
+| Vertex needs `CLOUD_ML_REGION` (`global`, a multi-region such as `us` or `eu`, or a region; default `us-east5`) and `ANTHROPIC_VERTEX_PROJECT_ID` (it wins over `GCLOUD_PROJECT`, `GOOGLE_CLOUD_PROJECT` and the project of the credential file) | DOCS | google-vertex-ai, step 4 and the note on the project |
+| Vertex credentials are Application Default Credentials; `GOOGLE_APPLICATION_CREDENTIALS` names a credential file | DOCS | google-vertex-ai, the sections on authentication and troubleshooting. The page also names `GCLOUD_PROJECT`, which starts with neither `GOOGLE_` nor any allowed prefix, and `VERTEX_REGION_CLAUDE_*` (per-model regions); alz passes both while Vertex is on (§15.2) |
+| A switch with an empty value counts as unset for provider selection | DOCS | env-vars: "Claude Code treats the empty value as unset for provider selection" (said of `CLAUDE_CODE_USE_VERTEX`). The docs name no other off value and no other on value than `1`: `0`, `false` and `true` are not described for these two switches |
+
+### 15.2 What alz does with them (owner's decision, 2026-11-24; switch rule and Vertex set refined the same day)
+
+- A switch is **on** only when its value is `1` or `true`, ASCII case-insensitive, with surrounding white space not trimmed. Any other value is off: empty (the one off value the docs state), `0`, `false`, `yes`, ` 1`. The docs show only `=1`, so a looser rule (any non-empty value) would hand credentials to the child for a value such as `0` that the docs do not call on. Fewer credentials reach the child when in doubt; the cost is that a deployment that sets another truthy value gets a probe without its cloud variables, which fails with Claude's own message.
+- Bedrock on: the probe's child also gets every variable that starts with `AWS_`. Vertex on: it also gets every variable that starts with `GOOGLE_` or `VERTEX_REGION_CLAUDE_`, `GCLOUD_PROJECT`, `CLOUD_ML_REGION` and `ANTHROPIC_VERTEX_PROJECT_ID`. A switch that is off passes none of its set. The switches themselves pass through the `CLAUDE_CODE_*` prefix.
+- `ANTHROPIC_VERTEX_PROJECT_ID` starts with `ANTHROPIC_`, which the allowlist already passes. alz withholds it while Vertex is off, so "only when switched on" holds for it too.
+- `GCLOUD_PROJECT` and `VERTEX_REGION_CLAUDE_*` are in the set because §15.1 records the pages as naming them for Vertex. `AWS_*` names in lower case do not pass.
+
+## 16. Running the live probe with nothing of the repository's own configuration executing (TASK-55.6 review) — checked 2026-11-24, Claude Code 2.1.323
+
+Owner decision, 2026-11-24: `alz ls --live` (spec §10.3) asks Claude Code what it loaded, and the repository being probed is untrusted, so the probe must not run the repository's hooks or MCP servers, and gives the session no tool.
+
+### 16.0 Method
+
+SMOKE, no login and no model call: a throwaway project with a `.claude/settings.json` and a `.claude/settings.local.json`, both with `"disableAllHooks": false`, a `SessionStart` hook and a `UserPromptSubmit` hook that each `touch` a marker file in the throwaway folder, `"enableAllProjectMcpServers": true`, and a `.mcp.json` whose one server is `/usr/bin/touch <marker>`; `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders (nothing under `~/.claude*` was read or written); `claude -p hi --max-turns 1 --output-format stream-json --verbose </dev/null` with the flags below. A marker file says the hook or server ran; the `init` event says what loaded. The event is printed with an empty `CLAUDE_CONFIG_DIR` and no login (§12).
+
+### 16.1 Rows
+
+| Flags | Hooks ran | MCP server ran | `tools` of the event | Level |
+|---|---|---|---|---|
+| none | yes, both (project and local) | yes | the default set | SMOKE |
+| `--settings '{"disableAllHooks":true}'` | **no**, although project and local settings say `disableAllHooks: false` | yes | the default set | SMOKE |
+| `--strict-mcp-config --mcp-config '{"mcpServers":{}}'` | yes | **no**: `mcp_servers` is `[]`, although `enableAllProjectMcpServers` is `true` | the default set | SMOKE |
+| `--tools ""` | yes | yes (listed as `failed`: no tool uses it, but the process started) | `[]` | SMOKE |
+| all three | **no** | **no**: `mcp_servers` is `[]` | `[]` | SMOKE |
+
+So each flag is needed, none implies another, and the `--settings` value wins over the project and the local settings for `disableAllHooks`. With all three, the `init` event still lists the subagents (`agents`, the project's `demo-agent` among them) and the skills (`skills`, the project's `demo-skill` among them), which is what `ls --live` compares.
+
+Not used: `--bare` (HELP: it skips CLAUDE.md discovery and reads no OAuth or keychain login, so a logged-in user would need an API key) and `--disable-slash-commands` (HELP: it disables skills, which the probe reports). The arguments of the probe are `-p "Reply with OK." --output-format stream-json --verbose --max-turns 1 --settings {"disableAllHooks":true} --strict-mcp-config --mcp-config {"mcpServers":{}} --tools ""`.
+
+Not smoke-tested: a hook or server of the user scope or of a plugin. `disableAllHooks` and `--strict-mcp-config` name no scope (HELP: "ignoring all other MCP configurations"), so they are expected to cover them (level HELP).
+
+With MCP servers off, the probe cannot say whether an enabled server starts, so alz no longer judges servers.

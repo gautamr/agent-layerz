@@ -698,6 +698,78 @@
     "yaml": "list:\n  - a\n  - b: c\n  - - d\n  - 1\n  - true\n  - \"\"\nmap:\n  x: []\n  y: {}\n  z: \"\"\n"
   },
   {
+    "name": "numbers/fractions",
+    "class": "numbers",
+    "input": {
+      "half": 0.5,
+      "negative": -0.5,
+      "quarter": 100.25,
+      "sum": 0.30000000000000004,
+      "small": 0.000001234,
+      "list": [0.5, -1.5, 3.25]
+    },
+    "yaml": "half: 0.5\nnegative: -0.5\nquarter: 100.25\nsum: 0.30000000000000004\nsmall: 0.000001234\nlist:\n  - 0.5\n  - -1.5\n  - 3.25\n"
+  },
+  {
+    "name": "numbers/exponents",
+    "class": "numbers",
+    "input": {
+      "large": 1e21,
+      "larger": 1.5e300,
+      "largest": 1.7976931348623157e308,
+      "small": 1e-7,
+      "smaller": -1.5e-10,
+      "smallest": 5e-324
+    },
+    "yaml": "large: 1e+21\nlarger: 1.5e+300\nlargest: 1.7976931348623157e+308\nsmall: 1e-7\nsmaller: -1.5e-10\nsmallest: 5e-324\n"
+  },
+  {
+    "name": "numbers/whole-numbers-beyond-64-bits-or-written-without-exponent",
+    "class": "numbers",
+    "input": {
+      "a": 100000000000000000000,
+      "b": 123456789012345680000,
+      "c": -100000000000000000000
+    },
+    "yaml": "a: 100000000000000000000\nb: 123456789012345680000\nc: -100000000000000000000\n"
+  },
+  {
+    "name": "numbers/whole-numbers-with-a-fraction-in-the-source",
+    "class": "numbers",
+    "input": {
+      "a": 1,
+      "b": 100,
+      "c": -2
+    },
+    "yaml": "a: 1\nb: 100\nc: -2\n"
+  },
+  {
+    "name": "numbers/null",
+    "class": "numbers",
+    "input": {
+      "a": null,
+      "b": [null, 1],
+      "c": {
+        "d": null,
+        "e": {}
+      }
+    },
+    "yaml": "a: null\nb:\n  - null\n  - 1\nc:\n  d: null\n  e: {}\n"
+  },
+  {
+    "name": "numbers/null-and-numbers-in-lists",
+    "class": "numbers",
+    "input": [
+      null,
+      0.5,
+      [null],
+      {
+        "a": 0.5
+      }
+    ],
+    "yaml": "- null\n- 0.5\n- - null\n- a: 0.5\n"
+  },
+  {
     "name": "top-level/word",
     "class": "top-level",
     "input": "x",
@@ -774,6 +846,18 @@
     "class": "top-level",
     "input": -7,
     "yaml": "-7\n"
+  },
+  {
+    "name": "top-level/float",
+    "class": "top-level",
+    "input": 0.5,
+    "yaml": "0.5\n"
+  },
+  {
+    "name": "top-level/null",
+    "class": "top-level",
+    "input": null,
+    "yaml": "null\n"
   },
   {
     "name": "plain-words/as-values",

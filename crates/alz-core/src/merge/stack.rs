@@ -28,13 +28,15 @@ use std::collections::BTreeMap;
 use crate::account::AccountDeclaration;
 use crate::diagnostic::Diagnostics;
 use crate::identity::CommitIdentity;
-use crate::item::{AgentName, ClaudeExtra, Hook, RuleName, SettingsTree, Skill, SkillName};
+use crate::item::{AgentName, Hook, RuleName, SettingsTree, Skill, SkillName};
 use crate::layer::{LayerMeta, LayerName};
 use crate::merge::agents::{AgentState, MergedAgent};
 use crate::merge::algebra::Replace;
 use crate::merge::declarers::{Declarations, DeclaredField, DeclarerState};
 use crate::merge::hooks::HookState;
-use crate::merge::instructions::{InstructionBlock, InstructionState, MergedInstructions};
+use crate::merge::instructions::{
+    InstructionBlock, InstructionState, MergedClaudeExtra, MergedInstructions,
+};
 use crate::merge::mcp::{McpState, MergedMcp};
 use crate::merge::models::{MergedModels, ModelState};
 use crate::merge::passthrough::{MergedPassthrough, PassthroughState};
@@ -100,7 +102,7 @@ impl<'a> LayerContext<'a> {
 pub struct Merged {
     layers: Vec<LayerName>,
     instructions: Vec<Traced<InstructionBlock>>,
-    claude_extras: Vec<ClaudeExtra>,
+    claude_extras: Vec<MergedClaudeExtra>,
     rules: BTreeMap<RuleName, Traced<MergedRule>>,
     agents: BTreeMap<AgentName, Traced<MergedAgent>>,
     skills: Replace<SkillName, Traced<Skill>>,
@@ -133,7 +135,7 @@ impl Merged {
     /// The text of each layer's `targets/claude/CLAUDE.extra.md` that has any, in stack order
     /// (§7.1).
     #[must_use]
-    pub fn claude_extras(&self) -> &[ClaudeExtra] {
+    pub fn claude_extras(&self) -> &[MergedClaudeExtra] {
         &self.claude_extras
     }
 

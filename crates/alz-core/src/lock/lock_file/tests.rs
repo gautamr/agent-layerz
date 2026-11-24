@@ -145,7 +145,7 @@ fn a_file_entry_that_is_not_a_safe_path_with_a_hash_is_refused() {
         );
         assert_eq!(
             parse(&text),
-            Err(LockError::Invalid(LockField::FilePath)),
+            Err(LockError::FilePath { entry: 1 }),
             "{path:?}"
         );
     }
@@ -337,5 +337,28 @@ proptest! {
         prop_assert_eq!(Lock::parse(text.as_bytes()), Ok(lock.clone()));
         // Emitting is a function of the lock: the second text is the first.
         prop_assert_eq!(Lock::parse(text.as_bytes()).map(|again| again.emit()), Ok(text));
+    }
+}
+
+#[test]
+fn a_file_key_with_a_control_or_format_character_is_refused_by_its_number_without_the_value() {
+    // The keys are escapes in the JSON text: a .git path hidden behind U+200C, and an escape.
+    for key in [
+        r".g\u200cit/config",
+        r"a\u001b[2Jb.md",
+        r"a\u2028b.md",
+        r"\u202eexe.md",
+    ] {
+        let text = format!(
+            r#"{{"files":{{"first.md":"{HASH}","{key}":"{HASH}"}},"layers":[],"lockVersion":1,"visibility":"public"}}"#
+        );
+        let error = parse(&text).expect_err("refused");
+        assert_eq!(error, LockError::FilePath { entry: 2 }, "{key}");
+        let message = error.into_diagnostic().to_string();
+        assert!(message.contains("entry 2"), "{message}");
+        assert!(
+            !message.contains("config") && !message.contains("200c"),
+            "{message}"
+        );
     }
 }

@@ -4,9 +4,11 @@
 use std::fmt;
 
 use crate::layer::{Kind, LayerMeta, LayerName};
+use crate::untrusted_text::Stripped;
 
 /// A layer's heading, `## Personal: personal`. The heading holds the kind as the layer wrote it,
-/// capitalised by [`Kind::title`]; the renderer prints it as untrusted text.
+/// capitalised by [`Kind::title`]; it is text from the layer, so it prints without its control and
+/// format characters (class 1 of §10.1).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LayerHeading {
     kind: Kind,
@@ -38,7 +40,12 @@ impl LayerHeading {
 
 impl fmt::Display for LayerHeading {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "## {}: {}", self.kind.title(), self.name)
+        write!(
+            formatter,
+            "## {}: {}",
+            Stripped::from_untrusted(&self.kind.title()),
+            self.name
+        )
     }
 }
 

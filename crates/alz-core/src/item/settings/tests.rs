@@ -464,15 +464,15 @@ fn a_value_of_the_wrong_type_is_a_settings_error_naming_the_key_path_and_never_t
         ),
         (
             "claude:\n  cleanupPeriodDays: secret-value\n",
-            "error [settings] personal:settings.yaml:2:22: 'claude.cleanupPeriodDays' must be a whole number",
+            "error [settings] personal:settings.yaml:2:22: 'claude.cleanupPeriodDays' must be a whole number of at least 1",
         ),
         (
             "claude:\n  cleanupPeriodDays: 1.5\n",
-            "error [settings] personal:settings.yaml:2:22: 'claude.cleanupPeriodDays' must be a whole number",
+            "error [settings] personal:settings.yaml:2:22: 'claude.cleanupPeriodDays' must be a whole number of at least 1",
         ),
         (
             "claude:\n  feedbackSurveyRate: secret-value\n",
-            "error [settings] personal:settings.yaml:2:23: 'claude.feedbackSurveyRate' must be a number",
+            "error [settings] personal:settings.yaml:2:23: 'claude.feedbackSurveyRate' must be a number from 0 to 1",
         ),
         (
             "claude:\n  editorMode: secret-value\n",
@@ -646,4 +646,115 @@ fn a_key_that_lowers_a_safety_check_or_steers_sign_in_is_refused_with_its_reason
         );
         assert!(found.iter().all(|line| !line.contains("secret-value")));
     }
+}
+
+// Numbers: finite, and inside the range Claude Code documents (docs/target-facts.md section 14).
+
+#[test]
+fn a_number_that_is_not_finite_is_a_settings_error_naming_the_key_path_and_no_value() {
+    for yaml in [
+        "claude:\n  feedbackSurveyRate: .nan\n",
+        "claude:\n  feedbackSurveyRate: .inf\n",
+        "claude:\n  feedbackSurveyRate: -.inf\n",
+        "claude:\n  skillListingBudgetFraction: .inf\n",
+    ] {
+        let found = refused(yaml);
+        assert_eq!(found.len(), 1, "{yaml}");
+        assert!(found[0].starts_with("error [settings] personal:settings.yaml:2:"));
+        assert!(found[0].contains("'claude."), "{found:?}");
+        assert!(!found[0].to_lowercase().contains("nan"), "{found:?}");
+        assert!(!found[0].contains(".inf"), "{found:?}");
+    }
+}
+
+#[test]
+fn a_whole_number_outside_the_documented_range_is_refused_and_one_inside_is_read() {
+    for (key, low, high) in [
+        ("cleanupPeriodDays", "0", "1"),
+        ("cleanupPeriodDays", "-3", "30"),
+        ("autoCompactWindow", "99999", "100000"),
+        ("bashOutputMaxChars", "0", "1"),
+        ("bashOutputMaxChars", "-1", "999999"),
+        ("skillListingMaxDescChars", "0", "1"),
+        ("maxProseWidth", "39", "40"),
+        ("maxProseWidth", "0", "80"),
+    ] {
+        let found = refused(&format!("claude:\n  {key}: {low}\n"));
+        assert_eq!(found.len(), 1, "{key}: {low}");
+        assert!(
+            found[0].contains(&format!(
+                "'claude.{key}' must be a whole number of at least"
+            )),
+            "{found:?}"
+        );
+        only(&format!("claude:\n  {key}: {high}\n"));
+    }
+}
+
+#[test]
+fn a_fraction_outside_zero_to_one_is_refused() {
+    for (yaml, ok) in [
+        ("claude:\n  skillListingBudgetFraction: 0\n", false),
+        ("claude:\n  skillListingBudgetFraction: -0.5\n", false),
+        ("claude:\n  skillListingBudgetFraction: 1.5\n", false),
+        ("claude:\n  skillListingBudgetFraction: 2\n", false),
+        ("claude:\n  skillListingBudgetFraction: 1\n", true),
+        ("claude:\n  skillListingBudgetFraction: 0.02\n", true),
+        ("claude:\n  feedbackSurveyRate: -0.1\n", false),
+        ("claude:\n  feedbackSurveyRate: 1.5\n", false),
+        ("claude:\n  feedbackSurveyRate: 0\n", true),
+        ("claude:\n  feedbackSurveyRate: 1\n", true),
+        ("claude:\n  feedbackSurveyRate: 0.05\n", true),
+    ] {
+        if ok {
+            only(yaml);
+        } else {
+            assert_eq!(refused(yaml).len(), 1, "{yaml}");
+        }
+    }
+}
+
+#[test]
+fn the_ranges_of_a_nested_number_hold() {
+    let tip = |field: &str| {
+        format!("claude:\n  spinnerTipsOverride:\n    tips:\n      - {{id: a, text: b, {field}}}\n")
+    };
+    for refusing in [
+        "cooldownSessions: 1001",
+        "cooldownSessions: -1",
+        "priority: 11",
+        "priority: -11",
+    ] {
+        assert_eq!(refused(&tip(refusing)).len(), 1, "{refusing}");
+    }
+    for fine in [
+        "cooldownSessions: 0",
+        "cooldownSessions: 1000",
+        "priority: 10",
+        "priority: -10",
+    ] {
+        only(&tip(fine));
+    }
+    assert_eq!(
+        refused("claude:\n  modelSettings:\n    opus:\n      autoCompactWindow: 5\n").len(),
+        1
+    );
+    only("claude:\n  modelSettings:\n    opus:\n      autoCompactWindow: 100000\n");
+    only("claude:\n  modelSettings:\n    opus:\n      autoCompactWindow: auto\n");
+}
+
+#[test]
+fn an_allowlist_entry_that_claude_would_skip_is_refused() {
+    for yaml in [
+        "claude:\n  allowedMcpServers:\n    - {serverName: has space}\n",
+        "claude:\n  allowedMcpServers:\n    - {serverName: a.b}\n",
+        "claude:\n  allowedMcpServers:\n    - {serverName: ''}\n",
+        "claude:\n  allowedMcpServers:\n    - {serverCommand: []}\n",
+    ] {
+        assert_eq!(refused(yaml).len(), 1, "{yaml}");
+    }
+    only(
+        "claude:\n  allowedMcpServers:\n    - {serverName: ok_name-1}\n    - {serverCommand: [bin]}\n",
+    );
+    only("claude:\n  deniedMcpServers:\n    - {serverName: has space}\n");
 }

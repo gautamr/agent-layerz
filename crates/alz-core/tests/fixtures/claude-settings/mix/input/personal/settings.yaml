@@ -1,0 +1,7 @@
+claude:
+  cleanupPeriodDays: 14
+  env:
+    B: "2"
+    A: "1"
+  includeCoAuthoredBy: false
+  attribution: {pr: "p", commit: "c"}

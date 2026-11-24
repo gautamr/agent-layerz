@@ -3,7 +3,7 @@ use crate::item::{Binding, DefaultMode, FloorFlag, PermissionMode, Permissions};
 use crate::layer::LayerName;
 use crate::merge::algebra::{ListEdit, OrderedSet};
 use crate::merge::provenance::Traced;
-use crate::merge::testing::{layer, layer_from_yaml, lines, merged};
+use crate::merge::testing::{layer, layer_from_yaml, lines, merged, origin_of};
 use crate::stack::ResolvedLayer;
 use crate::untrusted_text::Stripped;
 
@@ -245,8 +245,8 @@ fn the_removal_leaves_the_deny_list_as_it_was() {
         ListEdit::Replace(OrderedSet::default()),
         None,
     );
-    let (state, _) = PermissionState::default().apply(&first, &name("personal"), &at);
-    let (state, found) = state.apply(&drop, &name("repo"), &at);
+    let (state, _) = PermissionState::default().apply(&first, &origin_of(name("personal")), &at);
+    let (state, found) = state.apply(&drop, &origin_of(name("repo")), &at);
     assert_eq!(found.error_count(), 1);
     assert_eq!(written(state.finish().deny()), ["read:.env*"]);
 }

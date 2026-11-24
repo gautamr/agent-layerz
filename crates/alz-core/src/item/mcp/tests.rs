@@ -42,7 +42,7 @@ fn servers_are_read_into_an_ordered_map_of_ids() {
             env_from,
         }) => {
             assert_eq!(command, "npx");
-            assert_eq!(args, &["@playwright/mcp@latest"]);
+            assert_eq!(args, &Some(vec!["@playwright/mcp@latest".to_owned()]));
             assert_eq!(
                 env_from.iter().map(EnvVarName::as_str).collect::<Vec<_>>(),
                 ["FOO"]

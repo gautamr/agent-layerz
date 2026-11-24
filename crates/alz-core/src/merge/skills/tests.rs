@@ -4,7 +4,8 @@ use proptest::collection::{btree_map, btree_set};
 use proptest::prelude::{Strategy, prop_assert_eq, proptest};
 
 use crate::item::{Skill, SkillName};
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::action::Action;
+use crate::merge::provenance::Traced;
 use crate::merge::testing::{layer, layer_from_yaml, lines, merged, merged_with};
 use crate::merge::{Merged, SlotDemand};
 use crate::stack::ResolvedLayer;
@@ -77,7 +78,7 @@ fn layers_of(traced: &Traced<Skill>) -> Vec<(String, Action)> {
         .provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str().to_owned(), part.action()))
+        .map(|part| (part.layer().as_str().to_owned(), part.action().clone()))
         .collect()
 }
 
@@ -458,4 +459,38 @@ proptest! {
             }
         }
     }
+}
+
+// The reference names a skill by its folder and a command by its file in a header and in
+// `alz explain`: `sourceRef(layer, dir)` and `sourceRef(layer, path)`.
+#[test]
+fn a_skill_is_named_by_its_folder_and_a_command_by_its_file_as_the_reference_does() {
+    use crate::merge::testing::layer_from_yaml;
+    use crate::render::header::SourceRef;
+
+    let yaml = "name: personal\nkind: personal\nvisibility: public\nversion: 1.0.0\n";
+    let model = merged(vec![layer_from_yaml(
+        yaml,
+        &[
+            ("layer.yaml", yaml),
+            (
+                "skills/arch/SKILL.md",
+                "---\nname: arch\ndescription: d\n---\nbody\n",
+            ),
+            ("skills/arch/notes/more.md", "more\n"),
+            ("commands/ship.md", "---\ndescription: d\n---\nbody\n"),
+        ],
+    )]);
+    let model = model.merged().expect("no error was found");
+    let source = |name: &str| {
+        let skill = model
+            .skills()
+            .get(&SkillName::try_from(name).expect("a skill name"))
+            .expect("the skill exists");
+        SourceRef::of_contribution(&skill.provenance().contributions()[0])
+            .expect("a source")
+            .to_string()
+    };
+    assert_eq!(source("arch"), "personal@1.0.0:skills/arch");
+    assert_eq!(source("ship"), "personal@1.0.0:commands/ship.md");
 }

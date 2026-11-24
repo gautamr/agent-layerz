@@ -390,15 +390,18 @@ describe("§13.19 reads only: no git, no write, no fetch (AC 3)", () => {
       ),
     ).toEqual([]);
 
-    // $HOME is listed once, and the working directory is resolved once.
+    // $HOME is listed once. The working directory is resolved once on macOS; on Linux the
+    // reference's realpath resolves it once per lookup (seen on the ubuntu CI job, PR #14), and
+    // src/ is never changed (decision-30). The Rust alz resolves it once on every platform
+    // (TASK-55.7 carries that check).
     expect(listed.filter((path) => path === s.ws.home)).toHaveLength(1);
     const cwd = `${named.ws.root}/repo`;
-    expect(
-      fsCalls
-        .filter((call) => call.fn.startsWith("realpathSync"))
-        .flatMap((call) => call.paths)
-        .filter((path) => path === cwd),
-    ).toHaveLength(1);
+    const resolved = fsCalls
+      .filter((call) => call.fn.startsWith("realpathSync"))
+      .flatMap((call) => call.paths)
+      .filter((path) => path === cwd);
+    if (process.platform === "linux") expect(resolved.length).toBeGreaterThan(0);
+    else expect(resolved).toHaveLength(1);
     // Every open is also non-blocking, so a FIFO swapped in cannot hang it.
     for (const call of opens) {
       expect(typeof call.flags === "number" && (call.flags & constants.O_NONBLOCK) !== 0).toBe(

@@ -3,10 +3,10 @@ id: TASK-53
 title: >-
   Treat an empty or relative XDG_CACHE_HOME as unset when locating the layer
   cache
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-22T08:16:00Z'
-updated_date: '2026-11-23T11:58:00Z'
+updated_date: '2026-11-24T05:55:00Z'
 labels:
   - discovered
   - area:resolve
@@ -33,7 +33,7 @@ Found while planning TASK-50.10. cacheRoot (src/resolve/cache-paths.ts) uses XDG
 - [x] #1 With XDG_CACHE_HOME set to an empty string, alz lint in a repository with a git: layer writes the layer cache to ~/.cache/agent-layerz under the fake HOME and creates nothing in the repository (acceptance lint twin comparing the repository tree before and after, R3.11)
 - [x] #2 With XDG_CACHE_HOME set to a relative path, alz lint ignores it the same way and uses ~/.cache/agent-layerz (acceptance lint twin, R3.11)
 - [x] #3 alz lint and account resolution compute the cache location with the same helper, CacheLocation (R3.5) (unit test showing it gives the same path for unset, empty, relative and absolute values)
-- [ ] #4 The alz build forms of AC #1 and AC #2 is in the acceptance suite (written in R3.11 where it is missing) and is checked again against the Rust alz in R5 (TASK-55.6)
+- [x] #4 The alz build forms of AC #1 and AC #2 is in the acceptance suite (written in R3.11 where it is missing) and is checked again against the Rust alz in R5 (TASK-55.6)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -46,4 +46,8 @@ Owner (2026-11-23, decision-30): src/ is never changed; this bug is fixed only i
 Architect (2026-11-23, owner answer 7 in TASK-55.4, delegated by the lead): criteria reworded to the lint twins that R3.11 adds; the build, check and account-resolution forms are checked again in R5 (TASK-55.6) or R6 (TASK-55.7), as the last criterion says. The other criteria are unchanged.
 
 R3.11 (2026-11-23): AC1-3 checked. Lint twins (empty and relative XDG_CACHE_HOME, repository snapshot before and after, cache in ~/.cache/agent-layerz under the fake HOME) pass against the Rust binary, marked referenceDrift TASK-53 (expected failure on the reference); CacheLocation unit tests (R3.5). AC4 left unchecked: build forms are in the suite and fail against Rust until R5 (TASK-55.6).
+
+R5.8 (TASK-55.6.8, 2026-11-24): build form run against ALZ_BIN=target/release/alz in test 36 (16 passed, 4 Linux-only skipped) and test 24 (259 of 277; none of the 18 failures is this task's rows: --adopt R5.14, account which R6, agent mcpServers and nested JSON R4 follow-up). AC #4 left for the lead to check.
+
+Verified by the lead (2026-11-24) on the R5 branch: test/acceptance/36-sources-and-cache-guards.test.ts runs this criterion's build and check forms; against ALZ_BIN=target/release/alz it gives 16 passed, 4 skipped (the 0xFF cases, Linux only); the ubuntu CI job runs those.
 <!-- SECTION:NOTES:END -->

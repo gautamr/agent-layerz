@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "alpha": {
+      "type": "sse",
+      "url": "https://alpha.invalid/sse"
+    },
+    "beta": {
+      "type": "http",
+      "url": "https://beta.invalid/mcp"
+    },
+    "empty": {
+      "args": [],
+      "command": "./empty"
+    },
+    "plain": {
+      "command": "./plain"
+    },
+    "zeta": {
+      "args": [
+        "-y",
+        "@zeta/server"
+      ],
+      "command": "npx",
+      "env": {
+        "ALPHA_KEY": "${ALPHA_KEY}",
+        "ZETA_TOKEN": "${ZETA_TOKEN}"
+      }
+    }
+  }
+}

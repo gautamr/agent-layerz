@@ -189,6 +189,7 @@ pub fn cache_differs_from_tree(
 pub fn pinned_tree_refused(refusal: ListingRefusal, source: Stripped) -> Diagnostic {
     match refusal {
         ListingRefusal::NotUtf8 => file_name_not_utf8(source),
+        ListingRefusal::ControlOrFormat => file_name_control_or_format(source),
         ListingRefusal::NotSafe => Diagnostic::error(
             Code::Layer,
             None,
@@ -216,6 +217,19 @@ pub fn file_name_not_utf8(source: Stripped) -> Diagnostic {
         Message::new("a file or folder name in layer '")
             .then(source)
             .then("' is not valid UTF-8; rename it"),
+    )
+}
+
+/// A name in a layer that holds a control or format character (§5.3 "File names"). The name
+/// itself is never printed.
+#[must_use]
+pub fn file_name_control_or_format(source: Stripped) -> Diagnostic {
+    Diagnostic::error(
+        Code::Layer,
+        None,
+        Message::new("a file or folder name in layer '")
+            .then(source)
+            .then("' holds a control or format character; rename it"),
     )
 }
 
@@ -311,6 +325,7 @@ mod tests {
         use crate::git::ListingRefusal;
         for refusal in [
             ListingRefusal::NotUtf8,
+            ListingRefusal::ControlOrFormat,
             ListingRefusal::NotSafe,
             ListingRefusal::Collision,
         ] {

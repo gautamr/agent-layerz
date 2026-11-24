@@ -1,0 +1,21 @@
+{
+  "files": {
+    ".claude/skills/stack-conventions/SKILL.md": "sha256:b410fb54aca6c27d10c0d911352f0da4fa539df7d9ac0e80d84cdf477a278570",
+    "AGENTS.md": "sha256:f883eae85da557c564093effcb902f54bcc08b0ede65aad14aa72a4c35d3e4c5",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:54dcad348d852e46dd6ed0ad26407799306ef722f6f7f0a1019b1cceb6e34fb4",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:dfe8a4b054f227991d02ac252d0acd25a53275fd2596fa49625db705060520d1",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

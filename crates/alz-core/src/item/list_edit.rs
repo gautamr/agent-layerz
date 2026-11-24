@@ -10,20 +10,113 @@ use crate::yaml::fields::{KeyPath, Section};
 use super::AgentRefusal;
 
 /// What one segment does.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Sign {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EditSign {
+    /// `+[..]`: append these items.
     Add,
+    /// `-[..]`: drop these items.
     Remove,
+    /// `[..]`, or a YAML list: the list is exactly these items.
     Replace,
+}
+
+/// One segment of an edit as the layer wrote it: its sign and its items, trimmed and unquoted.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EditSegment {
+    sign: EditSign,
+    items: Vec<String>,
+}
+
+impl EditSegment {
+    /// The segment with `sign` and `items`.
+    #[must_use]
+    pub const fn new(sign: EditSign, items: Vec<String>) -> Self {
+        Self { sign, items }
+    }
+
+    /// What the segment does.
+    #[must_use]
+    pub const fn sign(&self) -> EditSign {
+        self.sign
+    }
+
+    /// The items, in the order written.
+    #[must_use]
+    pub fn items(&self) -> &[String] {
+        &self.items
+    }
+}
+
+/// An edit of a list as the layer wrote it: its segments in the order written, which the merge
+/// folds into one [`ListEdit`] and `alz explain` shows as written (spec §10.3). An edit written
+/// as a string without any segment has none.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct WrittenEdit(Vec<EditSegment>);
+
+impl WrittenEdit {
+    /// The edit made of `segments`.
+    #[must_use]
+    pub const fn new(segments: Vec<EditSegment>) -> Self {
+        Self(segments)
+    }
+
+    /// The segments in the order written.
+    #[must_use]
+    pub fn segments(&self) -> &[EditSegment] {
+        &self.0
+    }
+}
+
+/// The edit that `field` of `section` says as it was written, `None` when it is absent or has no
+/// edit form.
+pub(super) fn written_edit(section: &Section<'_>, field: &'static str) -> Option<WrittenEdit> {
+    section.node(field).and_then(|node| match node.value() {
+        Value::Text(text) => segments(text).map(|parts| {
+            WrittenEdit(
+                parts
+                    .into_iter()
+                    .map(|(sign, items)| {
+                        EditSegment::new(sign, items.into_iter().map(str::to_owned).collect())
+                    })
+                    .collect(),
+            )
+        }),
+        Value::Null
+        | Value::Bool(_)
+        | Value::Int(_)
+        | Value::Float(_)
+        | Value::Seq(_)
+        | Value::Map(_) => section.items(field).ok().flatten().map(|items| {
+            WrittenEdit(vec![EditSegment::new(
+                EditSign::Replace,
+                items
+                    .into_iter()
+                    .filter_map(|(_, item)| match item.value() {
+                        Value::Text(text) => Some(text.clone()),
+                        Value::Null
+                        | Value::Bool(_)
+                        | Value::Int(_)
+                        | Value::Float(_)
+                        | Value::Seq(_)
+                        | Value::Map(_) => None,
+                    })
+                    .collect(),
+            )])
+        }),
+    })
 }
 
 /// One segment of an edit: its sign and its items as written, trimmed and unquoted, empty ones
 /// left out.
-pub(super) type Segment<'a> = (Sign, Vec<&'a str>);
+pub(super) type Segment<'a> = (EditSign, Vec<&'a str>);
 
 /// The segments of `text`, `None` when some part of it is not a segment. White space between
-/// segments is free.
+/// segments is free, but a text of white space alone is not an edit: only the empty text says no
+/// segment (the reference refuses the first and accepts the second).
 pub(super) fn segments(text: &str) -> Option<Vec<Segment<'_>>> {
+    if !text.is_empty() && text.trim().is_empty() {
+        return None;
+    }
     // A local loop: it consumes the text segment by segment, and nothing escapes.
     let mut rest = text.trim_start();
     let mut found = Vec::new();
@@ -39,9 +132,9 @@ pub(super) fn segments(text: &str) -> Option<Vec<Segment<'_>>> {
 fn segment(text: &str) -> Option<(Segment<'_>, &str)> {
     let (sign, after_sign) = text
         .strip_prefix('+')
-        .map(|rest| (Sign::Add, rest))
-        .or_else(|| text.strip_prefix('-').map(|rest| (Sign::Remove, rest)))
-        .unwrap_or((Sign::Replace, text));
+        .map(|rest| (EditSign::Add, rest))
+        .or_else(|| text.strip_prefix('-').map(|rest| (EditSign::Remove, rest)))
+        .unwrap_or((EditSign::Replace, text));
     let (inner, after) = after_sign.strip_prefix('[')?.split_once(']')?;
     let items = inner
         .split(',')
@@ -117,14 +210,14 @@ where
     .map(|edits| edits.into_iter().fold(ListEdit::default(), ListEdit::merge))
 }
 
-fn edit_of<T: Eq + Clone>(sign: Sign, items: OrderedSet<T>) -> ListEdit<T> {
+fn edit_of<T: Eq + Clone>(sign: EditSign, items: OrderedSet<T>) -> ListEdit<T> {
     match sign {
-        Sign::Replace => ListEdit::Replace(items),
-        Sign::Add => ListEdit::Adjust {
+        EditSign::Replace => ListEdit::Replace(items),
+        EditSign::Add => ListEdit::Adjust {
             remove: OrderedSet::default(),
             add: items,
         },
-        Sign::Remove => ListEdit::Adjust {
+        EditSign::Remove => ListEdit::Adjust {
             remove: items,
             add: OrderedSet::default(),
         },

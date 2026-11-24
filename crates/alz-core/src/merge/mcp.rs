@@ -14,10 +14,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::item::{McpItems, McpServer, McpServerId};
-use crate::layer::LayerName;
+use crate::layer::{ItemPath, LayerName};
+use crate::merge::action::Action;
 use crate::merge::algebra::Replace;
 use crate::merge::placement::Placement;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::stack::Manifest;
 use crate::untrusted_text::Stripped;
@@ -67,6 +68,9 @@ impl McpState {
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
         let layer = context.layer().meta().name();
         let (items, found) = McpItems::read(context.layer());
+        let Some(origin) = Origin::of_item(context.layer(), ItemPath::Mcp) else {
+            return (self, found);
+        };
         let (servers, refused) = items.into_parts();
         let placement = context.placement();
         let replaced_outside: Vec<Diagnostic> = servers
@@ -94,9 +98,9 @@ impl McpState {
                     Some(previous) => {
                         previous
                             .clone()
-                            .revised(server, layer.clone(), Action::Replace)
+                            .revised(server, origin.clone(), Action::Replace)
                     }
-                    None => Traced::new(server, layer.clone(), Action::Define),
+                    None => Traced::new(server, origin.clone(), Action::Define),
                 };
                 (id, traced)
             })

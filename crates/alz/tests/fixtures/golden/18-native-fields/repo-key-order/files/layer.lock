@@ -1,0 +1,22 @@
+{
+  "files": {
+    ".claude/agents/architect.md": "sha256:17acce46b304da39a1f84a34ca8b3e36e1c57a10a5413e918645f9ab2aa2a0f1",
+    ".claude/agents/keyed.md": "sha256:07d4709281292fbae6a8690f5adfaf3ce87152f4ab0de0f0a1435efa21072e69",
+    "AGENTS.md": "sha256:f883eae85da557c564093effcb902f54bcc08b0ede65aad14aa72a4c35d3e4c5",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:95c937306fbf0c7a13bd76615506bf7e26dab022b58bc97656330768ede49d6c",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:656f21dbab4dc2f0ad1e3860ef94e832a235f13b86b0dec156c71c6f824b0e8a",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

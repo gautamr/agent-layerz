@@ -18,7 +18,9 @@ pub use entry::{DeclaredStack, StackEntry, StackError};
 pub use git_ref::{GitRef, GitRefError};
 pub use manifest::{Manifest, Options, ProtectedPattern};
 pub use origin::{CloneOrigin, OriginRefusal, Probe, github_origin, locate_git};
-pub use resolved::{FailedEntry, Pin, ResolvedEntry, ResolvedLayer, ResolvedStack, StackReport};
+pub use resolved::{
+    FailedEntry, Pin, ResolvedEntry, ResolvedLayer, ResolvedStack, Revision, StackReport,
+};
 pub use source::{GitHubName, GitUrl, Source, SourceDir, SourceError};
 pub use workspace::{Workspace, WorkspaceDir, WorkspaceDirError};
 

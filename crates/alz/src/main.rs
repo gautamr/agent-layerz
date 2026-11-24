@@ -14,7 +14,7 @@ use alz_io::{EnvSnapshot, WorkingDirectory};
 use clap::Parser;
 
 use crate::cli::{Cli, Command};
-use crate::command::lint::Surroundings;
+use crate::command::Surroundings;
 use crate::report::Rendered;
 
 fn main() -> ExitCode {
@@ -33,8 +33,62 @@ fn main() -> ExitCode {
 fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
     match Cli::try_parse() {
         Ok(Cli {
+            command: Command::Build(args),
+        }) => ExitCode::from(command::build::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Check(args),
+        }) => ExitCode::from(command::check::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Diff,
+        }) => ExitCode::from(command::diff::run(
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Init(args),
+        }) => ExitCode::from(command::init::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
             command: Command::Lint(args),
         }) => ExitCode::from(command::lint::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Ls(args),
+        }) => ExitCode::from(command::ls::run(
+            &args,
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Doctor,
+        }) => ExitCode::from(command::doctor::run(
+            Surroundings { env, directory },
+            &mut io::stdout(),
+            &mut io::stderr(),
+        )),
+        Ok(Cli {
+            command: Command::Explain(args),
+        }) => ExitCode::from(command::explain::run(
             &args,
             Surroundings { env, directory },
             &mut io::stdout(),

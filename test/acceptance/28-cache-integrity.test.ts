@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { referenceDrift } from "../drift";
 import { tool } from "../exec";
 import { fixture, layers, readFile, readTree, type Workspace, writeLock } from "../helpers";
 import { gitCacheKey, githubCloneUrl } from "../spec/cache";
@@ -290,16 +291,20 @@ describe("cache integrity", () => {
       expect(result.stdout + result.stderr).not.toContain("SECRET-MARKER");
     });
 
-    it("refuses a cache entry that is a link to another directory", async () => {
-      const { ws, dir } = await lockedGit();
-      const other = `${ws.root}/elsewhere`;
-      cpSync(dir, other, { recursive: true });
-      rmSync(dir, { recursive: true });
-      symlinkSync(other, dir);
-      const result = await alz(ws, ["build"]);
-      expect(result.code).toBe(1);
-      expect(result.stderr).toContain("is not a plain directory");
-    });
+    referenceDrift(
+      "TASK-55.6.15",
+      "refuses a cache entry that is a link to another directory",
+      async () => {
+        const { ws, dir } = await lockedGit();
+        const other = `${ws.root}/elsewhere`;
+        cpSync(dir, other, { recursive: true });
+        rmSync(dir, { recursive: true });
+        symlinkSync(other, dir);
+        const result = await alz(ws, ["build"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("must be a folder, not a link or a file");
+      },
+    );
 
     it("fails the build when a cached pinned path: layer was edited", async () => {
       const ws = fixture(FIXTURE);
@@ -451,7 +456,7 @@ describe("cache integrity", () => {
       symlinkSync("instructions/10-team.md", `${dir}/CLAUDE.md`);
       const tampered = await alz(ws, ["build"]);
       expect(tampered.code).toBe(1);
-      expect(tampered.stderr).toContain("is a link");
+      expect(tampered.stderr).toContain("no longer matches git tree");
     });
 
     it("ignores .DS_Store and node_modules in an entry when the tree does not have them", async () => {
@@ -463,25 +468,45 @@ describe("cache integrity", () => {
       expect(result.code, result.stderr).toBe(0);
     });
 
-    it("refuses names that differ only by case or Unicode form, quoting them", async () => {
-      for (const [a, b] of [
-        ["instructions/Evil\u001b[2J.md", "instructions/evil\u001b[2J.md"],
-        ["instructions/\u00e9.md", "instructions/e\u0301.md"],
-      ] as const) {
+    referenceDrift(
+      "TASK-55.6.15",
+      "refuses a file name with a control character before it compares names, printing none",
+      async () => {
         const ws = fixture(FIXTURE);
         craft(ws, "remotes/clash", [
           { path: "layer/layer.yaml", content: LAYER_YAML },
-          { path: `layer/${a}`, content: "- one\n" },
-          { path: `layer/${b}`, content: "- two\n" },
+          { path: "layer/instructions/Evil\u001b[2J.md", content: "- one\n" },
+          { path: "layer/instructions/evil\u001b[2J.md", content: "- two\n" },
         ]);
         usePinned(ws, "../remotes/clash/layer");
         const result = await alz(ws, ["build"]);
-        expect(result.code, `${a} ${b} ${result.stderr}`).toBe(1);
-        expect(result.stderr).toContain("differ only by case or Unicode form");
+        expect(result.code, result.stderr).toBe(1);
+        expect(result.stderr).toContain("holds a control or format character");
         expect(result.stderr).not.toContain("\u001b");
         expect(existsSync(cacheDir(ws)) ? readdirSync(cacheDir(ws)) : []).toEqual([]);
-      }
-    });
+      },
+    );
+
+    referenceDrift(
+      "TASK-55.6.15",
+      "refuses names that differ only by Unicode form, quoting them",
+      async () => {
+        for (const [a, b] of [["instructions/\u00e9.md", "instructions/e\u0301.md"]] as const) {
+          const ws = fixture(FIXTURE);
+          craft(ws, "remotes/clash", [
+            { path: "layer/layer.yaml", content: LAYER_YAML },
+            { path: `layer/${a}`, content: "- one\n" },
+            { path: `layer/${b}`, content: "- two\n" },
+          ]);
+          usePinned(ws, "../remotes/clash/layer");
+          const result = await alz(ws, ["build"]);
+          expect(result.code, `${a} ${b} ${result.stderr}`).toBe(1);
+          expect(result.stderr).toContain("lists two paths that one file system would merge");
+          expect(result.stderr).not.toContain("\u001b");
+          expect(existsSync(cacheDir(ws)) ? readdirSync(cacheDir(ws)) : []).toEqual([]);
+        }
+      },
+    );
 
     it("builds a layer whose file name is not in NFC, and checks it again", async () => {
       const ws = fixture(FIXTURE);
@@ -601,37 +626,45 @@ describe("cache integrity", () => {
   });
 
   describe("an untrusted lock", () => {
-    it("refuses a layer sha that is not a commit id before any cache path is built", async () => {
-      const ws = fixture(FIXTURE);
-      const a = remote(ws, "layer-a", "remotes/team-a");
-      useStack(ws, `git:${a}@main`);
-      expect((await alz(ws, ["build"])).code).toBe(0);
-      const lock = lockOf(ws);
-      lock.layers[0].sha = "../../../../etc";
-      writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
-      const result = await alz(ws, ["build"]);
-      expect(result.code).toBe(1);
-      expect(result.stderr).toContain("unsafe entry '../../../../etc'");
-    });
+    referenceDrift(
+      "TASK-55.6.15",
+      "refuses a layer sha that is not a commit id before any cache path is built",
+      async () => {
+        const ws = fixture(FIXTURE);
+        const a = remote(ws, "layer-a", "remotes/team-a");
+        useStack(ws, `git:${a}@main`);
+        expect((await alz(ws, ["build"])).code).toBe(0);
+        const lock = lockOf(ws);
+        lock.layers[0].sha = "../../../../etc";
+        writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
+        const result = await alz(ws, ["build"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain("the lock's layers[].sha is missing or not valid");
+        expect(result.stderr).not.toContain("../../../../etc");
+      },
+    );
 
-    it.each([
-      ["a sha that is a number", { sha: 12345 }],
-      ["a source that is not a string", { source: ["git:x@main"] }],
-      ["a content hash that is not a string", { contentHash: null }],
-      ["a name that is not a string", { name: 7 }],
-      ["a name that breaks the layer name rule", { name: "Not A Name" }],
-    ])("refuses a lock with %s", async (_name, change) => {
-      const ws = fixture(FIXTURE);
-      const a = remote(ws, "layer-a", "remotes/team-a");
-      useStack(ws, `git:${a}@main`);
-      expect((await alz(ws, ["build"])).code).toBe(0);
-      const lock = lockOf(ws);
-      Object.assign(lock.layers[0], change);
-      writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
-      const result = await alz(ws, ["build"]);
-      expect(result.code).toBe(1);
-      expect(result.stderr).toContain("not a valid lock file");
-    });
+    const BAD_FIELDS: ReadonlyArray<readonly [string, Record<string, unknown>, string]> = [
+      ["a sha that is a number", { sha: 12345 }, "layers[].sha"],
+      ["a source that is not a string", { source: ["git:x@main"] }, "layers[].source"],
+      ["a content hash that is not a string", { contentHash: null }, "layers[].contentHash"],
+      ["a name that is not a string", { name: 7 }, "layers[].name"],
+      ["a name that breaks the layer name rule", { name: "Not A Name" }, "layers[].name"],
+    ];
+    for (const [name, change, field] of BAD_FIELDS) {
+      referenceDrift("TASK-55.6.15", `refuses a lock with ${name}`, async () => {
+        const ws = fixture(FIXTURE);
+        const a = remote(ws, "layer-a", "remotes/team-a");
+        useStack(ws, `git:${a}@main`);
+        expect((await alz(ws, ["build"])).code).toBe(0);
+        const lock = lockOf(ws);
+        Object.assign(lock.layers[0], change);
+        writeFileSync(`${ws.root}/repo/layer.lock`, JSON.stringify(lock));
+        const result = await alz(ws, ["build"]);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain(`the lock's ${field} is missing or not valid`);
+      });
+    }
   });
 });
 
@@ -959,11 +992,27 @@ describe("cache integrity, through alz lint", () => {
       expect(result.code, result.stderr).toBe(0);
     });
 
-    it("refuses names that differ only by case or Unicode form, quoting them", async () => {
-      for (const [a, b] of [
-        ["instructions/Evil\u001b[2J.md", "instructions/evil\u001b[2J.md"],
-        ["instructions/\u00e9.md", "instructions/e\u0301.md"],
-      ] as const) {
+    referenceDrift(
+      "TASK-55.6.15",
+      "refuses a file name with a control character before it compares names, printing none",
+      async () => {
+        const ws = fixture(FIXTURE);
+        craft(ws, "remotes/clash", [
+          { path: "layer/layer.yaml", content: LAYER_YAML },
+          { path: "layer/instructions/Evil\u001b[2J.md", content: "- one\n" },
+          { path: "layer/instructions/evil\u001b[2J.md", content: "- two\n" },
+        ]);
+        usePinned(ws, "../remotes/clash/layer");
+        const result = await lint(ws);
+        expect(result.code, result.stderr).toBe(1);
+        expect(result.stderr).toContain("holds a control or format character");
+        expect(result.stderr).not.toContain("\u001b");
+        expect(existsSync(cacheDir(ws)) ? readdirSync(cacheDir(ws)) : []).toEqual([]);
+      },
+    );
+
+    it("refuses names that differ only by Unicode form, quoting them", async () => {
+      for (const [a, b] of [["instructions/\u00e9.md", "instructions/e\u0301.md"]] as const) {
         const ws = fixture(FIXTURE);
         craft(ws, "remotes/clash", [
           { path: "layer/layer.yaml", content: LAYER_YAML },

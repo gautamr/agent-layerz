@@ -96,6 +96,8 @@ pub(super) enum GitCall<'a> {
         repository: &'a Path,
         objects: &'a [ObjectId],
     },
+    /// The tags `layer-v*` of the repository that holds `directory`, the newest version first.
+    LayerTags { directory: &'a Path },
 }
 
 /// What a call gave, read into a typed value.
@@ -109,6 +111,7 @@ pub(super) enum Outcome {
     Tree(Vec<TreeEntry>),
     Checks(Vec<ObjectCheck>),
     Contents(Vec<ObjectContent>),
+    Lines(Vec<OsString>),
 }
 
 /// The `-c` settings of a remote clone: no transport unless it is named, then https and ssh.
@@ -135,6 +138,15 @@ fn single_line(output: &[u8]) -> &[u8] {
     output.strip_suffix(b"\n").unwrap_or(output)
 }
 
+/// The lines of `output`, each without its line feed; an empty output has none.
+fn lines(output: &[u8]) -> Vec<OsString> {
+    output
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| OsStr::from_bytes(line).to_owned())
+        .collect()
+}
+
 impl GitCall<'_> {
     /// The environment this call gets (R3.2).
     pub(super) const fn operation(&self) -> GitOperation {
@@ -158,7 +170,8 @@ impl GitCall<'_> {
             | Self::LsTreeAt { .. }
             | Self::LsTreeRecursive { .. }
             | Self::CatFileBatchCheck { .. }
-            | Self::CatFileBatch { .. } => GitOperation::TreeRead,
+            | Self::CatFileBatch { .. }
+            | Self::LayerTags { .. } => GitOperation::TreeRead,
         }
     }
 
@@ -234,6 +247,12 @@ impl GitCall<'_> {
             ],
             Self::CatFileBatchCheck { .. } => vec![os("cat-file"), os("--batch-check")],
             Self::CatFileBatch { .. } => vec![os("cat-file"), os("--batch")],
+            Self::LayerTags { .. } => vec![
+                os("tag"),
+                os("--list"),
+                os("layer-v*"),
+                os("--sort=-v:refname"),
+            ],
         }
     }
 
@@ -248,7 +267,9 @@ impl GitCall<'_> {
             | Self::LsTreeRecursive { repository, .. }
             | Self::CatFileBatchCheck { repository, .. }
             | Self::CatFileBatch { repository, .. } => Some(repository),
-            Self::ShowToplevel { directory } | Self::ShowPrefix { directory } => Some(directory),
+            Self::ShowToplevel { directory }
+            | Self::ShowPrefix { directory }
+            | Self::LayerTags { directory } => Some(directory),
         }
     }
 
@@ -266,7 +287,8 @@ impl GitCall<'_> {
             | Self::ShowToplevel { .. }
             | Self::ShowPrefix { .. }
             | Self::LsTreeAt { .. }
-            | Self::LsTreeRecursive { .. } => None,
+            | Self::LsTreeRecursive { .. }
+            | Self::LayerTags { .. } => None,
         }
     }
 
@@ -281,7 +303,8 @@ impl GitCall<'_> {
             Self::LsTreeRecursive { .. }
             | Self::LsTreeAt { .. }
             | Self::CatFileBatchCheck { .. }
-            | Self::CatFileBatch { .. } => OutputLimit::Listing,
+            | Self::CatFileBatch { .. }
+            | Self::LayerTags { .. } => OutputLimit::Listing,
             Self::Version
             | Self::Clone { .. }
             | Self::RevParseCommit { .. }
@@ -324,6 +347,7 @@ impl GitCall<'_> {
             }
             Self::CatFileBatchCheck { .. } => ObjectCheck::parse_all(output).map(Outcome::Checks),
             Self::CatFileBatch { .. } => ObjectContent::parse_all(output).map(Outcome::Contents),
+            Self::LayerTags { .. } => Ok(Outcome::Lines(lines(output))),
         }
     }
 }

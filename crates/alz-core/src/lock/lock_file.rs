@@ -15,6 +15,7 @@ use crate::lock::content_hash::{ContentHash, FileHash};
 use crate::lock::object_id::ObjectId;
 use crate::path::SafeRelPath;
 use crate::render::json::emit;
+use crate::render::tree::OutputPath;
 use crate::stack::{GitRef, Source};
 use crate::untrusted_text::Stripped;
 
@@ -74,8 +75,6 @@ pub enum LockField {
     LayerContentHash,
     /// `files`, which must be an object.
     Files,
-    /// A key of `files`, which must be a safe relative path.
-    FilePath,
     /// A value of `files`, which must be a hash.
     FileHash,
 }
@@ -95,7 +94,6 @@ impl LockField {
             Self::LayerSha => "layers[].sha",
             Self::LayerContentHash => "layers[].contentHash",
             Self::Files => "files",
-            Self::FilePath => "a key of files",
             Self::FileHash => "a value of files",
         }
     }
@@ -117,6 +115,15 @@ pub enum LockError {
     /// A field is missing or has a value the spec does not allow.
     #[error("{0} is missing or not valid")]
     Invalid(LockField),
+    /// A key of `files` is not a path the build could have written: not a safe relative path, or
+    /// one with a control or format character. The entry is named by its number in the document
+    /// (the first is 1); the key itself is never printed, so a path that hides behind an invisible
+    /// character cannot reach a terminal.
+    #[error("a key of files (entry {entry}) is missing or not valid")]
+    FilePath {
+        /// The entry's position among the keys of `files`, from 1.
+        entry: usize,
+    },
 }
 
 impl From<JsonError> for LockError {
@@ -139,6 +146,13 @@ impl LockError {
                 Message::new("the lock's ")
                     .then(field.as_str())
                     .then(" is missing or not valid; delete the lock and rebuild"),
+            ),
+            Self::FilePath { entry } => Diagnostic::error(
+                Code::Lock,
+                Some(file),
+                Message::new("the lock's a key of files is missing or not valid (entry ")
+                    .then(entry)
+                    .then("); delete the lock and rebuild"),
             ),
         }
     }
@@ -185,6 +199,12 @@ fn invalid<E>(field: LockField) -> impl FnOnce(E) -> LockError {
     move |_| LockError::Invalid(field)
 }
 
+/// The error for a key of `files` that is not a path the build could have written: the entry's
+/// number only, never the key.
+fn invalid_path<E>(entry: usize) -> impl FnOnce(E) -> LockError {
+    move |_| LockError::FilePath { entry }
+}
+
 /// Whether `number` is the integer 1, as `JSON.parse` reads `1` and `1.0` alike.
 fn is_one(number: JsonNumber) -> bool {
     match number {
@@ -227,9 +247,16 @@ fn locked_layer(value: &JsonValue) -> Result<LockedLayer, LockError> {
     })
 }
 
-fn file_entry((key, value): (&str, &JsonValue)) -> Result<(SafeRelPath, FileHash), LockError> {
+/// One entry of `files`, numbered from 1. A key is parsed with the rules of an output path, so a
+/// path with a control or format character is refused here and cannot pass for another path.
+fn file_entry(
+    (index, (key, value)): (usize, (&str, &JsonValue)),
+) -> Result<(SafeRelPath, FileHash), LockError> {
+    let entry = index.saturating_add(1);
     Ok((
-        SafeRelPath::try_from(key).map_err(invalid(LockField::FilePath))?,
+        OutputPath::try_from(key)
+            .map(|path| path.as_safe().clone())
+            .map_err(invalid_path(entry))?,
         FileHash::try_from(text(value, LockField::FileHash)?)
             .map_err(invalid(LockField::FileHash))?,
     ))
@@ -245,7 +272,8 @@ impl Lock {
     /// [`LockError::Json`] for text that is not such a document, and [`LockError::Invalid`] naming
     /// the first field that is missing or breaks its rule: `lockVersion` other than 1, a layer
     /// `sha` that is not 40 or 64 lowercase hexadecimal characters, a `contentHash` or file hash
-    /// that is not `sha256:` and 64 of them, a file path that is not a safe relative path.
+    /// that is not `sha256:` and 64 of them, a file path that is not a safe relative path or holds a control or format character
+    /// ([`LockError::FilePath`], naming the entry by number).
     pub fn parse(bytes: &[u8]) -> Result<Self, LockError> {
         Self::from_json(&json::parse(bytes)?)
     }
@@ -286,6 +314,7 @@ impl Lock {
             LockField::Files,
         )?
         .iter()
+        .enumerate()
         .map(file_entry)
         .collect::<Result<BTreeMap<_, _>, _>>()?;
         Ok(Self {

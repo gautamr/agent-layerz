@@ -28,6 +28,7 @@ pub struct PassthroughFile {
     path: SafeRelPath,
     source: SafeRelPath,
     bytes: Vec<u8>,
+    executable: bool,
 }
 
 impl PassthroughFile {
@@ -55,6 +56,13 @@ impl PassthroughFile {
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
+    }
+
+    /// Whether the file has the owner-execute bit in the layer, which it keeps where it is
+    /// written (§8.1).
+    #[must_use]
+    pub const fn is_executable(&self) -> bool {
+        self.executable
     }
 }
 
@@ -88,7 +96,14 @@ impl PassthroughItems {
                 ItemPath::Passthrough {
                     target,
                     path: inner,
-                } => match read_file(name, path, target, inner, bytes) {
+                } => match read_file(
+                    name,
+                    path,
+                    target,
+                    inner,
+                    bytes,
+                    layer.contents().is_executable(path),
+                ) {
                     Ok((file, warning)) => (
                         files.into_iter().chain([file]).collect(),
                         found.with(warning),
@@ -125,6 +140,7 @@ fn read_file(
     target: TargetName,
     inner: &str,
     bytes: &[u8],
+    executable: bool,
 ) -> Result<(PassthroughFile, Diagnostic), Diagnostics> {
     let at = place(layer, source);
     let problems = non_ascii(source, &at).merge(check::problems(inner, bytes, &at));
@@ -153,6 +169,7 @@ fn read_file(
             path,
             source: source.clone(),
             bytes: bytes.to_vec(),
+            executable,
         },
         warning,
     ))

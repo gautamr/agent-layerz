@@ -78,6 +78,32 @@ All notable changes to agent-layerz are recorded here. The format follows
     folder or holds one is refused.
 
   The layer format, the lock format and the generated files do not change.
+- The Rust `alz` writes generated files and adopts native files more carefully than the
+  TypeScript `alz`, as `docs/LAYERING-SPEC.md` §4.3, §4.5, §5.3, §7.11, §8 and §10.3 say
+  (TASK-55.6). What changes when a repository moves to the Rust `alz`:
+  - A file counts as generated only when it carries the generated mark, or when `layer.lock` lists
+    it and its bytes still match the hash recorded there. alz never overwrites or deletes anything
+    else. A generated file without a header that was edited by hand, such as
+    `.claude/settings.json`, is a collision at the next build; `alz build --adopt` takes it into
+    the repo layer.
+  - alz never writes through a link. A generated path that is a link, or lies under one, is a
+    collision.
+  - Paths are compared ignoring ASCII case, accents included (`É` and `é` match), as on macOS
+    and Windows. A passthrough file such as
+    `targets/claude/.claude/Settings.json` collides with the generated `.claude/settings.json`,
+    and `protected_paths` match in any case.
+  - A layer file or folder name with a control or format character is refused, and so is a
+    source of a generated header (a layer version, ref or path) that holds such a character or
+    `-->`. In `protected_paths`, `?` matches one character, also one above U+FFFF.
+  - `alz build --adopt` refuses text the layer reader would refuse before it writes anything. It
+    reads JSON numbers exactly, and it changes `layer.yaml` only where it adds entries, keeping
+    every other byte.
+  - `alz diff` prints its own unified diff.
+  - The messages of `build`, `check`, `ls`, `explain`, `doctor` and `init` follow §10.3.
+
+  Generated files stay byte-identical to the TypeScript `alz`'s for the same layers, except where
+  the spec marks reference drift. These are breaking changes for some repositories, part of the
+  minor version bump at the cutover.
 - The Rust `alz` sorts names, paths and keys by Unicode code point everywhere, as
   `docs/LAYERING-SPEC.md` (§6, name order) says (TASK-64). The TypeScript `alz` sorts by UTF-16
   unit, which puts a character above U+FFFF, such as most emoji, before one in U+E000–U+FFFF:

@@ -1,41 +1,119 @@
 //! Where each item of the merged model came from, for `alz explain` (spec §10).
 
-use crate::layer::LayerName;
+use crate::layer::{ItemPath, LayerName};
+use crate::merge::action::Action;
+use crate::path::SafeRelPath;
+use crate::stack::{ResolvedLayer, Revision};
 
-/// What a layer did to an item.
-///
-/// A kind of §7 that needs a finer verb adds a variant here; the exhaustive matches then show every
-/// place that reports the action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Action {
-    /// The layer defined the item.
-    Define,
-    /// The layer added to an item of a more general layer.
-    Extend,
-    /// The layer replaced the item, or a part of it, of a more general layer.
-    Replace,
-    /// The layer removed something from an item of a more general layer.
-    Remove,
-}
-
-/// One layer's part in an item.
+/// Where a contribution came from: the layer, the layer's revision and the layer file. These are
+/// the parts of a header source (§4.3) and of `alz explain`'s source column (§10.3); the text is
+/// made from them at rendering, which can refuse an untrusted revision or path.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Contribution {
+pub struct Origin {
     layer: LayerName,
-    action: Action,
+    revision: Option<Revision>,
+    file: SafeRelPath,
 }
 
-impl Contribution {
-    /// The layer.
+impl Origin {
+    /// The origin of `file`, a file of `layer`.
+    #[must_use]
+    pub fn new(layer: &ResolvedLayer, file: SafeRelPath) -> Self {
+        Self {
+            layer: layer.meta().name().clone(),
+            revision: layer.revision(),
+            file,
+        }
+    }
+
+    /// The origin of the layer's `layer.yaml`, which a commit identity or an account is read from.
+    ///
+    /// # Panics
+    ///
+    /// Never: the literal is a safe relative path.
+    #[must_use]
+    pub fn layer_yaml(layer: &ResolvedLayer) -> Self {
+        Self::new(
+            layer,
+            SafeRelPath::try_from("layer.yaml").expect("layer.yaml is a safe relative path"),
+        )
+    }
+
+    /// The origin of the layer's file of kind `item`, such as `mcp.yaml`, when the layer has one.
+    #[must_use]
+    pub fn of_item(layer: &ResolvedLayer, item: ItemPath<'_>) -> Option<Self> {
+        layer
+            .contents()
+            .paths()
+            .find(|path| ItemPath::of(path) == item)
+            .map(|path| Self::new(layer, path.clone()))
+    }
+
+    /// An origin in a unit test: the layer of that name, without a revision, file `layer.yaml`.
+    #[cfg(test)]
+    pub(crate) fn in_test(layer: LayerName) -> Self {
+        Self {
+            layer,
+            revision: None,
+            file: SafeRelPath::try_from("layer.yaml").expect("a safe relative path"),
+        }
+    }
+
+    /// The layer's name.
     #[must_use]
     pub const fn layer(&self) -> &LayerName {
         &self.layer
     }
 
+    /// The layer's revision: the pin's `rev`, else its `version`.
+    #[must_use]
+    pub const fn revision(&self) -> Option<&Revision> {
+        self.revision.as_ref()
+    }
+
+    /// The layer file, such as `rules/testing.md` or `layer.yaml`.
+    #[must_use]
+    pub const fn file(&self) -> &SafeRelPath {
+        &self.file
+    }
+}
+
+/// One layer's part in an item.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Contribution {
+    origin: Origin,
+    action: Action,
+}
+
+impl Contribution {
+    /// Where it came from.
+    #[must_use]
+    pub const fn origin(&self) -> &Origin {
+        &self.origin
+    }
+
+    /// The layer.
+    #[must_use]
+    pub const fn layer(&self) -> &LayerName {
+        self.origin.layer()
+    }
+
+    /// The layer's revision.
+    #[must_use]
+    pub const fn revision(&self) -> Option<&Revision> {
+        self.origin.revision()
+    }
+
+    /// The layer file that contributed.
+    #[must_use]
+    pub const fn file(&self) -> &SafeRelPath {
+        self.origin.file()
+    }
+
     /// What the layer did.
     #[must_use]
-    pub const fn action(&self) -> Action {
-        self.action
+    pub const fn action(&self) -> &Action {
+        &self.action
     }
 }
 
@@ -45,19 +123,19 @@ impl Contribution {
 pub struct Provenance(Vec<Contribution>);
 
 impl Provenance {
-    /// The provenance of an item that `layer` did `action` to first.
+    /// The provenance of an item that `origin` did `action` to first.
     #[must_use]
-    pub fn first(layer: LayerName, action: Action) -> Self {
-        Self(vec![Contribution { layer, action }])
+    pub fn first(origin: Origin, action: Action) -> Self {
+        Self(vec![Contribution { origin, action }])
     }
 
     /// The same provenance with one more contribution, from a more specific layer.
     #[must_use]
-    pub fn then(self, layer: LayerName, action: Action) -> Self {
+    pub fn then(self, origin: Origin, action: Action) -> Self {
         Self(
             self.0
                 .into_iter()
-                .chain([Contribution { layer, action }])
+                .chain([Contribution { origin, action }])
                 .collect(),
         )
     }
@@ -77,12 +155,12 @@ pub struct Traced<T> {
 }
 
 impl<T> Traced<T> {
-    /// A value that `layer` did `action` to first.
+    /// A value that `origin` did `action` to first.
     #[must_use]
-    pub fn new(value: T, layer: LayerName, action: Action) -> Self {
+    pub fn new(value: T, origin: Origin, action: Action) -> Self {
         Self {
             value,
-            provenance: Provenance::first(layer, action),
+            provenance: Provenance::first(origin, action),
         }
     }
 
@@ -94,10 +172,10 @@ impl<T> Traced<T> {
 
     /// The value after a more specific layer changed it to `value`.
     #[must_use]
-    pub fn revised(self, value: T, layer: LayerName, action: Action) -> Self {
+    pub fn revised(self, value: T, origin: Origin, action: Action) -> Self {
         Self {
             value,
-            provenance: self.provenance.then(layer, action),
+            provenance: self.provenance.then(origin, action),
         }
     }
 
@@ -126,39 +204,4 @@ impl<T> Traced<T> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{Action, Provenance, Traced};
-    use crate::layer::LayerName;
-
-    fn layer(name: &str) -> LayerName {
-        LayerName::try_from(name).expect("a layer name")
-    }
-
-    #[test]
-    fn a_revised_value_lists_every_layer_that_touched_it_most_general_first() {
-        let traced = Traced::new(1, layer("personal"), Action::Define)
-            .revised(2, layer("client"), Action::Replace)
-            .revised(3, layer("repo"), Action::Extend);
-        let found: Vec<(&str, Action)> = traced
-            .provenance()
-            .contributions()
-            .iter()
-            .map(|part| (part.layer().as_str(), part.action()))
-            .collect();
-        assert_eq!(
-            found,
-            [
-                ("personal", Action::Define),
-                ("client", Action::Replace),
-                ("repo", Action::Extend)
-            ]
-        );
-        assert_eq!(traced.value(), &3);
-    }
-
-    #[test]
-    fn provenance_starts_with_one_contribution() {
-        let provenance = Provenance::first(layer("personal"), Action::Define);
-        assert_eq!(provenance.contributions().len(), 1);
-    }
-}
+mod tests;

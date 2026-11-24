@@ -1,0 +1,34 @@
+{
+  "files": {
+    ".claude/agents/reviewer.md": "sha256:ca6cbf98411600f70f3d26309474be53ee3e039792a504d3bbd7c56559ba0c42",
+    ".claude/hooks/personal/scripts/block-secrets.sh": "sha256:b3a03219b0a3f7e291f8ce1960910bf2e42e37f0feb34e78bb09f0cd06228825",
+    ".claude/settings.json": "sha256:05dd7645319ed86c87aab0b069d0dc38c79b723080daa2b3a797fc34b4a34297",
+    ".claude/skills/domain-glossary/SKILL.md": "sha256:20c4610e414f39519a3f0626365c22aed62e35c6005167578a3b343f7b825d10",
+    ".claude/skills/learn/SKILL.md": "sha256:a37df013a373f5db092d0c01f1b2baa0cd2f1eff21aa73669a4e465391f7ea44",
+    ".claude/skills/review-checklist/SKILL.md": "sha256:18b765db77f485939b3e9b6207e2743b503b5fb31e3bf5dada836a90102b71da",
+    ".claude/skills/review-checklist/references/checklist.md": "sha256:d23a53c2b3e59135a63fe231a9a2186c554810493f3c614537583a906f730503",
+    ".claude/skills/stack-conventions/SKILL.md": "sha256:fcc06861dd7b5f1de193132aefb7f3d4ad0575abdb376f41f8930eb5ee8be484",
+    ".mcp.json": "sha256:fce4dbd6f3476e6ba72f643e541aa12c70b4a13f129021b9cbcca3fd3bece200",
+    "AGENTS.md": "sha256:a5c7e363ff8c4413aaa82279fa19d043e7f2b31a9de710854aa78f361e8306d5",
+    "CLAUDE.md": "sha256:1efe7a64ae23ad9b75e7b31b031bcecad30a187a6511fbb3ded79c1708c4e20f"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:d9aa5b9223a7616745bfb4fdbb36c87ec8c47435d9ee5b6dcdd27f4035d91504",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:21d3636d26d8fd206179b8ab6f0cc8679cb240f36b2f1b79f7e85e1a76e24636",
+      "name": "acme",
+      "source": "path:../client"
+    },
+    {
+      "contentHash": "sha256:931a6e7c9b6e312eab5f9e445e870b923f1356da51627c9d7f60d71adb1f5473",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

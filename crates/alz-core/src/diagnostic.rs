@@ -19,6 +19,8 @@ pub enum Level {
     Error,
     /// A problem that is reported and does not fail the command.
     Warning,
+    /// What a command did or found that is no problem; it never changes the exit code (§10.1).
+    Note,
 }
 
 impl Level {
@@ -28,6 +30,7 @@ impl Level {
         match self {
             Self::Error => "error",
             Self::Warning => "warning",
+            Self::Note => "note",
         }
     }
 }
@@ -139,14 +142,48 @@ pub enum Code {
     /// A passthrough file, a warning for each use, or a file below a folder of `targets/` that is
     /// not a known target, an error (§7.11, §4.1).
     Passthrough,
+    /// Two generated files whose paths differ only by ASCII case or Unicode normalisation, or a
+    /// generated path that holds a file alz does not own (§4.3).
+    Collision,
+    /// In `alz check`, a generated file that is missing, differs or is stale, and a lock that is
+    /// out of date (§10.3).
+    Check,
+    /// In `alz explain`, a name the merged result does not have (§10.3).
+    Explain,
+    /// In `alz ls --live`, a probe that failed or a built item Claude did not load (§10.3).
+    Ls,
+    /// The repository could not be listed or written: a failure of the operating system, or a
+    /// change under the writer's hands (§4.3 "Writing").
+    Write,
+    /// A generated path that a protected pattern covers, a warning (§4.5).
+    Protected,
+    /// An `AGENTS.md` longer than `instructions_max_lines` or `instructions_max_bytes`, its Commits
+    /// section included (§7.1).
+    Budget,
     /// A layer that declares `commit_identity` and may not, or several client layers that do
     /// (§7.12).
     Identity,
     /// A layer that declares `account` and may not, or several client layers that do (§7.13).
     Account,
+    /// An agent Claude cannot be given: an empty tools list, or a model that is not a Claude model
+    /// value (§8.1).
+    ClaudeAgent,
+    /// An agent tool with a scope, which Claude cannot keep, a warning (§8.1).
+    ToolScope,
+    /// A hook with `on_fail: deny` on an event where Claude cannot block, or cannot block on a
+    /// crash, a warning (§8.1).
+    HookOnFail,
+    /// A target that has no adapter, such as `codex` (§8).
+    Target,
     /// A reference to a more general layer that is not there: an overlay or `extend` rule without
     /// a base, and the like (§10.1). `alz lint` checks one layer alone and leaves it out.
     Unresolved,
+    /// `--adopt` without a repo layer inside the repository, or a problem of the adoption plan
+    /// (§4.3).
+    Adopt,
+    /// A line that Claude printed on its standard error, or as text that is not JSON, during
+    /// `alz ls --live` (§10.3).
+    Claude,
 }
 
 impl Code {
@@ -197,9 +234,22 @@ impl Code {
             Self::LeakHost => "leak-host",
             Self::ProtectedVariable => "protected-variable",
             Self::Passthrough => "passthrough",
+            Self::Collision => "collision",
+            Self::Check => "check",
+            Self::Explain => "explain",
+            Self::Ls => "ls",
+            Self::Write => "write",
+            Self::Protected => "protected",
+            Self::Budget => "budget",
             Self::Identity => "identity",
             Self::Account => "account",
+            Self::ClaudeAgent => "claude-agent",
+            Self::ToolScope => "tool-scope",
+            Self::HookOnFail => "hook-on-fail",
+            Self::Target => "target",
             Self::Unresolved => "unresolved",
+            Self::Adopt => "adopt",
+            Self::Claude => "claude",
         }
     }
 }
@@ -508,6 +558,17 @@ impl Diagnostic {
         }
     }
 
+    /// A note: what a command found that is no problem. It is reported and changes nothing.
+    #[must_use]
+    pub const fn note(code: Code, at: Option<Where>, message: Message) -> Self {
+        Self {
+            level: Level::Note,
+            code,
+            at,
+            message,
+        }
+    }
+
     /// The level of the diagnostic.
     #[must_use]
     pub const fn level(&self) -> Level {
@@ -752,6 +813,22 @@ mod tests {
     fn a_printable_value_goes_into_a_message_as_it_is() {
         let message = Message::new("target ").then(MessagePart::printable(&Name("claude")));
         assert_eq!(message.to_string(), "target claude");
+    }
+
+    #[test]
+    fn a_note_prints_as_a_note_and_is_neither_an_error_nor_a_warning() {
+        let note = Diagnostic::note(
+            Code::Collision,
+            Some(Where::repository_file(Stripped::from_untrusted("a\u{1b}b"))),
+            "text".into(),
+        );
+        assert_eq!(note.to_string(), "note [collision] ab: text");
+        let diagnostics = Diagnostics::new().with(note);
+        assert!(!diagnostics.has_errors());
+        assert_eq!(
+            (diagnostics.error_count(), diagnostics.warning_count()),
+            (0, 0)
+        );
     }
 
     #[test]

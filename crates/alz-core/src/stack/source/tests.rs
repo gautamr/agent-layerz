@@ -228,3 +228,25 @@ proptest! {
         prop_assert_eq!(Source::try_from(source.to_string().as_str()), Ok(source));
     }
 }
+
+#[test]
+fn a_path_source_inside_the_repository_names_its_folder_lexically() {
+    let folder = |text: &str| {
+        Source::try_from(text)
+            .expect("a source")
+            .repository_folder()
+            .map(|folder| folder.as_str().to_owned())
+    };
+    assert_eq!(folder("path:./.layer").as_deref(), Some(".layer"));
+    assert_eq!(folder("path:team/./x/../y/").as_deref(), Some("team/y"));
+    for outside in [
+        "path:.",
+        "path:..",
+        "path:../x",
+        "path:/abs/x",
+        "path:a/../..",
+    ] {
+        assert_eq!(folder(outside), None, "{outside}");
+    }
+    assert_eq!(folder("github:o/r@v1"), None);
+}
