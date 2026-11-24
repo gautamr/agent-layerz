@@ -13,8 +13,9 @@ use std::collections::BTreeMap;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::item::{ConcreteModel, ModelAlias, ModelItems, Models, Role};
+use crate::merge::action::Action;
 use crate::merge::algebra::Replace;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
@@ -26,6 +27,8 @@ pub type TargetModels = Replace<TargetName, ConcreteModel>;
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MergedModels {
     aliases: BTreeMap<ModelAlias, Traced<TargetModels>>,
+    /// The aliases in the order a layer first wrote them, the most general layer first.
+    order: Vec<ModelAlias>,
     roles: BTreeMap<Role, Traced<ModelAlias>>,
     default: Option<Traced<ModelAlias>>,
 }
@@ -35,6 +38,19 @@ impl MergedModels {
     #[must_use]
     pub const fn aliases(&self) -> &BTreeMap<ModelAlias, Traced<TargetModels>> {
         &self.aliases
+    }
+
+    /// The aliases in the order the reference lists them, which decides which of two aliases of
+    /// one model adoption reuses (spec §4.3): names that are array indexes (`7`) first, ascending,
+    /// as a JavaScript object lists its keys, then the others in the order a layer first wrote
+    /// them, the most general layer first.
+    pub fn aliases_in_definition_order(&self) -> impl Iterator<Item = &ModelAlias> {
+        let (mut indexes, names): (Vec<_>, Vec<_>) = self
+            .order
+            .iter()
+            .partition(|alias| array_index(alias.as_str()).is_some());
+        indexes.sort_by_key(|alias| array_index(alias.as_str()));
+        indexes.into_iter().chain(names)
     }
 
     /// The alias each role routes to, each with the layers that set it.
@@ -82,6 +98,13 @@ impl MergedModels {
     }
 }
 
+/// The value of `name` when it is an array index: a canonical decimal below 2^32 - 1.
+fn array_index(name: &str) -> Option<u32> {
+    name.parse::<u32>()
+        .ok()
+        .filter(|index| *index != u32::MAX && index.to_string() == name)
+}
+
 /// The state of the fold for models.
 #[derive(Debug, Default)]
 pub(super) struct ModelState(MergedModels);
@@ -89,21 +112,30 @@ pub(super) struct ModelState(MergedModels);
 impl ModelState {
     /// The state after one more, more specific, layer.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
-        let layer = context.layer().meta().name();
         let (items, found) = ModelItems::read(context.layer());
         match items.into_file() {
             None => (self, found),
-            Some((_, file)) => (Self(self.apply(&file, layer)), found),
+            Some((path, file)) => (
+                Self(self.apply(&file, &Origin::new(context.layer(), path))),
+                found,
+            ),
         }
     }
 
     /// The models after `file` of `layer`.
-    fn apply(self, file: &Models, layer: &crate::layer::LayerName) -> MergedModels {
+    fn apply(self, file: &Models, origin: &Origin) -> MergedModels {
         let MergedModels {
             aliases,
+            order,
             roles,
             default,
         } = self.0;
+        let order = file.alias_order().iter().fold(order, |mut order, alias| {
+            if !order.contains(alias) {
+                order.push(alias.clone());
+            }
+            order
+        });
         let aliases = file
             .aliases()
             .iter()
@@ -111,9 +143,9 @@ impl ModelState {
                 let next = match merged.remove(name) {
                     Some(before) => {
                         let combined = before.value().clone().merge(targets.clone());
-                        before.revised(combined, layer.clone(), Action::Extend)
+                        before.revised(combined, origin.clone(), Action::Extend)
                     }
-                    None => Traced::new(targets.clone(), layer.clone(), Action::Define),
+                    None => Traced::new(targets.clone(), origin.clone(), Action::Define),
                 };
                 merged.insert(name.clone(), next);
                 merged
@@ -123,21 +155,22 @@ impl ModelState {
             .iter()
             .fold(roles, |mut merged, (role, alias)| {
                 let next = match merged.remove(role) {
-                    Some(before) => before.revised(alias.clone(), layer.clone(), Action::Replace),
-                    None => Traced::new(alias.clone(), layer.clone(), Action::Define),
+                    Some(before) => before.revised(alias.clone(), origin.clone(), Action::Replace),
+                    None => Traced::new(alias.clone(), origin.clone(), Action::Define),
                 };
                 merged.insert(role.clone(), next);
                 merged
             });
         let default = match (default, file.default()) {
             (Some(before), Some(alias)) => {
-                Some(before.revised(alias.clone(), layer.clone(), Action::Replace))
+                Some(before.revised(alias.clone(), origin.clone(), Action::Replace))
             }
-            (None, Some(alias)) => Some(Traced::new(alias.clone(), layer.clone(), Action::Define)),
+            (None, Some(alias)) => Some(Traced::new(alias.clone(), origin.clone(), Action::Define)),
             (before, None) => before,
         };
         MergedModels {
             aliases,
+            order,
             roles,
             default,
         }

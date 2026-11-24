@@ -273,3 +273,24 @@ fn the_tree_of_a_commit_is_asked_after_the_end_of_options_and_with_the_pinned_tr
     assert_eq!(call.operation(), GitOperation::TreeRead);
     assert!(call.status_one_is_no_answer());
 }
+
+#[test]
+fn the_layer_tags_are_listed_newest_version_first_and_read_line_by_line() {
+    let call = GitCall::LayerTags {
+        directory: Path::new("/hub/layer"),
+    };
+    assert_eq!(
+        args(&call),
+        ["tag", "--list", "layer-v*", "--sort=-v:refname"]
+    );
+    assert_eq!(call.directory(), Some(Path::new("/hub/layer")));
+    assert_eq!(call.operation(), GitOperation::TreeRead);
+    assert_eq!(
+        call.read(b"layer-v0.10.0\nlayer-v0.9.0\n"),
+        Ok(Outcome::Lines(vec![
+            OsString::from("layer-v0.10.0"),
+            OsString::from("layer-v0.9.0")
+        ]))
+    );
+    assert_eq!(call.read(b""), Ok(Outcome::Lines(vec![])));
+}

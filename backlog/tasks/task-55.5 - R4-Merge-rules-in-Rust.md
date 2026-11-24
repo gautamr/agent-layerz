@@ -1,11 +1,11 @@
 ---
 id: TASK-55.5
 title: 'R4: Merge rules in Rust'
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-23T17:51:00Z'
+updated_date: '2026-11-23T17:55:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -240,3 +240,9 @@ Owner questions 1 to 6 for R4 are in the notes (2026-11-23), each with options a
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Every merge rule is in Rust: instructions, rules, agents and overlays with native fields in source order, tool narrowing by whole segments, skills and slots, hooks with locks, permissions with the floor and three floor fields, settings with known targets and a table of security-relevant floor and reserved keys, protected variables, MCP servers with one id grammar and the allowlist, models, passthrough, who may declare, and the leak guard; each rule has Rust tests and property tests, and alz lint runs every per-layer check. Merged in PR #9 (rebase merge).
+<!-- SECTION:FINAL_SUMMARY:END -->

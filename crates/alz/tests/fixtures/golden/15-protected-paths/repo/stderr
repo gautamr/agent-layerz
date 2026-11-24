@@ -1,0 +1,15 @@
+warning [leak-host] personal:targets/claude/.claude/settings.local.json:1: contains what looks like a private hostname
+warning [passthrough] personal:targets/claude/.claude/agent-memory-local/reviewer/MEMORY.md: raw passthrough to .claude/agent-memory-local/reviewer/MEMORY.md; consider turning it into a first-class item
+warning [passthrough] personal:targets/claude/.claude/agent-memory/reviewer/MEMORY.md: raw passthrough to .claude/agent-memory/reviewer/MEMORY.md; consider turning it into a first-class item
+warning [passthrough] personal:targets/claude/.claude/settings.local.json: raw passthrough to .claude/settings.local.json; consider turning it into a first-class item
+warning [passthrough] personal:targets/claude/backlog/tasks/task-1.md: raw passthrough to backlog/tasks/task-1.md; consider turning it into a first-class item
+warning [passthrough] personal:targets/claude/docs/guide.md: raw passthrough to docs/guide.md; consider turning it into a first-class item
+warning [passthrough] personal:targets/claude/notes/team.md: raw passthrough to notes/team.md; consider turning it into a first-class item
+warning [passthrough] personal:targets/claude/specs/001-slice/spec.md: raw passthrough to specs/001-slice/spec.md; consider turning it into a first-class item
+warning [protected] .claude/agent-memory-local/reviewer/MEMORY.md: protected path; a layer ships it, but the build leaves it alone
+warning [protected] .claude/agent-memory/reviewer/MEMORY.md: protected path; a layer ships it, but the build leaves it alone
+warning [protected] .claude/settings.local.json: protected path; a layer ships it, but the build leaves it alone
+warning [protected] backlog/tasks/task-1.md: protected path; a layer ships it, but the build leaves it alone
+warning [protected] docs/guide.md: protected path; a layer ships it, but the build leaves it alone
+warning [protected] notes/team.md: protected path; a layer ships it, but the build leaves it alone
+warning [protected] specs/001-slice/spec.md: protected path; a layer ships it, but the build leaves it alone

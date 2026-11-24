@@ -33,11 +33,13 @@ use crate::item::{
     NativeValue, OverlayMode, PermissionMode, SkillName, ToolGrant, place,
 };
 use crate::layer::{LayerHeading, LayerMeta, Visibility};
+use crate::merge::action::Action;
 use crate::merge::algebra::{ListEdit, OrderedSet, Tree, widened};
 use crate::merge::permissions::DeclaredFloor;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::path::SafeRelPath;
+use crate::stack::ResolvedLayer;
 use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
@@ -69,7 +71,7 @@ impl fmt::Display for ContextSection {
         write!(
             formatter,
             "## {} context: {}\n\n{}",
-            self.heading.kind().title(),
+            Stripped::from_untrusted(&self.heading.kind().title()),
             self.heading.name(),
             self.text
         )
@@ -421,13 +423,12 @@ impl AgentState {
         context: &LayerContext<'_>,
         floor: Option<&DeclaredFloor>,
     ) -> (Self, Diagnostics) {
-        let meta = context.layer().meta();
         let (items, read) = AgentItems::read(context.layer());
         let (agents, found) = items
             .bases()
             .iter()
             .fold((self.0, read), |(agents, found), base| {
-                let (agents, problem) = define(agents, meta, base);
+                let (agents, problem) = define(agents, context.layer(), base);
                 (agents, found.merge(problem.into_iter().collect()))
             });
         let (agents, found) =
@@ -435,7 +436,7 @@ impl AgentState {
                 .overlays()
                 .iter()
                 .fold((agents, found), |(agents, found), overlay| {
-                    let (agents, problems) = refine(agents, meta, overlay, floor);
+                    let (agents, problems) = refine(agents, context.layer(), overlay, floor);
                     (agents, found.merge(problems))
                 });
         (Self(agents), found)
@@ -451,9 +452,10 @@ impl AgentState {
 /// that name is already defined.
 fn define(
     mut agents: BTreeMap<AgentName, Traced<MergedAgent>>,
-    meta: &LayerMeta,
+    layer: &ResolvedLayer,
     base: &AgentBase,
 ) -> (BTreeMap<AgentName, Traced<MergedAgent>>, Option<Diagnostic>) {
+    let meta = layer.meta();
     let problem = agents.get(base.name()).map(|existing| {
         let first = existing.provenance().contributions().first();
         let already = Message::new("agent ")
@@ -475,7 +477,7 @@ fn define(
             base.name().clone(),
             Traced::new(
                 MergedAgent::defined_by(base),
-                meta.name().clone(),
+                Origin::new(layer, base.path().clone()),
                 Action::Define,
             ),
         );
@@ -537,12 +539,13 @@ fn problems(overlay: &AgentOverlay, at: &Where, refusals: Vec<OverlayRefused>) -
 /// The agents after an overlay of the layer `meta` describes, and what it found.
 fn refine(
     mut agents: BTreeMap<AgentName, Traced<MergedAgent>>,
-    meta: &LayerMeta,
+    layer: &ResolvedLayer,
     overlay: &AgentOverlay,
     floor: Option<&DeclaredFloor>,
 ) -> (BTreeMap<AgentName, Traced<MergedAgent>>, Diagnostics) {
+    let meta = layer.meta();
     let at = || Some(place(meta.name(), overlay.path()));
-    let layer = meta.name().clone();
+    let origin = Origin::new(layer, overlay.path().clone());
     if overlay.allow_widen() && meta.visibility() == Visibility::Public {
         return (
             agents,
@@ -559,10 +562,6 @@ fn refine(
     let found = match (agents.remove(overlay.extends()), overlay.mode()) {
         (Some(previous), mode) => match previous.value().clone().refined_by(overlay, meta, floor) {
             Ok(agent) => {
-                let action = match mode {
-                    OverlayMode::Extend => Action::Extend,
-                    OverlayMode::Replace => Action::Replace,
-                };
                 let warning = matches!(mode, OverlayMode::Replace).then(|| {
                     Diagnostic::warning(
                         Code::AgentReplace,
@@ -572,7 +571,7 @@ fn refine(
                     )
                 });
                 (
-                    Some(previous.revised(agent, layer, action)),
+                    Some(previous.revised(agent, origin, Action::overlay(overlay))),
                     warning.into_iter().collect(),
                 )
             }
@@ -590,7 +589,7 @@ fn refine(
         ),
         (None, OverlayMode::Replace) => match MergedAgent::defined_by_overlay(overlay, floor) {
             Some(Ok(agent)) => (
-                Some(Traced::new(agent, layer, Action::Define)),
+                Some(Traced::new(agent, origin, Action::Define)),
                 Diagnostics::new(),
             ),
             Some(Err(refusal)) => (None, refused(refusal)),

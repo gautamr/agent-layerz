@@ -1,0 +1,22 @@
+{
+  "files": {
+    ".claude/hooks/personal/scripts/block-secrets.sh": "sha256:15eb98d866515d84048b95737db2fc5193d69e3dd8978d4620a61ec1ff37fe93",
+    ".claude/settings.json": "sha256:a435d2ced7bc82284f3c3373df40a329f20922d5102e82f59a9140efc76c0d37",
+    "AGENTS.md": "sha256:f883eae85da557c564093effcb902f54bcc08b0ede65aad14aa72a4c35d3e4c5",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:b787badf4406445854390e7a5f734d63f2056bd371b7e49f145530ec2d03e298",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:438dd769c3fcaf81ced9402fc476b856becf992b17a880638e674d3bb64ed718",
+      "name": "shop-api",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

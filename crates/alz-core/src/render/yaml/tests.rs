@@ -7,7 +7,7 @@ use proptest::collection::vec;
 use proptest::prelude::{Strategy, any, prop_assert_eq, prop_oneof, proptest};
 use proptest::sample::select;
 
-use crate::render::yaml::{DuplicateKey, EmitMap, EmitValue, emit};
+use crate::render::yaml::{DuplicateKey, EmitFloat, EmitMap, EmitValue, emit};
 use crate::yaml::{Node, Value, YamlText, parse};
 
 use json::Json;
@@ -36,7 +36,12 @@ fn field<'a>(entries: &'a [(String, Json)], name: &str) -> &'a Json {
 fn text_of(json: &Json) -> String {
     match json {
         Json::Text(text) => text.clone(),
-        other @ (Json::Bool(_) | Json::Int(_) | Json::List(_) | Json::Object(_)) => {
+        other @ (Json::Bool(_)
+        | Json::Null
+        | Json::Int(_)
+        | Json::Float(_)
+        | Json::List(_)
+        | Json::Object(_)) => {
             panic!("not text: {other:?}")
         }
     }
@@ -46,7 +51,9 @@ fn emit_value(json: &Json) -> EmitValue {
     match json {
         Json::Text(text) => EmitValue::Text(text.clone()),
         Json::Bool(flag) => EmitValue::Bool(*flag),
+        Json::Null => EmitValue::Null,
         Json::Int(number) => EmitValue::Int(*number),
+        Json::Float(number) => EmitValue::Float(EmitFloat::new(*number)),
         Json::List(items) => EmitValue::Seq(items.iter().map(emit_value).collect()),
         Json::Object(entries) => EmitValue::Map(
             EmitMap::from_entries(
@@ -148,7 +155,9 @@ fn emit_value_of(node: &Node) -> EmitValue {
     match node.value() {
         Value::Text(text) => EmitValue::Text(text.clone()),
         Value::Bool(flag) => EmitValue::Bool(*flag),
+        Value::Null => EmitValue::Null,
         Value::Int(number) => EmitValue::Int(i64::try_from(*number).expect("a small integer")),
+        Value::Float(number) => EmitValue::Float(EmitFloat::new(*number)),
         Value::Seq(items) => EmitValue::Seq(items.iter().map(emit_value_of).collect()),
         Value::Map(mapping) => EmitValue::Map(
             EmitMap::from_entries(
@@ -167,7 +176,6 @@ fn emit_value_of(node: &Node) -> EmitValue {
             )
             .expect("the parser refuses duplicate keys"),
         ),
-        other @ (Value::Null | Value::Float(_)) => panic!("alz never writes {other:?}"),
     }
 }
 
@@ -381,7 +389,7 @@ fn refused_char(c: char) -> bool {
 fn mentions_refused(value: &EmitValue) -> bool {
     match value {
         EmitValue::Text(text) => text.chars().any(refused_char),
-        EmitValue::Bool(_) | EmitValue::Int(_) => false,
+        EmitValue::Bool(_) | EmitValue::Int(_) | EmitValue::Float(_) | EmitValue::Null => false,
         EmitValue::Seq(items) => items.iter().any(mentions_refused),
         EmitValue::Map(map) => map
             .entries()
@@ -485,7 +493,36 @@ fn emit_values() -> impl Strategy<Value = EmitValue> {
     })
 }
 
+/// The number a node holds, whichever way the reader took it.
+fn number_of(node: &Node) -> Option<f64> {
+    match node.value() {
+        Value::Float(number) => Some(*number),
+        Value::Int(number) => format!("{number}").parse().ok(),
+        Value::Null | Value::Bool(_) | Value::Text(_) | Value::Seq(_) | Value::Map(_) => None,
+    }
+}
+
 proptest! {
+    #[test]
+    fn a_finite_float_reads_back_as_the_same_number(
+        number in any::<f64>().prop_filter("finite, and not a zero, which reads back as the integer 0", |number| {
+            number.is_finite() && number.classify() != std::num::FpCategory::Zero
+        })
+    ) {
+        let written = emit(&EmitValue::Seq(vec![EmitValue::Float(EmitFloat::new(number))]));
+        let read = load(&written).and_then(|node| match node.value() {
+            Value::Seq(items) => items.first().and_then(number_of),
+            Value::Null | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_)
+            | Value::Map(_) => None,
+        });
+        prop_assert_eq!(
+            read.map(f64::to_bits),
+            Some(number.to_bits()),
+            "wrote {:?}",
+            written
+        );
+    }
+
     #[test]
     fn emit_then_parse_gives_back_the_value(inner in emit_values()) {
         // alz writes a list or a mapping at the top. The reference writes a top-level block of

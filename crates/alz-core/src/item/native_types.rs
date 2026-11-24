@@ -36,12 +36,21 @@ pub enum Shape {
     Text,
     /// A whole number.
     Whole,
-    /// A whole or fractional number.
+    /// A whole number within the span.
+    WholeIn(Span),
+    /// A finite whole or fractional number: `.nan` and the infinities are not numbers here.
     Number,
+    /// A number between 0 and 1.
+    Fraction(Ends),
+    /// The name of an MCP server in an allowlist entry: letters, digits, hyphens and
+    /// underscores, and at least one.
+    McpServerName,
     /// One of these texts.
     Choice(&'static [&'static str]),
     /// A list whose items all have the shape.
     List(&'static Self),
+    /// A list with at least one item, whose items all have the shape.
+    NonEmptyList(&'static Self),
     /// A mapping with any text keys, whose values all have the shape.
     Map(&'static Self),
     /// A mapping with these keys, each optional, and no other.
@@ -50,6 +59,75 @@ pub enum Shape {
     Single(&'static [Field]),
     /// A value of one of these shapes.
     Either(&'static [Self]),
+}
+
+/// The whole numbers a [`Shape::WholeIn`] accepts: from `min`, up to `max` when there is one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    min: i128,
+    max: Option<i128>,
+}
+
+impl Span {
+    /// Every whole number from `min` up.
+    #[must_use]
+    pub const fn at_least(min: i128) -> Self {
+        Self { min, max: None }
+    }
+
+    /// Every whole number from `min` to `max`, both included.
+    #[must_use]
+    pub const fn between(min: i128, max: i128) -> Self {
+        Self {
+            min,
+            max: Some(max),
+        }
+    }
+
+    const fn holds(self, number: i128) -> bool {
+        number >= self.min
+            && match self.max {
+                Some(max) => number <= max,
+                None => true,
+            }
+    }
+}
+
+/// How a [`Shape::Fraction`] treats 0: its upper end is always 1, included.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ends {
+    /// Above 0 and at most 1.
+    AboveZero,
+    /// From 0 to 1, both included.
+    FromZero,
+}
+
+impl Ends {
+    fn holds(self, number: f64) -> bool {
+        let above = match self {
+            Self::AboveZero => number > 0.0,
+            Self::FromZero => number >= 0.0,
+        };
+        above && number <= 1.0
+    }
+}
+
+/// `message` followed by the whole number `number`, in digits.
+fn signed(message: Message, number: i128) -> Message {
+    let sign = if number < 0 {
+        message.then("-")
+    } else {
+        message
+    };
+    sign.then(u64::try_from(number.unsigned_abs()).unwrap_or(u64::MAX))
+}
+
+/// Whether `name` is a name of an MCP server that Claude Code accepts in an allowlist entry.
+fn is_server_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|letter| letter.is_ascii_alphanumeric() || letter == '-' || letter == '_')
 }
 
 /// A key of an [`Shape::Object`] and the shape of its value.
@@ -104,13 +182,16 @@ impl Shape {
     /// Whether the shape is a list and `value` a list, or a mapping shape and `value` a mapping.
     const fn is_container_for(self, value: &Value) -> bool {
         match self {
-            Self::List(_) => matches!(value, Value::Seq(_)),
+            Self::List(_) | Self::NonEmptyList(_) => matches!(value, Value::Seq(_)),
             Self::Map(_) | Self::Object(_) | Self::Single(_) => matches!(value, Value::Map(_)),
             Self::Bool
             | Self::False
             | Self::Text
             | Self::Whole
+            | Self::WholeIn(_)
             | Self::Number
+            | Self::Fraction(_)
+            | Self::McpServerName
             | Self::Choice(_)
             | Self::Either(_) => false,
         }
@@ -123,7 +204,22 @@ impl Shape {
             Self::False => message.then("the boolean false"),
             Self::Text => message.then("text"),
             Self::Whole => message.then("a whole number"),
-            Self::Number => message.then("a number"),
+            Self::WholeIn(Span { min, max: None }) => {
+                signed(message.then("a whole number of at least "), min)
+            }
+            Self::WholeIn(Span {
+                min,
+                max: Some(max),
+            }) => signed(
+                signed(message.then("a whole number from "), min).then(" to "),
+                max,
+            ),
+            Self::Number => message.then("a finite number"),
+            Self::Fraction(Ends::AboveZero) => message.then("a number above 0 and at most 1"),
+            Self::Fraction(Ends::FromZero) => message.then("a number from 0 to 1"),
+            Self::McpServerName => {
+                message.then("a name of letters, digits, hyphens and underscores")
+            }
             Self::Choice(values) => values.iter().enumerate().fold(
                 message.then("one of "),
                 |message, (index, value)| {
@@ -136,6 +232,9 @@ impl Shape {
                 },
             ),
             Self::List(item) => item.expectation(message.then("a list whose items are ")),
+            Self::NonEmptyList(item) => {
+                item.expectation(message.then("a list of at least one item, whose items are "))
+            }
             Self::Map(item) => item.expectation(message.then("a mapping whose values are ")),
             Self::Object(_) => message.then("a mapping"),
             Self::Single(fields) => fields.iter().enumerate().fold(
@@ -232,11 +331,39 @@ impl<'a> Typed<'a> {
             Shape::False => fits(matches!(value, Value::Bool(false))),
             Shape::Text => fits(matches!(value, Value::Text(_))),
             Shape::Whole => fits(matches!(value, Value::Int(_))),
-            Shape::Number => fits(matches!(value, Value::Int(_) | Value::Float(_))),
+            Shape::WholeIn(span) => {
+                fits(matches!(value, Value::Int(number) if span.holds(*number)))
+            }
+            Shape::Number => fits(match value {
+                Value::Int(_) => true,
+                Value::Float(number) => number.is_finite(),
+                Value::Null | Value::Bool(_) | Value::Text(_) | Value::Seq(_) | Value::Map(_) => {
+                    false
+                }
+            }),
+            Shape::Fraction(ends) => fits(match value {
+                Value::Int(number) => {
+                    i32::try_from(*number).is_ok_and(|whole| ends.holds(f64::from(whole)))
+                }
+                Value::Float(number) => ends.holds(*number),
+                Value::Null | Value::Bool(_) | Value::Text(_) | Value::Seq(_) | Value::Map(_) => {
+                    false
+                }
+            }),
+            Shape::McpServerName => {
+                fits(matches!(value, Value::Text(name) if is_server_name(name)))
+            }
             Shape::Choice(values) => {
                 fits(matches!(value, Value::Text(text) if values.contains(&text.as_str())))
             }
             Shape::List(item) => self.list(shape, *item, node, steps, shown),
+            Shape::NonEmptyList(item) => {
+                if matches!(value, Value::Seq(items) if items.is_empty()) {
+                    self.wrong(shape, node, shown)
+                } else {
+                    self.list(shape, *item, node, steps, shown)
+                }
+            }
             Shape::Map(item) => self.map(shape, *item, node, steps, shown),
             Shape::Object(fields) => self.object(shape, fields, node, steps, shown),
             Shape::Single(fields) => self.single(shape, fields, node, steps, shown),

@@ -1,0 +1,20 @@
+{
+  "files": {
+    "AGENTS.md": "sha256:0d6348052186db12bcc91ab5bc5fbfbe640303ea86ebfe3713b24f064f434728",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:6cf164de97e3388c1a847f2348ab468e3b623949e87afd0d3178777b9be59421",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:84008f36bab18e2a62fb7e9c076874f0eab09e5ce10e0565d16250ef135bbcc5",
+      "name": "name-order-repo",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

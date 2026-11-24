@@ -48,9 +48,12 @@ fn below(path: &str, shape: Shape) -> Vec<(String, Shape)> {
         | Shape::False
         | Shape::Text
         | Shape::Whole
+        | Shape::WholeIn(_)
         | Shape::Number
+        | Shape::Fraction(_)
+        | Shape::McpServerName
         | Shape::Choice(_) => Vec::new(),
-        Shape::List(item) => below(&format!("{path}[]"), *item),
+        Shape::List(item) | Shape::NonEmptyList(item) => below(&format!("{path}[]"), *item),
         Shape::Map(item) => below(&format!("{path}.*"), *item),
         Shape::Object(fields) | Shape::Single(fields) => rows(path, fields),
         Shape::Either(options) => options
@@ -97,9 +100,12 @@ fn a_key_name_is_listed_once_in_its_mapping() {
             | Shape::False
             | Shape::Text
             | Shape::Whole
+            | Shape::WholeIn(_)
             | Shape::Number
+            | Shape::Fraction(_)
+            | Shape::McpServerName
             | Shape::Choice(_) => {}
-            Shape::List(item) | Shape::Map(item) => nested(*item),
+            Shape::List(item) | Shape::NonEmptyList(item) | Shape::Map(item) => nested(*item),
             Shape::Object(fields) | Shape::Single(fields) => unique(fields),
             Shape::Either(options) => options.iter().for_each(|option| nested(*option)),
         }

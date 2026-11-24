@@ -29,11 +29,21 @@ function workspace(): Workspace {
   return ws;
 }
 
-/** The keys of the top-level object in the text of a JSON file, in the order the text has them. */
-function topLevelKeys(text: string): string[] {
-  return [...text.matchAll(/^ {2}("(?:[^"\\]|\\.)*"):/gm)].map(
+/**
+ * The keys of `sandbox.ignoreViolations` in the text of a settings.json, in the order the text has
+ * them. That mapping takes any text key, so it is where whole-number and exotic keys can sit in a
+ * settings file that alz accepts (a settings key outside the typed table is an error).
+ */
+function ignoreViolationKeys(text: string): string[] {
+  return [...text.matchAll(/^ {6}("(?:[^"\\]|\\.)*"):/gm)].map(
     (match) => JSON.parse(match[1] as string) as string,
   );
+}
+
+/** A settings.yaml whose `sandbox.ignoreViolations` has the given keys. */
+function exoticSettings(keys: readonly string[]): string {
+  const entries = keys.map((key) => `      "${key}": [x]`);
+  return `claude:\n  sandbox:\n    ignoreViolations:\n${entries.join("\n")}\n`;
 }
 
 function personalLockEntry(ws: Workspace) {
@@ -73,28 +83,20 @@ describe("§13.25 name order (§6)", () => {
 
   referenceDrift("TASK-64", "sorts JSON keys by code point, whole numbers included", async () => {
     const ws = workspace();
-    const settings = [HALF_WIDTH, EMOJI, "10", "9", "-x", "a"].map((key) => `  "${key}": 1`);
-    writeFileSync(`${ws.root}/personal/settings.yaml`, `claude:\n${settings.join("\n")}\n`);
+    writeFileSync(
+      `${ws.root}/personal/settings.yaml`,
+      exoticSettings([HALF_WIDTH, EMOJI, "10", "9", "-x", "a"]),
+    );
     const result = await layers(ws, "repo", ["build"]);
     expect(result.code).toBe(0);
     // Read the key order from the text: JSON.parse would move "9" and "10" to the front.
-    const keys = topLevelKeys(readFile(ws, "repo/.claude/settings.json"));
-    expect(keys.filter((key) => key !== "permissions")).toEqual([
-      "-x",
-      "10",
-      "9",
-      "a",
-      HALF_WIDTH,
-      EMOJI,
-    ]);
+    const keys = ignoreViolationKeys(readFile(ws, "repo/.claude/settings.json"));
+    expect(keys).toEqual(["-x", "10", "9", "a", HALF_WIDTH, EMOJI]);
   });
 
   it("passes alz check after a build with such names", async () => {
     const ws = workspace();
-    writeFileSync(
-      `${ws.root}/personal/settings.yaml`,
-      `claude:\n  "${EMOJI}": 1\n  "10": 1\n  "9": 1\n`,
-    );
+    writeFileSync(`${ws.root}/personal/settings.yaml`, exoticSettings([EMOJI, "10", "9"]));
     expect((await layers(ws, "repo", ["build"])).code).toBe(0);
     const result = await layers(ws, "repo", ["check"]);
     expect(result.code).toBe(0);

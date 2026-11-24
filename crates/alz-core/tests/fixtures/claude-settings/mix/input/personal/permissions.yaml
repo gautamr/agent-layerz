@@ -1,0 +1,4 @@
+allow: ["read", "bash:mise run *", "mcp__fs__read"]
+ask: ["bash:git push *", "web_fetch:example.invalid"]
+deny: ["read:.env*", "write:/etc/**"]
+default_mode: plan

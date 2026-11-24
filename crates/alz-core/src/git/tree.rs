@@ -10,6 +10,7 @@ use unicode_normalization::UnicodeNormalization;
 use crate::git::tree_entry::{EntryMode, TreeEntry};
 use crate::lock::{ObjectId, is_skipped_name};
 use crate::path::SafeRelPath;
+use crate::untrusted_text::has_control_or_format;
 
 /// Why a tree is refused, in the order of precedence: the larger refusal is the one reported when
 /// several occur, as for the names of a walked layer (§5.3).
@@ -21,6 +22,8 @@ pub enum ListingRefusal {
     /// A path with a backslash, a `.` or `..` segment or a `.git` segment, in any case or with a
     /// trailing dot or space.
     NotSafe,
+    /// A path that is valid UTF-8 and holds a control or format character.
+    ControlOrFormat,
     /// A path that is not valid UTF-8.
     NotUtf8,
 }
@@ -77,7 +80,13 @@ fn has_collision<'p>(paths: impl Iterator<Item = &'p SafeRelPath>) -> bool {
 fn judged(entry: &TreeEntry) -> Result<SafeRelPath, ListingRefusal> {
     std::str::from_utf8(&entry.path)
         .map_err(|_not_utf8| ListingRefusal::NotUtf8)
-        .and_then(|text| SafeRelPath::try_from(text).map_err(|_unsafe| ListingRefusal::NotSafe))
+        .and_then(|text| {
+            if has_control_or_format(text) {
+                Err(ListingRefusal::ControlOrFormat)
+            } else {
+                SafeRelPath::try_from(text).map_err(|_unsafe| ListingRefusal::NotSafe)
+            }
+        })
 }
 
 impl TreeListing {
@@ -87,7 +96,7 @@ impl TreeListing {
     /// # Errors
     ///
     /// The [`ListingRefusal`] that takes precedence: a path that is not valid UTF-8, then a path
-    /// that is not safe, then two paths that would be merged.
+    /// with a control or format character, then a path that is not safe, then two paths that would be merged.
     pub fn from_entries(entries: &[TreeEntry]) -> Result<Self, ListingRefusal> {
         let judgements: Vec<_> = entries.iter().map(judged).collect();
         if let Some(worst) = judgements

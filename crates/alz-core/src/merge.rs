@@ -18,6 +18,7 @@
 //! §7) adds its own state to the fold and its own field to [`Merged`]; see the module docs of
 //! `stack` for the places to add them.
 
+mod action;
 mod agents;
 pub mod algebra;
 mod alone;
@@ -37,17 +38,18 @@ mod stack;
 #[cfg(test)]
 pub(crate) mod testing;
 
+pub use action::{Action, AgentChange, AgentScalar};
 pub use agents::{AgentBody, ContextSection, MergedAgent};
 pub use algebra::{FloatBits, Floor, Last, ListEdit, OrderedSet, Replace, Tree, covers, widened};
 pub use alone::check_alone;
 pub use declarers::{Declarations, Declared, Reason, Refused};
-pub use instructions::InstructionBlock;
+pub use instructions::{InstructionBlock, MergedClaudeExtra};
 pub use mcp::MergedMcp;
 pub use models::{MergedModels, TargetModels};
 pub use passthrough::MergedPassthrough;
 pub use permissions::MergedPermissions;
 pub use placement::{Placement, Placements};
-pub use provenance::{Action, Contribution, Provenance, Traced};
+pub use provenance::{Contribution, Origin, Provenance, Traced};
 pub use rules::{MergedRule, RuleChain, RuleSection};
 pub use skills::SlotDemand;
 pub use stack::{LayerContext, Merged, Merging, merge};

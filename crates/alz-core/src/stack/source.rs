@@ -6,6 +6,7 @@ use std::fmt;
 
 use thiserror::Error;
 
+use crate::path::SafeRelPath;
 use crate::stack::git_ref::{GitRef, GitRefError};
 
 /// Why a `source` is refused. No variant holds input: a source can hold a token, so no message
@@ -244,6 +245,34 @@ impl Source {
     pub fn working_directory() -> Self {
         Self::Path {
             dir: SourceDir(".".to_owned()),
+        }
+    }
+
+    /// The folder of a `path:` source that lies inside the repository, as a path from its root,
+    /// read lexically: `.` segments are dropped and `..` cancels the segment before it. `None`
+    /// for a source that is not a `path:` source, an absolute path, and a path that is the root
+    /// itself or leaves it.
+    #[must_use]
+    pub fn repository_folder(&self) -> Option<SafeRelPath> {
+        let Self::Path { dir } = self else {
+            return None;
+        };
+        let inside = dir
+            .as_str()
+            .split('/')
+            .filter(|segment| !segment.is_empty() && *segment != ".")
+            .try_fold(Vec::<&str>::new(), |mut kept, segment| {
+                if segment == ".." {
+                    kept.pop().map(|_| kept)
+                } else {
+                    kept.push(segment);
+                    Some(kept)
+                }
+            })?;
+        if dir.as_str().starts_with('/') || inside.is_empty() {
+            None
+        } else {
+            SafeRelPath::try_from(inside.join("/").as_str()).ok()
         }
     }
 }

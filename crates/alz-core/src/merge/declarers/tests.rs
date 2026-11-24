@@ -16,7 +16,7 @@ use crate::identity::CommitIdentity;
 use crate::layer::{Kind, LayerName, Visibility};
 use crate::merge::Merging;
 use crate::merge::placement::Placement;
-use crate::merge::testing::{layer_from_yaml, lines, merged_placed};
+use crate::merge::testing::{layer_from_yaml, lines, merged_placed, origin_of};
 use crate::stack::ResolvedLayer;
 use crate::target::TargetName;
 
@@ -420,14 +420,18 @@ fn candidates() -> impl Strategy<Value = Vec<Candidate<u8>>> {
         .prop_map(|(first_is_there, rest)| {
             rest.into_iter()
                 .enumerate()
-                .map(|(index, (kind, visibility, placement, value))| Candidate {
-                    layer: LayerName::try_from(format!("layer-{index}").as_str())
-                        .expect("a layer name"),
-                    is_first: first_is_there && index == 0,
-                    kind,
-                    visibility,
-                    placement,
-                    value,
+                .map(|(index, (kind, visibility, placement, value))| {
+                    let layer = LayerName::try_from(format!("layer-{index}").as_str())
+                        .expect("a layer name");
+                    Candidate {
+                        origin: origin_of(layer.clone()),
+                        layer,
+                        is_first: first_is_there && index == 0,
+                        kind,
+                        visibility,
+                        placement,
+                        value,
+                    }
                 })
                 .collect()
         })
@@ -500,8 +504,10 @@ proptest! {
 
 #[test]
 fn a_refused_kind_is_kept_as_the_reason() {
+    let group = LayerName::try_from("group").expect("a layer name");
     let found = Declarations::evaluate(vec![Candidate {
-        layer: LayerName::try_from("group").expect("a layer name"),
+        origin: origin_of(group.clone()),
+        layer: group,
         is_first: false,
         kind: Kind::try_from("group").expect("a kind"),
         visibility: Visibility::Public,

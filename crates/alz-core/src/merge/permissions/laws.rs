@@ -12,7 +12,7 @@ use crate::item::{
 };
 use crate::layer::LayerName;
 use crate::merge::algebra::{ListEdit, OrderedSet};
-use crate::merge::testing::{layer, merged};
+use crate::merge::testing::{layer, merged, origin_of};
 use crate::stack::ResolvedLayer;
 use crate::untrusted_text::Stripped;
 
@@ -81,7 +81,7 @@ fn fold(files: &[Permissions]) -> PermissionState {
         .iter()
         .enumerate()
         .fold(PermissionState::default(), |state, (index, file)| {
-            state.apply(file, &name(index), &at()).0
+            state.apply(file, &origin_of(name(index)), &at()).0
         })
 }
 
@@ -102,9 +102,13 @@ fn edit_text(edit: &ListEdit<PermissionRule>) -> String {
     };
     match edit {
         ListEdit::Replace(set) => format!("[{}]", segment("", set).trim_matches(['[', ']'])),
-        ListEdit::Adjust { remove, add } => {
-            format!("{} {}", segment("-", remove), segment("+", add))
-        }
+        // An edit of white space alone is no edit (the reference refuses it), so an empty segment
+        // adds no separator.
+        ListEdit::Adjust { remove, add } => [segment("-", remove), segment("+", add)]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" "),
     }
 }
 
@@ -148,7 +152,7 @@ proptest! {
         later in files(),
     ) {
         let before = fold(&stack);
-        let (after, found) = before.clone().apply(&later, &name(9), &at());
+        let (after, found) = before.clone().apply(&later, &origin_of(name(9)), &at());
 
         let denied_before = deny_of(before.clone());
         let denied_after = deny_of(after.clone());
@@ -325,7 +329,7 @@ proptest! {
         stack in vec(proptest::array::uniform3(proptest::option::of(any::<bool>())), 0..6),
     ) {
         stack.iter().enumerate().try_fold(PermissionState::default(), |before, (index, settings)| {
-            let (after, _) = before.clone().apply(&flag_file(*settings), &name(index), &at());
+            let (after, _) = before.clone().apply(&flag_file(*settings), &origin_of(name(index)), &at());
             for flag in FloorFlag::ALL {
                 if before.clone().finish().is_set(flag) {
                     prop_assert!(after.clone().finish().is_set(flag), "{flag:?}");

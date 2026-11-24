@@ -268,6 +268,24 @@ mod tests {
     }
 
     #[test]
+    fn a_file_with_the_owner_execute_bit_keeps_it_in_the_layer_contents() {
+        let machine = layer();
+        machine.write("repo/layer/a.md", "hello\n");
+        machine.write("repo/layer/run.sh", "#!/bin/sh\n");
+        fs::set_permissions(
+            machine.path("repo/layer/run.sh"),
+            fs::Permissions::from_mode(0o755),
+        )
+        .expect("mode set");
+        let (contents, _) = verdict(&machine, Purpose::Build)
+            .expect("read")
+            .into_parts();
+        let path = |text: &str| SafeRelPath::try_from(text).expect("a safe path");
+        assert!(contents.is_executable(&path("run.sh")));
+        assert!(!contents.is_executable(&path("a.md")));
+    }
+
+    #[test]
     fn a_walk_against_a_tree_keeps_the_resolution_limits_where_they_apply() {
         let machine = layer();
         many_files(&machine, 2001);
@@ -506,6 +524,61 @@ mod tests {
                 assert_eq!(refusal.miss(), miss);
                 assert_names_the_layer_never_the_name(refusal);
             }
+        }
+
+        #[test]
+        fn a_name_with_a_control_or_format_character_is_the_name_error_in_both_purposes() {
+            for name in [
+                "line\nfeed.md",
+                "zero\u{200b}width.md",
+                "bell\u{7}.md",
+                "sep\u{2028}.md",
+            ] {
+                let machine = layer();
+                machine.write("repo/layer/a.md", "a");
+                fs::write(machine.path("repo/layer").join(name), "x").expect("made");
+                for purpose in [Purpose::Resolution, Purpose::Build] {
+                    let refusal = verdict(&machine, purpose).map(|_| ()).expect_err("refused");
+                    assert_eq!(refusal, LayerRefusal::NameControlOrFormat, "{name:?}");
+                    assert_eq!(refusal.miss(), "layer-invalid");
+                    assert_eq!(
+                        refusal
+                            .file_name_diagnostic(Stripped::from_untrusted("path:../hub"))
+                            .expect("the name error")
+                            .to_string(),
+                        "error [layer] a file or folder name in layer 'path:../hub' holds a \
+                         control or format character; rename it"
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn a_folder_with_a_control_character_in_its_name_is_refused_as_well() {
+            let machine = layer();
+            let folder = machine.path("repo/layer").join("d\u{1b}[31m");
+            fs::create_dir(&folder).expect("made");
+            fs::write(folder.join("inside.md"), "x").expect("made");
+            assert_eq!(
+                verdict(&machine, Purpose::Build).map(|_| ()),
+                Err(LayerRefusal::NameControlOrFormat)
+            );
+        }
+
+        #[test]
+        fn a_bad_unicode_name_wins_over_a_control_character_which_wins_over_an_unsafe_path() {
+            let machine = layer();
+            machine.write("repo/layer/back\\slash", "x");
+            machine.write("repo/layer/tab\there", "x");
+            assert_eq!(
+                verdict(&machine, Purpose::Build).map(|_| ()),
+                Err(LayerRefusal::NameControlOrFormat)
+            );
+            fs::write(machine.path("repo/layer").join(bad("x")), "x").expect("made");
+            assert_eq!(
+                verdict(&machine, Purpose::Build).map(|_| ()),
+                Err(LayerRefusal::NameNotUtf8)
+            );
         }
 
         #[test]

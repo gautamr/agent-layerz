@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@architect'
 created_date: '2026-11-19T17:13:00Z'
+updated_date: '2026-11-24T03:14:00Z'
 labels:
   - area:adapter
 milestone: m-3
@@ -27,3 +28,11 @@ The spec promises Claude Code and Codex in v1 (section 8.2); today targets: [cod
 - [ ] #4 Acceptance test 13 (two targets) passes
 - [ ] #5 alz doctor checks the installed Codex version against the adapter's verified range
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From the R4 review fixes (2026-11-23, recorded by the architect while planning R5, TASK-55.6): the TOML emitter for Codex config must quote every key that holds a dot, so a YAML key written as one dotted string stays one literal TOML key and never addresses a nested table; add a test. The Codex adapter is not part of R5.
+
+From TASK-66 (2026-11-24): an agent's codex: native fields may hold whole-number keys (the map is untyped until TASK-82); the Codex output must keep them in source order after the fixed fields (spec §7.2), with an acceptance case, marked reference drift if the reference hoists them.
+<!-- SECTION:NOTES:END -->

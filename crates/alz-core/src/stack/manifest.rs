@@ -1,8 +1,7 @@
 //! The repository's stack manifest, `layer.yaml` with a `stack` (spec §5.2), as one value.
 
-use std::collections::BTreeSet;
-
 use crate::item::McpServerId;
+use crate::merge::OrderedSet;
 use crate::schema::{
     Checked, SchemaError, SchemaErrors, refine_list, text_list, unknown_fields, zip, zip3,
 };
@@ -126,10 +125,10 @@ fn section_or<T>(
         .map_or(Ok(default), |node| read(node, section.field_path(field)))
 }
 
-fn targets(section: &Section<'_>) -> Checked<BTreeSet<TargetName>> {
+fn targets(section: &Section<'_>) -> Checked<OrderedSet<TargetName>> {
     refine_list::<TargetName>(section, "targets").map(|listed| {
         listed.map_or_else(
-            || BTreeSet::from([TargetName::Claude]),
+            || OrderedSet::from_iter([TargetName::Claude]),
             |names| names.into_iter().collect(),
         )
     })
@@ -143,7 +142,7 @@ fn protected_paths(section: &Section<'_>) -> Checked<Vec<ProtectedPattern>> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
     stack: DeclaredStack,
-    targets: BTreeSet<TargetName>,
+    targets: OrderedSet<TargetName>,
     workspace: Workspace,
     protected_paths: Vec<ProtectedPattern>,
     mcp_enable: Vec<McpServerId>,
@@ -209,9 +208,10 @@ impl Manifest {
         &self.stack
     }
 
-    /// The targets to write for, in name order: `claude` when the manifest names none.
+    /// The targets to write for, each once, in the order the manifest declares them: `claude`
+    /// when the manifest names none.
     #[must_use]
-    pub const fn targets(&self) -> &BTreeSet<TargetName> {
+    pub const fn targets(&self) -> &OrderedSet<TargetName> {
         &self.targets
     }
 

@@ -31,9 +31,19 @@ duplicate keys, and without `preserve_order` it sorts keys. Checked on 2026-11-2
 - Input is capped at 1 MiB and read as strict UTF-8 before parsing. The depth limit of 128 stays.
 - A diagnostic comes from the error's category, line and column only, never from serde_json's
   `Display` text, as for YAML (decision-28).
-- `arbitrary_precision`, `float_roundtrip`, `preserve_order`, `raw_value` and `unbounded_depth` stay off.
+- `arbitrary_precision`, `float_roundtrip`, `preserve_order`, `raw_value` and `unbounded_depth` stay off (amended below: `float_roundtrip` is on).
 - alz writes JSON with its own stable emitter (`alz-core/src/render/json.rs`, R2.7), tested byte for
   byte against the reference. serde_json's serialiser is not used.
+
+**Amended 2026-11-23 (owner, R5, TASK-55.6).** The `float_roundtrip` feature is enabled:
+`serde_json = { version = "=1.0.154", default-features = false, features = ["std", "float_roundtrip"] }`.
+Without it serde_json can read a decimal float up to one unit in the last place away from the nearest
+double, while JavaScript's `JSON.parse` always gives the nearest double. `alz build --adopt` turns the
+numbers of a hand-written `.claude/settings.json` and `.mcp.json` into layer YAML, and those bytes must
+match the reference's. With the feature every JSON float alz reads is the nearest double (spec §4.3
+"Adoption, in detail"). The feature adds no crate: in 1.0.154 it is `float_roundtrip = []` and selects
+serde_json's own exact float parser (read from the crate's `Cargo.toml` and `src/de.rs`). The other four
+features stay off.
 
 ## Consequences
 
@@ -41,4 +51,8 @@ duplicate keys, and without `preserve_order` it sorts keys. Checked on 2026-11-2
 - The spec states the lock's reading rules: 1 MiB, nesting depth 128, a duplicate key makes the lock
   invalid (TASK-55.3.1).
 - The pull request that adds it also adds a `[bans]` feature rule for the features above to `deny.toml`.
+- **Amended 2026-11-23 (owner, R5, TASK-55.6).** The pull request that enables `float_roundtrip` removes
+  it from the `deny` list of serde_json's feature rule in `deny.toml`, keeps the other four there, and adds
+  tests: JSON floats whose nearest double the default parser misses are read exactly, and adopting them
+  writes the reference's YAML bytes.
 - Raising the pin within the same major version is an update task: the new version must be at least two weeks old, and `cargo deny` and `cargo audit` must pass. A new major version, or another feature, is a new decision.

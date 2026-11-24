@@ -1,0 +1,1 @@
+warning [tool-scope] personal:agents/architect.md: agent 'architect': Claude cannot scope a tool per agent, so 'write:docs/**' becomes 'Write'; put the scope in permissions.yaml

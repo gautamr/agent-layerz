@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
-use crate::layer::{ItemPath, LayerMeta, LayerName};
+use crate::layer::{ItemPath, LayerContents, LayerMeta, LayerName};
 use crate::path::SafeRelPath;
 use crate::schema::{Checked, SchemaErrors, require, unknown_fields, zip, zip3};
 use crate::stack::ResolvedLayer;
@@ -76,6 +76,7 @@ impl ArgumentHint {
 pub struct SkillFile {
     path: SafeRelPath,
     bytes: Vec<u8>,
+    executable: bool,
 }
 
 impl SkillFile {
@@ -95,6 +96,12 @@ impl SkillFile {
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
+
+    /// Whether the file has the owner-execute bit.
+    #[must_use]
+    pub const fn executable(&self) -> bool {
+        self.executable
+    }
 }
 
 impl fmt::Debug for SkillFile {
@@ -104,6 +111,7 @@ impl fmt::Debug for SkillFile {
             .debug_struct("SkillFile")
             .field("path", &self.path)
             .field("size", &self.bytes.len())
+            .field("executable", &self.executable)
             .finish()
     }
 }
@@ -113,11 +121,19 @@ impl fmt::Debug for SkillFile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkillDirectory {
     name: SkillName,
+    folder: SafeRelPath,
     description: SkillDescription,
     files: Vec<SkillFile>,
 }
 
 impl SkillDirectory {
+    /// The skill's folder in the layer, `skills/<name>`: what a header and `alz explain` name as
+    /// its source.
+    #[must_use]
+    pub const fn folder(&self) -> &SafeRelPath {
+        &self.folder
+    }
+
     /// The skill's name, equal to its directory's.
     #[must_use]
     pub const fn name(&self) -> &SkillName {
@@ -190,6 +206,15 @@ pub enum Skill {
 }
 
 impl Skill {
+    /// The layer path the skill is named by as a source: a skill's folder, or the command's file.
+    #[must_use]
+    pub const fn source(&self) -> &SafeRelPath {
+        match self {
+            Self::Directory(directory) => directory.folder(),
+            Self::Command(command) => command.path(),
+        }
+    }
+
     /// The name, which is the identity across layers.
     #[must_use]
     pub const fn name(&self) -> &SkillName {
@@ -245,7 +270,7 @@ impl SkillItems {
         let (directories, found) = collect(
             folders
                 .iter()
-                .map(|(folder, files)| read_directory(name, folder, files)),
+                .map(|(folder, files)| read_directory(name, folder, files, layer.contents())),
         );
         let (commands, found_commands) = collect(layer.contents().iter().filter_map(
             |(path, bytes)| match ItemPath::of(path) {
@@ -381,6 +406,7 @@ fn read_directory(
     layer: &LayerName,
     folder: &str,
     files: &[(&SafeRelPath, &str, &[u8])],
+    contents: &LayerContents,
 ) -> Result<Skill, Diagnostics> {
     let directory_at = Where::layer_file(
         Stripped::from_untrusted(layer.as_str()),
@@ -417,12 +443,17 @@ fn read_directory(
     if name == directory {
         Ok(Skill::Directory(SkillDirectory {
             name,
+            // The folder is a prefix of `md_path`, so it is a safe path; `md_path` stands in for it
+            // only if that were ever wrong.
+            folder: SafeRelPath::try_from(format!("skills/{folder}").as_str())
+                .unwrap_or_else(|_unsafe| md_path.clone()),
             description,
             files: files
                 .iter()
                 .map(|(path, _, bytes)| SkillFile {
                     path: (*path).clone(),
                     bytes: bytes.to_vec(),
+                    executable: contents.is_executable(path),
                 })
                 .collect(),
         }))

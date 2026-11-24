@@ -107,15 +107,32 @@ pub enum Trigger {
     },
 }
 
-/// A script of the layer: a file below `hooks/scripts/` that the layer holds.
+/// A script of the layer: a file below `hooks/scripts/` that the layer holds, with the bytes the
+/// layer's walk read and whether it has the owner-execute bit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct HookScript(SafeRelPath);
+pub struct HookScript {
+    path: SafeRelPath,
+    bytes: Vec<u8>,
+    executable: bool,
+}
 
 impl HookScript {
     /// The path in the layer, such as `hooks/scripts/block-secrets.sh`.
     #[must_use]
     pub const fn path(&self) -> &SafeRelPath {
-        &self.0
+        &self.path
+    }
+
+    /// The bytes of the script.
+    #[must_use]
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Whether the script has the owner-execute bit, which its copy keeps (§8.1).
+    #[must_use]
+    pub const fn executable(&self) -> bool {
+        self.executable
     }
 
     /// The script that `run` names, which is written relative to `hooks/`.
@@ -124,11 +141,26 @@ impl HookScript {
             .ok()
             .filter(|path| matches!(ItemPath::of(path), ItemPath::HookScript { .. }))
             .ok_or(Problem::ScriptOutside)?;
+        if !path.as_str().chars().all(is_script_name_character) {
+            return Err(Problem::ScriptName(path));
+        }
         match contents.get(&path) {
-            Some(_) => Ok(Self(path)),
+            Some(bytes) => Ok(Self {
+                bytes: bytes.to_vec(),
+                executable: contents.is_executable(&path),
+                path,
+            }),
             None => Err(Problem::ScriptMissing(path)),
         }
     }
+}
+
+/// Whether a script's path may hold `letter`. The path goes into a command line that a shell
+/// reads, between double quotes, so a quote, `$`, a backtick, a backslash, a space or any other
+/// character a shell treats as more than a name is refused: only ASCII letters, digits, `.`, `_`,
+/// `-` and `/` pass (spec §7.5).
+const fn is_script_name_character(letter: char) -> bool {
+    letter.is_ascii_alphanumeric() || matches!(letter, '.' | '_' | '-' | '/')
 }
 
 /// What a hook does: exactly one of a script of the layer and a command line.
@@ -494,6 +526,7 @@ enum Problem {
     RunOrCommand,
     ScriptOutside,
     ScriptMissing(SafeRelPath),
+    ScriptName(SafeRelPath),
     PathsWithoutTools,
     NativeMatch,
     MatcherOnNeutral,
@@ -515,6 +548,10 @@ impl Problem {
                 .then("script ")
                 .then(QuotedKey::from_untrusted(path.as_str()))
                 .then(" is not in the layer"),
+            Self::ScriptName(path) => head
+                .then("script ")
+                .then(QuotedKey::from_untrusted(path.as_str()))
+                .then(" may only hold ASCII letters, digits, '.', '_', '-' and '/'"),
             Self::PathsWithoutTools => head.then("'match.paths' needs 'match.tools'"),
             Self::NativeMatch => {
                 head.then("a native event takes the target's own 'matcher', not 'match'")

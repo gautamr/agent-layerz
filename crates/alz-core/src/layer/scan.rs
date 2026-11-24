@@ -77,6 +77,9 @@ pub enum NameProblem {
     /// A path that is valid Unicode but is no [`SafeRelPath`] (a backslash, or `.git` in another
     /// case), so no hash can be taken over it.
     NotSafe,
+    /// A name that is valid Unicode and holds a control or format character, which would start a
+    /// new line in a generated header or be written to a terminal.
+    ControlOrFormat,
     /// A name that is not valid Unicode (`OsStr::to_str` fails).
     NotUtf8,
 }
@@ -101,6 +104,7 @@ pub struct LayerScan {
     listed: usize,
     name_problem: Option<NameProblem>,
     files: Vec<(SafeRelPath, Vec<u8>)>,
+    executable: Vec<SafeRelPath>,
     env_files: Vec<SafeRelPath>,
     git_files: Vec<GitFileFacts>,
     other_entries: usize,
@@ -148,6 +152,14 @@ impl LayerScan {
             bytes,
             ..self
         }
+    }
+
+    /// The scan after a regular file was read in full and its owner-execute bit was found set.
+    #[must_use]
+    pub fn with_executable(self, path: SafeRelPath) -> Self {
+        let mut executable = self.executable;
+        executable.push(path);
+        Self { executable, ..self }
     }
 
     /// The scan after a `.env` file was listed. It was never opened.

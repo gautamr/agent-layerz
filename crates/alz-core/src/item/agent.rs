@@ -22,7 +22,7 @@ use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 use crate::yaml::fields::Section;
 
-use super::list_edit::refine_edit;
+use super::list_edit::{WrittenEdit, refine_edit, written_edit};
 use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
 pub use native::NativeFields;
 pub(in crate::item) use native::tree_of;
@@ -204,11 +204,39 @@ pub struct AgentOverlay {
     tools: Option<ListEdit<ToolGrant>>,
     skills: ListEdit<SkillName>,
     targets: Option<ListEdit<TargetName>>,
+    written: WrittenEdits,
     native: NativeFields,
     body: String,
 }
 
+/// The edits of `tools`, `skills` and `targets` as the overlay wrote them, `None` for a list it
+/// does not mention.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct WrittenEdits {
+    tools: Option<WrittenEdit>,
+    skills: Option<WrittenEdit>,
+    targets: Option<WrittenEdit>,
+}
+
 impl AgentOverlay {
+    /// The edit of the tools as written, `None` when the overlay does not mention them.
+    #[must_use]
+    pub const fn tools_written(&self) -> Option<&WrittenEdit> {
+        self.written.tools.as_ref()
+    }
+
+    /// The edit of the skills as written, `None` when the overlay does not mention them.
+    #[must_use]
+    pub const fn skills_written(&self) -> Option<&WrittenEdit> {
+        self.written.skills.as_ref()
+    }
+
+    /// The edit of the targets as written, `None` when the overlay does not mention them.
+    #[must_use]
+    pub const fn targets_written(&self) -> Option<&WrittenEdit> {
+        self.written.targets.as_ref()
+    }
+
     /// The path in the layer, `agents/<name>.overlay.md`.
     #[must_use]
     pub const fn path(&self) -> &SafeRelPath {
@@ -491,6 +519,11 @@ fn read_overlay(
         tools,
         skills: skills.unwrap_or_default(),
         targets,
+        written: WrittenEdits {
+            tools: written_edit(&section, "tools"),
+            skills: written_edit(&section, "skills"),
+            targets: written_edit(&section, "targets"),
+        },
         native,
         body: doc.body().as_str().trim().to_owned(),
     })

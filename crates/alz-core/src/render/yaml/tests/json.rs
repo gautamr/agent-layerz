@@ -1,13 +1,16 @@
-//! A small JSON reader for the golden samples: strings, booleans, integers, arrays and objects
+//! A small JSON reader for the golden samples: strings, booleans, null, numbers, arrays and objects
 //! with their keys in file order. The samples are JSON because the reference wrote them; no JSON
 //! dependency is worth a decision for one fixture.
 
 /// A JSON value of the sample file.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(super) enum Json {
     Text(String),
     Bool(bool),
+    Null,
     Int(i64),
+    /// A number with a fraction or an exponent, or beyond 64 bits.
+    Float(f64),
     List(Vec<Json>),
     Object(Vec<(String, Json)>),
 }
@@ -51,8 +54,9 @@ fn value(chars: &[char], at: usize) -> Result<(Json, usize), String> {
         Some('[') => list(chars, skip_blanks(chars, at + 1)),
         Some('{') => object(chars, skip_blanks(chars, at + 1)),
         Some('-' | '0'..='9') => integer(chars, at),
-        _ => word(chars, at, "true")
-            .map(|end| (Json::Bool(true), end))
+        _ => word(chars, at, "null")
+            .map(|end| (Json::Null, end))
+            .or_else(|| word(chars, at, "true").map(|end| (Json::Bool(true), end)))
             .or_else(|| word(chars, at, "false").map(|end| (Json::Bool(false), end)))
             .ok_or_else(|| format!("unexpected value at {at}")),
     }
@@ -62,12 +66,14 @@ fn integer(chars: &[char], at: usize) -> Result<(Json, usize), String> {
     let length = chars
         .iter()
         .skip(at)
-        .take_while(|c| c.is_ascii_digit() || **c == '-')
+        .take_while(|c| c.is_ascii_digit() || matches!(**c, '-' | '+' | '.' | 'e' | 'E'))
         .count();
     let text: String = chars.iter().skip(at).take(length).collect();
     text.parse()
-        .map(|number| (Json::Int(number), at + length))
-        .map_err(|error| format!("not an integer at {at}: {text} ({error})"))
+        .map(Json::Int)
+        .or_else(|_not_an_integer| text.parse().map(Json::Float))
+        .map(|number| (number, at + length))
+        .map_err(|error| format!("not a number at {at}: {text} ({error})"))
 }
 
 fn list(chars: &[char], at: usize) -> Result<(Json, usize), String> {

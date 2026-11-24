@@ -153,14 +153,15 @@ fn a_segment_appends_removes_or_replaces_and_segments_apply_in_the_order_written
 fn a_yaml_list_replaces_and_nothing_or_an_empty_string_changes_nothing() {
     assert_eq!(apply("skills: [x, y]", &["a"]), ["x", "y"]);
     assert_eq!(apply("skills: \"\"", &["a"]), ["a"]);
-    assert_eq!(apply("skills: \"  \"", &["a"]), ["a"]);
     assert_eq!(edit_of("role: x"), Ok(None));
     assert_eq!(edit_of("skills: ~"), Ok(None));
 }
 
 #[test]
 fn text_that_is_not_an_edit_is_refused_and_so_is_an_item_that_is_not_a_name() {
-    for text in ["+a", "+[a", "[a] b", "*[a]", "+ [a]", "+[a]]"] {
+    for text in [
+        "+a", "+[a", "[a] b", "*[a]", "+ [a]", "+[a]]", " ", "  ", "\\t",
+    ] {
         assert_eq!(
             edit_of(&format!("skills: \"{text}\"")),
             Err(vec![format!("skills {}", AgentRefusal::ListEdit.rule())]),
@@ -205,7 +206,14 @@ proptest! {
         second in texts(),
     ) {
         let base: OrderedSet<SkillName> = base.into_iter().map(skill).collect();
-        let together = edit(&format!("{first} {second}")).apply(&base);
+        // A text of white space alone is no edit (the reference refuses it), so an empty part
+        // adds no separator.
+        let joined = [first.as_str(), second.as_str()]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let together = edit(&joined).apply(&base);
         let one_by_one = edit(&second).apply(&edit(&first).apply(&base));
         prop_assert_eq!(together, one_by_one);
     }
@@ -408,7 +416,11 @@ fn a_claude_field_of_the_wrong_type_is_an_agent_error_naming_the_key_path_and_ne
         ),
         (
             "claude:\n  autoCompactWindow: 1.5\n",
-            "error [agent] personal:agents/helper.md:5:22: 'claude.autoCompactWindow' must be a whole number",
+            "error [agent] personal:agents/helper.md:5:22: 'claude.autoCompactWindow' must be a whole number of at least 100000",
+        ),
+        (
+            "claude:\n  maxTurns: null\n",
+            "error [agent] personal:agents/helper.md:5:13: 'claude.maxTurns' must be a whole number",
         ),
         (
             "claude:\n  background: secret-value\n",

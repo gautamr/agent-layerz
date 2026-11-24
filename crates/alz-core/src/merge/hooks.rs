@@ -15,7 +15,8 @@ use std::collections::BTreeMap;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::item::{Hook, HookEntry, HookId, HookItems, Lock, place};
 use crate::layer::LayerName;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::action::Action;
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::untrusted_text::QuotedKey;
 
@@ -43,10 +44,11 @@ impl HookState {
             None => (self, found),
             Some((path, entries)) => {
                 let at = place(layer, &path);
+                let origin = Origin::new(context.layer(), path);
                 entries
                     .into_iter()
                     .fold((self, found), |(state, found), entry| match entry {
-                        HookEntry::Define(hook) => state.define(hook, layer, &at, found),
+                        HookEntry::Define(hook) => state.define(hook, &origin, &at, found),
                         HookEntry::Disable(id) => state.disable(&id, layer, &at, found),
                     })
             }
@@ -61,7 +63,7 @@ impl HookState {
     fn define(
         self,
         hook: Hook,
-        layer: &LayerName,
+        origin: &Origin,
         at: &Where,
         found: Diagnostics,
     ) -> (Self, Diagnostics) {
@@ -94,8 +96,8 @@ impl HookState {
                         .hooks
                         .into_iter()
                         .chain([Held {
-                            origin: layer.clone(),
-                            hook: Traced::new(hook, layer.clone(), Action::Define),
+                            origin: origin.layer().clone(),
+                            hook: Traced::new(hook, origin.clone(), Action::Define),
                         }])
                         .collect(),
                     ..self

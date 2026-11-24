@@ -1,0 +1,45 @@
+- id: guard-reads
+  event: pre_tool
+  match: { tools: [read, grep], paths: [".env*", "**/secrets/**"] }
+  run: scripts/guard.sh
+  timeout: 5
+  on_fail: deny
+- id: guard-writes
+  event: pre_tool
+  match: { tools: [write] }
+  run: scripts/guard.sh
+  on_fail: deny
+- id: fmt
+  event: post_tool
+  match: { tools: [edit, mcp__fs__write] }
+  run: scripts/fmt.sh
+  on_fail: deny
+- id: lint
+  event: post_tool
+  command: '"${PROJECT_DIR}"/bin/lint "${PROJECT_DIR}/src"'
+  on_fail: feedback
+- id: finish
+  event: stop
+  command: ./done.sh
+  on_fail: deny
+- id: sub-finish
+  event: subagent_stop
+  command: ./sub.sh
+  on_fail: deny
+- id: hello
+  event: session_start
+  command: echo hello
+  on_fail: deny
+- id: prompt
+  event: prompt_submit
+  command: echo prompt
+  timeout: 3
+- id: notify
+  event: claude:Notification
+  matcher: idle_prompt
+  command: ./notify.sh
+  on_fail: deny
+- id: codex-only
+  event: stop
+  command: ./nope.sh
+  targets: [codex]

@@ -7,7 +7,7 @@
 //! that §14.4 leaves out, is not here either, so `settings.yaml` refuses it as unlisted. The keys
 //! with a floor are here, because a floor key is accepted: only its value may not get looser.
 
-use super::{Field, Shape};
+use super::{Ends, Field, Shape, Span};
 
 const fn flag(name: &'static str) -> Field {
     Field::new(name, Shape::Bool)
@@ -21,8 +21,19 @@ const fn whole(name: &'static str) -> Field {
     Field::new(name, Shape::Whole)
 }
 
-const fn number(name: &'static str) -> Field {
-    Field::new(name, Shape::Number)
+/// A whole number of at least `min`.
+const fn whole_from(name: &'static str, min: i128) -> Field {
+    Field::new(name, Shape::WholeIn(Span::at_least(min)))
+}
+
+/// A number above 0 and at most 1.
+const fn above_zero_to_one(name: &'static str) -> Field {
+    Field::new(name, Shape::Fraction(Ends::AboveZero))
+}
+
+/// A number from 0 to 1.
+const fn zero_to_one(name: &'static str) -> Field {
+    Field::new(name, Shape::Fraction(Ends::FromZero))
 }
 
 const fn choice(name: &'static str, values: &'static [&'static str]) -> Field {
@@ -42,10 +53,21 @@ const EFFORT_CAP: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 const CACHE_TTL: &[&str] = &["5m", "1h"];
 const DISABLE: &[&str] = &["disable"];
 
+/// The token counts Claude Code accepts for an auto-compact window: 100000 or more.
+const AUTO_COMPACT_WINDOW: Span = Span::at_least(100_000);
+
 /// An entry of an MCP allowlist or denylist: exactly one of three keys.
 const SERVER_RULE: Shape = Shape::Single(&[
     text("serverName"),
     list_of_text("serverCommand"),
+    text("serverUrl"),
+]);
+
+/// An entry of the MCP allowlist, where Claude Code skips a name with other characters and a
+/// command without elements (target facts section 14.2).
+const ALLOWED_SERVER_RULE: Shape = Shape::Single(&[
+    Field::new("serverName", Shape::McpServerName),
+    Field::new("serverCommand", Shape::NonEmptyList(&Shape::Text)),
     text("serverUrl"),
 ]);
 
@@ -55,7 +77,10 @@ const MODEL_SETTING: Shape = Shape::Object(&[
     choice("maxEffortLevel", EFFORT_CAP),
     Field::new(
         "autoCompactWindow",
-        Shape::Either(&[Shape::Whole, Shape::Choice(&["auto"])]),
+        Shape::Either(&[
+            Shape::WholeIn(AUTO_COMPACT_WINDOW),
+            Shape::Choice(&["auto"]),
+        ]),
     ),
 ]);
 
@@ -65,8 +90,8 @@ const SPINNER_TIP: Shape = Shape::Either(&[
     Shape::Object(&[
         Field::required("id", Shape::Text),
         Field::required("text", Shape::Text),
-        whole("cooldownSessions"),
-        whole("priority"),
+        Field::new("cooldownSessions", Shape::WholeIn(Span::between(0, 1000))),
+        Field::new("priority", Shape::WholeIn(Span::between(-10, 10))),
     ]),
 ]);
 
@@ -130,17 +155,17 @@ pub const CLAUDE_SETTINGS: &[Field] = &[
     ),
     // Memory and context.
     flag("autoCompactEnabled"),
-    whole("autoCompactWindow"),
+    Field::new("autoCompactWindow", Shape::WholeIn(AUTO_COMPACT_WINDOW)),
     text("autoMemoryDirectory"),
     flag("autoMemoryEnabled"),
-    whole("bashOutputMaxChars"),
+    whole_from("bashOutputMaxChars", 1),
     list_of_text("claudeMdExcludes"),
     Field::new("env", Shape::Map(&Shape::Text)),
     flag("fileCheckpointingEnabled"),
     flag("idleCompaction"),
     text("plansDirectory"),
-    number("skillListingBudgetFraction"),
-    whole("skillListingMaxDescChars"),
+    above_zero_to_one("skillListingBudgetFraction"),
+    whole_from("skillListingMaxDescChars", 1),
     // Interface and terminal.
     flag("autoScrollEnabled"),
     list_of_text("companyAnnouncements"),
@@ -148,7 +173,7 @@ pub const CLAUDE_SETTINGS: &[Field] = &[
     choice("editorMode", &["normal", "vim"]),
     flag("emojiCompletionEnabled"),
     choice("keybindingFlavor", &["classic", "readline"]),
-    whole("maxProseWidth"),
+    whole_from("maxProseWidth", 40),
     flag("prefersReducedMotion"),
     flag("promptSuggestionEnabled"),
     flag("respectGitignore"),
@@ -225,7 +250,7 @@ pub const CLAUDE_SETTINGS: &[Field] = &[
             "off",
         ])),
     ),
-    Field::new("allowedMcpServers", Shape::List(&SERVER_RULE)),
+    Field::new("allowedMcpServers", Shape::List(&ALLOWED_SERVER_RULE)),
     Field::new("deniedMcpServers", Shape::List(&SERVER_RULE)),
     flag("disableClaudeAiConnectors"),
     // Agents, sessions and worktrees.
@@ -268,8 +293,8 @@ pub const CLAUDE_SETTINGS: &[Field] = &[
     // Updates and privacy.
     choice("autoUpdatesChannel", &["latest", "stable"]),
     text("minimumVersion"),
-    whole("cleanupPeriodDays"),
-    number("feedbackSurveyRate"),
+    whole_from("cleanupPeriodDays", 1),
+    zero_to_one("feedbackSurveyRate"),
 ];
 
 /// The frontmatter fields of a Claude subagent that have no neutral field (`claude:` in an agent
@@ -281,7 +306,7 @@ pub const CLAUDE_AGENT_FIELDS: &[Field] = &[
         Shape::Either(&[Shape::Text, Shape::List(&Shape::Text)]),
     ),
     whole("maxTurns"),
-    whole("autoCompactWindow"),
+    Field::new("autoCompactWindow", Shape::WholeIn(AUTO_COMPACT_WINDOW)),
     flag("background"),
     flag("omitClaudeMd"),
     choice("effort", &["low", "medium", "high", "xhigh", "max"]),

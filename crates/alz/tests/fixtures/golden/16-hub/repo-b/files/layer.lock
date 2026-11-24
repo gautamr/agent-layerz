@@ -1,0 +1,28 @@
+{
+  "files": {
+    ".claude/settings.json": "sha256:73197aab6f8748a6a8fdf9d9e3c41f961a8e26e217e1d23cbc938f7b89230fa2",
+    "AGENTS.md": "sha256:c80e10e009e0ebab216703198aeb6a9798b90ecd552bca2ff8077537da01c291",
+    "CLAUDE.md": "sha256:855ed73fdde32a5df3751057672759c634fe8db08e347ea4a2072b60108e9c6b"
+  },
+  "layers": [
+    {
+      "contentHash": "sha256:e544e02faef1e4281a01866dedc9047d79196adcf0ef8a876e74649ccbe450f2",
+      "name": "personal",
+      "source": "path:../personal"
+    },
+    {
+      "contentHash": "sha256:cd7f7be8ee136385968aeccc2826fcb8eddac035a1242ddd353102c1781da98e",
+      "name": "acme",
+      "rev": "layer-v0.1.0",
+      "sha": "2885ca61b4a2f44850d639c6b1c443122c3a4f07",
+      "source": "path:../hub/layer"
+    },
+    {
+      "contentHash": "sha256:924efa55b0b3317f88f50af6533bcc966408c567f556fc074263785f1304b7d7",
+      "name": "repo-b",
+      "source": "path:./.layer"
+    }
+  ],
+  "lockVersion": 1,
+  "visibility": "private"
+}

@@ -10,6 +10,7 @@
     "includes": [
       "**",
       "!test/fixtures",
+      "!crates/*/tests/fixtures",
       "!docs",
       "!**/*.md",
       "!.claude",

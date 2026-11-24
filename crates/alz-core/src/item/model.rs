@@ -81,6 +81,7 @@ model_name! {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Models {
     aliases: BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>>,
+    alias_order: Vec<ModelAlias>,
     roles: BTreeMap<Role, ModelAlias>,
     default: Option<ModelAlias>,
 }
@@ -90,6 +91,12 @@ impl Models {
     #[must_use]
     pub const fn aliases(&self) -> &BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>> {
         &self.aliases
+    }
+
+    /// The aliases in the order the file writes them.
+    #[must_use]
+    pub fn alias_order(&self) -> &[ModelAlias] {
+        &self.alias_order
     }
 
     /// The alias each role routes to.
@@ -178,9 +185,10 @@ fn read_file(at: &Where, bytes: &[u8]) -> Result<Option<Models>, Diagnostics> {
                 .map_or_else(Diagnostics::new, |errors| {
                     schema_diagnostics(Code::Models, at, &errors)
                 });
-            let aliases = section
-                .node("aliases")
-                .map_or_else(|| Ok(BTreeMap::new()), |node| read_aliases(node, at));
+            let aliases = section.node("aliases").map_or_else(
+                || Ok((BTreeMap::new(), Vec::new())),
+                |node| read_aliases(node, at),
+            );
             let roles = section
                 .node("roles")
                 .map_or_else(|| Ok(BTreeMap::new()), |node| read_roles(node, at));
@@ -188,9 +196,10 @@ fn read_file(at: &Where, bytes: &[u8]) -> Result<Option<Models>, Diagnostics> {
                 .node("default")
                 .map_or(Ok(None), |node| read_default(node, at).map(Some));
             match (aliases, roles, default) {
-                (Ok(aliases), Ok(roles), Ok(default)) if !unknown.has_errors() => {
+                (Ok((aliases, alias_order)), Ok(roles), Ok(default)) if !unknown.has_errors() => {
                     Ok(Some(Models {
                         aliases,
+                        alias_order,
                         roles,
                         default,
                     }))
@@ -243,26 +252,30 @@ fn named<'a, T: for<'b> TryFrom<&'b str>>(
     }
 }
 
-fn read_aliases(
-    node: &Node,
-    at: &Where,
-) -> Result<BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>>, Diagnostics> {
+fn read_aliases(node: &Node, at: &Where) -> Result<AliasesRead, Diagnostics> {
     let mapping = entries(node, "aliases must be a mapping", at)?;
-    let (aliases, found) = mapping.entries().fold(
-        (BTreeMap::new(), Diagnostics::new()),
-        |(aliases, found), (key, targets)| match named::<ModelAlias>(key, "an alias name", at)
+    let (read, found) = mapping.entries().fold(
+        (Vec::new(), Diagnostics::new()),
+        |(read, found), (key, targets)| match named::<ModelAlias>(key, "an alias name", at)
             .and_then(|(alias, text)| read_targets(text, targets, at).map(|read| (alias, read)))
         {
-            Ok((alias, read)) => (aliases.into_iter().chain([(alias, read)]).collect(), found),
-            Err(problems) => (aliases, found.merge(problems)),
+            Ok(entry) => (read.into_iter().chain([entry]).collect(), found),
+            Err(problems) => (read, found.merge(problems)),
         },
     );
     if found.has_errors() {
         Err(found)
     } else {
-        Ok(aliases)
+        let order = read.iter().map(|(alias, _)| alias.clone()).collect();
+        Ok((read.into_iter().collect(), order))
     }
 }
+
+/// The aliases of a file by name, and the names in the order the file writes them.
+type AliasesRead = (
+    BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>>,
+    Vec<ModelAlias>,
+);
 
 /// The concrete model of each target of the alias `alias`. A key that is not a target, or a value
 /// that is not a model id, is a problem.

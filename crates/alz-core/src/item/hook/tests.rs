@@ -339,3 +339,28 @@ fn an_id_is_printed_quoted_with_its_quote_doubled() {
         "{found:?}"
     );
 }
+
+#[test]
+fn a_script_name_with_a_character_a_shell_would_read_is_a_hooks_error_naming_the_file() {
+    for run in [
+        "scripts/a b.sh",
+        "scripts/a\\\"b.sh",
+        "scripts/a$b.sh",
+        "scripts/a`b`.sh",
+        "scripts/a;b.sh",
+        "scripts/a'b.sh",
+        "scripts/a&b.sh",
+        "scripts/é.sh",
+    ] {
+        let found = refused(&format!("- id: a\n  event: stop\n  run: \"{run}\"\n"));
+        assert_eq!(found.len(), 1, "{run:?}: {found:?}");
+        assert!(
+            found[0].starts_with("error [hooks] repo:hooks/hooks.yaml:1:3: hook 'a': script '"),
+            "{run:?}: {found:?}"
+        );
+        assert!(
+            found[0].ends_with("' may only hold ASCII letters, digits, '.', '_', '-' and '/'"),
+            "{run:?}: {found:?}"
+        );
+    }
+}

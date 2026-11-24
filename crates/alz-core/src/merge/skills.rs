@@ -16,9 +16,10 @@ use std::collections::BTreeMap;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::item::{AgentName, Skill, SkillItems, SkillName};
 use crate::layer::LayerName;
+use crate::merge::action::Action;
 use crate::merge::agents::MergedAgent;
 use crate::merge::algebra::Replace;
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::untrusted_text::Stripped;
 
@@ -68,13 +69,10 @@ impl SkillState {
             .into_iter()
             .map(|skill| {
                 let name = skill.name().clone();
+                let origin = Origin::new(context.layer(), skill.source().clone());
                 let traced = match self.items.get(&name) {
-                    Some(previous) => {
-                        previous
-                            .clone()
-                            .revised(skill, layer.clone(), Action::Replace)
-                    }
-                    None => Traced::new(skill, layer.clone(), Action::Define),
+                    Some(previous) => previous.clone().revised(skill, origin, Action::Replace),
+                    None => Traced::new(skill, origin, Action::Define),
                 };
                 (name, traced)
             })

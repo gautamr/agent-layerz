@@ -7,7 +7,7 @@ use crate::layer::contents::LayerContents;
 use crate::layer::scan::{LayerScan, NameProblem, Purpose};
 use crate::lock::LayerFiles;
 use crate::path::SafeRelPath;
-use crate::stack::resolution_failure::file_name_not_utf8;
+use crate::stack::resolution_failure::{file_name_control_or_format, file_name_not_utf8};
 use crate::untrusted_text::Stripped;
 
 /// Why a layer is refused, in the order the checks are made, so the derived order is the order of
@@ -20,6 +20,8 @@ pub enum LayerRefusal {
     TooManyEntries,
     /// A name that is not valid Unicode.
     NameNotUtf8,
+    /// A name that holds a control or format character.
+    NameControlOrFormat,
     /// A path that is no safe relative path.
     NameNotSafe,
     /// A folder or file that cannot be read, a file of more than 16 MiB, or more than 16 MiB of
@@ -35,17 +37,20 @@ impl LayerRefusal {
     pub const fn miss(self) -> &'static str {
         match self {
             Self::TooManyEntries | Self::Unreadable => "unreadable",
-            Self::NameNotUtf8 | Self::NameNotSafe | Self::EnvFile => "layer-invalid",
+            Self::NameNotUtf8 | Self::NameControlOrFormat | Self::NameNotSafe | Self::EnvFile => {
+                "layer-invalid"
+            }
         }
     }
 
-    /// The error `layer` the build reports for a name that is not valid UTF-8 (§5.3): it names
-    /// the layer by its source and never the name. `None` for every other refusal, whose build
-    /// message is not specified.
+    /// The error `layer` the build reports for a name that is not valid UTF-8 or holds a control
+    /// or format character (§5.3): it names the layer by its source and never the name. `None`
+    /// for every other refusal, whose build message is not specified.
     #[must_use]
     pub fn file_name_diagnostic(self, source: Stripped) -> Option<Diagnostic> {
         match self {
             Self::NameNotUtf8 => Some(file_name_not_utf8(source)),
+            Self::NameControlOrFormat => Some(file_name_control_or_format(source)),
             Self::TooManyEntries | Self::NameNotSafe | Self::Unreadable | Self::EnvFile => None,
         }
     }
@@ -55,6 +60,7 @@ impl From<NameProblem> for LayerRefusal {
     fn from(problem: NameProblem) -> Self {
         match problem {
             NameProblem::NotUtf8 => Self::NameNotUtf8,
+            NameProblem::ControlOrFormat => Self::NameControlOrFormat,
             NameProblem::NotSafe => Self::NameNotSafe,
         }
     }
@@ -73,7 +79,11 @@ pub struct ReadLayer {
 impl ReadLayer {
     /// The layer a scan that passed the checks holds.
     fn of(scan: LayerScan) -> Self {
-        let contents: LayerContents = scan.files.into_iter().collect();
+        let contents: LayerContents = scan
+            .files
+            .into_iter()
+            .collect::<LayerContents>()
+            .with_executable(scan.executable);
         Self {
             files: contents.files(),
             contents,

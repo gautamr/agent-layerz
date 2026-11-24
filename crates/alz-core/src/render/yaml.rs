@@ -8,6 +8,7 @@
 //! in `tests/fixtures/yaml-emit/samples.json` come from the reference
 //! (`crates/alz-core/tools/yaml-emit-samples.mjs`); how text is quoted is in `text`.
 
+mod number;
 mod text;
 
 #[cfg(test)]
@@ -16,6 +17,8 @@ mod tests;
 use std::collections::BTreeSet;
 
 use thiserror::Error;
+
+pub use number::EmitFloat;
 
 /// One level of indentation: two spaces.
 const INDENT_STEP: &str = "  ";
@@ -36,6 +39,11 @@ pub enum EmitValue {
     Bool(bool),
     /// An integer.
     Int(i64),
+    /// A number with a fraction or an exponent, or one beyond 64 bits: written as the reference
+    /// writes a JavaScript number.
+    Float(EmitFloat),
+    /// `null`.
+    Null,
     /// A list, written one `- item` per line.
     Seq(Vec<EmitValue>),
     /// A mapping with text keys.
@@ -111,6 +119,8 @@ fn node(value: &EmitValue, indent: &str) -> String {
         EmitValue::Text(text) => text::scalar(text, false, indent),
         EmitValue::Bool(flag) => flag.to_string(),
         EmitValue::Int(number) => number.to_string(),
+        EmitValue::Float(number) => number.text(),
+        EmitValue::Null => "null".to_owned(),
         EmitValue::Seq(items) if items.is_empty() => "[]".to_owned(),
         EmitValue::Seq(items) => {
             let item_indent = format!("{indent}{INDENT_STEP}");
@@ -162,7 +172,9 @@ fn entry(key: &str, value: &EmitValue, indent: &str) -> String {
         | EmitValue::Map(_)
         | EmitValue::Text(_)
         | EmitValue::Bool(_)
-        | EmitValue::Int(_) => " ".to_owned(),
+        | EmitValue::Int(_)
+        | EmitValue::Float(_)
+        | EmitValue::Null => " ".to_owned(),
     };
     format!("{head}{separator}{}", node(value, &inner))
 }

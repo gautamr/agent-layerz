@@ -1,0 +1,9 @@
+stack:
+  - source: path:../personal
+  - source: path:./.layer
+targets: [claude]
+mcp:
+  enable: [zeta, alpha, beta, plain]
+workspace:
+  hub: ../hub
+  add_dirs: [../shared, ../hub, ../other]

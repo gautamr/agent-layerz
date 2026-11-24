@@ -1,0 +1,155 @@
+{
+  "attribution": {
+    "commit": "c",
+    "pr": "p"
+  },
+  "cleanupPeriodDays": 14,
+  "env": {
+    "A": "1",
+    "B": "2"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "command": "./notify.sh",
+            "onFailure": "block",
+            "type": "command"
+          }
+        ],
+        "matcher": "idle_prompt"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/fmt.sh\"",
+            "onFailure": "block",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|mcp__fs__write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/bin/lint \"${CLAUDE_PROJECT_DIR}/src\"",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/guard.sh\"",
+            "if": "Read(.env*)",
+            "onFailure": "block",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/guard.sh\"",
+            "if": "Read(**/secrets/**)",
+            "onFailure": "block",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/guard.sh\"",
+            "if": "Grep(.env*)",
+            "onFailure": "block",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/guard.sh\"",
+            "if": "Grep(**/secrets/**)",
+            "onFailure": "block",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|Grep"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/personal/scripts/guard.sh\"",
+            "onFailure": "block",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "echo hello",
+            "onFailure": "block",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "./done.sh",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "./sub.sh",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "echo prompt",
+            "timeout": 3,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "includeCoAuthoredBy": false,
+  "model": "claude-opus-4-1",
+  "permissions": {
+    "additionalDirectories": [
+      "../hub",
+      "../shared",
+      "../other"
+    ],
+    "allow": [
+      "Read",
+      "Bash(mise run *)",
+      "mcp__fs__read"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "WebFetch(example.invalid)"
+    ],
+    "defaultMode": "plan",
+    "deny": [
+      "Read(.env*)",
+      "Write(/etc/**)"
+    ]
+  }
+}

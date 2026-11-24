@@ -19,4 +19,15 @@ describe("§7.2 native agent fields", () => {
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("'claude.tools' has a neutral field");
   });
+
+  // Spec §7.2: every native key keeps its source order after the fixed fields, not name order.
+  it("native keys keep their source order after the fixed fields", async () => {
+    const ws = fixture("18-native-fields");
+    const result = await layers(ws, "repo-key-order", ["build"]);
+    expect(result.code).toBe(0);
+    const agent = readFile(ws, "repo-key-order/.claude/agents/keyed.md");
+    expect(agent).toContain(
+      "name: keyed\ndescription: Keeps its native keys in source order\nmaxTurns: 9\neffort: high\ncolor: blue\n---\n",
+    );
+  });
 });

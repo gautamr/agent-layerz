@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(mise run *)"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)"
+    ]
+  }
+}

@@ -1,6 +1,8 @@
-use crate::item::{AgentName, ModelId, Role, SkillName, ToolGrant};
+use crate::item::{AgentName, ModelId, OverlayMode, Role, SkillName, ToolGrant};
+use crate::item::{EditSegment, EditSign, WrittenEdit};
 use crate::item::{NativeMap, NativeValue};
-use crate::merge::provenance::{Action, Traced};
+use crate::merge::action::{Action, AgentChange};
+use crate::merge::provenance::Traced;
 use crate::merge::testing::{layer, lines_but_slots as lines, merged_without_slots as merged};
 use crate::merge::{Merged, MergedAgent};
 use crate::stack::ResolvedLayer;
@@ -60,7 +62,7 @@ fn makers(agent: &Traced<MergedAgent>) -> Vec<(&str, Action)> {
         .provenance()
         .contributions()
         .iter()
-        .map(|part| (part.layer().as_str(), part.action()))
+        .map(|part| (part.layer().as_str(), part.action().clone()))
         .collect()
 }
 
@@ -167,8 +169,26 @@ fn the_agent_lists_its_three_sources_in_stack_order() {
         makers(agent(&model, "architect")),
         [
             ("personal", Action::Define),
-            ("acme", Action::Extend),
-            ("shop-api", Action::Extend)
+            (
+                "acme",
+                Action::Overlay {
+                    mode: OverlayMode::Extend,
+                    changes: vec![
+                        AgentChange::Skills(WrittenEdit::new(vec![EditSegment::new(
+                            EditSign::Add,
+                            vec!["domain-glossary".to_owned()]
+                        )])),
+                        AgentChange::BodySection
+                    ]
+                }
+            ),
+            (
+                "shop-api",
+                Action::Overlay {
+                    mode: OverlayMode::Extend,
+                    changes: vec![AgentChange::BodySection]
+                }
+            )
         ]
     );
 }
@@ -441,8 +461,20 @@ fn a_replace_overlay_replaces_the_whole_body_and_warns() {
         makers(merged_agent),
         [
             ("personal", Action::Define),
-            ("acme", Action::Extend),
-            ("shop-api", Action::Replace)
+            (
+                "acme",
+                Action::Overlay {
+                    mode: OverlayMode::Extend,
+                    changes: vec![AgentChange::BodySection]
+                }
+            ),
+            (
+                "shop-api",
+                Action::Overlay {
+                    mode: OverlayMode::Replace,
+                    changes: vec![AgentChange::BodyReplaced]
+                }
+            )
         ]
     );
 }
@@ -602,6 +634,26 @@ fn an_extension_without_text_adds_no_section_and_an_empty_base_gets_no_blank_lin
 }
 
 #[test]
+fn a_layer_kind_prints_stripped_in_the_heading_of_an_overlay_section() {
+    use crate::merge::testing::layer_from_yaml;
+    let model = merged_model(vec![
+        layer(
+            "personal",
+            "personal",
+            &[("agents/a.md", "---\nname: a\ndescription: d\n---\nBase\n")],
+        ),
+        layer_from_yaml(
+            "name: acme\nkind: \"te\\u202Eam\"\nvisibility: private\n",
+            &[("agents/a.overlay.md", "---\nextends: a\n---\nTeam text\n")],
+        ),
+    ]);
+    assert_eq!(
+        agent(&model, "a").value().body().compose(),
+        "Base\n\n## Team context: acme\n\nTeam text"
+    );
+}
+
+#[test]
 fn an_overlay_refines_an_agent_that_its_own_layer_defines() {
     let model = merged_model(vec![layer(
         "personal",
@@ -648,5 +700,65 @@ fn a_name_that_differs_from_the_file_name_is_an_error() {
     assert_eq!(
         lines(&found),
         ["error [agent] personal:agents/a.md: name must match the file name"]
+    );
+}
+
+// Acceptance case 03, explain: the words of each contribution of the architect agent.
+#[test]
+fn the_contributions_of_an_agent_give_the_words_of_alz_explain() {
+    use crate::render::action_word::ActionWord;
+
+    let model = merged_model(case_03());
+    let words: Vec<String> = agent(&model, "architect")
+        .provenance()
+        .contributions()
+        .iter()
+        .map(|part| ActionWord::new(part.action(), "base").to_string())
+        .collect();
+    assert_eq!(
+        words,
+        [
+            "base",
+            "extend: skills +[domain-glossary]; body section",
+            "extend: body section"
+        ]
+    );
+}
+
+// The edits of a list read as the layer wrote them, in the order written and with an empty edit
+// as it is: the strings are those of the reference's `describeOps`.
+#[test]
+fn the_edits_of_a_list_are_shown_in_the_order_the_layer_wrote_them() {
+    use crate::render::action_word::ActionWord;
+
+    let overlay = |skills: &str, targets: &str| {
+        format!("---\nextends: a\nskills: \"{skills}\"\ntargets: \"{targets}\"\n---\n")
+    };
+    let model = merged_model(vec![
+        layer("personal", "personal", &[("agents/a.md", BASE)]),
+        layer(
+            "acme",
+            "client",
+            &[("agents/a.overlay.md", &overlay("+[b, c] -[a]", "[claude]"))],
+        ),
+        layer(
+            "shop-api",
+            "repo",
+            &[("agents/a.overlay.md", &overlay("-[x] +[y] -[z]", ""))],
+        ),
+    ]);
+    let words: Vec<String> = agent(&model, "a")
+        .provenance()
+        .contributions()
+        .iter()
+        .map(|part| ActionWord::new(part.action(), "base").to_string())
+        .collect();
+    assert_eq!(
+        words,
+        [
+            "base",
+            "extend: skills +[b, c] -[a]; targets [claude]",
+            "extend: skills -[x] +[y] -[z]; targets "
+        ]
     );
 }

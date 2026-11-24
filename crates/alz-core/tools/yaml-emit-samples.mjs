@@ -54,8 +54,15 @@ function checkOrder(value, where) {
       throw new Error(`${where}: a whole-number key next to others is left out (TASK-66)`);
     }
     for (const key of keys) checkOrder(value[key], `${where}.${JSON.stringify(key)}`);
-  } else if (typeof value === "number" && !Number.isSafeInteger(value)) {
-    throw new Error(`${where}: only integers up to 2^53 are in the corpus`);
+  } else if (typeof value === "number") {
+    if (!Number.isFinite(value) || Object.is(value, -0)) {
+      throw new Error(`${where}: the sample file is JSON, which has no ${value}`);
+    }
+    if (Number.isInteger(value) && !Number.isSafeInteger(value) && Math.abs(value) < 2 ** 63) {
+      throw new Error(
+        `${where}: an integer between 2^53 and 2^63 is exact in alz and not in the reference`,
+      );
+    }
   }
 }
 
@@ -267,6 +274,37 @@ sample("structure", "mixed-collection-values", {
   map: { x: [], y: {}, z: "" },
 });
 
+// ---- numbers with a fraction or an exponent, and null (alz writes what the reference writes) ----
+
+sample("numbers", "fractions", {
+  half: 0.5,
+  negative: -0.5,
+  quarter: 100.25,
+  sum: 0.1 + 0.2,
+  small: 0.000001234,
+  list: [0.5, -1.5, 3.25],
+});
+sample("numbers", "exponents", {
+  large: 1e21,
+  larger: 1.5e300,
+  largest: Number.MAX_VALUE,
+  small: 1e-7,
+  smaller: -1.5e-10,
+  smallest: Number.MIN_VALUE,
+});
+sample("numbers", "whole-numbers-beyond-64-bits-or-written-without-exponent", {
+  a: 1e20,
+  b: 123456789012345680000,
+  c: -1e20,
+});
+sample("numbers", "whole-numbers-with-a-fraction-in-the-source", { a: 1.0, b: 100.0, c: -2.0 });
+sample("numbers", "null", {
+  a: null,
+  b: [null, 1],
+  c: { d: null, e: {} },
+});
+sample("numbers", "null-and-numbers-in-lists", [null, 0.5, [null], { a: 0.5 }]);
+
 // ---- top-level scalars (not what alz writes today; the emitter is total over its values) ----
 
 for (const [name, value] of [
@@ -283,6 +321,8 @@ for (const [name, value] of [
   ["false", false],
   ["integer", 42],
   ["negative", -7],
+  ["float", 0.5],
+  ["null", null],
 ]) {
   sample("top-level", name, value);
 }
@@ -765,7 +805,12 @@ sample("indentation", "long-double-quoted-not-folded", {
 sample("indentation", "list-of-block-maps", [{ a: block, b: 1 }, { c: { d: block } }]);
 
 mkdirSync(dirname(outFile), { recursive: true });
-writeFileSync(outFile, `${JSON.stringify(samples, null, 1)}\n`);
-// The repository's formatter checks every JSON file, so the output is formatted the way it wants.
-execFileSync("node_modules/.bin/biome", ["format", "--write", outFile], { stdio: "inherit" });
+// The repository's formatter ignores the fixture folders, so the output is formatted through
+// standard input under a path it does not ignore, the way it formats every other JSON file.
+const formatted = execFileSync(
+  "node_modules/.bin/biome",
+  ["format", "--stdin-file-path=crates/alz-core/tools/samples.json"],
+  { input: JSON.stringify(samples, null, 1), encoding: "utf8" },
+);
+writeFileSync(outFile, formatted.endsWith("\n") ? formatted : `${formatted}\n`);
 console.log(`${samples.length} samples written to ${outFile}`);

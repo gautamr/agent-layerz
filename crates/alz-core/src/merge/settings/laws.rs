@@ -10,6 +10,7 @@ use crate::diagnostic::Where;
 use crate::item::{Settings, SettingsTree};
 use crate::layer::LayerName;
 use crate::merge::Tree;
+use crate::merge::testing::origin_of;
 use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
@@ -143,8 +144,8 @@ proptest! {
     ) {
         let first = Settings::new([(TargetName::Claude, a.clone())]);
         let second = Settings::new([(TargetName::Claude, b.clone())]);
-        let (state, _) = SettingsState::default().apply(&first, &layer("one"), &here());
-        let (state, _) = state.apply(&second, &layer("two"), &here());
+        let (state, _) = SettingsState::default().apply(&first, &origin_of(layer("one")), &here());
+        let (state, _) = state.apply(&second, &origin_of(layer("two")), &here());
         let folded = state.finish();
         let claude = folded.get(&TargetName::Claude).map(|settings| settings.value().clone());
         prop_assert_eq!(claude, Some(a.deep_merge(b)));
@@ -291,7 +292,7 @@ proptest! {
         let denied = ["sandbox", "network", "deniedDomains"];
         let web_search = ["web_search"];
         stack.iter().enumerate().try_fold(SettingsState::default(), |before, (index, layer)| {
-            let (after, _) = before.clone().apply(&layer.settings(), &name(index), &here());
+            let (after, _) = before.clone().apply(&layer.settings(), &origin_of(name(index)), &here());
             // A boolean that was at its stricter value stays there.
             if held(&before, claude, &enabled) == Some(Tree::Bool(true)) {
                 prop_assert_eq!(held(&after, claude, &enabled), Some(Tree::Bool(true)));
