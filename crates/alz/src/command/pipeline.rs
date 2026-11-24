@@ -6,12 +6,12 @@
 
 use alz_core::lint::{self, LockFile};
 use alz_core::lock::Lock;
-use alz_core::merge::{Merged, merge};
+use alz_core::merge::{Merged, Placements, merge};
 use alz_core::path::AbsolutePath;
 use alz_core::render::gitignore::Generated;
 use alz_core::render::rendered::{Rendered, render};
 use alz_core::render::write_plan::{Disk, WritePlan, plan_writes};
-use alz_core::stack::Manifest;
+use alz_core::stack::{Manifest, ResolvedStack};
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where, leak_guard};
 use alz_io::{ReadError, RepoError, RepoRoot, StackResolver, WalkError};
 use std::path::Path;
@@ -28,6 +28,12 @@ const OVERRIDE_FILE: &str = "AGENTS.override.md";
 pub struct Computed {
     pub manifest: Manifest,
     pub merged: Merged,
+    /// The stack as resolved, the repo layer last.
+    pub stack: ResolvedStack,
+    /// Where each layer lies in relation to the repository.
+    pub placements: Placements,
+    /// The bytes of `layer.yaml` the build was made from.
+    pub manifest_text: Vec<u8>,
     pub rendered: Rendered,
     pub lock: Lock,
     pub previous: Option<Lock>,
@@ -77,8 +83,8 @@ fn failure(message: &'static str) -> Diagnostic {
 pub fn compute(surroundings: Surroundings<'_>, repository: &RepoRoot) -> Pipeline {
     let directory = Path::new(WORKING_DIRECTORY);
     let manifest_file = Where::repository_file(Stripped::from_untrusted("layer.yaml"));
-    let document = match read_in(directory, "layer.yaml") {
-        Ok(bytes) => lint::parse_document(&bytes),
+    let manifest_text = match read_in(directory, "layer.yaml") {
+        Ok(bytes) => bytes,
         Err(ReadError::Missing) => return Pipeline::failed(no_manifest(surroundings)),
         Err(error) => {
             return Pipeline::failed(Diagnostics::new().with(
@@ -86,7 +92,7 @@ pub fn compute(surroundings: Surroundings<'_>, repository: &RepoRoot) -> Pipelin
             ));
         }
     };
-    let document = match document {
+    let document = match lint::parse_document(&manifest_text) {
         Ok(document) => document,
         Err(error) => {
             return Pipeline::failed(Diagnostics::new().with(error.into_diagnostic(manifest_file)));
@@ -104,7 +110,13 @@ pub fn compute(surroundings: Surroundings<'_>, repository: &RepoRoot) -> Pipelin
             let manifest = files.manifest.clone();
             Pipeline {
                 manifest: Some(manifest),
-                ..resolve_and_render(surroundings, repository, files.manifest, files.lock)
+                ..resolve_and_render(
+                    surroundings,
+                    repository,
+                    files.manifest,
+                    files.lock,
+                    manifest_text,
+                )
             }
         }
     }
@@ -127,6 +139,7 @@ fn resolve_and_render(
     repository: &RepoRoot,
     manifest: Manifest,
     previous: Option<Lock>,
+    manifest_text: Vec<u8>,
 ) -> Pipeline {
     let resolver =
         match StackResolver::in_working_directory(surroundings.env, surroundings.directory) {
@@ -143,7 +156,8 @@ fn resolve_and_render(
     let Some(stack) = report.stack() else {
         return Pipeline::failed(found);
     };
-    let merging = merge(stack, &manifest, &resolver.placements(stack));
+    let placements = resolver.placements(stack);
+    let merging = merge(stack, &manifest, &placements);
     let found = found.merge(merging.diagnostics().clone());
     let Some(merged) = merging.merged() else {
         return Pipeline::failed(found);
@@ -162,6 +176,9 @@ fn resolve_and_render(
         computed: Some(Computed {
             manifest,
             merged: merged.clone(),
+            stack: stack.clone(),
+            placements,
+            manifest_text,
             rendered,
             lock,
             previous,

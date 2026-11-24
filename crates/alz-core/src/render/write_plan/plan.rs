@@ -301,7 +301,7 @@ fn split<T, E>(results: impl Iterator<Item = Result<Option<T>, E>>) -> (Vec<T>, 
 }
 
 /// Whether the file is alz's own: the mark, or the hash the lock recorded.
-fn owns(bytes: &[u8], recorded: Option<&FileHash>) -> bool {
+pub(crate) fn owns(bytes: &[u8], recorded: Option<&FileHash>) -> bool {
     has_generated_mark(bytes) || recorded.is_some_and(|hash| *hash == FileHash::of(bytes))
 }
 

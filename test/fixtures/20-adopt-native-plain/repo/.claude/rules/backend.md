@@ -1,0 +1,5 @@
+---
+paths:
+  - "src/**"
+---
+- Validate input.

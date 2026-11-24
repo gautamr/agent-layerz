@@ -1,25 +1,42 @@
 //! `alz build` (spec §10.3): resolve, merge and render the stack, then write the files by the
 //! rules of §4.3 and the lock last.
 //!
-//! `--adopt` is a later step (TASK-55.6.14); here a collision is an error.
+//! With `--adopt` the hand-written native files are adopted into the repo layer first (§4.3), and
+//! the build then runs again from the manifest.
+
+mod adopt;
 
 use std::io::{self, Write};
 
 use alz_core::render::write_plan::{Change, Collision, WritePlan};
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where};
 
+use crate::cli::BuildArgs;
 use crate::command::Surroundings;
 use crate::command::pipeline::{self, Computed};
 use crate::report::emit_diagnostics;
 
 /// Runs `alz build`, writes the diagnostics to `stderr` and the summary to `stdout`, and returns
 /// the exit code.
-pub fn run(surroundings: Surroundings<'_>, stdout: &mut impl Write, stderr: &mut impl Write) -> u8 {
+pub fn run(
+    args: &BuildArgs,
+    surroundings: Surroundings<'_>,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> u8 {
     let repository = match pipeline::open_repository(surroundings) {
         Ok(repository) => repository,
         Err(diagnostic) => return emit_diagnostics(&Diagnostics::new().with(diagnostic), stderr),
     };
-    let built = pipeline::compute(surroundings, &repository);
+    let first = pipeline::compute(surroundings, &repository);
+    let built = if args.adopt {
+        match adopt::adopt_first(surroundings, &repository, first, stdout, stderr) {
+            Ok(second) => second,
+            Err(code) => return code,
+        }
+    } else {
+        first
+    };
     let code = emit_diagnostics(&built.diagnostics, stderr);
     let Some(computed) = built.computed else {
         return code;

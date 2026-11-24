@@ -1,0 +1,3 @@
+aliases:
+  strong: { claude: opus }
+  fast: { claude: sonnet }

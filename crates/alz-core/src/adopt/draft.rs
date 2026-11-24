@@ -104,7 +104,7 @@ impl<'a> Draft<'a> {
 
     /// A note about how the native file `file` was adopted.
     pub(super) fn note(&mut self, file: &str, message: Message) {
-        self.notes.push(Diagnostic::warning(
+        self.notes.push(Diagnostic::note(
             Code::Adopt,
             Some(Where::repository_file(Stripped::from_untrusted(file))),
             message,

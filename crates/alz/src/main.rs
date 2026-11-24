@@ -33,8 +33,9 @@ fn main() -> ExitCode {
 fn run(env: &EnvSnapshot, directory: &WorkingDirectory) -> ExitCode {
     match Cli::try_parse() {
         Ok(Cli {
-            command: Command::Build,
+            command: Command::Build(args),
         }) => ExitCode::from(command::build::run(
+            &args,
             Surroundings { env, directory },
             &mut io::stdout(),
             &mut io::stderr(),

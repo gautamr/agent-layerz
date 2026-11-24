@@ -133,7 +133,7 @@ pub(super) fn folder_for(
 /// Writes `bytes` to `path` as a temporary file in its folder, set to `0644` or `0755` whatever
 /// the umask, synced, and renamed over the path. The temporary file is removed when anything
 /// fails, so no partial file is left under the real name.
-fn write_file(
+pub(super) fn write_file(
     root: &OwnedFd,
     path: &SafeRelPath,
     bytes: &[u8],
@@ -185,7 +185,7 @@ pub(super) fn write_temporary(
 
 /// Deletes the file `path`. A missing folder or file is nothing to delete; a link or other
 /// entry above it means the repository changed since the plan, and nothing is removed through it.
-fn delete_file(root: &OwnedFd, path: &SafeRelPath) -> Result<(), RepoError> {
+pub(super) fn delete_file(root: &OwnedFd, path: &SafeRelPath) -> Result<(), RepoError> {
     let segments: Vec<&str> = path.segments().collect();
     let Some((name, parents)) = segments.split_last() else {
         return Ok(());
@@ -202,7 +202,7 @@ fn delete_file(root: &OwnedFd, path: &SafeRelPath) -> Result<(), RepoError> {
 
 /// Removes the folders above the deleted paths that are empty, deepest first, up to the root,
 /// which stays. `rmdir` removes an empty folder only, and a link is not one.
-fn prune<'a>(
+pub(super) fn prune<'a>(
     root: &OwnedFd,
     deleted: impl Iterator<Item = &'a SafeRelPath>,
 ) -> Result<(), RepoError> {

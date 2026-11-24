@@ -3,6 +3,7 @@
 //! plan the pure core made. Every path it takes is a [`SafeRelPath`], so nothing names a place
 //! outside the root.
 
+mod adopt;
 mod create;
 mod error;
 mod list;
@@ -12,6 +13,7 @@ mod write;
 use std::collections::BTreeSet;
 
 use alz_core::account::AccountFolders;
+use alz_core::adopt::AdoptionPlan;
 use alz_core::lock::Lock;
 use alz_core::path::{AbsolutePath, SafeRelPath};
 use alz_core::render::tree::{FileTree, OutputPath, fold};
@@ -22,6 +24,7 @@ use crate::fs::dir::Dir;
 use crate::fs::walk_error::WalkError;
 use crate::resolve::folders::account_folders;
 
+pub use adopt::AdoptionBasis;
 pub use error::RepoError;
 pub use write::Applied;
 
@@ -150,6 +153,20 @@ impl RepoRoot {
     /// above a path became a link or a file since the plan was made.
     pub fn apply(&self, plan: &ClearPlan) -> Result<Applied, RepoError> {
         write::apply(self.root.handle(), plan)
+    }
+
+    /// Applies an adoption plan: the layer files, the files that move into the layer, the files
+    /// that are removed and the folders that leaves empty, then the edit of `layer.yaml`. Every
+    /// path is checked against `basis` first, and a path that is not as the plan found it is
+    /// [`RepoError::Changed`] (or [`RepoError::Exists`] for a file that is to be created) with
+    /// nothing written. No link is followed.
+    ///
+    /// # Errors
+    ///
+    /// [`RepoError`] for the reasons above and for a failure of the operating system, which can
+    /// leave the adoption partly applied: every file is then either as it was or complete.
+    pub fn adopt(&self, plan: &AdoptionPlan, basis: &AdoptionBasis<'_>) -> Result<(), RepoError> {
+        adopt::apply(self.root.handle(), plan, basis)
     }
 }
 
