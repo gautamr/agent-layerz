@@ -3,11 +3,11 @@ id: TASK-55.9.9
 title: >-
   Write the missing Rust tests for spec sections 10 and 13: CLI, output and the
   acceptance list
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:06:00Z'
+updated_date: '2026-11-25T14:15:00Z'
 labels:
   - area:rust
   - area:test
