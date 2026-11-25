@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@architect'
 created_date: '2026-11-19T17:13:00Z'
-updated_date: '2026-11-24T03:14:00Z'
+updated_date: '2026-11-25T19:10:00Z'
 labels:
   - area:adapter
 milestone: m-3
@@ -36,3 +36,16 @@ From the R4 review fixes (2026-11-23, recorded by the architect while planning R
 
 From TASK-66 (2026-11-24): an agent's codex: native fields may hold whole-number keys (the map is untyped until TASK-82); the Codex output must keep them in source order after the fixed fields (spec §7.2), with an acceptance case, marked reference drift if the reference hoists them.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @architect
+created: 2026-11-25T19:10:00Z
+
+---
+
+decision-40 (proposed) builds the Codex adapter as a crate on the adapter contract: TASK-126 carries this task's criteria onto it, with the Codex autonomy mapping of doc-7 §10. Owner choice: make TASK-18 the parent of TASK-126, or move TASK-18 to m-8 and archive the duplicate. Its criteria are unchanged.
+
+---
+<!-- COMMENTS:END -->

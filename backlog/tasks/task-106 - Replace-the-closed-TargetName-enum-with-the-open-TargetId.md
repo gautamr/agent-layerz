@@ -1,0 +1,32 @@
+---
+id: TASK-106
+title: Replace the closed TargetName enum with the open TargetId
+status: To Do
+assignee:
+  - '@implementer'
+created_date: '2026-11-25T19:05:00Z'
+labels:
+  - area:adapter
+milestone: m-8
+dependencies:
+  - TASK-105
+references:
+  - decision-40
+priority: medium
+ordinal: 207390
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+TargetName {Claude, Codex} is matched in about 40 files; decision-40 point 5 opens it. Account-folder families (.claude, .codex) are not adapters and get their own closed type. Output must not change.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 grep -rn 'enum TargetName' crates finds nothing
+- [ ] #2 targets: [antigravity] fails with the error 'target' at layer.yaml and the message no adapter for 'antigravity' (available: claude); targets: [codex] keeps its message and exit code (CLI tests)
+- [ ] #3 A layer with antigravity sections in settings.yaml and models.yaml and a targets/antigravity/ folder builds for targets: [claude] with no diagnostic and writes none of them (test)
+- [ ] #4 crates/alz-io/src/account uses its own account-family type and not TargetId (grep)
+- [ ] #5 The acceptance suite, mise run rust:check and mise run alz:check pass with unchanged output
+<!-- AC:END -->
