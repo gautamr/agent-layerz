@@ -29,7 +29,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # `mise run` installs every missing tool in mise.toml by default, which would pull Node and the
+  # `mise run` installs every missing tool in mise.toml by default, which would pull the supply-chain tools and the
   # workflow linters into each job. Each job installs only what it needs (install_args below), and
   # a missing tool then fails the job instead of being fetched silently.
   MISE_AUTO_INSTALL: "false"
@@ -63,7 +63,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Only the Rust toolchain: mise.toml also lists Node and the workflow linters.
+      # Only the Rust toolchain: mise.toml also lists the workflow linters and the supply-chain tools.
       # cache is off: mise's Rust is a symlink into rustup's directory, which the mise cache
       # does not hold, so a restored cache could hold a dangling toolchain.
       # persist_github_token is false (also the default at v5.3.0): the action uses the workflow
