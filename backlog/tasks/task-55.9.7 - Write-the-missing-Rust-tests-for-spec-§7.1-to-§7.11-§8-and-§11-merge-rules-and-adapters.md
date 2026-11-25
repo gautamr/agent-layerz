@@ -7,13 +7,13 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:06:00Z'
+updated_date: '2026-11-25T14:53:00Z'
 labels:
   - area:rust
   - area:test
 milestone: m-7
 dependencies:
-  - TASK-55.9.5
+  - TASK-97
 parent_task_id: TASK-55.9
 priority: medium
 ordinal: 189390
@@ -41,4 +41,6 @@ From docs/spec-coverage.md (TASK-55.9.5): 2 gap rows in §7.1 to §7.11, §8 and
 Correction (55.9.5): the gap rows in your sections are now 1, not 2: only '§8 What an adapter may rely on' is a gap (it concerns every adapter, not only Codex). §8.2 is planned under TASK-18 (the Codex adapter is not built yet).
 
 Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+
+Implementation (55.9.7). Added crates/alz-core/src/target/claude/tests/facts.rs (spec §8 'What an adapter may rely on'): renders one stack that makes the Claude adapter write every kind of key §8.1 lists, reads every agent/skill/rule frontmatter field, settings.json key (top level, permissions, hook events, group and handler keys), .mcp.json key and file location back out of the files, and looks each up in the verified (non-UNVERIFIED) rows of the target-facts sections the spec brackets. Result: 11 keys rest on no recorded fact (skill name, description, argument-hint; permissions allow, ask, deny; .mcp.json command, args, env, type, url). They are listed in NO_FACT_RECORDS (a ratchet: a new unrecorded key fails, a newly recorded one fails until removed) and tracked by TASK-97 (bug, area:docs), which this task depends on (AC4). The row '§8 What an adapter may rely on' stays gap until TASK-97 (AC1 is therefore not met for that row). Further tests: the checker itself reports a key of an UNVERIFIED row or another section; the stack covers every key §8.1 lists (non-vacuity); the two UNVERIFIED rows the spec names are the only UNVERIFIED Claude rows of §1-§5, §7, §7c. crates/alz/tests/settings_targets.rs (§7.9, fixture 37-settings-targets): refused top-level key writes nothing and prints no value; non-mapping target value refused; two layers deep-merge into .claude/settings.json. §11 row is n/a (guidance) and §8.2 is planned (TASK-18), unchanged. Checks: mise run rust:ci exit 0 (fmt, clippy -D warnings, tests, doc, msrv, deny, audit); spec_coverage guard passes. The ubuntu/macos workflow (AC3) was not run here.
 <!-- SECTION:NOTES:END -->
