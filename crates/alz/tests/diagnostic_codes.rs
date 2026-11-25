@@ -545,6 +545,72 @@ mod tests {
                     "default_name: Bad Name\n",
                 )],
             ),
+            // The second level of each code the tables give two levels.
+            build(
+                "passthrough",
+                "error",
+                &[
+                    (
+                        "repo/.layer/settings.yaml",
+                        "claude:\n  cleanupPeriodDays: 30\n",
+                    ),
+                    ("repo/.layer/targets/claude/.claude/settings.json", "{}\n"),
+                ],
+            ),
+            build(
+                "slot-missing",
+                "error",
+                &[
+                    (
+                        "repo/.layer/layer.yaml",
+                        "name: shop-api\nkind: repo\nvisibility: private\nrequires_slots: [glossary]\n",
+                    ),
+                    (
+                        "repo/layer.yaml",
+                        "stack:\n  - source: path:./.layer\ntargets: [claude]\noptions:\n  strict_slots: true\n",
+                    ),
+                ],
+            ),
+            build(
+                "models",
+                "warning",
+                &[
+                    (
+                        "repo/.layer/models.yaml",
+                        "aliases:\n  codex-only:\n    codex: some-model\nroles:\n  planning: codex-only\n",
+                    ),
+                    (
+                        "repo/.layer/agents/a.md",
+                        "---\nname: a\ndescription: d\nrole: planning\n---\nBody\n",
+                    ),
+                ],
+            ),
+            // The codes that need two account folders or a default name that is a folder's.
+            running(
+                "account-default-name-folder",
+                "warning",
+                &["account", "which"],
+                &[
+                    (
+                        "config/agent-layerz/accounts.yaml",
+                        "default_name: personal\n",
+                    ),
+                    ("home/.claude-personal/keep", ""),
+                ],
+            ),
+            running(
+                "account-config-duplicate",
+                "warning",
+                &["account", "which"],
+                &[
+                    (
+                        "config/agent-layerz/accounts.yaml",
+                        "folders:\n  \"{real}/home/work/x\": one\n  \"{real}/home/work/y/../x\": two\n",
+                    ),
+                    ("home/work/x/keep", ""),
+                    ("home/work/y/keep", ""),
+                ],
+            ),
             running(
                 "account-config-folder",
                 "warning",
@@ -601,19 +667,11 @@ mod tests {
         ),
         (
             "claude",
-            "crates/alz/tests/doctor_live.rs: it needs a stand-in claude that prints on its standard error",
+            "crates/alz/tests/doctor_live.rs::ls_live_passes_when_claude_loaded_everything_and_shows_its_warnings: it needs a stand-in claude that prints on its standard error",
         ),
         (
             "account-allow",
-            "crates/alz/tests/account_allow.rs and allow_hint.rs: it needs a terminal",
-        ),
-        (
-            "account-default-name-folder",
-            "crates/alz-core/src/account/resolution/tests.rs::a_default_name_that_is_also_an_account_folder_warns_with_the_spec_text",
-        ),
-        (
-            "account-config-duplicate",
-            "crates/alz-io/tests/account_files.rs: two folders keys that resolve to one directory",
+            "crates/alz/tests/account_allow.rs (the error) and crates/alz/tests/allow_hint.rs (the note): it needs a terminal",
         ),
     ];
 

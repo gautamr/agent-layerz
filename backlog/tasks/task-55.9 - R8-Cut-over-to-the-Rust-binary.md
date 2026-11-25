@@ -4,7 +4,7 @@ title: 'R8: Cut over to the Rust binary'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-25T17:31:00Z'
+updated_date: '2026-11-25T17:36:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -45,4 +45,6 @@ Audit of §10 and §13 (branch test/audit-10-13-task-55.9). New tests: write_err
 Owner decision applied: alz update and alz publish are marked Planned in the §10 command table (TASK-99, TASK-100); the §10 row stays gap (they cannot be tested until built). rust:ci green after this change (exit 0, 67 test binaries ok); spec_coverage guard passes. Left: the 16 gap rows listed in the earlier note.
 
 Gaps 4-6 (branch test/gaps-4-6-task-55.9): closed §4.3, §4.3 Adoption in detail, §5.3 .env files, §6 Validating the stack with new tests (adopt unit tests, repo_adopt apply order, adopt binary tests, cached_declaration, build_check env-file, stack_lint clone cannot-store, pinned_tree entry names). rust:ci green, spec_coverage guard passes. §7.11 wording: depth limit of 128 became 127 levels, matching §5.3 and json::MAX_DEPTH. Left: §6 Steps 3 to 7 stays gap (no alz build test shows a failed step-5 check stops the build with nothing written; step 6 temp-dir render). A clone holding a non-UTF-8 name is proven only by a Linux-only test (APFS refuses the name).
+
+Section 10 gaps closed (branch test/gaps-10-task-55.9). Covered now: section 10 (planned commands moved under the new anchor 'Planned commands.', marked planned TASK-99/100), 10.1 Diagnostic line, Merge diagnostics, Build and command diagnostics, Internal failure (child process of the test executable after install_hook), alz lint in a repository, 10.2 Reading back, 10.3 alz diff (order), The account note (root at or above HOME, inside an account folder, inside a CLAUDE_CONFIG_DIR or CODEX_HOME folder; build and check refuse those places with the error write, and print no note). New tests: crates/alz/tests/diagnostic_lines.rs, adopt_output.rs, account_note_places.rs, extra cases in diagnostic_codes.rs, diff.rs, account_allow.rs, internal_failure.rs. Still gap: 10.3 alz build (the words of four adopt problems differ from the spec, TASK-102; several targets printed once each is n/a until TASK-18) and 10.3 The commit identity step (the failed check before the second write cannot be made deterministic without a race). Checks: mise run rust:ci exit 0, spec_coverage guard passes.
 <!-- SECTION:NOTES:END -->

@@ -36,7 +36,16 @@ fn write_message(stream: &mut impl Write) -> io::Result<()> {
 mod tests {
     use std::process::ExitCode;
 
-    use super::{MESSAGE, exit_code_of, write_message};
+    use std::time::Duration;
+
+    use alz_io::EnvSnapshot;
+    use alz_test_support::test_executable;
+    use assert_cmd::Command;
+
+    use super::{MESSAGE, exit_code_of, install_hook, write_message};
+
+    /// Marks the run of this test executable that is the panicking child of the test below.
+    const CHILD_MARKER: &str = "ALZ_TEST_INTERNAL_FAILURE_CHILD";
 
     #[test]
     fn a_panic_ends_the_run_with_exit_code_seventy() {
@@ -55,5 +64,51 @@ mod tests {
         write_message(&mut stderr).expect("a vector accepts writes");
         assert_eq!(String::from_utf8_lossy(&stderr), MESSAGE);
         assert_eq!(MESSAGE.lines().count(), 1);
+    }
+
+    /// The child half of `a_panicking_process_prints_exactly_the_fixed_line_and_exits_seventy`.
+    /// Run alone it does nothing. As the child it does what `main` does (installs the hook, runs
+    /// the work under `exit_code_of`) with work that panics, and ends the process with 70 only
+    /// when `exit_code_of` returned 70.
+    #[test]
+    fn the_child_that_panics_after_installing_the_hook() {
+        if EnvSnapshot::capture().vars().get(CHILD_MARKER).is_none() {
+            return;
+        }
+        install_hook();
+        let code = exit_code_of(|| panic!("a payload with a secret and a location"));
+        #[expect(
+            clippy::disallowed_methods,
+            clippy::exit,
+            reason = "the child stands in for main, which ends the process with the exit code"
+        )]
+        std::process::exit(if code == ExitCode::from(70) { 70 } else { 1 });
+    }
+
+    /// Spec §10.1 "Internal failure": a panic prints exactly the fixed line and a line feed on
+    /// standard error, with no payload, location or backtrace, and the process exits 70. A child
+    /// process of this test executable panics after installing the real hook; `main` cannot be
+    /// made to panic from outside.
+    #[test]
+    fn a_panicking_process_prints_exactly_the_fixed_line_and_exits_seventy() {
+        let executable = test_executable().expect("the test executable");
+        let output = Command::new(executable)
+            .args([
+                "--exact",
+                "internal_failure::tests::the_child_that_panics_after_installing_the_hook",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD_MARKER, "1")
+            .env("RUST_BACKTRACE", "full")
+            .timeout(Duration::from_secs(60))
+            .output()
+            .expect("the child runs and ends in time");
+        assert_eq!(output.status.code(), Some(70));
+        assert_eq!(String::from_utf8_lossy(&output.stderr), MESSAGE);
+        assert!(
+            !String::from_utf8_lossy(&output.stdout).contains("secret"),
+            "the payload is on no stream"
+        );
     }
 }
