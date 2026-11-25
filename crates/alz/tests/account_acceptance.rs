@@ -160,4 +160,112 @@ mod tests {
         assert_eq!(run.code, 0, "{}", run.stderr);
         assert!(!run.stderr.contains("[account]"), "{}", run.stderr);
     }
+
+    /// Spec §13 item 24: a layer that sets a protected variable through `settings.yaml` (also
+    /// under a key such as `NAME=x` that is not a plain variable name), an MCP `env_from`, an
+    /// agent's native `mcpServers`, or a passthrough settings, `.mcp.json` or `.toml` file, or
+    /// that has a passthrough path with a non-ASCII character, fails the build, names the
+    /// layer, and writes nothing.
+    #[test]
+    fn a_layer_that_sets_an_account_variable_fails_the_build_and_names_the_layer() {
+        let cases: [(&str, &str, &str); 7] = [
+            (
+                "settings env",
+                ".layer/settings.yaml",
+                "claude:\n  env:\n    CODEX_HOME: /x\n",
+            ),
+            (
+                "settings env key that is not a name",
+                ".layer/settings.yaml",
+                "claude:\n  env:\n    \"NAME=x\": y\n",
+            ),
+            (
+                "mcp env_from",
+                ".layer/mcp.yaml",
+                "srv:\n  transport: stdio\n  command: x\n  env_from: [HOME]\n",
+            ),
+            (
+                "agent native mcpServers",
+                ".layer/agents/a.md",
+                "---\nname: a\ndescription: d\nclaude:\n  mcpServers: {}\n---\nbody\n",
+            ),
+            (
+                "passthrough .mcp.json",
+                ".layer/targets/claude/.mcp.json",
+                "{\"mcpServers\":{\"a\":{\"env\":{\"XDG_CONFIG_HOME\":\"x\"}}}}\n",
+            ),
+            (
+                "passthrough toml",
+                ".layer/targets/claude/extra/config.toml",
+                "[shell_environment_policy]\nset = { HOME = \"x\" }\n",
+            ),
+            (
+                "passthrough path with a non-ASCII character",
+                ".layer/targets/claude/.claude/caf\u{e9}.md",
+                "text\n",
+            ),
+        ];
+        for (what, file, text) in cases {
+            let world = World::new(&CLIENT_STACK, &[]);
+            world
+                .scratch
+                .make_dirs(
+                    Path::new(&format!("work/repo/{file}"))
+                        .parent()
+                        .expect("a parent"),
+                )
+                .expect("made");
+            world
+                .scratch
+                .write(format!("work/repo/{file}"), text)
+                .expect("written");
+            let before = world.tree();
+            let run = world.alz(&["build"], None);
+            assert_eq!(run.code, 1, "{what}: {}", run.stderr);
+            assert!(
+                run.stderr
+                    .lines()
+                    .any(|line| line.starts_with("error [") && line.contains("repo")),
+                "{what}: {}",
+                run.stderr
+            );
+            assert_eq!(world.tree(), before, "{what}: nothing is written");
+        }
+    }
+
+    /// Spec §13 item 24: a Codex `shell_environment_policy` whose `set` names an account
+    /// variable, or whose `exclude` matches one, also under a profile, fails the build and names
+    /// the layer; a policy that only changes `include_only` or `inherit` still builds.
+    #[test]
+    fn a_codex_policy_that_touches_an_account_variable_fails_and_one_that_does_not_builds() {
+        let refused = [
+            "codex:\n  shell_environment_policy:\n    set: { CODEX_HOME: /x }\n",
+            "codex:\n  shell_environment_policy:\n    exclude: [\"HOME\"]\n",
+            "codex:\n  profiles:\n    work:\n      shell_environment_policy:\n        set: { XDG_STATE_HOME: /x }\n",
+        ];
+        for text in refused {
+            let world = World::new(&CLIENT_STACK, &[]);
+            world
+                .scratch
+                .write("work/repo/.layer/settings.yaml", text)
+                .expect("written");
+            let run = world.alz(&["build"], None);
+            assert_eq!(run.code, 1, "{text}: {}", run.stderr);
+            assert!(
+                run.stderr.contains("error [protected-variable]") && run.stderr.contains("repo"),
+                "{text}: {}",
+                run.stderr
+            );
+        }
+        let allowed = World::new(&CLIENT_STACK, &[]);
+        allowed
+            .scratch
+            .write(
+                "work/repo/.layer/settings.yaml",
+                "codex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [\"PATH\"]\n    exclude: [\"SECRET_*\"]\n",
+            )
+            .expect("written");
+        let run = allowed.alz(&["build"], None);
+        assert_eq!(run.code, 0, "{}", run.stderr);
+    }
 }
