@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T17:45:00Z'
+updated_date: '2026-11-25T13:09:00Z'
 labels:
   - area:rust
   - area:test
@@ -32,3 +32,9 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 - [ ] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
 - [ ] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+§10.3 alz init no longer states the scaffolded files' contents; state them in the spec and test them (from 55.9.4).
+<!-- SECTION:NOTES:END -->

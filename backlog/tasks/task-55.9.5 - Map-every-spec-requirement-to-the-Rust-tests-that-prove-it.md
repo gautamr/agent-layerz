@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
+updated_date: '2026-11-25T13:09:00Z'
 labels:
   - area:spec
   - area:test
@@ -31,3 +32,9 @@ decision-39: the spec's requirements are proven by Rust tests alone, and test/ m
 - [ ] #3 The matrix states the gap count per spec section, and every gap row names the behaviour that lacks a test (file review)
 - [ ] #4 mise run rust:check passes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+§13 item 19: folder ownership has no test yet; record it in the matrix (from 55.9.4).
+<!-- SECTION:NOTES:END -->
