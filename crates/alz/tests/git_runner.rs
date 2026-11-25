@@ -1030,4 +1030,88 @@ exit 1
             | GitFailure::Unreadable(_) => panic!("expected an exit status"),
         }
     }
+
+    // --- The limits on what git writes (spec §6 "Pinned `path:` layers") -----------------------
+
+    /// A `git` that answers `git version` and for any other call writes `$ALZ_TEST_BYTES` bytes
+    /// of the letter `a` to standard output.
+    const WRITING_GIT: &str = r#"#!/bin/sh
+if [ "$1" = version ]; then echo "git version 2.40.0"; exit 0; fi
+head -c "$ALZ_TEST_BYTES" /dev/zero | tr '\0' a
+"#;
+
+    const ONE_LINE_LIMIT: usize = 64 * 1024;
+    const LISTING_LIMIT: usize = 64 * 1024 * 1024;
+
+    /// A runner whose `git` writes `bytes` bytes of standard output for each call.
+    fn runner_that_writes(dir: &ScratchDir, bytes: usize) -> GitRunner {
+        install_git(dir, WRITING_GIT);
+        let path = path_with_bin(dir);
+        let home = dir.path().as_os_str().to_owned();
+        let count = OsString::from(bytes.to_string());
+        GitRunner::with_launcher(
+            launcher(),
+            &snapshot(&[("PATH", &path), ("HOME", &home), ("ALZ_TEST_BYTES", &count)]),
+            Deadlines::STANDARD,
+        )
+        .expect("the stand-in's version is accepted")
+    }
+
+    /// Spec §6 "Pinned `path:` layers": standard output of a call that answers with one line is
+    /// read up to 64 KiB; more is a failed read, `git wrote more output than alz accepts`.
+    #[test]
+    fn a_one_line_answer_of_more_than_64_kib_is_a_failed_read() {
+        let dir = scratch();
+        let git = runner_that_writes(&dir, ONE_LINE_LIMIT + 1);
+
+        let failure = git.show_toplevel(dir.path()).unwrap_err();
+
+        assert!(matches!(failure, GitFailure::OutputTooLarge), "{failure:?}");
+        assert_eq!(
+            failure.to_string(),
+            "git wrote more output than alz accepts"
+        );
+    }
+
+    /// Spec §6 "Pinned `path:` layers": an answer of exactly 64 KiB is still read (it is not a
+    /// path that git can have answered, so the call fails in another way, never as too large).
+    #[test]
+    fn a_one_line_answer_of_exactly_64_kib_is_not_too_large() {
+        let dir = scratch();
+        let git = runner_that_writes(&dir, ONE_LINE_LIMIT);
+
+        let result = git.show_toplevel(dir.path());
+
+        assert!(
+            !matches!(result, Err(GitFailure::OutputTooLarge)),
+            "{result:?}"
+        );
+    }
+
+    /// Spec §6 "Pinned `path:` layers": the listing of a tree is read up to 64 MiB; more is a
+    /// failed read.
+    #[test]
+    fn a_listing_of_more_than_64_mib_is_a_failed_read() {
+        let dir = scratch();
+        let git = runner_that_writes(&dir, LISTING_LIMIT + 1);
+
+        let failure = git.ls_tree_recursive(dir.path(), &id(SHA)).unwrap_err();
+
+        assert!(matches!(failure, GitFailure::OutputTooLarge), "{failure:?}");
+    }
+
+    /// Spec §6 "Pinned `path:` layers": a listing of exactly 64 MiB is still read; a listing of
+    /// the letter `a` is no listing, so the call fails in another way, never as too large.
+    #[test]
+    fn a_listing_of_exactly_64_mib_is_not_too_large() {
+        let dir = scratch();
+        let git = runner_that_writes(&dir, LISTING_LIMIT);
+
+        let result = git.ls_tree_recursive(dir.path(), &id(SHA));
+
+        assert!(
+            !matches!(result, Err(GitFailure::OutputTooLarge)),
+            "{result:?}"
+        );
+    }
 }

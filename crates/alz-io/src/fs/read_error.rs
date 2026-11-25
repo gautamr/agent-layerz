@@ -132,4 +132,28 @@ mod tests {
             "error [lock] layer.lock: the file is larger than 1 MiB"
         );
     }
+
+    /// Spec §6 "Other messages of resolution": a `layer.yaml` that cannot be opened or read for
+    /// another reason than "missing" and "not a regular file" is the error `layer`, with no
+    /// location, naming the layer as given and stripped.
+    #[test]
+    fn a_layer_yaml_that_cannot_be_read_for_another_reason_is_the_error_layer_cannot_be_read() {
+        let line = ReadError::Io(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            .into_layer_yaml_diagnostic(&source("../a\u{1b}[31mb"))
+            .to_string();
+        assert_eq!(
+            line,
+            "error [layer] layer.yaml in layer '../a[31mb' cannot be read"
+        );
+    }
+
+    /// Spec §6 "Other messages of resolution": a `layer.lock` that cannot be read is the error
+    /// `lock` at `layer.lock`.
+    #[test]
+    fn a_lock_that_cannot_be_read_for_another_reason_is_the_error_lock_at_the_file() {
+        let line = ReadError::Io(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            .into_lock_diagnostic()
+            .to_string();
+        assert_eq!(line, "error [lock] layer.lock: layer.lock cannot be read");
+    }
 }
