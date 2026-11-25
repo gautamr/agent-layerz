@@ -1,0 +1,10 @@
+- [Fact checks without account folders](feedback_fact_checks_without_account_folders.md) — curl docs, raw Codex files, crates and big diffs to scratchpad; env -i fake HOME; zsh no word-split
+- [Backlog decisions and plans](reference_backlog_decisions.md) — CLI sets title only; hand-fill bodies; no In Review status; --acceptance-criteria replaces all; bash 3.2 heredoc
+- [Spec edits while planning](feedback_spec_edits_while_planning.md) — plan time: editorial only, unless the caller asks for spec text; then edit uncommitted on the task branch
+- [Record drafts early](feedback_record_drafts_early.md) — drafts and spikes: append notes after each batch; run what the ACs need first; UNVERIFIED over more probing
+- [Dependency intake check](reference_dependency_intake.md) — crates.io versions API, scratch alz-io crate + deny.toml; serde-saphyr BSD-3; std #[unstable] grep in toolchain src
+- [Private security tasks](feedback_private_security_tasks.md) — local-only task: neutral rule on the board, specifics only in its notes, drift uses public ID, grep before handback
+- [Acceptance baseline run](reference_acceptance_baseline.md) — scope "cases lint can reach" by running suite files with ALZ_BIN=target/release/alz, count per file
+- [R5 planning facts](reference_r5_planning_facts.md) — no Codex adapter in reference; adopt keeps manifest comments; lock-ownership hazard; names in headers
+- [R6 planning facts](reference_r6_planning_facts.md) — git follows linked .git/config; std home_dir getuid; rustix termios/pty; Rust init lacks stack step
+- [Drift list audit](reference_drift_list_audit.md) — script over git show base vs HEAD; "(R6)" rows go stale; run drift cases only with -t "reference drift"

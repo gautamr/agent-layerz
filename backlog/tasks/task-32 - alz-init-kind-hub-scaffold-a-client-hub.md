@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-20T16:59:00Z'
-updated_date: '2026-11-21T10:09:00Z'
+updated_date: '2026-11-25T18:55:00Z'
 labels:
   - area:cli
 milestone: m-3
@@ -32,5 +32,5 @@ Greenfield multi-repository clients need a hub before their repositories; today 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Inputs from agentic-harness (retired; archive agentic-harness-final-2026-11-21.tar.gz): the hub profile had contracts/README.md (contracts change in the hub first, producers implement, consumers generate), repos.conf (name, git URL, label) and scripts/workspace.sh (clone, status, pull, check across all repos; accounts moved to the separate accounts project per decision-2). Consider them for the hub scaffold.
+Inputs from the earlier setup (retired; archive a local archive): the hub profile had contracts/README.md (contracts change in the hub first, producers implement, consumers generate), repos.conf (name, git URL, label) and scripts/workspace.sh (clone, status, pull, check across all repos; accounts moved to the separate accounts project per decision-2). Consider them for the hub scaffold.
 <!-- SECTION:NOTES:END -->
