@@ -4,8 +4,14 @@ allow:
   - "bash:git status*"
   - "bash:git diff*"
   - "bash:git log*"
-# Releases come only from CI.
+# Releases come only from CI. The npm rules stay while the npm package exists: deny rules only get stricter.
 deny:
+  - "bash:npm publish*"
+  - "bash:npm unpublish*"
+  - "bash:npm deprecate*"
+  - "bash:npm dist-tag*"
+  - "bash:npm token*"
+  - "bash:npm login*"
   - "bash:cargo publish*"
   - "bash:cargo yank*"
   - "bash:cargo owner*"
