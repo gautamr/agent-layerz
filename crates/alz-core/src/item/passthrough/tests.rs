@@ -357,6 +357,64 @@ fn a_toml_file_that_is_not_utf8_cannot_be_checked() {
     );
 }
 
+/// A JSON document whose protected `env` mapping lies inside `wrappers` objects, so that it is
+/// `wrappers + 2` containers deep (the wrappers, the object holding `env`, and `env` itself).
+fn env_below(wrappers: usize, variable: &str) -> String {
+    format!(
+        "{}{{\"env\": {{\"{variable}\": \"x\"}}}}{}",
+        "{\"a\": ".repeat(wrappers),
+        "}".repeat(wrappers)
+    )
+}
+
+/// §7.11: nested `env` mappings are checked down to the JSON reader's depth limit. The deepest
+/// document that is read has its `env` found; one level deeper is not read, so it is refused as a
+/// file that cannot be checked, and never accepted unchecked.
+#[test]
+fn a_nested_env_is_checked_down_to_the_json_depth_limit_and_a_deeper_file_is_refused() {
+    let file = "targets/claude/.claude/settings.json";
+    let variable = PROTECTED_VARIABLES[0];
+    let limit = crate::json::MAX_DEPTH;
+
+    let (items, lines) = read(&[(file, &env_below(limit - 2, variable))]);
+    assert!(
+        errors(&lines)
+            .iter()
+            .any(|line| line.contains(&format!(" names {variable}; "))),
+        "{lines:?}"
+    );
+    assert_eq!(items.files(), []);
+
+    let (items, lines) = read(&[(file, &env_below(limit - 1, variable))]);
+    assert_eq!(errors(&lines).len(), 1, "{lines:?}");
+    assert!(
+        errors(&lines)
+            .iter()
+            .all(|line| line.contains("so it cannot be checked")),
+        "{lines:?}"
+    );
+    assert_eq!(items.files(), []);
+}
+
+/// §7.11: the TOML text rule reports each protected variable it finds once, however many times
+/// the file names it, and a second variable is reported besides it.
+#[test]
+fn a_protected_variable_named_twice_in_a_toml_file_is_reported_once() {
+    let first = PROTECTED_VARIABLES[0];
+    let second = PROTECTED_VARIABLES[1];
+    let text = format!(
+        "[shell_environment_policy.set]\n{first} = \"a\"\n[mcp_servers.s.env]\n{first} = \"b\"\n{second} = \"c\"\n"
+    );
+    let (_, lines) = read(&[("targets/codex/.codex/config.toml", &text)]);
+    let count = |variable: &str| {
+        errors(&lines)
+            .iter()
+            .filter(|line| line.contains(&format!(" names {variable}; ")))
+            .count()
+    };
+    assert_eq!((count(first), count(second)), (1, 1), "{lines:?}");
+}
+
 #[test]
 fn files_that_name_none_of_the_variables_still_build_with_one_warning_each() {
     for (file, text) in [

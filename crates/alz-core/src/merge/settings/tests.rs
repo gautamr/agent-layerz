@@ -410,6 +410,31 @@ fn a_file_that_loosens_a_floor_is_not_merged_at_all_and_every_loosening_is_repor
     assert!(found.merged().is_none());
 }
 
+/// §7.9 When a floor is broken: one file that loosens two floors, one of each target, gets both
+/// reported (in key order of the target), and none of its settings are merged.
+#[test]
+fn every_loosening_of_a_file_is_reported_not_only_the_first() {
+    let found = merged(stack(&[
+        (
+            "personal",
+            "claude:\n  sandbox:\n    enabled: true\n  disableSkillShellExecution: true\ncodex:\n  allow_login_shell: false\n",
+        ),
+        (
+            "repo",
+            "claude:\n  sandbox:\n    enabled: false\n  disableSkillShellExecution: false\ncodex:\n  allow_login_shell: true\n",
+        ),
+    ]));
+    assert_eq!(
+        lines(&found),
+        [
+            floor_error("repo", "claude.disableSkillShellExecution", LOOSER),
+            floor_error("repo", "claude.sandbox.enabled", LOOSER),
+            floor_error("repo", "codex.allow_login_shell", LOOSER),
+        ]
+    );
+    assert!(found.merged().is_none());
+}
+
 #[test]
 fn the_first_layer_to_set_a_floor_key_is_free_to_set_any_value() {
     assert_eq!(

@@ -168,6 +168,82 @@ mod tests {
         assert_eq!(world.alz(&["check"]).code, 0);
     }
 
+    /// Spec §8.3: with the default `commit_generated: true` the build writes no `.gitignore`; with
+    /// `commit_generated: false` it writes a block that lists each generated path, on disk, and
+    /// building again leaves the file as it is.
+    #[test]
+    fn commit_generated_false_ignores_the_generated_paths_in_gitignore_on_disk() {
+        let committed = World::buildable();
+        assert_eq!(committed.alz(&["build"]).code, 0);
+        assert!(!committed.scratch.exists("work/repo/.gitignore"));
+
+        let ignored = World::buildable();
+        let manifest = ignored
+            .scratch
+            .read_text("work/repo/layer.yaml")
+            .expect("the manifest is read");
+        ignored
+            .scratch
+            .write(
+                "work/repo/layer.yaml",
+                manifest.replace(
+                    "  strict_slots: true",
+                    "  strict_slots: true\n  commit_generated: false",
+                ),
+            )
+            .expect("written");
+        assert_eq!(ignored.alz(&["build"]).code, 0);
+        let text = ignored
+            .scratch
+            .read_text("work/repo/.gitignore")
+            .expect("a .gitignore with the block");
+        assert_eq!(
+            text,
+            "# >>> agent-layerz generated (do not edit this block)\n/AGENTS.md\n/CLAUDE.md\n# <<< agent-layerz generated\n"
+        );
+        assert_eq!(ignored.alz(&["build"]).code, 0);
+        assert_eq!(
+            ignored
+                .scratch
+                .read_text("work/repo/.gitignore")
+                .expect("read"),
+            text
+        );
+    }
+
+    /// Spec §9.1: the contents of `.env*` files are never read. Files that nobody may read (mode
+    /// 0000) sit in the repository; a build and a check still succeed, print
+    /// no word of them, and leave every byte and mode of those files as they were.
+    #[test]
+    fn env_files_are_never_read_so_unreadable_ones_change_nothing() {
+        let world = World::buildable();
+        let paths = ["work/repo/.env", "work/repo/.env.prod"];
+        for path in paths {
+            world
+                .scratch
+                .write(path, "TOKEN=canary-env-value\n")
+                .expect("written");
+        }
+        let before = world.tree();
+        for path in paths {
+            world.scratch.set_mode(path, 0o000).expect("mode set");
+        }
+        let build = world.alz(&["build"]);
+        assert_eq!(build.code, 0, "{}", build.stderr);
+        let check = world.alz(&["check"]);
+        assert_eq!(check.code, 0, "{}", check.stderr);
+        for run in [&build, &check] {
+            assert!(!run.stdout.contains("canary") && !run.stderr.contains("canary"));
+        }
+        for path in paths {
+            world.scratch.set_mode(path, 0o644).expect("mode set");
+        }
+        let after = world.tree();
+        for path in [".env", ".env.prod"] {
+            assert_eq!(after.get(path), before.get(path), "{path}");
+        }
+    }
+
     /// Spec §10.3 `alz build`: a problem of the plan is `error [adopt] <problem>`, followed by
     /// `nothing was adopted; fix the problems above and rerun`, exit 1, and the repository is
     /// unchanged.

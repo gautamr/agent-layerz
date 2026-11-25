@@ -268,7 +268,7 @@ fn a_rule_that_breaks_its_schema_is_a_rule_error_that_names_the_file() {
             "error [rule] personal:rules/colour.md:2:1: unknown field 'colour'",
             "error [rule] personal:rules/empty-glob.md:2:12: paths[1] must be a non-empty glob",
             "error [rule] personal:rules/mode.md:2:7: mode must be replace or extend",
-            "error [rule] personal:rules/no-paths.md: paths is required; always-loaded text belongs in instructions/",
+            "error [rule] personal:rules/no-paths.md: 'paths' is required; always-loaded text belongs in instructions/",
             "error [rule] personal:rules/not-list.md:2:8: paths must be a list",
             "error [rule] personal:rules/not-text.md:2:9: paths[0] must be text; put the value in quotes to keep it as text",
             "error [unresolved] personal:rules/extend-ok.md: mode: extend, but no more general layer has rules/extend-ok.md",

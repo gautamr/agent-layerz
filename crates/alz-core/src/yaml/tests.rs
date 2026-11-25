@@ -532,6 +532,18 @@ fn only_a_number_gets_the_hint_to_quote_it() {
     }
 }
 
+/// §7.13 What else makes a YAML file invalid: where a whole number is expected, a float without
+/// a fractional part (`2.0`, `1e3`) counts as one, and a float with a fraction does not.
+#[test]
+fn a_float_without_a_fractional_part_counts_as_a_whole_number() {
+    let node = ok("a: 2.0\nb: 1e3\nc: 7\nd: 2.5\n");
+    let section = Section::new(&node, KeyPath::root()).expect("a mapping");
+    assert_eq!(section.whole_number("a").expect("whole"), Some(2));
+    assert_eq!(section.whole_number("b").expect("whole"), Some(1000));
+    assert_eq!(section.whole_number("c").expect("whole"), Some(7));
+    assert!(section.whole_number("d").is_err());
+}
+
 #[test]
 fn a_float_that_is_whole_but_too_large_is_not_called_not_a_whole_number() {
     let node = ok("big: 1e300\nhalf: 2.5\nname: x\nmax: 1e38\n");
