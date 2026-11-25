@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T17:45:00Z'
+updated_date: '2026-11-25T14:06:00Z'
 labels:
   - area:rust
   - area:test
@@ -32,3 +32,13 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 - [ ] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
 - [ ] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From docs/spec-coverage.md (TASK-55.9.5): 2 gap rows in §7.1 to §7.11, §8 and §11: '§8 What an adapter may rely on' (no test ties adapter output keys to target-facts) and '§8.2' (the Codex adapter is not implemented in Rust, so implement it or amend the spec; §13.13 depends on it). Fixture unnamed by tests: 37-settings-targets.
+
+Correction (55.9.5): the gap rows in your sections are now 1, not 2: only '§8 What an adapter may rely on' is a gap (it concerns every adapter, not only Codex). §8.2 is planned under TASK-18 (the Codex adapter is not built yet).
+
+Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+<!-- SECTION:NOTES:END -->
