@@ -174,6 +174,22 @@ mod tests {
         assert_eq!(output.stderr.len(), 64 * 1024);
     }
 
+    /// Spec §10.3 `alz ls --live`: at most 4 MiB of the session's standard output and 64 KiB of
+    /// its standard error are read; the rest is dropped and the program is not stopped.
+    #[test]
+    fn a_session_keeps_4_mib_of_standard_output_and_64_kib_of_standard_error() {
+        let scratch = ScratchDir::new().expect("scratch");
+        let runner = runner_for(
+            &scratch,
+            "#!/bin/sh\nhead -c 5000000 /dev/zero | tr '\\0' 'x'\nhead -c 300000 /dev/zero | tr '\\0' 'e' >&2\n",
+            Purpose::Probe,
+        );
+        let output = runner.run(&arguments(&[]), scratch.path()).expect("runs");
+        assert!(output.success);
+        assert_eq!(output.stdout.len(), 4 * 1024 * 1024);
+        assert_eq!(output.stderr.len(), 64 * 1024);
+    }
+
     #[test]
     fn the_program_sees_only_the_variables_its_purpose_takes() {
         let scratch = ScratchDir::new().expect("scratch");
