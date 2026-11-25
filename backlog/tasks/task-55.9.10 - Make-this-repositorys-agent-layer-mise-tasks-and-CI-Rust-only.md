@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T22:43:00Z'
+updated_date: '2026-11-25T13:02:00Z'
 labels:
   - area:agents
   - area:ci
@@ -45,4 +45,6 @@ AC4: grep -rnE 'npm|node|vitest' .github/workflows prints nothing. tests.yml (ty
 AC5: the build needs ../agent-layerz-personal, so the worktree was copied (without target/ and backlog/) next to a copy of the personal layer in the scratchpad, the Rust alz build ran there, and only .claude/{agents,rules,skills}, .claude/settings.json, AGENTS.md, CLAUDE.md, .mcp.json and layer.lock were copied back. alz check in the copy of the final state: 'check passed: 67 generated files match the layers and the lock'. mise run alz:check itself cannot run in the worktree (no sibling personal layer).
 rust:ci: mise run rust:ci exit 0 (fmt, clippy -D warnings, 2043 tests passed 0 failed, doc, msrv, deny, audit).
 For the owner: hooks, permissions and CI changed; the required status check named 'typescript and acceptance (ubuntu)' and 'acceptance against the Rust binary (ubuntu)' of the deleted tests workflow must be removed from branch protection. The personal layer's retrospective skill still mentions npx ccusage (outside this repository). Left for 55.9.11: package.json, npm files, biome/vitest/tsconfig, src/, test/, evals scripts and README references to mise run build/lint.
+
+Correction (lead's order): the npm deny rules stay in .layer/permissions.yaml next to the cargo denies, because the npm package exists until the owner unpublishes it and deny rules only get stricter. AC1's grep therefore prints exactly these lines, the intended exception: the comment line 7 and the six deny rules 'bash:npm publish*', 'unpublish*', 'deprecate*', 'dist-tag*', 'token*', 'login*' (permissions.yaml lines 9-14). Remove them when the owner has unpublished the package. The npm allow rules (npm test, npm run, npx vitest/tsc/biome, node dist/cli.js) are still removed; the earlier note that the npm denies were replaced is superseded. Generated files rebuilt in the scratch copy: .claude/settings.json and layer.lock changed, alz check passed there (67 generated files match).
 <!-- SECTION:NOTES:END -->
