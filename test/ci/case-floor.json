@@ -1,4 +1,0 @@
-{
-  "floor": 1223,
-  "note": "The least number of acceptance cases (passed, failed and skipped) one run reports. A file that does not load, or a case removed, drops the count under it and fails the CI check. Raise it when cases are added; lower it only on purpose."
-}

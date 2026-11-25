@@ -28,30 +28,44 @@ personal (public)  →  client (private)  →  repo (.layer/)  ──alz build�
 
 ## Install
 
-Node.js 22 or newer.
-
-```sh
-npm install --global agent-layerz      # or: mise use --global npm:agent-layerz
-alz --version
-```
-
-### From source
-
-To run unreleased changes, build alz from a clone. This needs Node.js 22.12 or newer, npm
-and a POSIX shell (macOS or Linux):
+`alz` is one Rust binary with no runtime. Releases of ready-made binaries and a Homebrew formula
+are being prepared; until the first one is published, build `alz` from a clone. This needs
+[mise](https://mise.jdx.dev) (it installs the Rust toolchain this repository pins), git 2.30 or
+newer and a POSIX shell (macOS or Linux):
 
 ```sh
 git clone https://github.com/gautamr/agent-layerz.git
 cd agent-layerz
-./scripts/install-local.sh             # or: mise run install:local
+mise run install:local
+alz --version
 ```
 
-The script bundles alz and its dependencies into one file and installs it as a regular
-executable at `~/.local/bin/alz`. It creates no symlink and no `node_modules` at the
-destination. Set `PREFIX` (installs to `$PREFIX/bin`) or `BIN_DIR` to choose another place.
-It prints the version, the git revision and the SHA-256 of the installed file, and refuses
-to replace a symlink, such as one left by `npm install --global`; remove that first. Run it
-again after `git pull` to update.
+The task builds `alz` from the locked dependencies and installs it as a regular executable at
+`~/.local/bin/alz`. It creates no symlink. Set `PREFIX` (installs to `$PREFIX/bin`), `BIN_DIR` or
+`ALZ_NAME` to choose another place or name. It prints the version, the git revision and the
+SHA-256 of the installed file. Run it again after `git pull` to update.
+
+### Leaving a 0.1.0 install behind
+
+Version 0.1.0 was installed from the JavaScript package registry. That install leaves a symlink
+named `alz` on your `PATH`, and `mise run install:local` refuses to replace a symlink. Remove the
+old install with the tool that made it, delete the leftover `alz` link if one remains, then run
+`mise run install:local`.
+Layers and repositories built with 0.1.0 keep working, with the stricter checks that
+[CHANGELOG.md](CHANGELOG.md) lists.
+
+## Development
+
+The Rust workspace is in `crates/`; [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md) is the
+contract. All commands run through mise, which pins the toolchain:
+
+```sh
+mise run rust:check   # format check, clippy with -D warnings, and every test
+mise run rust:ci      # the full local set: check, rustdoc, MSRV, cargo-deny, cargo-audit
+mise run rust:build   # build the release binary at target/release/alz
+mise run alz:check    # fail if this repository's generated agent config is out of date
+mise run alz:build    # rebuild this repository's agent config (needs the personal layer next to the clone)
+```
 
 ## Quick start
 
