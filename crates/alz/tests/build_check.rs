@@ -29,9 +29,14 @@ mod tests {
 
     impl World {
         fn new() -> Self {
+            Self::of("14-non-destructive")
+        }
+
+        fn of(fixture: &str) -> Self {
             let scratch = ScratchDir::new().expect("a scratch directory");
-            let fixture =
-                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/14-non-destructive");
+            let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../fixtures")
+                .join(fixture);
             copy_tree(&fixture, &scratch.join("work")).expect("the fixture is copied");
             scratch.make_dirs("home").expect("made");
             Self {
@@ -276,5 +281,38 @@ mod tests {
             )
         );
         assert_eq!(world.tree(), before);
+    }
+
+    /// Spec §13 item 15: files under `.claude/agent-memory/`, `backlog/`, `docs/` and `specs/`
+    /// (and the configured `protected_paths`) are byte-identical before and after a build, even
+    /// when a layer ships a file at the same path; the build warns about each one it left out.
+    #[test]
+    fn a_build_leaves_every_protected_path_byte_identical_and_warns_about_the_shipped_ones() {
+        let world = World::of("15-protected-paths");
+        let before = world.tree();
+        let run = world.alz(&["build"]);
+        assert_eq!(run.code, 0, "{}", run.stderr);
+        assert!(run.stderr.contains("warning [protected]"), "{}", run.stderr);
+        let after = world.tree();
+        let protected = |path: &String| {
+            [
+                "backlog/",
+                "docs/",
+                "specs/",
+                "notes/",
+                ".claude/agent-memory",
+                ".claude/settings.local.json",
+            ]
+            .iter()
+            .any(|prefix| path.starts_with(prefix))
+        };
+        let kept = |tree: &std::collections::BTreeMap<String, alz_test_support::TreeFile>| {
+            tree.iter()
+                .filter(|(path, _)| protected(path))
+                .map(|(path, file)| (path.clone(), file.clone()))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        };
+        assert!(!kept(&before).is_empty());
+        assert_eq!(kept(&after), kept(&before));
     }
 }
