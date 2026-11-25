@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@architect'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-25T19:10:00Z'
+updated_date: '2026-11-25T19:14:00Z'
 labels:
   - area:adapter
   - needs:owner-approval
@@ -32,6 +32,12 @@ decision-40 (proposed) turns spec §8's promise that new targets need no core ch
 - [ ] #4 doc-6 §2 no longer calls the target trait sealed and lists alz-adapter and alz-target-claude (backlog doc view doc-6 | grep)
 - [ ] #5 The spec status line names the minor version bump these changes need (grep)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-26): decision-40 accepted. When an adapter cannot express a security item (for example a decision class's rules on a target without allow/ask/deny lists), alz fails the build with an error naming the item and the target, never a warning; a layer may opt that target out of the item explicitly.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

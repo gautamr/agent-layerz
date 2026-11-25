@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@architect'
 created_date: '2026-11-25T19:07:00Z'
-updated_date: '2026-11-25T19:10:00Z'
+updated_date: '2026-11-25T19:14:00Z'
 labels:
   - area:autonomy
   - needs:owner-approval
@@ -30,6 +30,12 @@ doc-7 proposes the levels, the merge rule with a ceiling, the decision classes a
 - [ ] #2 §8.1 lists every Claude key a level writes with its target-facts section in brackets, and none rests on an UNVERIFIED row (grep against docs/target-facts.md)
 - [ ] #3 The spec says a stack without autonomy.yaml renders exactly what it rendered before, and the status line names the minor bump (grep)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-26): decision-40 accepted. When an adapter cannot express a security item (for example a decision class's rules on a target without allow/ask/deny lists), alz fails the build with an error naming the item and the target, never a warning; a layer may opt that target out of the item explicitly.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

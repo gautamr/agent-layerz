@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@release-engineer'
 created_date: '2026-11-24T17:45:00Z'
-updated_date: '2026-11-24T18:25:00Z'
+updated_date: '2026-11-25T19:14:00Z'
 labels:
   - area:release
   - area:docs
@@ -14,6 +14,7 @@ milestone: m-7
 dependencies:
   - TASK-55.8.3
   - TASK-55.9
+  - TASK-112
 parent_task_id: TASK-55.8
 priority: medium
 ordinal: 197390
@@ -37,4 +38,6 @@ The first Rust release replaces the npm 0.1.0 for users. Its layer checks are st
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-24): the private security tasks are disclosed with the 0.2.0 release (a Security section in CHANGELOG and the release notes, optionally GitHub advisories); until then they stay private, then their files are committed and closed.
+
+Owner (2026-11-26): the adapter contract (TASK-104 to TASK-112) ships before 0.2.0; the release waits for TASK-112. Autonomy and the WASM host follow in later releases.
 <!-- SECTION:NOTES:END -->
