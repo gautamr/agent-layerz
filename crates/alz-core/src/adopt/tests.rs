@@ -546,9 +546,11 @@ fn a_null_of_native_settings_is_refused_by_the_layer_reader_not_by_the_emitter()
     let refused = run(&world, &[(".claude/settings.json", settings)]).expect_err("refused");
     let lines = problems(&refused);
     assert_eq!(lines.len(), 1, "{lines:?}");
-    assert!(
-        lines[0].starts_with("error [adopt] .claude/settings.json: the repo layer that adoption plans would be refused: error [settings]"),
-        "{lines:?}"
+    assert_eq!(
+        lines,
+        [
+            "error [adopt] .claude/settings.json: adopting it would write .layer/settings.yaml with text the layer reader refuses: 'claude.sandbox.ignoreViolations.*' must be a list whose items are text; fix it in .claude/settings.json and rerun"
+        ]
     );
 }
 
@@ -658,7 +660,7 @@ fn the_reader_check_runs_only_after_every_conversion_succeeded() {
     assert!(
         first
             .iter()
-            .all(|line| !line.contains("the repo layer that adoption plans would be refused")),
+            .all(|line| !line.contains("with text the layer reader refuses")),
         "{first:?}"
     );
 
@@ -666,7 +668,9 @@ fn the_reader_check_runs_only_after_every_conversion_succeeded() {
     let second = problems(&second);
     assert_eq!(second.len(), 1, "{second:?}");
     assert!(
-        second[0].contains("the repo layer that adoption plans would be refused"),
+        second[0].contains(
+            ".claude/settings.json: adopting it would write .layer/settings.yaml with text the layer reader refuses: "
+        ),
         "{second:?}"
     );
 }

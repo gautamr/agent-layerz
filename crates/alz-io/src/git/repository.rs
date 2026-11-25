@@ -14,7 +14,37 @@ use alz_core::identity::{
 };
 
 use super::runner::GitRunner;
-use crate::fs::{Changed, RepoRoot};
+use crate::fs::{Changed, GitConfigSeal, RepoRoot};
+
+/// The two checks of `.git` and `.git/config` around each write (spec §9.4 "Writing"): one right
+/// before it, which remembers `.git`, and one right after it. [`RepoRoot`] is the one that looks
+/// at the disk. The trait is the seam through which a test makes the place change between two
+/// writes, which only a race does on a real disk.
+pub trait PlaceChecks {
+    /// The check right before a write.
+    ///
+    /// # Errors
+    ///
+    /// The [`Blocker`] that says why nothing may be written.
+    fn seal(&self) -> Result<GitConfigSeal, Blocker>;
+
+    /// The check right after a write.
+    ///
+    /// # Errors
+    ///
+    /// What changed: git may have written through a link.
+    fn verify(&self, seal: GitConfigSeal) -> Result<(), Changed>;
+}
+
+impl PlaceChecks for RepoRoot {
+    fn seal(&self) -> Result<GitConfigSeal, Blocker> {
+        self.seal_git_config()
+    }
+
+    fn verify(&self, seal: GitConfigSeal) -> Result<(), Changed> {
+        self.verify_git_config(seal)
+    }
+}
 
 /// One call. The directory is the repository root, and the file `.git/config` below it.
 #[derive(Debug, Clone, Copy)]
@@ -282,10 +312,21 @@ impl<'a> RepositoryGit<'a> {
     /// `--global` or `--system`, and a different value is never replaced.
     #[must_use]
     pub fn set_up(&self, declared: &CommitIdentity) -> SetupResult {
+        self.set_up_checked_by(declared, self.root)
+    }
+
+    /// [`set_up`](Self::set_up) with the checks around each write given, so that a test can fail
+    /// the one before the second write.
+    #[must_use]
+    pub fn set_up_checked_by(
+        &self,
+        declared: &CommitIdentity,
+        checks: &impl PlaceChecks,
+    ) -> SetupResult {
         match SetupDecision::decide(self.place(), || self.key_states(declared)) {
             SetupDecision::Blocked(blocker) => SetupResult::Blocked(blocker),
             SetupDecision::Write(plan) => {
-                let (written, stopped) = self.write_additions(plan, declared);
+                let (written, stopped) = self.write_additions(plan, declared, checks);
                 SetupResult::Planned {
                     plan,
                     written,
@@ -300,10 +341,11 @@ impl<'a> RepositoryGit<'a> {
         &self,
         plan: SetupPlan,
         declared: &CommitIdentity,
+        checks: &impl PlaceChecks,
     ) -> (Vec<(Field, KeyWrite)>, Option<Stopped>) {
         let mut written = Vec::new();
         for field in plan.additions() {
-            let seal = match self.root.seal_git_config() {
+            let seal = match checks.seal() {
                 Ok(seal) => seal,
                 Err(blocker) => return (written, Some(Stopped::Refused(blocker))),
             };
@@ -312,7 +354,7 @@ impl<'a> RepositoryGit<'a> {
                 field,
                 declared,
             });
-            if let Err(changed) = self.root.verify_git_config(seal) {
+            if let Err(changed) = checks.verify(seal) {
                 return (written, Some(Stopped::Tampered { field, changed }));
             }
             written.push((

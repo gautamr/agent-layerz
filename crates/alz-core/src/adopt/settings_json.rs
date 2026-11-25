@@ -5,7 +5,7 @@
 use crate::diagnostic::Message;
 use crate::json::{JsonNumber, JsonObject, JsonValue, parse};
 use crate::render::yaml::EmitValue;
-use crate::untrusted_text::{QuotedKey, Stripped};
+use crate::untrusted_text::QuotedKey;
 
 use super::agent::model_alias;
 use super::draft::Draft;
@@ -111,11 +111,8 @@ fn adopt_permissions(value: &JsonValue, draft: &mut Draft<'_>, outputs: &mut Vec
                         let neutral = names::rule(rule);
                         if neutral.is_none() {
                             draft.problem(
-                                FILE,
-                                Message::new("permissions.")
-                                    .then(Stripped::from_untrusted(key))
-                                    .then(": ")
-                                    .then(QuotedKey::from_untrusted(rule))
+                                &format!("{FILE}.{key}"),
+                                Message::new(QuotedKey::from_untrusted(rule))
                                     .then(" uses a tool agent-layerz does not know"),
                             );
                         }

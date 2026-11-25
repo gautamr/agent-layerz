@@ -41,7 +41,9 @@ pub(super) fn adopt(bytes: &[u8], draft: &mut Draft<'_>) {
                 FILE,
                 Message::new("server ")
                     .then(QuotedKey::from_untrusted(id))
-                    .then(" uses fields that mcp.yaml does not support yet"),
+                    .then(" uses ")
+                    .then(Stripped::from_untrusted(&extra.join(", ")))
+                    .then(", which mcp.yaml does not support yet"),
             );
             continue;
         }
@@ -84,7 +86,7 @@ fn env_from(id: &str, env: Option<&JsonValue>, draft: &mut Draft<'_>) -> Vec<Str
                     Message::new("server ")
                         .then(QuotedKey::from_untrusted(id))
                         .then(" sets ")
-                        .then(QuotedKey::from_untrusted(name))
+                        .then(Stripped::from_untrusted(name))
                         .then(" to a value; layers never store values. Use \"${")
                         .then(Stripped::from_untrusted(name))
                         .then("}\" and export it"),

@@ -404,6 +404,14 @@ impl Where {
         }
     }
 
+    /// The path inside its layer, when the place is a file of a layer.
+    pub(crate) const fn layer_path(&self) -> Option<&Stripped> {
+        match &self.place {
+            Place::LayerFile { path, .. } => Some(path),
+            Place::RepositoryFile(_) | Place::Given(_) => None,
+        }
+    }
+
     const fn of(place: Place) -> Self {
         Self {
             place,
@@ -667,6 +675,16 @@ impl Diagnostic {
     #[must_use]
     pub const fn code(&self) -> Code {
         self.code
+    }
+
+    /// Where the diagnostic is, when it can be located.
+    pub(crate) const fn at(&self) -> Option<&Where> {
+        self.at.as_ref()
+    }
+
+    /// The message of the diagnostic, without its level, code and place.
+    pub(crate) const fn message(&self) -> &Message {
+        &self.message
     }
 }
 
