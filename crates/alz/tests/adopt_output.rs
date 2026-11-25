@@ -138,6 +138,60 @@ mod tests {
         );
     }
 
+    /// Spec §10.3 `alz build` (TASK-102): the four problem lines that quote a name or a rule have
+    /// the spec's words exactly, and none of them prints a value of the native file.
+    #[test]
+    fn the_server_permission_and_reader_problems_have_the_words_of_the_spec() {
+        let env = problems_of(&[(
+            ".mcp.json",
+            "{\"mcpServers\":{\"db\":{\"command\":\"x\",\"env\":{\"TOKEN\":\"hunter2-value\"}}}}\n",
+        )]);
+        assert_eq!(
+            env,
+            [
+                "error [adopt] .mcp.json: server 'db' sets TOKEN to a value; layers never store values. Use \"${TOKEN}\" and export it"
+            ]
+        );
+        let fields = problems_of(&[(
+            ".mcp.json",
+            "{\"mcpServers\":{\"db\":{\"command\":\"x\",\"timeout\":\"hunter2-value\",\"cwd\":\"/x\"}}}\n",
+        )]);
+        assert_eq!(
+            fields,
+            [
+                "error [adopt] .mcp.json: server 'db' uses timeout, cwd, which mcp.yaml does not support yet"
+            ]
+        );
+        let rules = problems_of(&[(
+            ".claude/settings.json",
+            "{\"permissions\":{\"allow\":[\"Foo(x)\"],\"deny\":[\"Bar\"]}}\n",
+        )]);
+        assert_eq!(
+            rules,
+            [
+                "error [adopt] .claude/settings.json.allow: 'Foo(x)' uses a tool agent-layerz does not know",
+                "error [adopt] .claude/settings.json.deny: 'Bar' uses a tool agent-layerz does not know"
+            ]
+        );
+        let reader = problems_of(&[(
+            ".claude/settings.json",
+            "{\"env\":{\"A\":\"hunter2-value\\u2028x\"}}\n",
+        )]);
+        assert_eq!(
+            reader,
+            [
+                "error [adopt] .claude/settings.json: adopting it would write .layer/settings.yaml with text the layer reader refuses: a key or value holds a control character after its escapes are applied; fix it in .claude/settings.json and rerun"
+            ]
+        );
+        assert!(
+            env.iter()
+                .chain(&fields)
+                .chain(&reader)
+                .all(|line| !line.contains("hunter2")),
+            "a value of the native file was printed"
+        );
+    }
+
     /// Spec §10.3 `alz build`: text of the native file that a problem repeats is stripped
     /// (class 1), so an escape character of a rule or a variable name never reaches the terminal.
     #[test]
@@ -162,7 +216,7 @@ mod tests {
             "{rule:?}"
         );
         assert!(
-            variable.iter().any(|line| line.contains("'TOKEN'")),
+            variable.iter().any(|line| line.contains(" sets TOKEN to ")),
             "{variable:?}"
         );
     }

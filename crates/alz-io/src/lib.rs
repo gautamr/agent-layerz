@@ -25,8 +25,8 @@ pub use fs::{
     RepositoryPaths, TempEntry, WalkError,
 };
 pub use git::{
-    Deadlines, GitFailure, GitRunner, GitRunnerError, KeyWrite, Launcher, ReadScope, RepositoryGit,
-    SetupResult, Stopped, run_if_requested,
+    Deadlines, GitFailure, GitRunner, GitRunnerError, KeyWrite, Launcher, PlaceChecks, ReadScope,
+    RepositoryGit, SetupResult, Stopped, run_if_requested,
 };
 pub use resolve::{
     FetchedLayer, Fetcher, GitLayer, PinnedLayer, PinnedRead, PinnedTreeReader, ReadHow,

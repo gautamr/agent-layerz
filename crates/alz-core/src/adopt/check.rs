@@ -2,7 +2,7 @@
 //! through the same merge every layer goes through, with the manifest as it would be edited, so a
 //! plan never holds text that reading the layer would refuse.
 
-use crate::diagnostic::{Level, Message};
+use crate::diagnostic::{Level, Message, Where};
 use crate::layer::LayerContents;
 use crate::merge::{Placements, merge};
 use crate::path::SafeRelPath;
@@ -12,8 +12,8 @@ use crate::untrusted_text::Stripped;
 use super::draft::Draft;
 
 /// Adds a problem to `draft` for each error that merging the stack with the planned repo layer
-/// finds. The problem names the native file the refused layer file came from and prints the
-/// reader's own line, which holds no raw text.
+/// finds. The problem names the native file the refused layer file came from and the reader's own
+/// message, which holds no raw text.
 pub(super) fn read_back(
     stack: &ResolvedStack,
     manifest: &Manifest,
@@ -39,12 +39,23 @@ pub(super) fn read_back(
     };
     let (_, found) = merge(&stack, manifest, placements).into_parts();
     for error in found.iter().filter(|found| found.level() == Level::Error) {
-        let line = error.to_string();
-        let file = source_of(&line, draft);
+        let path = error.at().and_then(Where::layer_path);
+        let file = path
+            .and_then(|path| source_of(path.as_str(), draft))
+            .unwrap_or_else(|| draft.ctx.layer_dir.as_str().to_owned());
+        let layer_file = path.map_or_else(
+            || draft.ctx.layer_dir.as_str().to_owned(),
+            |path| format!("{}/{}", draft.ctx.layer_dir, path.as_str()),
+        );
         draft.problem(
             &file,
-            Message::new("the repo layer that adoption plans would be refused: ")
-                .then(Stripped::from_untrusted(&line)),
+            Message::new("adopting it would write ")
+                .then(Stripped::from_untrusted(&layer_file))
+                .then(" with text the layer reader refuses: ")
+                .and(error.message().clone())
+                .then("; fix it in ")
+                .then(Stripped::from_untrusted(&file))
+                .then(" and rerun"),
         );
     }
 }
@@ -78,24 +89,18 @@ fn planned_contents(existing: &LayerContents, draft: &Draft<'_>) -> LayerContent
         .with_executable(executable)
 }
 
-/// The native file behind the layer file a reader line is about; the layer's folder when the line
-/// names no planned file.
-fn source_of(line: &str, draft: &Draft<'_>) -> String {
-    let planned = draft
+/// The native file behind the layer file `path` of the plan; none when the plan writes no such file.
+fn source_of(path: &str, draft: &Draft<'_>) -> Option<String> {
+    draft
         .files
         .iter()
-        .map(|(path, (from, _))| (path.as_str(), from.as_str()))
+        .map(|(planned, (from, _))| (planned.as_str(), from.as_str()))
         .chain(
             draft
                 .moves
                 .iter()
                 .map(|moved| (moved.to.as_str(), moved.from.as_str())),
-        );
-    planned
-        .filter(|(path, _)| line.contains(&format!(":{path}")))
-        .max_by_key(|(path, _)| path.len())
-        .map_or_else(
-            || draft.ctx.layer_dir.as_str().to_owned(),
-            |(_, from)| from.to_owned(),
         )
+        .find(|(planned, _)| *planned == path)
+        .map(|(_, from)| from.to_owned())
 }

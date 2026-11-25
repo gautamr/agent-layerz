@@ -11,18 +11,21 @@
 // as for every other one; an integration test crate is compiled with `cfg(test)` already.
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
     use std::ffi::{OsStr, OsString};
     use std::path::{Path, PathBuf};
 
     use alz_core::env::EnvVars;
     use alz_core::identity::{
-        Blocker, CommitIdentity, ConfigAnswer, ConfigKey, EmailAddress, Field, GitConfigPlace,
-        GitScope, IdentityName, KeyState, RepoState,
+        Blocker, CommitIdentity, ConfigAnswer, ConfigKey, DeclaredBy, DeclaredIdentity,
+        EmailAddress, Field, GitConfigPlace, GitScope, IdentityName, KeyState, RepoState, Report,
     };
+    use alz_core::layer::LayerName;
     use alz_core::path::AbsolutePath;
+    use alz_core::stack::Source;
     use alz_io::{
-        Changed, Deadlines, EnvSnapshot, GitRunner, KeyWrite, Launcher, RepoRoot, RepositoryGit,
-        SetupResult, Stopped,
+        Changed, Deadlines, EnvSnapshot, GitConfigSeal, GitRunner, KeyWrite, Launcher, PlaceChecks,
+        RepoRoot, RepositoryGit, SetupResult, Stopped,
     };
     use alz_test_support::ScratchDir;
     use assert_cmd::Command;
@@ -507,6 +510,82 @@ fi"#,
                 field: Field::Name,
                 changed: Changed::Config
             })
+        );
+    }
+
+    /// The checks of the root, except that the check before the second write fails as it does
+    /// when `.git/config` has become a link between the two writes, which only a race does on a
+    /// real disk (spec §9.4 "Writing", §10.3 the commit identity step).
+    struct FailsBeforeTheSecondWrite<'a> {
+        root: &'a RepoRoot,
+        seals: Cell<u32>,
+    }
+
+    impl PlaceChecks for FailsBeforeTheSecondWrite<'_> {
+        fn seal(&self) -> Result<GitConfigSeal, Blocker> {
+            self.seals.set(self.seals.get() + 1);
+            if self.seals.get() >= 2 {
+                Err(Blocker::ConfigNotRegular)
+            } else {
+                self.root.seal_git_config()
+            }
+        }
+
+        fn verify(&self, seal: GitConfigSeal) -> Result<(), Changed> {
+            self.root.verify_git_config(seal)
+        }
+    }
+
+    /// Spec §9.4 "Writing" and §10.3 the commit identity step: a failed check before the second
+    /// write stops it. The first key stays written and is printed as `set user.name in
+    /// .git/config to '<value>' (declared by <by>)`, the second key is not written, the stop is
+    /// the `Refused` blocker, and the line that follows is the "Setup, when alz may not write"
+    /// warning with its reason and its advice (`Run by hand: <step>; <step>`).
+    #[test]
+    fn a_failed_check_before_the_second_write_leaves_the_second_key_unwritten_and_is_reported_as_a_blocked_place()
+     {
+        let place = Place::new();
+        let (result, seals) = place.on(&place.repo(), &[], |git, root| {
+            let checks = FailsBeforeTheSecondWrite {
+                root,
+                seals: Cell::new(0),
+            };
+            (
+                git.set_up_checked_by(&declared(), &checks),
+                checks.seals.get(),
+            )
+        });
+        let SetupResult::Planned {
+            written, stopped, ..
+        } = result
+        else {
+            panic!("the place was writable when the plan was made");
+        };
+        assert_eq!(seals, 2, "the place is checked before each write");
+        assert_eq!(written, vec![(Field::Name, KeyWrite::Written)]);
+        assert_eq!(stopped, Some(Stopped::Refused(Blocker::ConfigNotRegular)));
+        assert_eq!(place.config_value("user.name").as_deref(), Some(NAME));
+        assert_eq!(
+            place.config_value("user.email"),
+            None,
+            "the second key is not written"
+        );
+
+        // The lines `alz` prints for that result: the first key's line, then the warning.
+        let source = Source::try_from("path:../client").expect("a source");
+        let layer = LayerName::try_from("client").expect("a layer name");
+        let declared_identity = DeclaredIdentity::new(DeclaredBy::new(&layer, &source), declared());
+        let report = Report::new(&declared_identity, None);
+        let by = "layer 'client' (path:../client)";
+        assert_eq!(
+            report.written_line(Field::Name).to_string(),
+            format!("set user.name in .git/config to '{NAME}' (declared by {by})")
+        );
+        assert_eq!(
+            report.blocked_line(Blocker::ConfigNotRegular).to_string(),
+            format!(
+                "warning [identity] .git/config is not a regular file, so alz did not write the git identity declared by {by}. Run by hand: git config --local user.name '{NAME}'; git config --local user.email '{EMAIL}'"
+            )
         );
     }
 
