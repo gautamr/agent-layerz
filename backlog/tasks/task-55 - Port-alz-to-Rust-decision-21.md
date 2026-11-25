@@ -4,7 +4,7 @@ title: Port alz to Rust (decision-21)
 status: In Progress
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-24T17:43:00Z'
+updated_date: '2026-11-25T18:12:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -22,11 +22,13 @@ Rewrite alz in Rust against docs/LAYERING-SPEC.md, following doc-5 and doc-6. de
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every phase subtask is Done
-- [ ] #2 Every requirement of docs/LAYERING-SPEC.md is proven by Rust tests: docs/spec-coverage.md has no gap row and its guard test passes, and git ls-files lists no TypeScript, JavaScript or Node package file
+- [x] #2 Every requirement of docs/LAYERING-SPEC.md is proven by Rust tests: docs/spec-coverage.md has no gap row and its guard test passes, and git ls-files lists no TypeScript, JavaScript or Node package file
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-24, decision-39: the owner settled the former criterion #2 ('byte-identical to the TypeScript reference for every fixture') by that decision; it no longer applies. Criterion #2 now states the Rust-only measure: the spec, proven by Rust tests written from it, and no TypeScript left.
+
+Lead (2026-11-25): AC #2 holds on main e027d1f (no gap row in docs/spec-coverage.md, guard passing, no TypeScript or Node file). AC #1 waits for R7 (TASK-55.8) and R8's 55.9.2.
 <!-- SECTION:NOTES:END -->
