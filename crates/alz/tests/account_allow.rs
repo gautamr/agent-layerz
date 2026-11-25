@@ -591,4 +591,526 @@ mod tests {
             "nothing but alz account allow changes the state"
         );
     }
+
+    /// The pinned world after `alz build` and a typed approval of the declaration: the state of
+    /// a person who cloned the repository and ran `alz account allow`. With `Some(text)` the
+    /// layer's `layer.yaml` is that text first, and its map names only `claude`.
+    fn approved(layer_yaml: Option<&str>) -> World {
+        let world = World::pinned();
+        for folder in [".claude-client-a", ".codex-client-a-api"] {
+            world
+                .scratch
+                .make_dir(format!("home/{folder}"))
+                .expect("made");
+        }
+        if let Some(text) = layer_yaml {
+            world
+                .scratch
+                .write("work/hub/layer/layer.yaml", text)
+                .expect("written");
+            world.commit_hub();
+        }
+        assert_eq!(world.plain(&["build"]).code, Some(0));
+        let mut run = world.on_terminal(&[], &["account", "allow"]);
+        run.wait_for_stderr("Type client-a ");
+        run.type_in(b"client-a\n");
+        if layer_yaml.is_none() {
+            run.wait_for_stderr("Type client-a-api ");
+            run.type_in(b"client-a-api\n");
+        }
+        assert_eq!(run.finish().code, Some(0));
+        world
+    }
+
+    /// Spec §13 item 20: in a fresh clone the tools start on the default account, and after
+    /// `allow` the named account applies; a ref bump of the declaring layer keeps it, because
+    /// the account is what is approved and not the layer's revision (§7.13).
+    #[test]
+    fn a_ref_bump_of_the_declaring_layer_keeps_the_approved_account() {
+        let world = approved(None);
+        let state = world.scratch.read_text(World::STATE_FILE).expect("read");
+        world
+            .scratch
+            .write(
+                "work/hub/layer/instructions/20-more.md",
+                "# More\n\nText.\n",
+            )
+            .expect("written");
+        world.hub_vcs(&["add", "-A"]);
+        world.hub_vcs(&["commit", "--quiet", "--message", "more"]);
+        world.hub_vcs(&["tag", "v2"]);
+        let manifest = world
+            .scratch
+            .read_text("work/repo/layer.yaml")
+            .expect("read");
+        world
+            .scratch
+            .write(
+                "work/repo/layer.yaml",
+                manifest.replace("ref: v1", "ref: v2"),
+            )
+            .expect("written");
+        let built = world.plain(&["build"]);
+        assert_eq!(built.code, Some(0), "{}", built.stderr);
+        let which = world.plain(&["account", "which"]);
+        assert_eq!(which.code, Some(0), "{}{}", which.stdout, which.stderr);
+        assert!(
+            which.stdout.contains("claude: client-a (source: layer)")
+                && which.stdout.contains("codex: client-a-api (source: layer)"),
+            "{}",
+            which.stdout
+        );
+        assert_eq!(
+            world.scratch.read_text(World::STATE_FILE).expect("read"),
+            state
+        );
+    }
+
+    const CACHE: &str = "home/.cache/agent-layerz";
+
+    /// How a test spoils what `alz build` left behind.
+    type Tamper = fn(&World);
+
+    /// The one index entry of the pinned layer, as a name below the cache.
+    fn index_entry(world: &World) -> String {
+        world
+            .scratch
+            .list(CACHE)
+            .into_iter()
+            .find(|name| name.starts_with("pathref@"))
+            .expect("an index entry")
+    }
+
+    /// `layer.lock` with each line that `change` returns a new text for replaced. `change` gets
+    /// the line and the line after it; the lock is pretty JSON with one key on each line.
+    fn rewrite_lock(world: &World, change: impl Fn(&str, Option<&str>) -> Option<String>) {
+        let lock = world
+            .scratch
+            .read_text("work/repo/layer.lock")
+            .expect("read");
+        let lines: Vec<&str> = lock.lines().collect();
+        let rewritten = lines
+            .iter()
+            .enumerate()
+            .map(|(at, line)| {
+                change(line, lines.get(at + 1).copied()).unwrap_or_else(|| (*line).to_owned())
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        world
+            .scratch
+            .write("work/repo/layer.lock", format!("{rewritten}\n"))
+            .expect("written");
+    }
+
+    fn spoil_lock_sha(world: &World) {
+        rewrite_lock(world, |line, _| {
+            line.trim_start()
+                .starts_with("\"sha\": ")
+                .then(|| format!("      \"sha\": \"{}\",", "z".repeat(40)))
+        });
+    }
+
+    fn spoil_lock_content_hash(world: &World) {
+        rewrite_lock(world, |line, next| {
+            (line.trim_start().starts_with("\"contentHash\": ")
+                && next.is_some_and(|next| next.contains("\"name\": \"client\"")))
+            .then(|| format!("      \"contentHash\": \"sha256:{}\",", "0".repeat(64)))
+        });
+    }
+
+    fn move_index_to_another_path(world: &World) {
+        let name = index_entry(world);
+        let (_, sha) = name.rsplit_once('-').expect("a sha");
+        world
+            .scratch
+            .rename(
+                format!("{CACHE}/{name}"),
+                format!("{CACHE}/pathref@{}-{sha}", "0".repeat(64)),
+            )
+            .expect("renamed");
+    }
+
+    fn malform_index(world: &World) {
+        let name = index_entry(world);
+        world
+            .scratch
+            .write(format!("{CACHE}/{name}"), "not an id\n")
+            .expect("written");
+    }
+
+    fn link_index(world: &World) {
+        let name = index_entry(world);
+        let content = world
+            .scratch
+            .read_text(format!("{CACHE}/{name}"))
+            .expect("read");
+        world.scratch.write("elsewhere", content).expect("written");
+        world
+            .scratch
+            .remove_file(format!("{CACHE}/{name}"))
+            .expect("removed");
+        world
+            .scratch
+            .make_link(format!("{CACHE}/{name}"), world.scratch.join("elsewhere"))
+            .expect("linked");
+    }
+
+    /// Spec §13 item 20: a pinned `path:` layer resolves through the cache index; a lock `sha`
+    /// that is not hex, an index entry for another path, a malformed index entry, a symlinked
+    /// index entry and a layer whose content hash differs from the lock are each a cache miss
+    /// through `alz account which`, and the hint says only to run `alz build`.
+    #[test]
+    fn each_cache_miss_of_a_pinned_layer_fails_closed_and_the_hint_says_only_to_run_build() {
+        let cases: [(&str, Tamper, &str); 5] = [
+            (
+                "a lock sha that is not hex",
+                spoil_lock_sha,
+                "layer.lock cannot be read",
+            ),
+            (
+                "an index entry for another path",
+                move_index_to_another_path,
+                "the cache index entry is missing",
+            ),
+            (
+                "a malformed index entry",
+                malform_index,
+                "the cache index entry is not valid",
+            ),
+            (
+                "a symlinked index entry",
+                link_index,
+                "the cache index entry is not valid",
+            ),
+            (
+                "a content hash that differs from the lock",
+                spoil_lock_content_hash,
+                "a layer no longer matches layer.lock",
+            ),
+        ];
+        for (what, tamper, reason) in cases {
+            let world = approved(None);
+            tamper(&world);
+            let which = world.plain(&["account", "which"]);
+            assert_eq!(which.code, Some(1), "{what}: {}", which.stdout);
+            for target in ["claude", "codex"] {
+                assert!(
+                    which.stdout.contains(&format!("{target}: fails closed")),
+                    "{what}: {}",
+                    which.stdout
+                );
+            }
+            assert!(
+                which.stdout.contains(&format!(
+                    "layer step skipped (cache miss: {reason}); fails closed"
+                )),
+                "{what}: {}",
+                which.stdout
+            );
+            assert!(
+                which.stdout.contains("fix: alz build")
+                    && !which.stdout.contains("fix: alz account allow"),
+                "{what}: {}",
+                which.stdout
+            );
+        }
+    }
+
+    /// Spec §13 item 20: twelve `alz account allow` processes at once, for twelve repositories
+    /// that share one client layer, leave one entry per root in sorted order, and
+    /// `alz account allow --remove` removes only the entry of the root it runs in.
+    #[test]
+    fn twelve_concurrent_allows_leave_one_sorted_entry_per_root_and_remove_takes_only_its_own() {
+        let world = World::new();
+        let base = world.scratch.real_path().expect("a real path");
+        world.scratch.make_dir("client").expect("made");
+        world
+            .scratch
+            .write(
+                "client/layer.yaml",
+                "name: client\nkind: client\nvisibility: private\naccount: client-a\n",
+            )
+            .expect("written");
+        let roots: Vec<PathBuf> = (0..12)
+            .map(|number| base.join(format!("repos/repo-{number:02}")))
+            .collect();
+        for number in 0..12 {
+            let folder = format!("repos/repo-{number:02}");
+            world
+                .scratch
+                .make_dirs(format!("{folder}/.layer"))
+                .expect("made");
+            world
+                .scratch
+                .write(
+                    format!("{folder}/layer.yaml"),
+                    "stack:\n  - source: path:../../client\n  - source: path:./.layer\ntargets: [claude]\n",
+                )
+                .expect("written");
+            world
+                .scratch
+                .write(
+                    format!("{folder}/.layer/layer.yaml"),
+                    "name: shop-api\nkind: repo\nvisibility: private\n",
+                )
+                .expect("written");
+        }
+        for root in &roots {
+            let alz = Command::new(cargo_bin_cmd!("alz").get_program());
+            let built = world
+                .command(alz, &[], &["build"])
+                .current_dir(root)
+                .stdin(Stdio::null())
+                .output()
+                .expect("alz runs");
+            assert!(built.status.success(), "{:?}", built.stderr);
+        }
+        let on_terminal_in = |root: &Path, args: &[&str]| -> Running {
+            let alz = cargo_bin_cmd!("alz");
+            let mut command = Command::new(pty_run_executable().expect("the driver is built"));
+            command
+                .args(["--deadline-ms", "60000", "--"])
+                .arg(alz.get_program());
+            let mut command = world.command(command, &[], args);
+            command.current_dir(root);
+            Running::start(command)
+        };
+        let mut running: Vec<Running> = roots
+            .iter()
+            .map(|root| on_terminal_in(root, &["account", "allow"]))
+            .collect();
+        for run in &mut running {
+            run.wait_for_stderr("Type client-a ");
+        }
+        for run in &mut running {
+            run.type_in(b"client-a\n");
+        }
+        for run in running {
+            let finished = run.finish();
+            assert_eq!(finished.code, Some(0), "{}", finished.stderr);
+        }
+        let entries = |text: &str| -> Vec<String> {
+            text.lines()
+                .filter_map(|line| line.strip_prefix("- root: "))
+                .map(str::to_owned)
+                .collect()
+        };
+        let expected: Vec<String> = roots
+            .iter()
+            .map(|root| root.display().to_string())
+            .collect();
+        let state = world.scratch.read_text(World::STATE_FILE).expect("read");
+        assert_eq!(entries(&state), expected, "{state}");
+
+        let removed = roots.get(5).expect("a sixth root");
+        let mut run = on_terminal_in(removed, &["account", "allow", "--remove"]);
+        run.wait_for_stderr("Type client-a to remove it for");
+        run.type_in(b"client-a\n");
+        let finished = run.finish();
+        assert_eq!(finished.code, Some(0), "{}", finished.stderr);
+        let after = world.scratch.read_text(World::STATE_FILE).expect("read");
+        let without: Vec<String> = expected
+            .iter()
+            .filter(|root| **root != removed.display().to_string())
+            .cloned()
+            .collect();
+        assert_eq!(entries(&after), without, "{after}");
+    }
+
+    /// Spec §13 item 24 (TASK-50.11): a declaration made by the repository's own layer is never
+    /// offered by `alz account allow`: it is printed as a warning and not asked about, whether
+    /// or not an external client layer declares as well, and nothing but the confirmed client
+    /// account is written.
+    #[test]
+    fn the_repository_layers_own_declaration_is_refused_by_allow_and_never_offered() {
+        const REPO_DECLARES: &str =
+            "name: shop-api\nkind: repo\nvisibility: private\naccount: client-b\n";
+        let alone = World::new();
+        assert_eq!(alone.plain(&["build"]).code, Some(0));
+        alone
+            .scratch
+            .write("repo/.layer/layer.yaml", REPO_DECLARES)
+            .expect("written");
+        let finished = alone.on_terminal(&[], &["account", "allow"]).finish();
+        assert_eq!(finished.code, Some(1), "{}", finished.stderr);
+        assert!(
+            finished
+                .stderr
+                .contains("warning [account-declaration-ignored] the layer \"shop-api\"")
+                && finished
+                    .stderr
+                    .contains("error [account-allow] the layers name no account here")
+                && !finished.stderr.contains("Type "),
+            "{}",
+            finished.stderr
+        );
+        assert!(
+            !alone.scratch.exists(World::STATE_FILE),
+            "nothing is offered, so nothing is written"
+        );
+
+        let world = World::new();
+        world.scratch.make_dir("client").expect("made");
+        world
+            .scratch
+            .write(
+                "client/layer.yaml",
+                "name: client\nkind: client\nvisibility: private\naccount: client-a\n",
+            )
+            .expect("written");
+        world
+            .scratch
+            .write(
+                "repo/layer.yaml",
+                "stack:\n  - source: path:../client\n  - source: path:./.layer\ntargets: [claude]\n",
+            )
+            .expect("written");
+        assert_eq!(world.plain(&["build"]).code, Some(0));
+        world
+            .scratch
+            .write("repo/.layer/layer.yaml", REPO_DECLARES)
+            .expect("written");
+        let mut run = world.on_terminal(&[], &["account", "allow"]);
+        run.wait_for_stderr("Type client-a ");
+        run.type_in(b"client-a\n");
+        let finished = run.finish();
+        assert_eq!(finished.code, Some(0), "{}", finished.stderr);
+        assert!(
+            finished
+                .stderr
+                .contains("warning [account-declaration-ignored] the layer \"shop-api\"")
+                && !finished.stderr.contains("client-b")
+                && !finished.stdout.contains("client-b"),
+            "{}",
+            finished.stderr
+        );
+        let state = world.scratch.read_text(World::STATE_FILE).expect("read");
+        assert!(
+            state.contains("claude: client-a") && !state.contains("client-b"),
+            "{state}"
+        );
+    }
+
+    /// Spec §13 item 24 (TASK-50.11): the source of an external client layer is shown quoted
+    /// before the prompt, and a hub folder whose name holds ESC, a zero-width character and a
+    /// look-alike letter prints no control character: each is `\u{XXXX}`.
+    #[test]
+    fn a_hub_folder_name_with_control_characters_is_shown_quoted_and_escaped_by_allow() {
+        let world = World::new();
+        let hub = "hub\u{1b}[31m\u{200b}\u{430}";
+        world.scratch.make_dir(hub).expect("made");
+        world
+            .scratch
+            .write(
+                format!("{hub}/layer.yaml"),
+                "name: client\nkind: client\nvisibility: private\naccount: client-a\n",
+            )
+            .expect("written");
+        world
+            .scratch
+            .write(
+                "repo/layer.yaml",
+                "stack:\n  - source: path:../link\n  - source: path:./.layer\ntargets: [claude]\n",
+            )
+            .expect("written");
+        world
+            .scratch
+            .make_link("link", world.scratch.join(hub))
+            .expect("linked");
+        let built = world.plain(&["build"]);
+        assert_eq!(built.code, Some(0), "{}", built.stderr);
+        let mut run = world.on_terminal(&[], &["account", "allow"]);
+        run.wait_for_stderr("Type client-a ");
+        run.type_in(b"nope\n");
+        let finished = run.finish();
+        assert_eq!(finished.code, Some(1), "{}", finished.stderr);
+        let real = world.scratch.real_path().expect("a real path");
+        let quoted = format!(
+            "\"{}/hub\\u{{001B}}[31m\\u{{200B}}\\u{{0430}}\"",
+            real.display()
+        );
+        assert!(
+            finished
+                .stdout
+                .contains(&format!("recorded source: {quoted}")),
+            "{}",
+            finished.stdout
+        );
+        assert!(
+            finished.stderr.contains(&format!("(source {quoted})")),
+            "{}",
+            finished.stderr
+        );
+        let shown = format!("{}{}", finished.stdout, finished.stderr);
+        assert!(
+            !shown
+                .chars()
+                .any(|character| character.is_control() && !matches!(character, '\n' | '\r'))
+                && !shown.contains(['\u{200b}', '\u{430}']),
+            "{shown:?}"
+        );
+        assert!(
+            !world.scratch.exists(World::STATE_FILE),
+            "a wrong answer writes nothing"
+        );
+    }
+
+    /// Spec §13 item 20: a changed per-target map, a target added or removed included, skips
+    /// step 4 for every target, and `alz account which` warns with the old and new values.
+    #[test]
+    fn a_target_added_or_removed_skips_the_layer_step_for_every_target() {
+        const BOTH: &str = "name: client\nkind: client\nvisibility: private\nversion: 0.1.0\naccount:\n  claude: client-a\n  codex: client-a-api\n";
+        const CLAUDE_ONLY: &str = "name: client\nkind: client\nvisibility: private\nversion: 0.1.0\naccount:\n  claude: client-a\n";
+        const OLD_BOTH: &str = "claude=client-a, codex=client-a-api";
+        const NEW_ONE: &str = "claude=client-a";
+        let cases = [
+            ("a target removed", None, CLAUDE_ONLY, OLD_BOTH, NEW_ONE),
+            ("a target added", Some(CLAUDE_ONLY), BOTH, NEW_ONE, OLD_BOTH),
+        ];
+        for (what, approved_text, changed, old, new) in cases {
+            let world = approved(approved_text);
+            let state = world.scratch.read_text(World::STATE_FILE).expect("read");
+            world
+                .scratch
+                .write("work/hub/layer/layer.yaml", changed)
+                .expect("written");
+            world.commit_hub();
+            assert_eq!(world.plain(&["build"]).code, Some(0), "{what}");
+            let which = world.plain(&["account", "which"]);
+            assert_eq!(
+                which.code,
+                Some(1),
+                "{what}: {}{}",
+                which.stdout,
+                which.stderr
+            );
+            for target in ["claude", "codex"] {
+                assert!(
+                    which.stdout.contains(&format!("{target}: fails closed")),
+                    "{what}: {}",
+                    which.stdout
+                );
+            }
+            assert!(
+                !which.stdout.contains("client-a (source: layer)")
+                    && !which.stdout.contains("client-a-api (source: layer)"),
+                "{what}: {}",
+                which.stdout
+            );
+            assert!(
+                which.stderr.contains("warning [account-changed]")
+                    && which.stderr.contains(&format!("was {old} from"))
+                    && which.stderr.contains(&format!("now {new} from")),
+                "{what}: {}",
+                which.stderr
+            );
+            assert!(which.stdout.contains("fix: alz account allow"), "{what}");
+            assert_eq!(
+                world.scratch.read_text(World::STATE_FILE).expect("read"),
+                state,
+                "{what}"
+            );
+        }
+    }
 }

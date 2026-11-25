@@ -268,4 +268,136 @@ mod tests {
         let run = allowed.alz(&["build"], None);
         assert_eq!(run.code, 0, "{}", run.stderr);
     }
+
+    /// Spec §13 item 24: a `client` layer reached through a link inside the repository that
+    /// declares `account` fails the build and names the layer, and nothing is written.
+    #[test]
+    fn a_client_layer_reached_through_a_link_inside_the_repository_may_not_declare_an_account() {
+        let world = World::new(&["../personal", "./linked", "./.layer"], &["client"]);
+        world
+            .scratch
+            .make_link("work/repo/linked", world.scratch.join("work/client"))
+            .expect("linked");
+        let before = world.tree();
+        let run = world.alz(&["build"], None);
+        assert_eq!(run.code, 1, "{}", run.stderr);
+        assert!(
+            run.stderr
+                .lines()
+                .any(|line| line.starts_with("error [account]") && line.contains("client")),
+            "{}",
+            run.stderr
+        );
+        assert_eq!(world.tree(), before, "nothing is written");
+    }
+
+    /// Spec §13 item 24: a Codex `shell_environment_policy` whose `filters` entry not set to
+    /// `include` matches a protected variable fails the build and names the layer, also under a
+    /// profile; an entry set to `include`, or one that matches no protected name, builds.
+    #[test]
+    fn a_codex_filters_entry_that_is_not_include_and_matches_an_account_variable_fails() {
+        let refused = [
+            "codex:\n  shell_environment_policy:\n    filters:\n      \"*home*\": exclude\n",
+            "codex:\n  shell_environment_policy:\n    filters:\n      \"XDG_?????_HOME\": exclude\n",
+            "codex:\n  profiles:\n    work:\n      shell_environment_policy:\n        filters:\n          \"CODEX_HOME\": exclude\n",
+        ];
+        for text in refused {
+            let world = World::new(&CLIENT_STACK, &[]);
+            world
+                .scratch
+                .write("work/repo/.layer/settings.yaml", text)
+                .expect("written");
+            let before = world.tree();
+            let run = world.alz(&["build"], None);
+            assert_eq!(run.code, 1, "{text}: {}", run.stderr);
+            assert!(
+                run.stderr.contains("error [protected-variable]") && run.stderr.contains("repo"),
+                "{text}: {}",
+                run.stderr
+            );
+            assert_eq!(world.tree(), before, "{text}: nothing is written");
+        }
+        let allowed = [
+            "codex:\n  shell_environment_policy:\n    filters:\n      \"*home*\": include\n",
+            "codex:\n  shell_environment_policy:\n    filters:\n      \"SECRET_*\": exclude\n",
+        ];
+        for text in allowed {
+            let world = World::new(&CLIENT_STACK, &[]);
+            world
+                .scratch
+                .write("work/repo/.layer/settings.yaml", text)
+                .expect("written");
+            let run = world.alz(&["build"], None);
+            assert_eq!(run.code, 0, "{text}: {}", run.stderr);
+        }
+    }
+
+    /// Spec §13 item 24 (§7.11): a passthrough settings file, `.mcp.json`, plugin manifest or
+    /// agent that sets a protected variable fails the build and names the layer, at any depth
+    /// and whatever its target; the same files without one build.
+    #[test]
+    fn a_passthrough_file_of_any_depth_or_target_that_sets_an_account_variable_fails() {
+        const SETTINGS: &str = "{\"env\":{\"HOME\":\"x\"}}\n";
+        const MCP: &str = "{\"mcpServers\":{\"a\":{\"env\":{\"XDG_STATE_HOME\":\"x\"}}}}\n";
+        const AGENT: &str =
+            "---\nname: a\nmcpServers:\n  s:\n    env:\n      CODEX_HOME: x\n---\nbody\n";
+        let refused: [(&str, &str); 9] = [
+            (".layer/targets/claude/.claude/settings.json", SETTINGS),
+            (
+                ".layer/targets/claude/.claude/settings.local.json",
+                SETTINGS,
+            ),
+            (
+                ".layer/targets/claude/a/b/c/.claude/settings.json",
+                SETTINGS,
+            ),
+            (".layer/targets/claude/a/b/.mcp.json", MCP),
+            (".layer/targets/claude/x/.claude-plugin/plugin.json", MCP),
+            (".layer/targets/claude/.claude/agents/team/deep/a.md", AGENT),
+            (".layer/targets/codex/.claude/settings.json", SETTINGS),
+            (".layer/targets/codex/sub/.mcp.json", MCP),
+            (".layer/targets/codex/.claude/agents/a.md", AGENT),
+        ];
+        for (file, text) in refused {
+            let world = World::new(&CLIENT_STACK, &[]);
+            world
+                .scratch
+                .make_dirs(
+                    Path::new(&format!("work/repo/{file}"))
+                        .parent()
+                        .expect("a parent"),
+                )
+                .expect("made");
+            world
+                .scratch
+                .write(format!("work/repo/{file}"), text)
+                .expect("written");
+            let before = world.tree();
+            let run = world.alz(&["build"], None);
+            assert_eq!(run.code, 1, "{file}: {}", run.stderr);
+            assert!(
+                run.stderr
+                    .lines()
+                    .any(|line| line.starts_with("error [protected-variable]")
+                        && line.contains("repo")),
+                "{file}: {}",
+                run.stderr
+            );
+            assert_eq!(world.tree(), before, "{file}: nothing is written");
+        }
+        let world = World::new(&CLIENT_STACK, &[]);
+        world
+            .scratch
+            .make_dirs("work/repo/.layer/targets/claude/.claude")
+            .expect("made");
+        world
+            .scratch
+            .write(
+                "work/repo/.layer/targets/claude/.claude/settings.json",
+                "{\"env\":{\"FOO\":\"x\"}}\n",
+            )
+            .expect("written");
+        let run = world.alz(&["build"], None);
+        assert_eq!(run.code, 0, "{}", run.stderr);
+    }
 }
