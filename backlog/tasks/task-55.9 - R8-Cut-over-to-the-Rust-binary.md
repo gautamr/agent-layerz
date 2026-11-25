@@ -1,10 +1,10 @@
 ---
 id: TASK-55.9
 title: 'R8: Cut over to the Rust binary'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-25T18:12:00Z'
+updated_date: '2026-11-25T19:12:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -23,7 +23,7 @@ doc-5 phase R8, re-scoped by decision-39: alz becomes Rust only. Rust tests writ
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every subtask is Done
+- [x] #1 Every subtask is Done
 - [x] #2 git ls-files lists no .ts, .mts, .cts, .js, .mjs or .cjs file, no package.json, package-lock.json, tsconfig.json, biome.json or vitest.config.ts, and nothing under src/ or test/ (grep)
 - [x] #3 docs/spec-coverage.md maps every heading, rule paragraph and §13 item of the spec to Rust tests with no gap row, and its guard test passes in mise run rust:check
 - [x] #4 mise run alz:check passes with the Rust binary, and no mise task, hook or CI job runs npm, npx or node (grep)
@@ -54,3 +54,9 @@ Last gaps: section 10.3 alz build covered (TASK-102 texts); section 10.3 the com
 
 Lead (2026-11-25), on main e027d1f: git ls-files lists no TypeScript, JavaScript or Node package file; docs/spec-coverage.md has 192 anchors, 158 covered, 24 n/a, 10 planned, 0 gap, and its guard passes; mise run alz:check passes with the Rust binary; no mise task, hook or CI job runs npm, npx or node (only the npm deny rules remain, on purpose, until the package is unpublished). AC #1 waits for 55.9.2, whose CI guard needs TASK-13 (the personal layer published).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+R8: alz is Rust only. All TypeScript is deleted; this repository's agent config, mise tasks, hooks and CI are Rust only; the spec states only what alz does; every requirement of the spec is proven by Rust tests (docs/spec-coverage.md: 158 covered, 24 n/a, 10 planned, 0 gap); the personal layer is public and stacked from GitHub.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -1,11 +1,11 @@
 ---
 id: TASK-13
 title: 'Publish the personal layer and stack it through github:'
-status: To Do
+status: Done
 assignee:
   - '@gautamr'
 created_date: '2026-11-19T17:13:00Z'
-updated_date: '2026-11-25T18:56:00Z'
+updated_date: '2026-11-25T19:11:00Z'
 labels:
   - owner:human
   - area:repo
@@ -27,7 +27,7 @@ This repository stacks the personal layer as path:../agent-layerz-personal, whic
 - [x] #1 The personal layer contains no client or private names
 - [x] #2 The personal layer is public on GitHub with a v0.1.0 or later tag
 - [x] #3 This repository's layer.yaml uses github:gautamr/agent-layerz-personal@<tag>
-- [ ] #4 alz check passes in a fresh clone
+- [x] #4 alz check passes in a fresh clone
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -39,3 +39,9 @@ This repository stacks the personal layer as path:../agent-layerz-personal, whic
 
 Lead (2026-11-26, owner asked): the personal layer is public at github.com/gautamr/agent-layerz-personal as one fresh commit db9c037 tagged v0.5.0, authored by the noreply identity. Its earlier local history held a leak-guard list naming clients and an earlier author address, so (owner's choice) it was not pushed; it stays in a local backup branch. The names list left the layer (owner: move to a private user file, TASK below). Provenance notes about the retired setup were removed. This repository stacks github:gautamr/agent-layerz-personal@v0.5.0; alz build regenerated 32 files (provenance labels only). AC #4 is proven by a fresh clone and CI's agent-config job.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The personal layer is public (github:gautamr/agent-layerz-personal@v0.5.0, one clean commit) and this repository stacks it; alz check passes in a fresh clone and in CI's agent-config job. Merged in #36.
+<!-- SECTION:FINAL_SUMMARY:END -->
