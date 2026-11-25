@@ -318,7 +318,9 @@ fn read_file(
                 Diagnostics::new().with(Diagnostic::error(
                     Code::Rule,
                     Some(at),
-                    Message::new("paths is required; always-loaded text belongs in instructions/"),
+                    Message::new(
+                        "'paths' is required; always-loaded text belongs in instructions/",
+                    ),
                 ))
             })?,
     };

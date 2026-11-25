@@ -182,6 +182,73 @@ fn an_empty_tools_list_and_a_non_claude_model_are_the_error_claude_agent() {
     );
 }
 
+const ROUTING: &str = "aliases:\n  strong:\n    claude: opus\n  fast:\n    claude: sonnet\nroles:\n  planning: strong\n";
+
+/// §7.8: an agent's `model: inherit` resolves through its `role`, a role with no alias leaves the
+/// agent on the session's model, and an explicit alias overrides the role. The file holds the
+/// concrete id of the routing, never the alias.
+#[test]
+fn an_agent_model_resolves_through_its_role_and_an_explicit_alias_overrides_it() {
+    let files = one_layer(&[
+        ("models.yaml", ROUTING),
+        (
+            "agents/by-role.md",
+            "---\nname: by-role\ndescription: d\nrole: planning\nmodel: inherit\n---\nBody\n",
+        ),
+        (
+            "agents/by-role-only.md",
+            "---\nname: by-role-only\ndescription: d\nrole: planning\n---\nBody\n",
+        ),
+        (
+            "agents/explicit.md",
+            "---\nname: explicit\ndescription: d\nrole: planning\nmodel: fast\n---\nBody\n",
+        ),
+        (
+            "agents/no-role.md",
+            "---\nname: no-role\ndescription: d\nmodel: inherit\n---\nBody\n",
+        ),
+        (
+            "agents/unrouted.md",
+            "---\nname: unrouted\ndescription: d\nrole: research\nmodel: inherit\n---\nBody\n",
+        ),
+    ]);
+    assert_eq!(lines(files.diagnostics()), Vec::<String>::new());
+    let model_line = |name: &str| {
+        text_of(&files, &format!(".claude/agents/{name}.md"))
+            .lines()
+            .find(|line| line.starts_with("model:"))
+            .map(str::to_owned)
+    };
+    assert_eq!(model_line("by-role"), Some("model: opus".to_owned()));
+    assert_eq!(model_line("by-role-only"), Some("model: opus".to_owned()));
+    assert_eq!(model_line("explicit"), Some("model: sonnet".to_owned()));
+    assert_eq!(model_line("no-role"), None);
+    assert_eq!(model_line("unrouted"), None);
+}
+
+/// §8.1: an alias that has no model for Claude is a warning that names the alias and the agent,
+/// and the agent file holds no `model` line (the agent inherits the session's model).
+#[test]
+fn an_alias_without_a_claude_model_is_a_warning_and_the_agent_inherits() {
+    let files = one_layer(&[
+        (
+            "models.yaml",
+            "aliases:\n  codex-only:\n    codex: some-model\nroles:\n  planning: codex-only\n",
+        ),
+        (
+            "agents/a.md",
+            "---\nname: a\ndescription: d\nrole: planning\n---\nBody\n",
+        ),
+    ]);
+    assert_eq!(
+        lines(files.diagnostics()),
+        [
+            "warning [models] only:agents/a.md: alias 'codex-only' has no claude model; agent a inherits"
+        ]
+    );
+    assert!(!text_of(&files, ".claude/agents/a.md").contains("\nmodel:"));
+}
+
 #[test]
 fn tools_are_native_names_without_duplicates_and_a_scope_is_a_warning() {
     let files = one_layer(&[(

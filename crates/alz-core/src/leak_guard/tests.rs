@@ -224,6 +224,50 @@ fn an_escaped_or_classed_look_around_is_text_and_compiles() {
     }
 }
 
+/// §9.2 `forbid_patterns`: `\d`, `\s`, `\w` and `\b` are ASCII only, and `(?i)` folds ASCII
+/// letters only (decision-38).
+#[test]
+fn the_classes_and_the_case_folding_of_a_pattern_are_ascii_only() {
+    let matches = |pattern: &str, text: &str| {
+        // The text of `layer.yaml` is matched too, so only the lines about `a.md` count.
+        lines("public", &[pattern.to_owned()], &[("a.md", text)])
+            .iter()
+            .filter(|line| line.contains("shared:a.md:"))
+            .count()
+            == 1
+    };
+    // The ASCII cases match, so that a "no match" below is the rule and not a broken pattern.
+    assert!(matches(r"^\w+$", "a_Z9"));
+    assert!(matches(r"^\d$", "7"));
+    assert!(matches(r"^\s$", " "));
+    assert!(matches(r"(?i)acme", "ACME"));
+    // The Unicode cases do not.
+    assert!(
+        !matches(r"\w", "\u{e9}"),
+        "\\w holds no letter beyond ASCII"
+    );
+    assert!(
+        !matches(r"\d", "\u{663}"),
+        "\\d holds no digit beyond ASCII"
+    );
+    assert!(
+        !matches(r"\s", "\u{3000}\u{a0}"),
+        "\\s holds no space beyond ASCII"
+    );
+    assert!(
+        matches(r"\bb", "\u{e9}b"),
+        "\\b sees a letter beyond ASCII as no word character"
+    );
+    assert!(
+        !matches("(?i)\u{e9}", "\u{c9}"),
+        "(?i) folds no letter beyond ASCII"
+    );
+    assert!(
+        !matches(r"(?i)k", "\u{212a}"),
+        "(?i) folds no letter beyond ASCII"
+    );
+}
+
 #[test]
 fn an_entry_that_does_not_compile_is_refused_by_its_number() {
     let found = lines(

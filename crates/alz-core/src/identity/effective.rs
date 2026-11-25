@@ -122,6 +122,25 @@ mod tests {
         assert!(!compare("Owner Example <Owner@example.com> 1 +0000").matches());
     }
 
+    /// §9.4 Effective identity: an error from `git var` counts as a mismatch, and `git var`
+    /// output that is not valid UTF-8 counts as differing in both name and email, even where the
+    /// bytes read as the declared identity up to one invalid byte.
+    #[test]
+    fn a_git_error_and_output_that_is_not_utf8_differ_in_both_name_and_email() {
+        let mut not_utf8 = b"Owner Example <owner@example.com> 1700000000 +0200\n".to_vec();
+        not_utf8.splice(5..5, [0xff]);
+        for output in [
+            None,
+            Some(not_utf8.as_slice()),
+            Some([0xff, 0xfe].as_slice()),
+        ] {
+            let result = Effective::compare(output, &declared());
+            assert!(!result.matches(), "{output:?}");
+            assert_eq!(result.of(Field::Name), Agreement::Different, "{output:?}");
+            assert_eq!(result.of(Field::Email), Agreement::Different, "{output:?}");
+        }
+    }
+
     #[test]
     fn anything_that_is_not_an_identity_line_differs_in_both_parts() {
         for text in [

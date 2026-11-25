@@ -1275,7 +1275,7 @@ Rules:
   security floors.
 - Hook scripts are copied to `.claude/hooks/<layer>/…` (or the target's equivalent) and
   referenced through the project-dir variable, never by absolute path.
-- A hook event a target doesn't support becomes a build **warning** for that target. The
+- (Planned, TASK-101.) A hook event a target doesn't support becomes a build **warning** for that target. The
   report lists which guardrails fall back to pre-commit/CI.
 - `id` is any text with a visible character. A diagnostic prints it as a quoted key (§10.1).
 - `timeout` is a positive whole number of seconds (TASK-55.5.8).

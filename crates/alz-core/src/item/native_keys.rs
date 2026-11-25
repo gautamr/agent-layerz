@@ -602,4 +602,6 @@ fn descend(
 }
 
 #[cfg(test)]
+mod spec_lists;
+#[cfg(test)]
 mod tests;

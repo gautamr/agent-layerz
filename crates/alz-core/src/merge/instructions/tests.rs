@@ -313,6 +313,40 @@ fn a_block_without_text_is_dropped_but_can_still_be_replaced() {
     );
 }
 
+/// §7.1: the text of a block is trimmed of Unicode `White_Space` at both ends (U+00A0 and U+3000
+/// included), a block that is empty after trimming is dropped, and U+FEFF is not `White_Space`,
+/// so it is kept.
+#[test]
+fn a_block_is_trimmed_of_unicode_white_space_and_keeps_u_feff() {
+    let model = merged_model(vec![layer(
+        "personal",
+        "personal",
+        &[
+            (
+                "instructions/00-padded.md",
+                "\u{a0}\u{3000} \nbody\u{a0}text\n\u{3000}\u{a0}\n",
+            ),
+            ("instructions/10-only-space.md", "\u{a0}\u{3000}\u{2003}\n"),
+            ("instructions/20-bom.md", "\u{feff}kept\u{feff}\n"),
+        ],
+    )]);
+    assert_eq!(
+        blocks(&model),
+        [
+            (
+                "## Personal: personal".to_owned(),
+                "instructions/00-padded.md".to_owned(),
+                "body\u{a0}text".to_owned()
+            ),
+            (
+                "## Personal: personal".to_owned(),
+                "instructions/20-bom.md".to_owned(),
+                "\u{feff}kept\u{feff}".to_owned()
+            ),
+        ]
+    );
+}
+
 #[test]
 fn files_of_a_layer_are_in_code_point_order_of_the_whole_file_name() {
     let model = merged_model(vec![layer(
