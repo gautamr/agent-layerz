@@ -4,7 +4,7 @@ title: 'R8: Cut over to the Rust binary'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-25T17:56:00Z'
+updated_date: '2026-11-25T18:12:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -24,9 +24,9 @@ doc-5 phase R8, re-scoped by decision-39: alz becomes Rust only. Rust tests writ
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every subtask is Done
-- [ ] #2 git ls-files lists no .ts, .mts, .cts, .js, .mjs or .cjs file, no package.json, package-lock.json, tsconfig.json, biome.json or vitest.config.ts, and nothing under src/ or test/ (grep)
-- [ ] #3 docs/spec-coverage.md maps every heading, rule paragraph and §13 item of the spec to Rust tests with no gap row, and its guard test passes in mise run rust:check
-- [ ] #4 mise run alz:check passes with the Rust binary, and no mise task, hook or CI job runs npm, npx or node (grep)
+- [x] #2 git ls-files lists no .ts, .mts, .cts, .js, .mjs or .cjs file, no package.json, package-lock.json, tsconfig.json, biome.json or vitest.config.ts, and nothing under src/ or test/ (grep)
+- [x] #3 docs/spec-coverage.md maps every heading, rule paragraph and §13 item of the spec to Rust tests with no gap row, and its guard test passes in mise run rust:check
+- [x] #4 mise run alz:check passes with the Rust binary, and no mise task, hook or CI job runs npm, npx or node (grep)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -51,4 +51,6 @@ Section 10 gaps closed (branch test/gaps-10-task-55.9). Covered now: section 10 
 Gap rows closed (ls, explain, doctor, 13.12, 13.19), mise run rust:ci green. New tests: crates/alz/tests/ls_live_probe.rs (probe arguments recorded by a fake claude, cwd, no stdin, PATH rules incl. relative entries and relative ALZ_CLAUDE_BIN refused, bare name looked up on PATH, cannot start, skill not loaded, plugin skill names with a colon left out, 6 MB output past the cap, hooks in stack order and servers in mcp.enable order, 13.12 ls --live under two account folders), crates/alz/tests/explain_actions.rs (hook and server actions, format characters stripped, tab kept), crates/alz/tests/doctor_report.rs (agent collision, CLAUDE.md note, ancestors, client root git repo, build line with indented diagnostics, no collision when the build has an error), account_resolution.rs (an unusable layer.yaml: allowed root fails closed on the blocked folder for claude and codex, not-allowed root gets the default, 7 kinds). alz-io: unit tests for the 180 s and 10 s deadlines and the 4 MiB and 64 KiB caps plus the timeout message (no seam in the binary), and an integration test of the probe caps. Code change: crates/alz/src/command/ls.rs extracts require_claude so the --live needs the claude target check is unit-tested (no manifest can name only codex yet: the codex adapter is TASK-18). A raw control character cannot reach the merged text of explain through a layer (the reader refuses it, YAML escapes are refused too); the strip of ESC and CR is proven on terminal_text::strip_untrusted_keeping_layout.
 
 Last gaps: section 10.3 alz build covered (TASK-102 texts); section 10.3 the commit identity step covered through the PlaceChecks seam (crates/alz-io/src/git/repository.rs, RepositoryGit::set_up_checked_by; test crates/alz/tests/repository_git.rs::a_failed_check_before_the_second_write_...). Section 6 Steps 3 to 7: step 5 (four checks) and step 7 (a write that fails part way) proven through the binary in crates/alz/tests/build_steps.rs; the row stays a gap only because step 6 says 'into a temp dir' while the build renders in memory (section 10.3 alz check says 'Rebuild in memory'): the owner decides the wording. Matrix: 157 covered, 24 n/a, 10 planned, 1 gap of 192. rust:ci passes.
+
+Lead (2026-11-25), on main e027d1f: git ls-files lists no TypeScript, JavaScript or Node package file; docs/spec-coverage.md has 192 anchors, 158 covered, 24 n/a, 10 planned, 0 gap, and its guard passes; mise run alz:check passes with the Rust binary; no mise task, hook or CI job runs npm, npx or node (only the npm deny rules remain, on purpose, until the package is unpublished). AC #1 waits for 55.9.2, whose CI guard needs TASK-13 (the personal layer published).
 <!-- SECTION:NOTES:END -->
