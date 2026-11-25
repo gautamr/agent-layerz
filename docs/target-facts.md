@@ -1,8 +1,8 @@
 # target-facts.md — verified facts about Claude Code and Codex
 
-**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79); §15 added 2026-11-24 (cloud provider switches for the live probe, TASK-55.6.15); three §11 rows added 2026-11-24 (writing `.git/config`, TASK-55.7)
+**Date:** 2026-11-19; §10–§11 added 2026-11-21; §12 added 2026-11-22 (item 15 policy-pattern row added the same day, TASK-50.2); §13 added 2026-11-23 (security-relevant settings keys, TASK-76); §14 added 2026-11-24 (typed Claude settings keys and subagent frontmatter, TASK-79); §15 added 2026-11-24 (cloud provider switches for the live probe, TASK-55.6.15); three §11 rows added 2026-11-24 (writing `.git/config`, TASK-55.7); §5, §7 and §7b tables added 2026-11-25 (the skill fields, `.mcp.json` server keys and `permissions` keys the Claude adapter writes, TASK-97)
 **Spec checked:** `docs/LAYERING-SPEC.md` Draft v1, §12 only (items 8–9 added later the same day: §7c); §7.12/§9.4 commit identity (§10–§11 here); §7.13 account selection, §12 items 10–21 (§12 here)
-**Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155). §12: Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`), mise **2026.9.1**
+**Tools:** Claude Code **2.1.311** (`/opt/homebrew/bin/claude`), Codex CLI **0.169.0** (`/opt/homebrew/bin/codex`). §10–§11: Claude Code **2.1.323**, Codex CLI **0.169.0**, git **2.50.1** (Apple Git-155). §12: Claude Code **2.1.323**, Codex CLI **0.169.0** (source tag `rust-v0.169.0`), mise **2026.9.1**. The TASK-97 tables of §5, §7 and §7b: Claude Code **2.1.323**
 **Host:** macOS (Darwin 25.6.0), both installed through Homebrew casks
 
 ## How to read this
@@ -20,7 +20,7 @@ Each row says what the spec **requires/assumes**, what the tool **does now**, an
 
 ### 0. Sources
 
-- Claude: `code.claude.com/docs/en/{sub-agents,skills,hooks,memory,permissions}`
+- Claude: `code.claude.com/docs/en/{sub-agents,skills,hooks,memory,permissions}`; for the TASK-97 tables also `code.claude.com/docs/en/{skills,mcp,permissions,settings,settings-reference}.md`, fetched 2026-11-25
 - Codex: `learn.chatgpt.com/docs/{agent-configuration/agents-md,agent-configuration/subagents,config-file/config-reference,build-skills,hooks}` (the old `developers.openai.com/codex/*` URLs redirect there)
 
 ### 0.1 Test limits (read before trusting §1–§7)
@@ -113,6 +113,14 @@ Other Claude facts that touch the spec (DOCS):
 - Commands→skills flag is `disable-model-invocation: true` (description removed from context, cannot be preloaded, model calls are blocked). `user-invocable: false` is the inverse.
 - Skill frontmatter unknown fields are silently ignored (**SMOKE**: `unknownFutureField` on `proj-only` loaded).
 - Claude does **not** read `.agents/skills/`; Codex does not read `.claude/skills/` (DOCS). Both dirs are needed.
+
+Skill frontmatter fields the Claude adapter writes (spec §8.1, TASK-97), checked 2026-11-25 against `code.claude.com/docs/en/skills.md` (the frontmatter reference) and Claude Code 2.1.323. SMOKE: a throwaway project with `.claude/skills/probe-dir/SKILL.md` holding `name: marker-skill-name`, a `description`, an `argument-hint` and `disable-model-invocation: true`; `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders; `claude -p hi --max-turns 1 --output-format stream-json --verbose`, and the `init` event read (it is printed without a login). Nothing under `~/.claude*` was read or written.
+
+| Field | What Claude reads | Status |
+|---|---|---|
+| `name` of a skill's `SKILL.md` | Optional: the command name the `/` menu shows and that is typed, defaulting to the folder name; the folder name invokes the skill too. Refused in a name: `<`, `>`, control, zero-width, private-use, unassigned, direction-changing and unusual blank characters; `synced` and `anthropic-skills` are reserved. SMOKE: 2.1.323 lists the skill under its folder name (`probe-dir` in `skills` and `slash_commands` of the `init` event), not under a `name` that differs from it. alz writes `name` equal to the folder name (a skill's identity is its folder name and must match `name`), so both readings give the same command. | DOCS |
+| `description` of a skill's `SKILL.md` | Recommended: what the skill does and when to use it; Claude uses it to decide when to apply the skill. In a session the descriptions are loaded into context and the body only when the skill is invoked. Without it, the first non-empty line of the body is used. `description` and `when_to_use` together are cut at 1,536 characters in the skill listing. With `disable-model-invocation: true` (a command turned into a skill) the description is taken out of context (above). | DOCS |
+| `argument-hint` of a skill's `SKILL.md` | Optional: a hint shown during autocomplete for the expected arguments, e.g. `[issue-number]`. A `.claude/commands/` file takes the same fields except `name` and `paths`, so the field means the same for a command turned into a skill. | DOCS |
 
 ## 6. Codex 0.169.0 (spec §12.6, §7, §8.2)
 
@@ -241,6 +249,16 @@ CODEX_HOME=<tmp>/home-bad codex debug prompt-input hi   # exit 1, see rows above
 | Codex, trusted project, same cases | not testable here | UNVERIFIED |
 | Claude project `.mcp.json` | `claude mcp get` help: unapproved `.mcp.json` servers show `⏸ Pending approval` and are not connected, so generated servers stay off until approved (or pre-approved via settings; setting names not checked). | HELP |
 
+Claude `.mcp.json` server keys the adapter writes (spec §7.7, §8.1, TASK-97), checked 2026-11-25 against `code.claude.com/docs/en/mcp.md` and Claude Code 2.1.323. SMOKE: a throwaway project whose `.mcp.json` has a stdio server (`command` `/bin/sh`, `args` that write `$MARKER_ENV` to a marker file in the project, `env` `{"MARKER_ENV": "${PROBE_VALUE}"}`), an `http` and an `sse` server on `.invalid` hosts, and a server with a `url` and no `type`; `.claude/settings.json` with `enableAllProjectMcpServers: true`; `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders and `PROBE_VALUE=MARKER-MCP-ENV`; then `claude -p hi --max-turns 1 --output-format stream-json --verbose` (the `init` event) and `claude mcp get <id>` for each server. Neither needs a login. In the untrusted folder `claude mcp get` shows each server as `⏸ Pending approval`, while the `-p` run loaded them (DOCS: a `-p` run cannot show the approval prompt and loads project servers without asking).
+
+| Key | What Claude reads | Status |
+|---|---|---|
+| `.mcp.json` `mcpServers.<id>.command` | The program of a stdio server, run as a local process. SMOKE: `claude mcp get` shows `Command: /bin/sh`, and in the `-p` run the server ran (the marker file was written; it is `failed` in `mcp_servers`, as `sh` is no MCP server). `${VAR}` and `${VAR:-default}` expand in it (DOCS). | SMOKE |
+| `.mcp.json` `mcpServers.<id>.args` | The arguments of a stdio server, an array of strings. SMOKE: `claude mcp get` shows them as `Args:`, and the server ran with them. `${VAR}` expands in them (DOCS). | SMOKE |
+| `.mcp.json` `mcpServers.<id>.env` | Variables set for a stdio server, an object of names to strings. A value `${NAME}` expands from Claude's environment when the server starts, so the file holds no value. SMOKE: `claude mcp get` shows `MARKER_ENV=${PROBE_VALUE}` unexpanded, and the server wrote `MARKER-MCP-ENV`, the expanded value. DOCS: an unset variable without a default stays the text `${VAR}` and `claude mcp list` warns; an empty value counts as set. | SMOKE |
+| `.mcp.json` `mcpServers.<id>.type` | The transport: `stdio`, `http` (alias `streamable-http`), `sse` (deprecated), `ws`; an `sdk` entry is skipped (DOCS). An entry without `type` is read as stdio. SMOKE: `claude mcp get` shows `Type: stdio` for the server without a `type` and `Type: http` and `Type: sse` for the others; the server with a `url` and no `type` is not loaded (`No MCP server named "url-no-type"`, and it is not in `mcp_servers` of the `init` event). DOCS: Claude reports `MCP server "<name>" has a "url" but no "type"` for it; 2.1.323 printed nothing in the `-p` run. So `type` is needed for every URL server and may be left out for stdio, which is what the adapter writes. | SMOKE |
+| `.mcp.json` `mcpServers.<id>.url` | The endpoint of an `http`, `sse` or `ws` server. SMOKE: `claude mcp get` shows `URL: https://http-probe.invalid/mcp` and `URL: https://sse-probe.invalid/sse`, and both servers are in `mcp_servers` of the `init` event (`failed`: the hosts do not resolve). `${VAR}` expands in it; in a remote `url` and `headers` the credential variables of Claude Code and of cloud providers read as empty (DOCS). | SMOKE |
+
 ## 7b. Claude permissions (spec §7.6, §8.1) — DOCS (permissions page)
 
 - Rule syntax is `Tool(pattern)`: `Read(./.env)`, `Read(*.env)`, `Bash(git push *)`, `Edit(docs/**)`. Not `read:.env*`.
@@ -248,6 +266,14 @@ CODEX_HOME=<tmp>/home-bad codex debug prompt-input hi   # exit 1, see rows above
 - `Read` deny applies best-effort to Grep/Glob/`@file` mentions; Grep/Glob need `Read(...)` patterns, not `Grep(...)`.
 - Path anchoring: `//abs`, `~/`, `/x` = relative to the settings file's project root, `./x`/`x` = cwd; bare filenames follow gitignore semantics. `!pattern` carve-outs only work within the same settings source.
 - `PreToolUse` hook decisions do not bypass deny/ask rules.
+
+Keys of `permissions` the adapter writes (spec §7.6, §8.1, TASK-97), checked 2026-11-25 against `code.claude.com/docs/en/{permissions,settings,settings-reference}.md` and Claude Code 2.1.323. SMOKE: a project `.claude/settings.json` in a throwaway folder, `HOME` and `CLAUDE_CONFIG_DIR` set to empty throwaway folders, then `claude -p hi --max-turns 1`, which prints its settings messages before the login check. SMOKE proves the name, the type and the trust rule; what a rule does is DOCS.
+
+| Key | What Claude reads | Status |
+|---|---|---|
+| `permissions.allow` | An array of rules (syntax above); a matching call runs without a prompt. Any file; the lists of all settings files merge instead of one replacing another. In a project `.claude/settings.json` the rules apply only after the workspace trust dialog is accepted. SMOKE: the number `12345` gives `(permissions.allow): Expected array, but received number` and the file does not load; the malformed rule `"Bash(ls) x"` alone is skipped (`Invalid permission rule "Bash(ls) x" was skipped: Malformed Tool(content) rule`); in the untrusted folder the valid rule `"Read"` gives `Ignoring 1 permissions.allow entry from .claude/settings.json: this workspace has not been trusted`. | SMOKE |
+| `permissions.ask` | An array of rules; a matching call prompts, even when an allow rule matches it too. Any file; lists merge; applies without trust, as it only restricts. SMOKE: the same `Expected array` and skipped-rule messages, naming `permissions.ask`; the valid rule `"Bash(git push *)"` gave no trust message. | SMOKE |
+| `permissions.deny` | An array of rules; a matching call is blocked and no other file can allow it; a bare tool name removes the tool from Claude's context. Any file; lists merge; applies without trust. SMOKE: the same messages, naming `permissions.deny`; the valid rule `"Read(./.env*)"` gave no trust message. | SMOKE |
 
 ## 7c. Additional directories, path-scoped rules, agent memory (spec §12.8, §12.9) — DOCS
 
