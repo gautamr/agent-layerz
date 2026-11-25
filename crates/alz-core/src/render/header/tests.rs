@@ -16,6 +16,27 @@ fn file(label: LayerLabel, path: &str) -> SourceRef {
     SourceRef::layer_file(label, SafeRelPath::try_from(path).expect("a path")).expect("a source")
 }
 
+/// §4.3 "The header and its sources": `<rev>` is the entry's pin (the stack entry's `ref`) or else
+/// the layer's `version`, or nothing when there is neither. A layer with both is named by the pin.
+#[test]
+fn a_layer_is_named_by_its_pin_before_its_version_and_by_its_name_alone_without_either() {
+    use crate::merge::testing::layer_pinned;
+    let yaml = |version: &str| format!("name: lib\nkind: personal\nvisibility: public\n{version}");
+    let named = |yaml: &str, rev: Option<&str>| {
+        let layer = layer_pinned(yaml, &[], rev);
+        LayerLabel::of(&layer).expect("a label")
+    };
+    let versioned = yaml("version: 2.0.0\n");
+    for (label, expected) in [
+        (named(&versioned, Some("v9")), "lib@v9:instructions/a.md"),
+        (named(&versioned, None), "lib@2.0.0:instructions/a.md"),
+        (named(&yaml(""), None), "lib:instructions/a.md"),
+        (named(&yaml(""), Some("v9")), "lib@v9:instructions/a.md"),
+    ] {
+        assert_eq!(file(label, "instructions/a.md").to_string(), expected);
+    }
+}
+
 // The strings below are the headers that spec §10.3 gives for the same sources (the text header,
 // the HTML header and the frontmatter comment): the first three appear in
 // fixtures/02-instructions and 03-agent-overlay; the rest are written out by hand

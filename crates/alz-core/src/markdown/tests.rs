@@ -192,6 +192,21 @@ fn a_control_character_or_invalid_utf8_in_a_file_with_a_block_is_a_yaml_error() 
     ));
 }
 
+/// §4.1 "Markdown frontmatter": a file with no block is under neither the 1 MiB cap nor the
+/// control-character rule, so it may hold a control character, which a file with a block may not.
+#[test]
+fn a_file_without_a_block_may_hold_a_control_character() {
+    for text in [
+        "body \u{1b}[0m\n",
+        "a\u{0}b",
+        "# title\n\u{7}\n---\nx: 1\n---\n",
+    ] {
+        let doc = parse(text).expect("a control character is no error without a block");
+        assert!(doc.front().is_empty(), "{text:?}");
+        assert_eq!(doc.body().as_str(), text, "{text:?}");
+    }
+}
+
 #[test]
 fn a_file_without_a_block_that_is_not_utf8_is_refused() {
     assert_eq!(MarkdownDoc::parse(b"\xff"), Err(MarkdownError::NotUtf8));

@@ -105,6 +105,32 @@ proptest! {
     }
 }
 
+/// §4.5: `?` matches one Unicode scalar value within one segment, also one outside the Basic
+/// Multilingual Plane (a matcher over UTF-16 units or bytes would need two or more `?`).
+#[test]
+fn a_question_mark_matches_one_scalar_value_also_above_u_ffff_and_never_a_slash() {
+    let protected = Protected::new(&[], &[ProtectedPattern::from("notes/?.md")]);
+    // One ASCII letter, one letter in the BMP (two bytes), one in the BMP (three bytes) and one
+    // outside it (four bytes, a surrogate pair in UTF-16).
+    for letter in ["a", "\u{e9}", "\u{20ac}", "\u{1f600}", "\u{10348}"] {
+        assert!(
+            protected.covers(&path(&format!("notes/{letter}.md"))),
+            "one scalar value {letter:?}"
+        );
+    }
+    for text in [
+        "notes/.md",
+        "notes/ab.md",
+        "notes/\u{1f600}\u{1f600}.md",
+        "notes/a/b.md",
+    ] {
+        assert!(!protected.covers(&path(text)), "{text}");
+    }
+    let slash = Protected::new(&[], &[ProtectedPattern::from("a?b")]);
+    assert!(!slash.covers(&path("a/b")));
+    assert!(slash.covers(&path("a\u{1f600}b")));
+}
+
 #[test]
 fn a_protected_path_is_covered_in_either_unicode_spelling() {
     let protected = Protected::new(&[], &[ProtectedPattern::from("caf\u{e9}/**")]);

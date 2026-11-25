@@ -41,6 +41,21 @@ fn visibility_may_only_grow_along_the_stack() {
     assert!(ResolvedStack::validate(layers).is_ok());
 }
 
+/// §3.1: a layer may extend a layer whose visibility is the same, not only a more public one.
+#[test]
+fn a_layer_may_follow_a_layer_of_the_same_visibility() {
+    for visibility in ["public", "private", "confidential"] {
+        let layers = vec![
+            layer("path:../a", "a", visibility),
+            layer("path:../b", "b", visibility),
+        ];
+        assert!(
+            ResolvedStack::validate(layers).is_ok(),
+            "two {visibility} layers in a row"
+        );
+    }
+}
+
 #[test]
 fn a_public_layer_after_a_private_one_is_the_error_visibility_at_its_source() {
     let found = ResolvedStack::validate(vec![

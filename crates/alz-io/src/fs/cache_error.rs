@@ -125,7 +125,40 @@ fn entry_message(name: &EntryName, dir: Stripped) -> Message {
 mod tests {
     use alz_core::cache::CacheLocation;
 
+    use alz_core::cache::EntryName;
+
     use super::CacheError;
+
+    /// Spec §6 "The layer cache": the messages of an entry that another user owns and of one that
+    /// vanished, and the message of a root that cannot be opened. The owner is injected as the
+    /// error, since a test run by one user cannot make a folder that another user owns, and the
+    /// vanishing is a race. The message names no operating system error and strips the directory.
+    #[test]
+    fn an_entry_of_another_owner_a_vanished_entry_and_an_unusable_root_have_the_spec_text() {
+        let location = CacheLocation::from_env(Some("/h"), Some("/c\u{1b}[0m")).expect("root");
+        let name = || {
+            EntryName::try_from("tree2@0123456789abcdef0123456789abcdef01234567")
+                .expect("an entry name")
+        };
+        assert_eq!(
+            CacheError::EntryNotOwned(name())
+                .into_diagnostic(&location)
+                .to_string(),
+            "error [cache] cache entry tree2@0123456789abcdef0123456789abcdef01234567 in the layer cache at /c[0m/agent-layerz is not owned by you; delete it and run alz again"
+        );
+        assert_eq!(
+            CacheError::EntryVanished(name())
+                .into_diagnostic(&location)
+                .to_string(),
+            "error [cache] cache entry tree2@0123456789abcdef0123456789abcdef01234567 in the layer cache at /c[0m/agent-layerz was removed while alz used it; run alz again"
+        );
+        assert_eq!(
+            CacheError::TempEntryReplaced
+                .into_diagnostic(&location)
+                .to_string(),
+            "error [cache] cannot use the layer cache at /c[0m/agent-layerz"
+        );
+    }
 
     #[test]
     fn the_refusals_are_the_error_cache_with_the_spec_text() {
