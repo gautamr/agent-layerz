@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:15:00Z'
+updated_date: '2026-11-25T14:39:00Z'
 labels:
   - area:rust
   - area:test
@@ -41,4 +41,8 @@ From docs/spec-coverage.md (TASK-55.9.5): 1 gap row in §4 to §6: '§6' (the wh
 First split §6 into anchors (### headings or bold leads, no change of meaning), then audit it (from 55.9.5).
 
 Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+
+Implementation (gap-4-6-work): §6 split into 14 anchors with bold leads (dedented the step-1 body by 3 columns so leads sit at column 0; added leads Pinned path: layers., The index entry., Writing and verifying an entry., Changes in 0.x., Validating the stack., Steps 3 to 7., Determinism.; existing leads The layer cache, Layers in or around an account folder, A failed fetch, Git subprocesses, Other messages of resolution, Name order. now anchor too). AC1: no gap row in §4-§6 (spec_coverage guard passes). New tests: alz/tests/resolution_messages.rs (5), alz/tests/cache_integrity.rs (2, fixture 28), alz/tests/git_runner.rs (4 output-limit tests), alz-io read_error.rs (2 unit). Rows downgraded: none; spot-checked §4.4, §4.5, §5.3 and found their named tests assert the rule. Findings: (1) layer.yaml in layer cannot be read is unreachable end to end (the content walk fails first with the holds-a-file message) so it is proven by unit test; (2) cannot find the working directory as error source is unreachable through a command (relative manifest read fails first; ls reports it as error write), so the resolver is tested directly; (3) cache entry owned by another user and entry removed while used are proven only by message text (need root or a race).
+
+Second pass: (1) full audit of §4 and §5 covered rows: all 229 named tests exist, each asserts (script: assertion count and body size; the 19 shortest, and the two with no assert macro, read by hand: only_ascii_letters_are_folded asserts through expect on two inserts; fixture_16_grants_the_hub... asserts through matches_expected). No row downgraded. The audit checks that a test exists and asserts something and that its name fits the anchor; it does not prove every sentence of a long anchor is hit. (2) bug task TASK-96 filed for the missing working directory error (source in the spec, write through ls and build); the matrix has a Known differences section naming it for §6 Other messages. (3) fixtures now used: 11-visibility, 14-non-destructive, 33-name-order, 35-manifest-schema in crates/alz/tests/fixture_stacks.rs (7 tests); still unnamed in my sections: 20-adopt-native, 20-adopt-native-plain, 39-writer-rules (adoption and writer rules are proven by unit and integration tests with inline inputs). Left: owner points 1, 3 and 4 of the first report; init warning on a cache mismatch has no test.
 <!-- SECTION:NOTES:END -->
