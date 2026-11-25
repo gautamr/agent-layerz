@@ -94,9 +94,13 @@ mod tests {
         }
 
         fn alz(&self, args: &[&str]) -> Run {
+            self.alz_in("work/repo", args)
+        }
+
+        fn alz_in(&self, folder: &str, args: &[&str]) -> Run {
             let mut command: Command = cargo_bin_cmd!("alz");
             let output = command
-                .current_dir(self.root.join("work/repo"))
+                .current_dir(self.root.join(folder))
                 .env_clear()
                 .env("PATH", real_path())
                 .env("HOME", self.root.join("home"))
@@ -171,6 +175,77 @@ mod tests {
                 "{command:?} printed file content"
             );
         }
+    }
+
+    /// Spec §5.3 "Cache integrity": for `init` the cache error is a warning and no commit identity
+    /// is set, though a client layer declares one. A repository is first built with the layer so
+    /// that the cache and the lock exist, then the entry is edited, and `init` runs in a second
+    /// repository that has the same lock.
+    #[test]
+    fn init_gives_the_cache_error_as_a_warning_and_sets_no_identity() {
+        let world = World::new();
+        world
+            .scratch
+            .write(
+                "work/layer-a/layer.yaml",
+                "name: team-a\nkind: client\nvisibility: private\nversion: 1.0.0\ncommit_identity:\n  name: Owner Example\n  email: owner@example.invalid\n",
+            )
+            .expect("the layer declares an identity");
+        let layer = world.root.join("work/layer-a");
+        world.vcs(&layer, &["add", "-A"]);
+        world.vcs(&layer, &["commit", "-q", "-m", "an identity"]);
+        let built = world.alz(&["build"]);
+        assert_eq!(built.code, 0, "{}{}", built.stderr, built.stdout);
+        let entry = world.entry();
+        // The control: with the entry intact the same `init` sets the identity.
+        for folder in ["control", "second"] {
+            world
+                .scratch
+                .make_dir(format!("work/{folder}"))
+                .expect("made");
+            world.vcs(&world.root.join(format!("work/{folder}")), &["init", "-q"]);
+            world
+                .scratch
+                .write(
+                    format!("work/{folder}/layer.lock"),
+                    world.scratch.read("work/repo/layer.lock").expect("a lock"),
+                )
+                .expect("the lock is copied");
+        }
+        let control = world.alz_in("work/control", &["init", "--stack", &world.source()]);
+        assert_eq!(control.code, 0, "{}{}", control.stderr, control.stdout);
+        assert!(
+            world
+                .scratch
+                .read_text("work/control/.git/config")
+                .expect("a git config")
+                .contains("Owner Example"),
+            "an intact entry gives the identity"
+        );
+        world
+            .scratch
+            .write(format!("{entry}/extra.md"), MARKER)
+            .expect("tampered");
+
+        let run = world.alz_in("work/second", &["init", "--stack", &world.source()]);
+
+        assert_eq!(run.code, 0, "{}{}", run.stderr, run.stdout);
+        assert!(
+            run.stderr.contains(&format!(
+                "warning [cache] cached layer 'team-a' ({}) no longer matches layer.lock: its files in {} changed after they were cached; delete that directory and rebuild",
+                world.source(),
+                world.root.join(&entry).display()
+            )),
+            "{}",
+            run.stderr
+        );
+        assert!(!run.stderr.contains(MARKER) && !run.stdout.contains(MARKER));
+        assert!(world.scratch.exists("work/second/layer.yaml"), "scaffolded");
+        let config = world
+            .scratch
+            .read_text("work/second/.git/config")
+            .expect("a git config");
+        assert!(!config.contains("Owner Example"), "{config}");
     }
 
     /// Spec §5.3 "Cache integrity" and §6 step 1: nothing is compared with the lock when the

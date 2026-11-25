@@ -89,6 +89,22 @@ mod tests {
         );
     }
 
+    /// Spec §6 "Layers in or around an account folder": a layer directory that cannot be opened
+    /// (a cycle of links, or an operating system failure) is the error `layer` that names the
+    /// layer as given and no operating system error.
+    #[test]
+    fn a_layer_directory_that_cannot_be_opened_is_the_error_layer_without_the_system_error() {
+        for error in [
+            WalkError::TooManyLinks,
+            WalkError::Io(std::io::Error::from_raw_os_error(13)),
+        ] {
+            let line = error
+                .into_layer_diagnostic(&Stripped::from_untrusted("x\u{1b}[0m"))
+                .to_string();
+            assert_eq!(line, "error [layer] layer 'x[0m' cannot be opened");
+        }
+    }
+
     #[test]
     fn a_missing_layer_directory_is_the_error_layer() {
         let line = WalkError::Missing

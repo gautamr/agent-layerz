@@ -506,6 +506,51 @@ exit $status
         );
     }
 
+    /// Spec §5.3 "Cache integrity": nothing is compared with the lock when the layer was just
+    /// fetched rather than read from the cache, so a lock whose content hash is not the layer's
+    /// does not stop a fetch into an empty cache.
+    #[test]
+    fn a_layer_that_was_just_fetched_is_not_compared_with_the_lock() {
+        let world = World::new();
+        let sha = world.commit(LAYER);
+        let source = world.source_of_work("main");
+        let wrong = files(&[("layer.yaml", "name: team\n"), ("a.md", "another text\n")]);
+        let pin = locked(&source, sha, &wrong);
+
+        let fetched = world
+            .fetch(&source, Some(&pin), &Setup::default())
+            .expect("a fresh clone is not compared with the lock");
+
+        assert_eq!(fetched.read, ReadHow::Fetched);
+        assert_eq!(fetched.contents.files(), files(LAYER));
+    }
+
+    /// Spec §5.3 "Cache integrity": nothing is compared when the lock's `sha` differs from the
+    /// commit the ref names now (the ref moved, so new content is expected). The entry of the
+    /// moved ref is edited by hand here and the lock still pins the older commit, so the pinned
+    /// entry is what is read, and the other entry is never compared with the lock.
+    #[test]
+    fn an_entry_of_a_commit_the_lock_does_not_pin_is_never_compared_with_the_lock() {
+        let world = World::new();
+        let pinned = world.commit(LAYER);
+        let source = world.source_of_work("main");
+        let first = world
+            .fetch(&source, None, &Setup::default())
+            .expect("fetched");
+        let pin = locked(&source, pinned, &first.contents.files());
+        let moved = world.commit(&[("a.md", "changed\n")]);
+        world
+            .fetch(&source, None, &Setup::default())
+            .expect("the moved ref is fetched into an entry of its own");
+        world.put(&world.entry_path(&source, moved).join("a.md"), "tampered\n");
+
+        let read = world
+            .fetch(&source, Some(&pin), &Setup::default())
+            .expect("the pinned entry is intact");
+
+        assert_eq!((read.read, read.sha), (ReadHow::Cached, pinned));
+    }
+
     #[test]
     fn a_file_added_to_a_cached_entry_is_a_difference_too() {
         let world = World::new();

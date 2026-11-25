@@ -582,9 +582,9 @@ lowercase hexadecimal characters makes the lock invalid, and the build stops bef
 path is built from it.
 
 **Reading the lock** (TASK-55.3, decision-33). `layer.lock` is read as at most 1 MiB of strict
-UTF-8 and parsed as one JSON document nested at most 128 levels deep, counting the top-level
-value as level 1, so at most 127 arrays or objects lie inside one another. A duplicate key in any object
-makes the lock invalid, as does a `lockVersion` other than 1. An invalid lock is the error `lock` at
+UTF-8 and parsed as one JSON document nested at most 127 levels deep: the top-level value is
+level 1, so at most 127 arrays or objects lie inside one another and a 128th is refused. A duplicate
+key in any object makes the lock invalid, as does a `lockVersion` other than 1. An invalid lock is the error `lock` at
 `layer.lock` (§10.1), and stops the command before any of its values is used.
 
 **What the content hash covers.** The path and content of every regular file of the layer, in
