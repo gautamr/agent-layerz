@@ -79,6 +79,64 @@ mod tests {
         assert_eq!(read_tree(&workspace.repository).expect("read"), before);
     }
 
+    /// The paths of the `--- a/<path>` header lines of `diff`, in the order printed.
+    fn headers(stdout: &str) -> Vec<&str> {
+        stdout
+            .lines()
+            .filter_map(|line| line.strip_prefix("--- a/"))
+            .collect()
+    }
+
+    /// Spec §10.3 `alz diff`: the changes come in the order of §4.3, the paths the build makes in
+    /// name order, then `layer.lock`.
+    #[test]
+    fn prints_the_files_of_a_first_build_in_name_order_and_the_lock_last() {
+        let workspace = Workspace::new();
+        let run = workspace.alz("diff");
+        assert_eq!(run.code, 0, "{}", run.stderr);
+        assert_eq!(
+            headers(&run.stdout),
+            ["AGENTS.md", "CLAUDE.md", "layer.lock"]
+        );
+    }
+
+    /// Spec §10.3 `alz diff`: the paths the build makes (created and changed together) in name
+    /// order, then the deleted ones, then `layer.lock`.
+    #[test]
+    fn prints_the_made_paths_in_name_order_then_the_deleted_ones_then_the_lock() {
+        let workspace = Workspace::new();
+        let agent = |name: &str| format!("---\nname: {name}\ndescription: d\n---\nbody\n");
+        workspace
+            .scratch
+            .make_dirs("work/repo/.layer/agents")
+            .expect("made");
+        workspace
+            .scratch
+            .write("work/repo/.layer/agents/zz.md", agent("zz"))
+            .expect("written");
+        assert_eq!(workspace.alz("build").code, 0);
+        workspace
+            .scratch
+            .remove_file("work/repo/.layer/agents/zz.md")
+            .expect("removed");
+        workspace
+            .scratch
+            .write("work/repo/.layer/agents/mm.md", agent("mm"))
+            .expect("written");
+        workspace.append("CLAUDE.md", "- an edit by hand\n");
+        let run = workspace.alz("diff");
+        assert_eq!(run.code, 0, "{}", run.stderr);
+        assert_eq!(
+            headers(&run.stdout),
+            [
+                ".claude/agents/mm.md",
+                "CLAUDE.md",
+                ".claude/agents/zz.md",
+                "layer.lock"
+            ]
+        );
+    }
+
     #[test]
     fn prints_no_changes_on_a_built_repository() {
         let workspace = Workspace::new();

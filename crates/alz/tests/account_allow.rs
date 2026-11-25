@@ -1056,6 +1056,50 @@ mod tests {
         );
     }
 
+    /// Spec §10.2 "Reading back": `alz account allow` writes a path that holds a C1 control or
+    /// U+2028 (its reader accepts them once decoded) but refuses to write one that holds another
+    /// control character, here ESC in the folder of the layer's source, and writes nothing.
+    #[test]
+    fn a_source_path_with_a_control_character_the_reader_refuses_is_not_written() {
+        let world = World::new();
+        let hub = "hub\u{1b}x";
+        world.scratch.make_dir(hub).expect("made");
+        world
+            .scratch
+            .write(
+                format!("{hub}/layer.yaml"),
+                "name: client\nkind: client\nvisibility: private\naccount: client-a\n",
+            )
+            .expect("written");
+        world
+            .scratch
+            .write(
+                "repo/layer.yaml",
+                "stack:\n  - source: path:../link\n  - source: path:./.layer\ntargets: [claude]\n",
+            )
+            .expect("written");
+        world
+            .scratch
+            .make_link("link", world.scratch.join(hub))
+            .expect("linked");
+        let built = world.plain(&["build"]);
+        assert_eq!(built.code, Some(0), "{}", built.stderr);
+        let before = read_tree(world.scratch.path()).expect("tree");
+        let mut run = world.on_terminal(&[], &["account", "allow"]);
+        run.wait_for_stderr("Type client-a ");
+        run.type_in(b"client-a\n");
+        let finished = run.finish();
+        assert_eq!(finished.code, Some(1), "{}", finished.stderr);
+        assert!(
+            finished.stderr.contains(
+                "error [account-allow] the result would not read back to the same entries"
+            ),
+            "{}",
+            finished.stderr
+        );
+        assert_eq!(read_tree(world.scratch.path()).expect("tree"), before);
+    }
+
     /// Spec §13 item 20: a changed per-target map, a target added or removed included, skips
     /// step 4 for every target, and `alz account which` warns with the old and new values.
     #[test]
