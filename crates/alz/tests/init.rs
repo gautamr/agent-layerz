@@ -488,4 +488,45 @@ mod tests {
                     && !manifest.contains("hub/layer"))
         );
     }
+
+    /// The spec text with the code blocks taken out of their list indentation, so that a block
+    /// is found as the bytes it states.
+    fn spec_without_list_indentation() -> String {
+        include_str!("../../../docs/LAYERING-SPEC.md")
+            .lines()
+            .map(|line| line.strip_prefix("    ").unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Spec §10.3 `alz init`: the text of every file `alz init` writes is the text the spec
+    /// states, byte for byte, with `<name>` and `<visibility>` for the layer's own values.
+    #[test]
+    fn every_scaffolded_file_has_the_text_the_spec_states() {
+        let spec = spec_without_list_indentation();
+        let stated = |text: &str| {
+            let text = text
+                .replace("zz-name", "<name>")
+                .replace("kind: repo", "kind: <kind>")
+                .replace("kind: layer", "kind: <kind>")
+                .replace("visibility: private", "visibility: <visibility>")
+                .replace("visibility: public", "visibility: <visibility>");
+            assert!(spec.contains(&text), "the spec does not state:\n{text}");
+        };
+        let repo = Place::new();
+        assert_eq!(repo.alz(&["init", "--name", "zz-name"]).code, 0);
+        for path in ["layer.yaml", ".layer/layer.yaml", "mise.toml"] {
+            stated(&repo.text(path).expect("a file"));
+        }
+        let layer = Place::new();
+        let made = layer.alz(&["init", "--kind", "layer", "--name", "zz-name"]);
+        assert_eq!(made.code, 0);
+        stated(&layer.text("layer.yaml").expect("a file"));
+        for line in [
+            repo.text(".layer/instructions/50-repo.md").expect("a file"),
+            layer.text("instructions/00-core.md").expect("a file"),
+        ] {
+            assert!(spec.contains(line.trim_end()), "{line}");
+        }
+    }
 }
