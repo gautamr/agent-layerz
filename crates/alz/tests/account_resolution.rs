@@ -554,6 +554,132 @@ mod tests {
         assert!(!format!("{stdout}{stderr}").contains("marker-9"));
     }
 
+    /// Spec §13 item 19: a repository that only contains a configured account folder stays a
+    /// root, and step 4 for it is a cache miss, so an allowed repository fails closed.
+    #[test]
+    fn a_repository_that_only_contains_a_configured_account_folder_fails_closed() {
+        let world = allowed_world();
+        world.scratch.make_dirs("repo/inner-account").expect("made");
+        let folder = world.root.join("repo/inner-account").display().to_string();
+        let run = world.run_in(
+            "repo",
+            &["account", "which"],
+            &[("CLAUDE_CONFIG_DIR", folder)],
+        );
+        assert_eq!(run.code, 1, "{}{}", run.stdout, run.stderr);
+        assert!(
+            run.stdout.contains("claude: set outside alz (source: environment)")
+                && run.stdout.contains("codex: fails closed (source: layer)")
+                && run.stdout.contains(
+                    "layer step skipped (cache miss: a layer or the repository lies inside an account folder); fails closed"
+                ),
+            "{}",
+            run.stdout
+        );
+
+        // Not allowed: the default account, never an outer repository's.
+        let plain = World::new();
+        plain.scratch.make_dirs("repo/inner-account").expect("made");
+        let folder = plain.root.join("repo/inner-account").display().to_string();
+        let run = plain.run_in(
+            "repo",
+            &["account", "which"],
+            &[("CLAUDE_CONFIG_DIR", folder)],
+        );
+        assert_eq!(run.code, 0, "{}{}", run.stdout, run.stderr);
+        assert!(
+            run.stdout.contains("codex: default (source: default)"),
+            "{}",
+            run.stdout
+        );
+    }
+
+    /// Spec §13 item 19: `alz account which` prints no control character for a directory or
+    /// source whose text holds them: a repository folder and the value of `CLAUDE_CONFIG_DIR`
+    /// and `CODEX_HOME` that hold ESC, a tab, DEL, a line separator or a newline.
+    #[test]
+    fn account_which_prints_no_control_character_for_a_directory_or_source() {
+        let world = World::new();
+        let hostile = "esc\u{1b}[2Jrepo\u{7f}\u{2028}x\ty";
+        for folder in [".layer", ".git"] {
+            world
+                .scratch
+                .make_dirs(format!("{hostile}/{folder}"))
+                .expect("made");
+        }
+        world
+            .scratch
+            .write(format!("{hostile}/.git/HEAD"), "ref: refs/heads/main\n")
+            .expect("written");
+        world
+            .scratch
+            .write(
+                format!("{hostile}/layer.yaml"),
+                "stack:\n  - source: path:./.layer\ntargets: [claude]\n",
+            )
+            .expect("written");
+        world
+            .scratch
+            .write(
+                format!("{hostile}/.layer/layer.yaml"),
+                "name: shop-api\nkind: repo\nvisibility: private\n",
+            )
+            .expect("written");
+        let value = "/somewhere/\u{1b}]0;title\u{7}\nforged: line\u{85}";
+        let run = world.run_in(
+            hostile,
+            &["account", "which"],
+            &[
+                ("CLAUDE_CONFIG_DIR", value.to_owned()),
+                ("CODEX_HOME", value.to_owned()),
+            ],
+        );
+        assert_eq!(run.code, 0, "{}{}", run.stdout, run.stderr);
+        assert!(run.stdout.contains("repository: "), "{}", run.stdout);
+        for (stream, text) in [("stdout", &run.stdout), ("stderr", &run.stderr)] {
+            assert!(
+                !text
+                    .chars()
+                    .any(|character| character.is_control() && character != '\n'),
+                "{stream}: {text:?}"
+            );
+            assert!(
+                !text.lines().any(|line| line.starts_with("forged:")),
+                "{stream}: {text:?}"
+            );
+        }
+    }
+
+    /// Spec §13 item 19: a case variant of the working directory resolves to the right root on
+    /// a file system that folds case (the default on macOS), and the root is shown in the file
+    /// system's own spelling. Where the file system keeps case (Linux), the variant is another
+    /// folder: it is not the repository, and the walk never reaches the manifest of `repo`.
+    #[test]
+    fn a_case_variant_of_the_working_directory_resolves_to_the_real_root_or_to_nothing() {
+        let world = World::new();
+        if world.scratch.exists("REPO/nested/SUB") {
+            let run = world.which("REPO/nested/SUB");
+            assert_eq!(run.code, 0, "{}{}", run.stdout, run.stderr);
+            assert!(
+                run.stdout.starts_with(&format!(
+                    "repository: {}/repo/nested\n",
+                    world.root.display()
+                )),
+                "{}",
+                run.stdout
+            );
+        } else {
+            world.scratch.make_dirs("REPO/inner").expect("made");
+            let run = world.which("REPO/inner");
+            assert!(
+                run.stdout.contains("no repository here"),
+                "{}{}",
+                run.stdout,
+                run.stderr
+            );
+        }
+    }
+
     /// Spec §13 item 19: a `layer.yaml` without `stack` is skipped, so the repository root is
     /// the enclosing folder that has one.
     #[test]
