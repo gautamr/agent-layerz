@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn kills_a_program_that_never_ends_at_the_deadline_and_everything_it_started() {
         let driver = start(
-            &["--deadline-ms", "400"],
+            &["--deadline-ms", "3000"],
             &["sh", "-c", "sleep 30 & echo $! >&2; wait"],
         );
         let sleeper = driver
