@@ -454,6 +454,37 @@ mod tests {
         );
     }
 
+    /// Spec §6 "Validating the stack": the refusals of a layer's files are the same for a `git:`
+    /// clone as for a working tree, with the cache's error for the second. A name that is not valid
+    /// UTF-8 is the error `layer` (the clone case with such a name is in `git_sources`, on Linux); a
+    /// name that is not a safe path is the error `cache` `cannot store '<source>' in the layer
+    /// cache at <dir>`, the name is never printed, and nothing is published to the cache.
+    #[test]
+    fn a_clone_with_a_name_that_is_not_a_safe_path_is_the_cache_error_cannot_store() {
+        let world = World::new();
+        world.commit("work", &[("layer.yaml", LAYER), ("a\\b.md", "text\n")]);
+        let source = format!("git:file://{}@main", world.path("work").display());
+        world.manifest(&format!("stack:\n  - source: {source}\n"));
+        let run = world.alz();
+        assert_eq!(run.code, 1, "{}", run.stderr);
+        assert_eq!(
+            run.stderr,
+            format!(
+                "error [cache] cannot store '{source}' in the layer cache at {}\n",
+                world.path("xdg/agent-layerz").display()
+            )
+        );
+        assert!(!run.stderr.contains("a\\b"), "{}", run.stderr);
+        assert!(
+            world
+                .cache_names()
+                .iter()
+                .all(|name| !name.starts_with("git-")),
+            "{:?}",
+            world.cache_names()
+        );
+    }
+
     #[test]
     fn a_pinned_path_layer_is_read_from_the_cache_and_checked_against_the_lock() {
         let world = World::new();

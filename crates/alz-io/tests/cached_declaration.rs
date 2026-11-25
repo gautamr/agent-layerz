@@ -457,6 +457,26 @@ mod tests {
         }
     }
 
+    /// §5.3 ".env files": account resolution counts a layer that holds a `.env` file as a
+    /// `layer-invalid` miss only after the content check, so a layer whose other files differ from
+    /// the lock is the content-hash miss, with or without the `.env` file. The `.env` file is not
+    /// hashed, so adding one to a layer that matches the lock changes nothing but the verdict.
+    #[test]
+    fn the_env_check_comes_after_the_content_hash_check() {
+        let world = World::new();
+        world.github(&[("layer.yaml", CLIENT), (".env", "TOKEN=1\n")]);
+        let entry = World::github_entry();
+        assert_eq!(world.miss(), Some(MissReason::LayerInvalid));
+        world.machine.write(
+            &format!("{entry}/layer.yaml"),
+            &format!("{CLIENT}# edited\n"),
+        );
+        assert_eq!(world.miss(), Some(MissReason::ContentHash));
+        world.machine.write(&format!("{entry}/layer.yaml"), CLIENT);
+        fs::remove_file(world.machine.path(&format!("{entry}/.env"))).expect("removed");
+        assert_eq!(declared_layer(&world.result()).as_deref(), Some("acme"));
+    }
+
     #[test]
     fn a_link_inside_a_cached_layer_is_never_followed() {
         let world = World::new();

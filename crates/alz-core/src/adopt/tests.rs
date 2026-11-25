@@ -562,3 +562,144 @@ fn a_float_or_a_null_of_a_native_agent_is_still_refused() {
         assert_eq!(refused.diagnostics().iter().count(), 1, "{field}");
     }
 }
+
+/// §4.3 "Adoption, in detail": the edited `layer.yaml` must parse as a manifest that holds the added
+/// values and is otherwise unchanged, or nothing is adopted. A value the manifest does not accept
+/// (an empty or absolute directory, a server id with a space) makes the edited text not read
+/// back, so the edit is refused, and the whole plan with it.
+#[test]
+fn an_edited_manifest_that_does_not_read_back_adopts_nothing() {
+    let base = "stack:\n  - source: path:./.layer\n";
+    for dir in ["", "/abs", "x\u{85}y"] {
+        assert_eq!(
+            edited(base, &[dir], &[]),
+            Err(Refused::ReadsBack),
+            "{dir:?}"
+        );
+    }
+    assert_eq!(edited(base, &[], &["a b"]), Err(Refused::ReadsBack));
+    // In a plan the refusal is one problem naming layer.yaml and the values to add by hand, and
+    // the native files that did convert are not planned either.
+    let world = world(MANIFEST, &[]);
+    let settings = r#"{"permissions": {"additionalDirectories": [""]}}"#;
+    let refused = run(
+        &world,
+        &[
+            (".claude/settings.json", settings),
+            (".claude/rules/a.md", "x\n"),
+        ],
+    )
+    .expect_err("refused");
+    let lines = problems(&refused);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(
+        lines[0].starts_with(
+            "error [adopt] layer.yaml: would not read back as the same manifest after the edit; add by hand workspace.add_dirs: "
+        ),
+        "{lines:?}"
+    );
+}
+
+/// §4.3 "Adoption, in detail": a whole number beyond 64 bits is refused, by one problem that names
+/// the native file and never prints the number.
+#[test]
+fn a_whole_number_beyond_64_bits_is_refused_naming_the_native_file() {
+    let world = world(MANIFEST, &[]);
+    for (path, text) in [
+        (
+            ".claude/settings.json",
+            r#"{"cleanupPeriodDays": 18446744073709551616}"#,
+        ),
+        (
+            ".claude/settings.json",
+            r#"{"cleanupPeriodDays": -9223372036854775809}"#,
+        ),
+        (
+            ".mcp.json",
+            r#"{"mcpServers": {"a": {"command": "x", "timeout": 18446744073709551616}}}"#,
+        ),
+    ] {
+        let refused = run(&world, &[(path, text)]).expect_err(text);
+        let lines = problems(&refused);
+        assert_eq!(lines.len(), 1, "{text}: {lines:?}");
+        assert!(
+            lines[0].starts_with(&format!("error [adopt] {path}: ")),
+            "{lines:?}"
+        );
+        assert!(!lines[0].contains("18446744073709551616"), "{lines:?}");
+        assert!(!lines[0].contains("9223372036854775809"), "{lines:?}");
+    }
+}
+
+/// §4.3 "Adoption, in detail": the reader check of the planned layer runs only when every native
+/// file converted. A native file that cannot convert hides the reader's problem, and the reader's
+/// problem shows in the run after it is fixed.
+#[test]
+fn the_reader_check_runs_only_after_every_conversion_succeeded() {
+    let world = world(MANIFEST, &[]);
+    let literal =
+        r#"{"mcpServers": {"t": {"command": "t", "env": {"TOKEN": "tk-not-a-real-value"}}}}"#;
+    let reader_only = "{ \"env\": { \"A\": \"line\u{2028}separator\" } }";
+
+    let first = run(
+        &world,
+        &[
+            (".mcp.json", literal),
+            (".claude/settings.json", reader_only),
+        ],
+    )
+    .expect_err("refused");
+    let first = problems(&first);
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert!(
+        first[0].starts_with("error [adopt] .mcp.json: "),
+        "{first:?}"
+    );
+    assert!(
+        first
+            .iter()
+            .all(|line| !line.contains("the repo layer that adoption plans would be refused")),
+        "{first:?}"
+    );
+
+    let second = run(&world, &[(".claude/settings.json", reader_only)]).expect_err("refused");
+    let second = problems(&second);
+    assert_eq!(second.len(), 1, "{second:?}");
+    assert!(
+        second[0].contains("the repo layer that adoption plans would be refused"),
+        "{second:?}"
+    );
+}
+
+/// §4.3 "Adoption, in detail": a layer file that adoption adds to is merged key by key, and a value
+/// of another shape than the one on disk (a number where the file has another number, a list where
+/// it has a scalar) is a problem that names the native file, not an overwrite.
+#[test]
+fn a_value_of_another_shape_than_the_one_on_disk_is_a_problem() {
+    let world = world(
+        MANIFEST,
+        &[("settings.yaml", "claude:\n  cleanupPeriodDays: 7\n")],
+    );
+    let refused = run(
+        &world,
+        &[(".claude/settings.json", r#"{"cleanupPeriodDays": 30}"#)],
+    )
+    .expect_err("refused");
+    let lines = problems(&refused);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(
+        lines[0].starts_with("error [adopt] .claude/settings.json: ")
+            && lines[0].contains("settings.yaml has a different shape; merge it by hand"),
+        "{lines:?}"
+    );
+    // The same value is no conflict: the file is merged and written again.
+    let same = run(
+        &world,
+        &[(".claude/settings.json", r#"{"cleanupPeriodDays": 7}"#)],
+    )
+    .expect("a plan");
+    assert_eq!(
+        file(&same, "settings.yaml"),
+        "claude:\n  cleanupPeriodDays: 7\n"
+    );
+}
