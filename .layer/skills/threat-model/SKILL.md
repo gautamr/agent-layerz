@@ -17,7 +17,7 @@ description: The agent-layerz threat model and review checklist. Use when review
 ## Checklist
 1. **Paths.** Every write, move and delete goes through `insideRoot`, except the one file
    outside the repo: `allowed.yaml`, its lock and its temporary file, written only by
-   `alz account allow` through `src/resolve/account-allow-writer.ts` at a path built from
+   `alz account allow` through the state-directory capability of `alz-io` at a path built from
    `$HOME`, `XDG_STATE_HOME` and fixed names. That file never lies inside the repo, an account
    folder or a git work tree or, for a linked `allowed.yaml`, the directory of its real path,
    which passes the same checks; missing parent folders are created with mode 0700. Paths from manifests, locks or layers are
@@ -36,8 +36,8 @@ description: The agent-layerz threat model and review checklist. Use when review
 7. **Symlinks.** Layer files that are symlinks are skipped, so a layer cannot point outside itself.
 8. **Person-only commands.** `alz account allow` and `--remove` refuse without a TTY on
    standard input or with any agent-session marker set, before any file system call. They
-   have no `--yes`, read the answer only through `Io.terminal` (`src/cli/terminal.ts` is the
-   only file that reads standard input), never print an answer, and print repository text
+   have no `--yes`, read the answer only through the terminal capability of `alz-io` (the only code that
+   reads standard input), never print an answer, and print repository text
    only through `quote` or `stripControl`; text a person decides on (the source in the
    prompt) is escaped instead (`quoteEscaped`), so an invisible character or a look-alike
    letter shows.
@@ -47,4 +47,4 @@ description: The agent-layerz threat model and review checklist. Use when review
 - `git:--upload-pack=…` reached `git clone` as an option.
 - Manifest refs starting with `-` reached `git rev-parse` as options.
 - A crafted lock SHA pointed the cache read at any directory.
-Tests: `test/acceptance/24-untrusted-repo.test.ts`.
+Tests: the untrusted-repository cases in `crates/alz/tests/` and `crates/alz-io/tests/`.

@@ -1,23 +1,20 @@
 ---
 paths:
-  - "test/**"
+  - "crates/**/tests/**"
+  - "fixtures/**"
+  - "fuzz/**"
 ---
-- Acceptance tests (`test/acceptance/`) follow the add-acceptance-test skill: copied fixture,
-  isolated `HOME`, assertions on exit code, message and files on disk. They spawn the binary
-  under test (`ALZ_BIN`, else the TypeScript reference) only through `test/helpers.ts` and
-  `test/account-workspace.ts`, and never import `src/`; `test/guards/` enforces it.
-- Assertions follow the spec. Help, usage and version follow decision-26: exit code, which
-  stream, and that stdout contains the version; never the full text.
-- TypeScript-only cases (in-process runs, fake terminals, source scans, the install script) go in
-  `test/reference/` and are deleted at cutover. A test that runs anything but the binary under
-  test gets an allow-listed environment (PATH, an isolated HOME, what the tool needs), never
-  `...process.env`, and goes through `test/exec.ts`.
-- A case the TypeScript reference is known to fail (decision-30: `src/` is never fixed) uses
-  `referenceDrift(task, name, fn)` from `test/drift.ts`: an expected failure against the
-  reference (ALZ_BIN unset), an ordinary test against any ALZ_BIN. Never mark a case to hide a
-  failure of the Rust binary.
-- To prove that something did not happen, compare `snapshot()` (or `readTree`) before and after,
-  and use `gitProxy()` for "git was never run".
-- Temp folders come from `tempDir()` in `test/run-root.ts`, never from `tmpdir`.
+- Tests are written from `docs/LAYERING-SPEC.md` and follow the spec-test skill. A test asserts
+  what the spec requires and is named after the guarantee. Where the spec is silent, change the
+  spec first.
+- Command tests use `assert_cmd` (`cargo_bin_cmd!("alz")`) in a scratch directory with an
+  isolated `HOME`, and assert the exit code, which stream holds what, and the files on disk.
+  Help, usage and version follow decision-26: exit code, which stream, and that stdout contains
+  the version; never the full text.
+- To prove that something did not happen, compare the whole tree before and after.
+- Use real temporary directories (`ScratchDir` from `alz-test-support`), never a mocked file
+  system, and give a run that starts a process a timeout.
 - Never read or write the real `~/.claude*`, `~/.codex*` or `~/.cache` from a test.
 - Fixtures are inputs: a test copies them first and never edits `fixtures/` in place.
+- Tests sit in a `mod tests` marked `#[cfg(test)]`. A lint is fixed, not suppressed; a needed
+  suppression is `#[expect(lint, reason = "...")]`.

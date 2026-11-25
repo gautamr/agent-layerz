@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T17:49:00Z'
+updated_date: '2026-11-24T22:43:00Z'
 labels:
   - area:agents
   - area:ci
@@ -33,3 +33,16 @@ Once the Rust tests cover the spec, the development loop drops Node. .layer/ sti
 - [ ] #4 grep -rnE 'npm|node|vitest' .github/workflows prints nothing, and mise run workflows:lint passes
 - [ ] #5 mise run alz:build regenerates AGENTS.md, CLAUDE.md and .claude/ with the change, and mise run alz:check passes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementation (implementer, 2026-11-25). Evidence per AC:
+AC1: grep -rnE 'npm|npx|node |vitest|src/|test/|referenceDrift|reference drift|TypeScript' .layer prints nothing. src.md and add-acceptance-test are removed; rules/tests.md now covers crates/**/tests/**, fixtures/** and fuzz/** and describes Rust tests written from the spec; new skill .layer/skills/spec-test; implementer, reviewer, docs-writer, release-engineer, rust.md, threat-model and 50-repo.md reworded for Rust only.
+AC2: the Stop hook is now 'cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features --locked -- -D warnings && cargo test --workspace --locked'. dist/** is gone from protect-generated. Permissions: the npm/npx/node allows are removed and the npm deny rules are replaced by denies for cargo publish, yank, owner and login (owner to review).
+AC3: mise.toml has no node tool and no npm/npx/node task (grep prints nothing). Tasks: test = cargo test --workspace --locked; lint = cargo fmt --check + clippy -D warnings; rust:check = lint + test; install, test:acceptance, build and test:node24 are removed; install:local runs scripts/install-local.sh, which is now the Rust installer (the old Node script was overwritten, install-local-rust.sh removed, install:local:rust removed). mise.lock: the node entries are removed. Install run: HOME could not be redirected in the worktree sandbox, so PREFIX=<scratch> mise run install:local was run twice: installed <scratch>/bin/alz as a regular, non-symlink file (-rwxr-xr-x), 'alz 0.1.0', the second run updated it in place and printed 'previous alz 0.1.0'. The default target is $HOME/.local/bin/alz by the script's prefix rule; the real ~/.local/bin was not touched.
+AC4: grep -rnE 'npm|node|vitest' .github/workflows prints nothing. tests.yml (typescript and acceptance-rust jobs) is deleted; rust.yml keeps its pinned actions, permissions and persist-credentials: false and only two comments changed. mise run workflows:lint: the actionlint step failed because the shellcheck shim has no version; run with actionlint -shellcheck=<mise where aqua:koalaman/shellcheck@0.11.0>/shellcheck: exit 0; zizmor --pedantic --offline .github/workflows: no findings.
+AC5: the build needs ../agent-layerz-personal, so the worktree was copied (without target/ and backlog/) next to a copy of the personal layer in the scratchpad, the Rust alz build ran there, and only .claude/{agents,rules,skills}, .claude/settings.json, AGENTS.md, CLAUDE.md, .mcp.json and layer.lock were copied back. alz check in the copy of the final state: 'check passed: 67 generated files match the layers and the lock'. mise run alz:check itself cannot run in the worktree (no sibling personal layer).
+rust:ci: mise run rust:ci exit 0 (fmt, clippy -D warnings, 2043 tests passed 0 failed, doc, msrv, deny, audit).
+For the owner: hooks, permissions and CI changed; the required status check named 'typescript and acceptance (ubuntu)' and 'acceptance against the Rust binary (ubuntu)' of the deleted tests workflow must be removed from branch protection. The personal layer's retrospective skill still mentions npx ccusage (outside this repository). Left for 55.9.11: package.json, npm files, biome/vitest/tsconfig, src/, test/, evals scripts and README references to mise run build/lint.
+<!-- SECTION:NOTES:END -->

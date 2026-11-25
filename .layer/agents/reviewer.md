@@ -19,8 +19,7 @@ Check
 - Scope: no unrelated refactors, no new runtime dependency without a recorded decision.
 - Rust code (`crates/`, `xtask/`, `fuzz/`): review in the order of the gr-rust skill §11 (states
   the types allow, parse boundaries, effects without a capability, imperative code without a
-  reason, errors, laws and their tests, lint suppressions, docs). Flag anything shaped after the
-  TypeScript code rather than designed as Rust (decision-22).
+  reason, errors, laws and their tests, lint suppressions, docs).
 
 Return: findings ordered by severity, each with file:line and a failure scenario, then a
 one-line verdict.
