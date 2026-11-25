@@ -1,11 +1,11 @@
 ---
 id: TASK-55.9.4
 title: State in the spec and target facts only what alz does
-status: To Do
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T13:09:00Z'
+updated_date: '2026-11-25T13:28:00Z'
 labels:
   - area:spec
   - area:docs
@@ -25,10 +25,10 @@ docs/LAYERING-SPEC.md still describes the port: §13's reference drift list and 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 grep -nE 'TypeScript|[Tt]he reference|reference drift|referenceDrift|parity|Node|npm|vitest|Rust .alz' docs/LAYERING-SPEC.md docs/target-facts.md prints nothing, or only lines the notes list as not about an implementation (grep)
-- [ ] #2 §13 has no drift list, each item states only behaviour, and its fixture sentence names fixtures/ (spec diff)
-- [ ] #3 CHANGELOG.md Unreleased states each user-visible difference from 0.1.0 that the drift list named (diff review)
-- [ ] #4 mise run rust:check passes
+- [x] #1 grep -nE 'TypeScript|[Tt]he reference|reference drift|referenceDrift|parity|Node|npm|vitest|Rust .alz' docs/LAYERING-SPEC.md docs/target-facts.md prints nothing, or only lines the notes list as not about an implementation (grep)
+- [x] #2 §13 has no drift list, each item states only behaviour, and its fixture sentence names fixtures/ (spec diff)
+- [x] #3 CHANGELOG.md Unreleased states each user-visible difference from 0.1.0 that the drift list named (diff review)
+- [x] #4 mise run rust:check passes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -42,3 +42,9 @@ Evidence (architect, branch docs/spec-alz-only-task-55.9.4, based on fd6bfb3):
 - Other port words removed although outside the grep: R2/R5 phase mentions in §7.6 and §7.13, JavaScript JSON.parse in §4.3. Kept: 'JavaScript's white-space set' in §9.2 (defines a character set) and Rust's std/regex-lite/OsStr names (define behaviour).
 - For the owner: §10 'Implementation' now reads 'Rust (decision-21, decision-39), one binary built with the toolchain that mise pins. Dependencies are kept minimal.' §10.3 init now says 'The files have fixed contents' (follow-up noted on TASK-55.9.9). §13 item 19's untested folder ownership is noted on TASK-55.9.5. §10.2 still names samples.json; its drift fields and the .mjs generator belong to TASK-55.9.3.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The spec and target facts state only what alz does; §13 has no drift list and names fixtures/; CHANGELOG lists the plain differences from 0.1.0. Owner approved; merged in #24 (4a955c9).
+<!-- SECTION:FINAL_SUMMARY:END -->

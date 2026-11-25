@@ -1,11 +1,11 @@
 ---
 id: TASK-55.9.3
 title: 'Make the Rust crates stand alone: no Node tools and no reference wording'
-status: To Do
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T22:43:00Z'
+updated_date: '2026-11-25T13:28:00Z'
 labels:
   - area:rust
   - area:test
@@ -25,10 +25,10 @@ The crates still lean on the TypeScript reference. Four Node scripts (crates/alz
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 git grep -nIE 'TypeScript|[Tt]he reference|reference drift|referenceDrift|[.]mjs|node crates/|Node[.]js|npm' -- crates prints nothing, or only lines the notes list as not about the TypeScript implementation (grep)
-- [ ] #2 The four .mjs scripts are gone, and each fixture folder they made has a README naming the spec rule it pins and how it is updated without Node (file review)
-- [ ] #3 No expected file changes its bytes: git diff main -M --name-status -- 'crates/*/tests/fixtures' shows only renames, the READMEs and no modified expected file (git diff)
-- [ ] #4 mise run rust:check passes
+- [x] #1 git grep -nIE 'TypeScript|[Tt]he reference|reference drift|referenceDrift|[.]mjs|node crates/|Node[.]js|npm' -- crates prints nothing, or only lines the notes list as not about the TypeScript implementation (grep)
+- [x] #2 The four .mjs scripts are gone, and each fixture folder they made has a README naming the spec rule it pins and how it is updated without Node (file review)
+- [x] #3 No expected file changes its bytes: git diff main -M --name-status -- 'crates/*/tests/fixtures' shows only renames, the READMEs and no modified expected file (git diff)
+- [x] #4 mise run rust:check passes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -36,3 +36,9 @@ The crates still lean on the TypeScript reference. Four Node scripts (crates/alz
 <!-- SECTION:NOTES:BEGIN -->
 AC1: git grep -nIE 'TypeScript|[Tt]he reference|reference drift|referenceDrift|[.]mjs|node crates/|Node[.]js|npm' -- crates prints 4 lines, all fixture text about a sample stack's technologies, not about the TypeScript implementation: claude-files/01-determinism and 05-skill-override and golden/01-determinism and 05-skill-override stack-conventions SKILL.md (expected files, unchanged). AC2: the four .mjs scripts are deleted; READMEs written or rewritten for golden, claude-settings, instructions, json-emit, yaml-emit (each says the spec rule and that it is kept by hand, no Node); untrusted-code-points.txt carries the same in its header. AC3: no expected file changed except the 2 comment header lines of untrusted-code-points.txt (it named the deleted .mjs; the code point lines are unchanged); one rename (glob reference_table.rs to match_table.rs). Left as is because renaming changes bytes of yaml-emit/samples.json: its labels 'reference-reads-differently', 'escaped-characters-the-reference-writes-raw' and field 'drift'; the Rust tests and the README name them. Tests: deleted a_sample_marked_as_drift_is_not_what_alz_writes (only compared samples with another implementation's text; the spec rule is proven by the two sample-input tests and the rule tests); the two drift_samples_* tests now only assert alz's output (renamed). AC4: mise run rust:check and mise run rust:ci pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The crates have no Node tools or wording about another implementation; fixture folders have READMEs; expected files unchanged. Merged in #22 (16fe5bb).
+<!-- SECTION:FINAL_SUMMARY:END -->

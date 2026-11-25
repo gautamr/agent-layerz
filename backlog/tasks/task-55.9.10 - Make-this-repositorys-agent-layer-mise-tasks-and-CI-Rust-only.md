@@ -1,11 +1,11 @@
 ---
 id: TASK-55.9.10
 title: Make this repository's agent layer, mise tasks and CI Rust only
-status: To Do
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T13:02:00Z'
+updated_date: '2026-11-25T13:28:00Z'
 labels:
   - area:agents
   - area:ci
@@ -27,11 +27,11 @@ Once the Rust tests cover the spec, the development loop drops Node. .layer/ sti
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 grep -rnE 'npm|npx|node |vitest|src/|test/|referenceDrift|reference drift|TypeScript' .layer prints nothing, or only lines the notes list (grep)
-- [ ] #2 The Stop hook runs only the Rust checks, and the tests rule and the spec-test skill describe Rust tests written from the spec (file review)
-- [ ] #3 mise.toml has no node tool and no task that runs npm, npx or node, mise run test runs the Rust tests, and mise run install:local installs the Rust alz as one regular file at ~/.local/bin/alz (grep, one install run in notes)
-- [ ] #4 grep -rnE 'npm|node|vitest' .github/workflows prints nothing, and mise run workflows:lint passes
-- [ ] #5 mise run alz:build regenerates AGENTS.md, CLAUDE.md and .claude/ with the change, and mise run alz:check passes
+- [x] #1 grep -rnE 'npm|npx|node |vitest|src/|test/|referenceDrift|reference drift|TypeScript' .layer prints nothing, or only lines the notes list (grep)
+- [x] #2 The Stop hook runs only the Rust checks, and the tests rule and the spec-test skill describe Rust tests written from the spec (file review)
+- [x] #3 mise.toml has no node tool and no task that runs npm, npx or node, mise run test runs the Rust tests, and mise run install:local installs the Rust alz as one regular file at ~/.local/bin/alz (grep, one install run in notes)
+- [x] #4 grep -rnE 'npm|node|vitest' .github/workflows prints nothing, and mise run workflows:lint passes
+- [x] #5 mise run alz:build regenerates AGENTS.md, CLAUDE.md and .claude/ with the change, and mise run alz:check passes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -48,3 +48,9 @@ For the owner: hooks, permissions and CI changed; the required status check name
 
 Correction (lead's order): the npm deny rules stay in .layer/permissions.yaml next to the cargo denies, because the npm package exists until the owner unpublishes it and deny rules only get stricter. AC1's grep therefore prints exactly these lines, the intended exception: the comment line 7 and the six deny rules 'bash:npm publish*', 'unpublish*', 'deprecate*', 'dist-tag*', 'token*', 'login*' (permissions.yaml lines 9-14). Remove them when the owner has unpublished the package. The npm allow rules (npm test, npm run, npx vitest/tsc/biome, node dist/cli.js) are still removed; the earlier note that the npm denies were replaced is superseded. Generated files rebuilt in the scratch copy: .claude/settings.json and layer.lock changed, alz check passed there (67 generated files match).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+.layer/, mise and CI are Rust only: the Stop hook runs the cargo checks, Node is gone from mise and CI, install:local installs the Rust alz; the npm publish denies stay until the package is unpublished. Owner approved; merged in #23 (1166ebb).
+<!-- SECTION:FINAL_SUMMARY:END -->
