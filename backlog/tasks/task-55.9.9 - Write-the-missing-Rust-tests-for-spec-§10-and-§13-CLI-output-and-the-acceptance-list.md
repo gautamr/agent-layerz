@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:33:00Z'
+updated_date: '2026-11-25T14:46:00Z'
 labels:
   - area:rust
   - area:test
@@ -45,4 +45,6 @@ Correction (55.9.5): the gap rows in your sections are now 11, not 12: §13.13 (
 Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
 
 55.9.9 partial (branch test/spec-10-13-task-55.9.9). Rows now covered: section 10.1 Merge diagnostics, 10.1 Build and command diagnostics, 10.3 alz build, 10.3 alz check, 13.12, 13.14 (tests: crates/alz/tests/diagnostic_codes.rs, build_check.rs, account_acceptance.rs). 10.3 alz init: the spec now states the scaffolded files' contents; init.rs::every_scaffolded_file_has_the_text_the_spec_states checks the files against the spec text. AC1 not met: gap rows left are 13.18, 13.19, 13.20, 13.24 (narrowed: declarers refused and client allowed shown; account which ignoring with one warning and init warning not shown) and 13.28. No difference from the spec found, so no alz fix and no bug task. Evidence: mise run rust:check passes; spec_coverage guard passes (summary: gap 8 overall, 5 in section 13).
+
+Second round. Covered now: 13.18 (identity_acceptance.rs: second build identical, link to a client layer, repo/group/public/second-client declarers, misread identities fail before any git command, git: and file:// layers inside the repo, link into the repo, gitfile .git, root inside another work tree, apostrophe, Commits section) and 13.28 (cache_acceptance.rs: lint and build alike, credentials, failed fetch, empty or relative XDG_CACHE_HOME, home and account-folder links, pre-commit hook for lint and check in a main checkout and a linked worktree, 0xFF name: a Linux-only test plus a macOS test that shows the name cannot be made; the Linux test is compiled only on Linux and was not run here). 13.15 gained a binary test; the diff row gained its core tests. Still gap: 13.19 (account_resolution.rs covers sources, folders, symlink, fail closed, unsafe user config, allowed entries, mise and direnv, walk, build identity; left: case variant, repo that only contains an account folder, ownership refusals which need another owner, control characters, environment names), 13.20 (fresh-clone flow, ref bump, target added or removed, twelve writers, cache-index misses through the binary), 13.24 (account_acceptance.rs and account_resolution.rs cover most; left: link-reached client, filters entry, passthrough settings or manifest or agent file, allow refusal and ESC hub). Covered rows of 10 and 13 were audited by test names against the spec text, not by reading each test body; none downgraded. Evidence: mise run rust:ci exit 0 (fmt, clippy -D warnings, tests, doc, MSRV, deny, audit); spec_coverage guard passes; gap rows overall 6 (3 here).
 <!-- SECTION:NOTES:END -->
