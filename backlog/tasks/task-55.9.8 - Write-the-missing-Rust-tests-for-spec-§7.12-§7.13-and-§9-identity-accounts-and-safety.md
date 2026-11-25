@@ -3,11 +3,11 @@ id: TASK-55.9.8
 title: >-
   Write the missing Rust tests for spec sections 7.12, 7.13 and 9: identity,
   accounts and safety
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:06:00Z'
+updated_date: '2026-11-25T14:15:00Z'
 labels:
   - area:rust
   - area:test

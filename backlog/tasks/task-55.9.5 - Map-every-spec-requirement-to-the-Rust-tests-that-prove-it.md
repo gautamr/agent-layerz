@@ -1,11 +1,11 @@
 ---
 id: TASK-55.9.5
 title: Map every spec requirement to the Rust tests that prove it
-status: To Do
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:06:00Z'
+updated_date: '2026-11-25T14:15:00Z'
 labels:
   - area:spec
   - area:test
@@ -27,10 +27,10 @@ decision-39: the spec's requirements are proven by Rust tests alone, and test/ m
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every anchor of the spec has exactly one row, and every row is covered, n/a, planned or gap (guard test)
-- [ ] #2 The guard test, run by mise run rust:check, fails when an anchor has no row, a row names an anchor the spec no longer has, or a row names a test function that does not exist (each shown failing once, in notes)
-- [ ] #3 The matrix states the gap count per spec section, and every gap row names the behaviour that lacks a test (file review)
-- [ ] #4 mise run rust:check passes
+- [x] #1 Every anchor of the spec has exactly one row, and every row is covered, n/a, planned or gap (guard test)
+- [x] #2 The guard test, run by mise run rust:check, fails when an anchor has no row, a row names an anchor the spec no longer has, or a row names a test function that does not exist (each shown failing once, in notes)
+- [x] #3 The matrix states the gap count per spec section, and every gap row names the behaviour that lacks a test (file review)
+- [x] #4 mise run rust:check passes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -42,3 +42,9 @@ Implementation (not checked off; the architect reviews the rows). docs/spec-cove
 
 Correction after review: §8.2 and §13.13 are planned (TASK-18, the Codex adapter), not gaps. '§8 What an adapter may rely on' stays a gap because it is about every adapter's output keys against target-facts, not only Codex. Final counts: covered 114, n/a 21, planned 5, gap 14 (of 154). Gap rows per task: 55.9.6 1, 55.9.7 1, 55.9.8 1, 55.9.9 11. mise run rust:check passes (exit 0).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+docs/spec-coverage.md maps all 154 spec anchors (114 covered, 21 n/a, 5 planned, 14 gap); the guard spec_coverage.rs keeps rows, tests and summaries true. Owner approved; merged in #27 (e74274c).
+<!-- SECTION:FINAL_SUMMARY:END -->
