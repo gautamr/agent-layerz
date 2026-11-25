@@ -2,9 +2,10 @@
 //! TASK-55.7.13), driven through a pseudo-terminal with the `pty-run` driver of `alz-test-support`.
 //!
 //! Every run has its own `HOME` and no `XDG_*` variable, so the allow state lives in the scratch
-//! folder and never in the real one. `--remove` needs no stack, so these cases record an entry for
-//! the repository by hand; the cases that offer a declaration of a layer, with its cache and lock,
-//! are in the acceptance suite (`test/acceptance/40-*`, `41-*`), which runs this binary.
+//! folder and never in the real one. `--remove` and the refusals need no stack, so those cases
+//! record an entry for the repository by hand; the cases that offer a declaration of a layer, with
+//! its cache and lock, build `fixtures/32-account-allow` (a client layer pinned at a tag) first and
+//! then answer the prompts through the pseudo-terminal.
 
 // The tests sit in a `mod tests` so that `clippy::tests_outside_test_module` holds for this file
 // as for every other one.
