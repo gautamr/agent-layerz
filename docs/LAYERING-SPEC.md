@@ -1026,7 +1026,7 @@ entry is fetched or written once again under its new name.
 3. For each item type, collect items from all layers **in stack order** (general → specific).
 4. Apply the merge rule for that type (§7).
 5. Check: slots filled, budgets met, leak guard on public layers, permission floor kept.
-6. Render each target with its adapter (§8) into a temp dir.
+6. Render each target with its adapter (§8) in memory; nothing is written before every check of step 5 has passed.
 7. Diff against the repo. Write only generated paths. Update `layer.lock`.
 
 **Determinism.** The build is **pure and deterministic**: the same inputs give byte-identical outputs
