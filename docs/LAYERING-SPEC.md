@@ -1644,7 +1644,8 @@ so passthroughs get turned into first-class items over time.
   - The TOML text rule reports each protected variable it finds once.
   - A `mcpServers` that is neither a mapping nor a list (a plugin manifest that names another
     file) is not checked, and neither is a JSON file whose root is not an object.
-  - Nested `env` mappings are checked down to the JSON reader's depth limit of 128
+  - Nested `env` mappings are checked down to the JSON reader's depth limit (127 levels, as
+    §5.3 "Reading the lock" counts; a deeper file is refused as one that cannot be checked)
     (TASK-55.5.12).
 
 ### 7.12 Commit identity

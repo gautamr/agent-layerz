@@ -508,6 +508,39 @@ mod tests {
         }
     }
 
+    /// Spec §6 "Validating the stack": for an existing `tree2@` entry, a name that is not allowed
+    /// (a control character; the byte 0xFF cannot be made on every file system) is the error
+    /// `layer` of §5.3 "File names", never the name itself; an entry with an extra file of an
+    /// allowed name is the "no longer matches git tree" error (the tamper test above).
+    #[test]
+    fn an_entry_that_holds_a_name_that_is_not_allowed_is_the_layer_error() {
+        let world = World::new();
+        let commit = world.commit(LAYER);
+        let tree = world.tree_of(commit, "layer");
+        world.resolve("main").expect("resolved");
+        world.put(&world.entry(tree).join("bad\u{1b}[31m.md"), "x\n");
+        let text = error_text(world.resolve("main"));
+        assert!(
+            text.starts_with("error [layer] a file or folder name in layer ")
+                && text.ends_with("holds a control or format character; rename it"),
+            "{text}"
+        );
+        assert!(!text.contains('\u{1b}'), "{text:?}");
+        // A name that is not a safe path (a backslash) is the second refusal, the mismatch.
+        world
+            .scratch
+            .remove_file(world.name(&world.entry(tree).join("bad\u{1b}[31m.md")))
+            .expect("removed");
+        world.put(&world.entry(tree).join("a\\b.md"), "x\n");
+        let text = error_text(world.resolve("main"));
+        assert!(
+            text.starts_with("error [cache] cached layer ")
+                && text.contains(&format!("no longer matches git tree {tree}"))
+                && !text.contains("a\\b"),
+            "{text}"
+        );
+    }
+
     #[test]
     fn skipped_names_in_an_entry_are_ignored_unless_the_tree_has_them() {
         let world = World::new();

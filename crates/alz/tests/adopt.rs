@@ -243,6 +243,90 @@ mod tests {
         );
     }
 
+    /// §4.3: `settings.json` and `.mcp.json` are adopted even when the build does not collide with
+    /// them. With an empty repo layer the build writes neither, so a plain build succeeds and leaves
+    /// both as they are; `--adopt` still turns each into layer sources.
+    #[test]
+    fn settings_json_and_mcp_json_are_adopted_though_nothing_collides() {
+        let settings = "{\"cleanupPeriodDays\": 30}\n";
+        let mcp = "{\"mcpServers\":{\"tracker\":{\"type\":\"http\",\"url\":\"https://tracker.example/mcp\"}}}\n";
+        let place = Place::new()
+            .with(".claude/settings.json", settings)
+            .with(".mcp.json", mcp);
+        let plain = place.alz(&["build"]);
+        assert_eq!(plain.code, 0, "no collision: {}", plain.stderr);
+        assert_eq!(
+            place.text(".claude/settings.json").as_deref(),
+            Some(settings)
+        );
+        assert_eq!(place.text(".mcp.json").as_deref(), Some(mcp));
+        assert_eq!(place.text(".layer/settings.yaml"), None);
+        assert_eq!(place.text(".layer/mcp.yaml"), None);
+
+        let run = place.alz(&["build", "--adopt"]);
+        assert_eq!(run.code, 0, "{}", run.stderr);
+        assert_eq!(
+            place.text(".layer/settings.yaml").as_deref(),
+            Some("claude:\n  cleanupPeriodDays: 30\n")
+        );
+        assert!(
+            place
+                .text(".layer/mcp.yaml")
+                .unwrap_or_default()
+                .contains("tracker"),
+            "the server is a layer source"
+        );
+        assert!(
+            place
+                .text("layer.yaml")
+                .unwrap_or_default()
+                .contains("- tracker"),
+            "the server id is enabled in layer.yaml"
+        );
+    }
+
+    /// §4.3 "Adoption, in detail": a script that moves keeps its mode, because it is linked to its
+    /// new name and unlinked from the old one, never copied.
+    #[test]
+    fn a_moved_hook_script_keeps_its_mode() {
+        let place = Place::new();
+        place.scratch.make_dirs("repo/.claude/hooks").expect("made");
+        place
+            .scratch
+            .write_executable("repo/.claude/hooks/guard.sh", "#!/bin/sh\nexit 0\n")
+            .expect("written");
+        place
+            .scratch
+            .write("repo/.claude/hooks/notes.txt", "plain\n")
+            .expect("written");
+        place
+            .scratch
+            .set_mode("repo/.claude/hooks/notes.txt", 0o640)
+            .expect("mode");
+        let before = place
+            .scratch
+            .mode("repo/.claude/hooks/guard.sh")
+            .expect("a mode");
+        let run = place.alz(&["build", "--adopt"]);
+        assert_eq!(run.code, 0, "{}", run.stderr);
+        assert!(!place.scratch.exists("repo/.claude/hooks/guard.sh"));
+        assert_eq!(
+            place
+                .scratch
+                .mode("repo/.layer/hooks/scripts/guard.sh")
+                .expect("moved"),
+            before
+        );
+        assert_ne!(before & 0o100, 0, "the script was executable");
+        assert_eq!(
+            place
+                .scratch
+                .mode("repo/.layer/hooks/scripts/notes.txt")
+                .expect("moved"),
+            0o640
+        );
+    }
+
     #[test]
     fn a_number_key_with_a_fraction_survives_adopt_build_and_check() {
         let settings = "{\"skillListingBudgetFraction\": 0.5, \"cleanupPeriodDays\": 30}\n";

@@ -21,7 +21,7 @@ mod tests {
     use alz_core::path::{AbsolutePath, SafeRelPath};
     use alz_core::stack::{Manifest, ResolvedStack};
     use alz_io::{AdoptionBasis, EnvSnapshot, RepoError, RepoRoot, StackResolver};
-    use alz_test_support::{ScratchDir, read_tree};
+    use alz_test_support::{ScratchDir, read_tree, running_as_root};
 
     const MANIFEST: &str =
         "stack:\n  - source: path:./.layer   # the repo layer\ntargets: [claude]\n";
@@ -87,6 +87,11 @@ mod tests {
         }
 
         fn plan(&self) -> Planned {
+            self.plan_of([(".claude/agents/foo.md", FOO)])
+        }
+
+        /// The plan for the native files `files`, each as it is on disk.
+        fn plan_of<'a>(&self, files: impl IntoIterator<Item = (&'a str, &'a str)>) -> Planned {
             let env = EnvSnapshot::from_vars(EnvVars::from_iter([(
                 OsString::from("HOME"),
                 OsString::from(self.base.join("home")),
@@ -100,12 +105,15 @@ mod tests {
             let placements = resolver.placements(stack);
             let merging = merge(stack, &manifest, &placements);
             let merged = merging.merged().expect("the stack merges");
-            let natives: BTreeMap<SafeRelPath, NativeFile> = [(
-                SafeRelPath::try_from(".claude/agents/foo.md").expect("a path"),
-                NativeFile::new(FOO.as_bytes().to_vec(), false),
-            )]
-            .into_iter()
-            .collect();
+            let natives: BTreeMap<SafeRelPath, NativeFile> = files
+                .into_iter()
+                .map(|(path, text)| {
+                    (
+                        SafeRelPath::try_from(path).expect("a path"),
+                        NativeFile::new(text.as_bytes().to_vec(), false),
+                    )
+                })
+                .collect();
             let adoption = plan(&AdoptionInput {
                 stack,
                 manifest: &manifest,
@@ -230,5 +238,51 @@ mod tests {
             "{refused:?}"
         );
         assert_eq!(place.tree(), before);
+    }
+
+    /// §4.3 "Adoption, in detail": `layer.yaml` is written last. A step that fails after the layer
+    /// files are written (here the old name of the agent cannot be unlinked, as its folder is
+    /// read-only) leaves `layer.yaml` as it was, though the plan edits it.
+    #[test]
+    fn layer_yaml_is_written_after_the_layer_files_and_the_moves() {
+        if running_as_root() {
+            return;
+        }
+        let place = Place::new();
+        let settings = "{\"permissions\": {\"additionalDirectories\": [\"..\"]}}\n";
+        place
+            .scratch
+            .write("repo/.claude/settings.json", settings)
+            .expect("written");
+        let planned = place.plan_of([
+            (".claude/agents/foo.md", FOO),
+            (".claude/settings.json", settings),
+        ]);
+        assert!(
+            planned.plan.manifest_edit().is_some(),
+            "the plan edits layer.yaml"
+        );
+        place
+            .scratch
+            .set_mode("repo/.claude/agents", 0o555)
+            .expect("read-only");
+        let refused = place.root().adopt(&planned.plan, &planned.basis());
+        place
+            .scratch
+            .set_mode("repo/.claude/agents", 0o755)
+            .expect("restored");
+        assert!(refused.is_err(), "{refused:?}");
+        assert_eq!(
+            place
+                .scratch
+                .read_text("repo/layer.yaml")
+                .unwrap_or_default(),
+            MANIFEST,
+            "layer.yaml is untouched"
+        );
+        assert!(
+            place.scratch.exists("repo/.layer/agents/foo.md"),
+            "the layer files were written before the step that failed"
+        );
     }
 }

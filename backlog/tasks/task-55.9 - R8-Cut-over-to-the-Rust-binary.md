@@ -4,7 +4,7 @@ title: 'R8: Cut over to the Rust binary'
 status: To Do
 assignee: []
 created_date: '2026-11-22T12:54:00Z'
-updated_date: '2026-11-25T16:43:00Z'
+updated_date: '2026-11-25T17:31:00Z'
 labels:
   - area:rust
 milestone: m-7
@@ -43,4 +43,6 @@ Audit of §7 to §9 (main 60307d2), commit on branch test/audit-7-9-task-55.9. D
 Audit of §10 and §13 (branch test/audit-10-13-task-55.9). New tests: write_error.rs (error [write] through build and check for a folder that cannot be listed), which.rs in-process (HOME unset, no user database entry, --use claude=work fails closed, hook sets no folder, exit 1), identity_acceptance (repo layer with kind: client may not declare an identity), hub_acceptance.rs (16-hub with a git hub: both repos build, grant ../hub, a docs commit after the tag changes neither build, check passes, doctor warns), name_order.rs (z.md, U+FF61, U+1F600 in AGENTS.md, pinned independent content hash, settings keys, check passes), init.rs (schema error and refused declaration are warnings, exit 0, build then fails), yaml_limits.rs (node limit, 64/65 levels, cyclic alias, invalid UTF-8, !foo, CRLF, replayed events), schema_through_lint.rs (ref: 1.10, version: 1.10, settings and mcp top-level keys, build writes nothing). Rows now gap (16): §10, §10.1 Diagnostic line, Merge diagnostics, Build and command diagnostics, Internal failure, alz lint in a repository, §10.2 Reading back, §10.3 build, diff, ls, explain, doctor, commit identity step, account note, §13.12, §13.19. Open for the owner: alz update and alz publish are in the §10 command table but not built.
 
 Owner decision applied: alz update and alz publish are marked Planned in the §10 command table (TASK-99, TASK-100); the §10 row stays gap (they cannot be tested until built). rust:ci green after this change (exit 0, 67 test binaries ok); spec_coverage guard passes. Left: the 16 gap rows listed in the earlier note.
+
+Gaps 4-6 (branch test/gaps-4-6-task-55.9): closed §4.3, §4.3 Adoption in detail, §5.3 .env files, §6 Validating the stack with new tests (adopt unit tests, repo_adopt apply order, adopt binary tests, cached_declaration, build_check env-file, stack_lint clone cannot-store, pinned_tree entry names). rust:ci green, spec_coverage guard passes. §7.11 wording: depth limit of 128 became 127 levels, matching §5.3 and json::MAX_DEPTH. Left: §6 Steps 3 to 7 stays gap (no alz build test shows a failed step-5 check stops the build with nothing written; step 6 temp-dir render). A clone holding a non-UTF-8 name is proven only by a Linux-only test (APFS refuses the name).
 <!-- SECTION:NOTES:END -->

@@ -244,6 +244,46 @@ mod tests {
         }
     }
 
+    /// Spec §5.3 ".env files", §6 "Validating the stack": the build reports each `.env` file of a
+    /// layer, at any depth, as the error `env-file` at `<layer>:<path>`, and a file named only like
+    /// one (`env.md`, a file inside a folder named `.env`) is none. The content is never printed,
+    /// the build stops, and the repository is as it was.
+    #[test]
+    fn the_build_reports_each_env_file_of_a_layer_and_writes_nothing() {
+        let world = World::buildable();
+        for (path, text) in [
+            (".layer/.env", "TOKEN=canary-env-value\n"),
+            (".layer/sub/.envrc", "TOKEN=canary-env-value\n"),
+            (".layer/env.md", "not a .env file\n"),
+            (".layer/.env.d/x", "inside a folder that starts with .env\n"),
+        ] {
+            let path = format!("work/repo/{path}");
+            if let Some(parent) = Path::new(&path).parent() {
+                world.scratch.make_dirs(parent).expect("made");
+            }
+            world.scratch.write(&path, text).expect("written");
+        }
+        let before = world.tree();
+        let run = world.alz(&["build"]);
+        assert_eq!(run.code, 1, "{}", run.stderr);
+        let lines: Vec<&str> = run
+            .stderr
+            .lines()
+            .filter(|line| line.starts_with("error [env-file]"))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                "error [env-file] shop-api:.env: layers must not contain .env files; remove it",
+                "error [env-file] shop-api:sub/.envrc: layers must not contain .env files; remove it",
+            ],
+            "{}",
+            run.stderr
+        );
+        assert!(!run.stdout.contains("canary") && !run.stderr.contains("canary"));
+        assert_eq!(world.tree(), before);
+    }
+
     /// Spec §10.3 `alz build`: a problem of the plan is `error [adopt] <problem>`, followed by
     /// `nothing was adopted; fix the problems above and rerun`, exit 1, and the repository is
     /// unchanged.
