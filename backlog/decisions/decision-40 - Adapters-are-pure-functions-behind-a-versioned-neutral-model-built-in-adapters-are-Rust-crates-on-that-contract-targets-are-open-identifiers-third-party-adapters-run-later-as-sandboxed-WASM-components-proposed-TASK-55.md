@@ -6,7 +6,7 @@ title: >-
   third-party adapters run later as sandboxed WASM components (proposed,
   TASK-55)
 date: '2026-11-25T19:01:00Z'
-status: proposed
+status: accepted
 ---
 ## Context
 

@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
+updated_date: '2026-11-25T19:14:00Z'
 labels:
   - area:adapter
   - area:security
@@ -30,3 +31,9 @@ decision-40 point 4: the core refuses adapter output that leaves the adapter's t
 - [ ] #3 A code outside the shared adapter codes and the <id>- namespace is the error 'target', and a message with control characters is stripped (tests)
 - [ ] #4 A deny rule or floor field missing from the coverage report fails the build; the Claude adapter reports every one as expressed (tests)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner (2026-11-26): decision-40 accepted. When an adapter cannot express a security item (for example a decision class's rules on a target without allow/ask/deny lists), alz fails the build with an error naming the item and the target, never a warning; a layer may opt that target out of the item explicitly.
+<!-- SECTION:NOTES:END -->
