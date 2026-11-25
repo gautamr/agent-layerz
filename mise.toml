@@ -98,7 +98,60 @@ run = "cargo build --release --locked --package alz"
 
 [tasks."install:local"]
 description = "Build the Rust alz and install or update it as one regular file at ~/.local/bin/alz (PREFIX, BIN_DIR or ALZ_NAME to change)"
-run = "sh scripts/install-local.sh"
+# Installs one regular executable, never a symlink; rerun it to update in place. The environment
+# chooses the place: `PREFIX=/opt/alz` installs /opt/alz/bin/alz, `BIN_DIR=~/bin` installs ~/bin/alz,
+# `ALZ_NAME=alz-dev` installs it under another name.
+run = '''
+set -eu
+die() { printf 'install:local: %s\n' "$*" >&2; exit 1; }
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d ' ' -f 1
+  else shasum -a 256 "$1" | cut -d ' ' -f 1
+  fi
+}
+root=${MISE_PROJECT_ROOT:-$PWD}
+prefix=${PREFIX:-$HOME/.local}
+bin_dir=${BIN_DIR:-$prefix/bin}
+name=${ALZ_NAME:-alz}
+case $name in
+  '' | */* | .*) die "ALZ_NAME must be a plain file name (got '$name')" ;;
+esac
+target=$bin_dir/$name
+if [ -L "$target" ]; then
+  die "$target is a symlink. Remove it first: rm \"$target\""
+fi
+if [ -e "$target" ] && [ ! -f "$target" ]; then
+  die "$target exists and is not a regular file"
+fi
+replaced=''
+if [ -f "$target" ]; then
+  replaced="$("$target" --version 2>/dev/null || echo 'an unknown build')"
+fi
+cd "$root"
+cargo build --release --locked --package alz
+built_path=$(cargo metadata --format-version 1 --no-deps --locked |
+  sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')/release/alz
+[ -f "$built_path" ] || die "the build did not produce $built_path"
+mkdir -p "$bin_dir"
+staged=$(mktemp "$bin_dir/.$name.XXXXXX")
+trap 'rm -f "$staged"' EXIT
+cp "$built_path" "$staged"
+chmod 755 "$staged"
+mv -f "$staged" "$target"
+trap - EXIT
+built=$(sha256 "$built_path")
+installed=$(sha256 "$target")
+[ "$built" = "$installed" ] || die "SHA-256 of $target does not match the build"
+"$target" --help >/dev/null || die "$target does not run"
+revision=$(git -C "$root" describe --always --dirty 2>/dev/null || echo unknown)
+printf 'installed %s\n  version  %s (git %s)\n  sha256   %s\n' \
+  "$target" "$("$target" --version)" "$revision" "$installed"
+[ -z "$replaced" ] || printf '  previous %s\n' "$replaced"
+case ":$PATH:" in
+  *":$bin_dir:"*) ;;
+  *) printf 'note: %s is not on PATH\n' "$bin_dir" ;;
+esac
+'''
 
 [tasks."alz:build"]
 description = "Rebuild this repo's agent config with the current code (dogfooding)"
