@@ -3,11 +3,11 @@ id: TASK-55.9.11
 title: >-
   Delete the TypeScript implementation, its tests and the Node files, and update
   the docs
-status: To Do
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T13:37:00Z'
+updated_date: '2026-11-25T13:45:00Z'
 labels:
   - area:rust
   - area:docs
@@ -27,11 +27,11 @@ The last step of decision-39: with no gap in the coverage matrix and nothing run
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 git ls-files src test package.json package-lock.json tsconfig.json biome.json vitest.config.ts scripts/install-local.sh docs/standards/typescript.md and git ls-files '*.ts' '*.mts' '*.cts' '*.js' '*.mjs' '*.cjs' print nothing (grep)
-- [ ] #2 Every folder under fixtures/ is read by at least one Rust test (the check's command and output in notes)
-- [ ] #3 git grep -niE 'npm|npx|node[.]?js|typescript|vitest' -- README.md CHANGELOG.md FRAMEWORK-GAPS.md evals docs .gitignore prints only CHANGELOG lines about 0.1.0 and lines the notes list (grep)
-- [ ] #4 Every command in README's install and development sections works in this checkout (each run once, output in notes)
-- [ ] #5 mise run rust:ci and mise run alz:check pass
+- [x] #1 git ls-files src test package.json package-lock.json tsconfig.json biome.json vitest.config.ts scripts/install-local.sh docs/standards/typescript.md and git ls-files '*.ts' '*.mts' '*.cts' '*.js' '*.mjs' '*.cjs' print nothing (grep)
+- [x] #2 Every folder under fixtures/ is read by at least one Rust test (the check's command and output in notes)
+- [x] #3 git grep -niE 'npm|npx|node[.]?js|typescript|vitest' -- README.md CHANGELOG.md FRAMEWORK-GAPS.md evals docs .gitignore prints only CHANGELOG lines about 0.1.0 and lines the notes list (grep)
+- [x] #4 Every command in README's install and development sections works in this checkout (each run once, output in notes)
+- [x] #5 mise run rust:ci and mise run alz:check pass
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -46,3 +46,9 @@ AC5 (met): mise run rust:ci -> exit 0 (fmt, clippy -D warnings, tests, doc, msrv
 
 Update: mise run workflows:lint equivalent run with the shellcheck 0.11.0 path (the shim has no version): actionlint exit 0, zizmor --pedantic --offline: no findings.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All TypeScript is deleted: src/, test/, the Node package and config files (189 files); the README installs through mise run install:local; fixtures/ kept, every folder hashed by layer_contents and used by the gap tests. Owner approved; merged in #26 (f85e367).
+<!-- SECTION:FINAL_SUMMARY:END -->
