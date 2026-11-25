@@ -597,7 +597,7 @@ mod tests {
     const NOT_REACHED_HERE: &[(&str, &str)] = &[
         (
             "write",
-            "crates/alz/src/report.rs::a_failed_write_exits_one_and_says_so_on_stderr: it needs a failure of the operating system",
+            "crates/alz/tests/write_error.rs::a_folder_that_cannot_be_listed_is_the_error_write_naming_it_and_nothing_is_written: it needs a folder with mode 0 (not as the superuser)",
         ),
         (
             "claude",

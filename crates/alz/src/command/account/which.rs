@@ -77,15 +77,12 @@ mod tests {
     use alz_test_support::ScratchDir;
 
     use super::run_at;
-    use crate::cli::WhichArgs;
+    use crate::cli::{UseChoice, WhichArgs};
     use crate::command::Surroundings;
 
-    /// TASK-72: with `HOME` unset and no user database entry, `alz account which` exits 0, warns
-    /// once that `HOME` is not an absolute path and reports the default account for every target.
-    /// The binary's own `HOME` lookup cannot be made to find nothing from outside, so this runs
-    /// the command in process with the lookup's answer given, `Home::locate_with(env, || None)`.
-    #[test]
-    fn with_home_unset_and_no_user_database_entry_every_target_resolves_to_default() {
+    /// Runs `alz account which` in a repository, with `HOME` unset and no user database entry,
+    /// and returns the exit code, standard output and standard error.
+    fn run_without_home(choices: Vec<UseChoice>) -> (u8, String, String) {
         let scratch = ScratchDir::new().expect("a scratch directory");
         for folder in ["config", "state", "cache", "repo/.layer"] {
             scratch.make_dirs(folder).expect("made");
@@ -122,9 +119,7 @@ mod tests {
         );
         let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
         let code = run_at(
-            &WhichArgs {
-                choices: Vec::new(),
-            },
+            &WhichArgs { choices },
             Surroundings {
                 env: &env,
                 directory: &directory,
@@ -133,8 +128,20 @@ mod tests {
             &mut stdout,
             &mut stderr,
         );
-        let stdout = String::from_utf8(stdout).expect("text");
-        let stderr = String::from_utf8(stderr).expect("text");
+        (
+            code,
+            String::from_utf8(stdout).expect("text"),
+            String::from_utf8(stderr).expect("text"),
+        )
+    }
+
+    /// TASK-72: with `HOME` unset and no user database entry, `alz account which` exits 0, warns
+    /// once that `HOME` is not an absolute path and reports the default account for every target.
+    /// The binary's own `HOME` lookup cannot be made to find nothing from outside, so this runs
+    /// the command in process with the lookup's answer given, `Home::locate_with(env, || None)`.
+    #[test]
+    fn with_home_unset_and_no_user_database_entry_every_target_resolves_to_default() {
+        let (code, stdout, stderr) = run_without_home(Vec::new());
         assert_eq!(code, 0, "{stderr}");
         assert!(
             stdout.contains("claude: default (source: default) CLAUDE_CONFIG_DIR unset"),
@@ -153,5 +160,34 @@ mod tests {
             "{stderr}"
         );
         assert_eq!(stderr.lines().count(), 1, "{stderr}");
+    }
+
+    /// §13.32 and §10.3 (TASK-72): with `HOME` unset and no user database entry, a target the
+    /// person names an account for fails closed: `alz account which --use claude=work` exits 1,
+    /// says the step names an account while `HOME` is not an absolute path, and that the hook sets
+    /// no folder; the target nobody named stays the default.
+    #[test]
+    fn with_home_unset_and_no_user_database_entry_a_named_account_fails_closed() {
+        let named = UseChoice {
+            target: "claude".try_into().expect("a target"),
+            choice: "work".try_into().expect("an account name"),
+        };
+        let (code, stdout, stderr) = run_without_home(vec![named]);
+        assert_eq!(code, 1, "{stdout}{stderr}");
+        assert!(
+            stdout.contains("claude: fails closed (source: use)"),
+            "{stdout}"
+        );
+        assert!(
+            stdout.contains(
+                "  use step names an account, but HOME is not an absolute path; fails closed"
+            ),
+            "{stdout}"
+        );
+        assert!(stdout.contains("  the hook sets no folder"), "{stdout}");
+        assert!(
+            stdout.contains("  fix: set HOME to an absolute path"),
+            "{stdout}"
+        );
     }
 }
