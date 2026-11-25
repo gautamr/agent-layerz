@@ -686,316 +686,318 @@ entry (§6) or an entry whose content is not what the lock recorded.
 ## 6. Resolution algorithm
 
 1. Read `layer.yaml` from the repo and resolve each `source` to a local directory at the
-   pinned revision (using the lock unless `alz update` is run).
-   A layer read from the cache is checked against the lock (§5.3). The cache is
-   `$XDG_CACHE_HOME/agent-layerz` (default `~/.cache/agent-layerz`), located as "The layer
-   cache" below says. A `github:` or `git:` layer
-   is the directory `git-<sha256 of what is cloned, in hex>@<commit sha>`, where what is cloned
-   is the remote URL exactly as it is passed to git (for `github:owner/repo`,
-   `https://github.com/owner/repo.git`), or for a local repository its canonical absolute path.
-   The URL is not rewritten, so two different URLs never share an entry and the same text always
-   maps to the same one. An entry from an older version with a different name is ignored and
-   fetched again, and is never removed. A cached git entry that already exists is not trusted over
-   a fresh clone: when the lock has no entry to check it against, the build clones the commit,
-   compares the two content hashes, discards the clone and stops with the "delete that directory"
-   error on a difference. The error is `cache`, no location: `cached layer '<source>' differs from
-   a fresh clone of the same commit: its files in <dir> changed after they were cached; delete that
-   directory and rebuild`. A cache entry must be a real directory, never a link.
+pinned revision (using the lock unless `alz update` is run).
+A layer read from the cache is checked against the lock (§5.3). The cache is
+`$XDG_CACHE_HOME/agent-layerz` (default `~/.cache/agent-layerz`), located as "The layer
+cache" below says. A `github:` or `git:` layer
+is the directory `git-<sha256 of what is cloned, in hex>@<commit sha>`, where what is cloned
+is the remote URL exactly as it is passed to git (for `github:owner/repo`,
+`https://github.com/owner/repo.git`), or for a local repository its canonical absolute path.
+The URL is not rewritten, so two different URLs never share an entry and the same text always
+maps to the same one. An entry from an older version with a different name is ignored and
+fetched again, and is never removed. A cached git entry that already exists is not trusted over
+a fresh clone: when the lock has no entry to check it against, the build clones the commit,
+compares the two content hashes, discards the clone and stops with the "delete that directory"
+error on a difference. The error is `cache`, no location: `cached layer '<source>' differs from
+a fresh clone of the same commit: its files in <dir> changed after they were cached; delete that
+directory and rebuild`. A cache entry must be a real directory, never a link.
 
-   **The layer cache** (TASK-52, TASK-53). Every command that resolves the stack (the list in
-   §5.3 "Cache integrity") locates the cache in the same way, with the same function as account
-   resolution (§7.13):
-   - It is `$XDG_CACHE_HOME/agent-layerz` when `XDG_CACHE_HOME` is an absolute path. An empty
-     or relative value counts as unset, as the XDG Base Directory specification says.
-   - Otherwise it is `$HOME/.cache/agent-layerz`, with `HOME` as §7.13 "Environment" defines
-     it. If that is not an absolute path either, the command stops with the error `cache`, no
-     location, and the message
-     `cannot locate the layer cache: set HOME or XDG_CACHE_HOME to an absolute path`.
-   - A link in the cache root's own path is followed, because the person chose that path.
-     alz resolves the path one component at a time and checks each resolved prefix before it
-     looks at the next one (§9.1).
-   - A cache root that touches an account folder (§9.1) is refused before anything in it is
-     looked at. The error is `cache`, no location, with the message `the layer cache at <dir>
-     touches an account folder or the home folder; set XDG_CACHE_HOME to another folder`.
-   - An absolute `XDG_CACHE_HOME` that puts the cache root inside the repository being built,
-     compared both as written and as real paths, is refused. The error is `cache`, no
-     location, with the message `the layer cache at <dir> lies inside the repository; set
-     XDG_CACHE_HOME to a folder outside it`.
-   - Each missing folder of the cache root is created with mode `0700`. An existing folder
-     keeps its mode.
-   - A cache root that the effective user does not own, or that group or others can write, is
-     refused, because what a stranger can write there would be read as a layer (as §7.13 "Both
-     files" refuses such a file). The mode and the owner are those of the handle that is kept,
-     read with `fstat`. The error is `cache`, no location, with the message `the layer cache at
-     <dir> is not owned by you or can be written by group or others; fix its owner and mode, or
-     set XDG_CACHE_HOME to another folder`. Each entry is opened relative to that handle, and one
-     that another user owns is the error `cache`, no location: `cache entry <name> in the layer
-     cache at <dir> is not owned by you; delete it and run alz again`.
+**The layer cache** (TASK-52, TASK-53). Every command that resolves the stack (the list in
+§5.3 "Cache integrity") locates the cache in the same way, with the same function as account
+resolution (§7.13):
+- It is `$XDG_CACHE_HOME/agent-layerz` when `XDG_CACHE_HOME` is an absolute path. An empty
+  or relative value counts as unset, as the XDG Base Directory specification says.
+- Otherwise it is `$HOME/.cache/agent-layerz`, with `HOME` as §7.13 "Environment" defines
+  it. If that is not an absolute path either, the command stops with the error `cache`, no
+  location, and the message
+  `cannot locate the layer cache: set HOME or XDG_CACHE_HOME to an absolute path`.
+- A link in the cache root's own path is followed, because the person chose that path.
+  alz resolves the path one component at a time and checks each resolved prefix before it
+  looks at the next one (§9.1).
+- A cache root that touches an account folder (§9.1) is refused before anything in it is
+  looked at. The error is `cache`, no location, with the message `the layer cache at <dir>
+  touches an account folder or the home folder; set XDG_CACHE_HOME to another folder`.
+- An absolute `XDG_CACHE_HOME` that puts the cache root inside the repository being built,
+  compared both as written and as real paths, is refused. The error is `cache`, no
+  location, with the message `the layer cache at <dir> lies inside the repository; set
+  XDG_CACHE_HOME to a folder outside it`.
+- Each missing folder of the cache root is created with mode `0700`. An existing folder
+  keeps its mode.
+- A cache root that the effective user does not own, or that group or others can write, is
+  refused, because what a stranger can write there would be read as a layer (as §7.13 "Both
+  files" refuses such a file). The mode and the owner are those of the handle that is kept,
+  read with `fstat`. The error is `cache`, no location, with the message `the layer cache at
+  <dir> is not owned by you or can be written by group or others; fix its owner and mode, or
+  set XDG_CACHE_HOME to another folder`. Each entry is opened relative to that handle, and one
+  that another user owns is the error `cache`, no location: `cache entry <name> in the layer
+  cache at <dir> is not owned by you; delete it and run alz again`.
 
-   - A cache entry that is a link or any other name but a folder is the error `cache`, no
-     location: `cache entry <name> in the layer cache at <dir> must be a folder, not a link or a
-     file; delete it and run alz again`. An entry that was removed while alz used it gives
-     `cache entry <name> in the layer cache at <dir> was removed while alz used it; run alz again`.
-   - Any other failure to open or create the cache root is the error `cache`, no location:
-     `cannot use the layer cache at <dir>`. The message names no operating system error. A
-     failure to create or use a temporary entry in the open root, to write into it or to move it
-     to its name, is the error `cache`, no location, with the message `cannot store '<source>' in
-     the layer cache at <dir>` ("A failed fetch" below), because it is the layer that cannot be
-     stored.
+- A cache entry that is a link or any other name but a folder is the error `cache`, no
+  location: `cache entry <name> in the layer cache at <dir> must be a folder, not a link or a
+  file; delete it and run alz again`. An entry that was removed while alz used it gives
+  `cache entry <name> in the layer cache at <dir> was removed while alz used it; run alz again`.
+- Any other failure to open or create the cache root is the error `cache`, no location:
+  `cannot use the layer cache at <dir>`. The message names no operating system error. A
+  failure to create or use a temporary entry in the open root, to write into it or to move it
+  to its name, is the error `cache`, no location, with the message `cannot store '<source>' in
+  the layer cache at <dir>` ("A failed fetch" below), because it is the layer that cannot be
+  stored.
 
-   `<dir>` is stripped as in every diagnostic (decision-26, class 1), and `<name>` is the entry's
-   own name (`git-<hex>@<sha>`, `tree2@<id>` or `pathref@<hex>-<sha>`). The entries inside the
-   cache are never followed through a link (above).
+`<dir>` is stripped as in every diagnostic (decision-26, class 1), and `<name>` is the entry's
+own name (`git-<hex>@<sha>`, `tree2@<id>` or `pathref@<hex>-<sha>`). The entries inside the
+cache are never followed through a link (above).
 
-   **Layers in or around an account folder** (TASK-52). Every command that resolves the stack
-   finds the directory of a `path:` layer, pinned or not, and of a local `git:` source, from the
-   path as written:
-   - relative to the repository root;
-   - one component at a time;
-   - following each link itself;
-   - checking each resolved prefix before it looks at the next one.
+**Layers in or around an account folder** (TASK-52). Every command that resolves the stack
+finds the directory of a `path:` layer, pinned or not, and of a local `git:` source, from the
+path as written:
+- relative to the repository root;
+- one component at a time;
+- following each link itself;
+- checking each resolved prefix before it looks at the next one.
 
-   A directory that touches an account folder (§9.1) stops the command before any name in it
-   is looked at, and before git runs there, whether or not a link planted in the repository
-   leads to it. An account folder that is itself reached through a link counts as that folder:
-   alz lists `$HOME` for the names it knows (`~/.claude`, `~/.claude.json`, `~/.codex`,
-   `~/.claude-*` and `~/.codex-*`), reads each with `lstat`, and for each that is a link takes the
-   real path it leads to as an account folder too, so a layer in `~/dotfiles/claude` is refused
-   when `~/.claude-x` is a link to it. Only the names in `$HOME` are looked at, never what an
-   account folder holds. The error is `source`, no location, with the message `layer '<source>' touches
-   an account folder or the home folder; alz never reads there`. `<source>` is stripped.
+A directory that touches an account folder (§9.1) stops the command before any name in it
+is looked at, and before git runs there, whether or not a link planted in the repository
+leads to it. An account folder that is itself reached through a link counts as that folder:
+alz lists `$HOME` for the names it knows (`~/.claude`, `~/.claude.json`, `~/.codex`,
+`~/.claude-*` and `~/.codex-*`), reads each with `lstat`, and for each that is a link takes the
+real path it leads to as an account folder too, so a layer in `~/dotfiles/claude` is refused
+when `~/.claude-x` is a link to it. Only the names in `$HOME` are looked at, never what an
+account folder holds. The error is `source`, no location, with the message `layer '<source>' touches
+an account folder or the home folder; alz never reads there`. `<source>` is stripped.
 
-   Files inside a layer, a cache entry or a temporary clone are then opened relative to the
-   folder that holds them, never through a link. Each check of type and size is made with
-   `fstat` on the handle that is read (decision-27), so a name swapped for a link or a pipe
-   between two calls cannot change what was checked.
+Files inside a layer, a cache entry or a temporary clone are then opened relative to the
+folder that holds them, never through a link. Each check of type and size is made with
+`fstat` on the handle that is read (decision-27), so a name swapped for a link or a pipe
+between two calls cannot change what was checked.
 
-   A `path:` layer whose directory is not there, or is not a directory, whatever the reason (a
-   missing folder on the way, a name on the way that is not a folder, more than 40 links, or
-   another failure of the operating system), is the error `source`, no location, with the message
-   `layer directory not found for '<source>'`. A pinned `path:` layer whose ref does not give a
-   layer tree is the error `source`, no location: `cannot resolve ref <ref> for '<source>': not a
-   git repo, unknown ref, the layer did not exist at that ref, or its path is not a plain
-   directory there`. The walk that opens a layer directory has its own words for a failure when a
-   caller reports it for a layer given as `<source>`: the error `layer`, no location, `layer
-   '<source>' is not a directory` for a missing name or a name that is not a folder, and `layer
-   '<source>' cannot be opened` for too many links or any other failure; an account folder or the
-   home folder is the error `source` above in every case. Stack resolution uses the first two
-   messages of this paragraph.
+A `path:` layer whose directory is not there, or is not a directory, whatever the reason (a
+missing folder on the way, a name on the way that is not a folder, more than 40 links, or
+another failure of the operating system), is the error `source`, no location, with the message
+`layer directory not found for '<source>'`. A pinned `path:` layer whose ref does not give a
+layer tree is the error `source`, no location: `cannot resolve ref <ref> for '<source>': not a
+git repo, unknown ref, the layer did not exist at that ref, or its path is not a plain
+directory there`. The walk that opens a layer directory has its own words for a failure when a
+caller reports it for a layer given as `<source>`: the error `layer`, no location, `layer
+'<source>' is not a directory` for a missing name or a name that is not a folder, and `layer
+'<source>' cannot be opened` for too many links or any other failure; an account folder or the
+home folder is the error `source` above in every case. Stack resolution uses the first two
+messages of this paragraph.
 
-   **A failed fetch** (TASK-65). Three git steps can fail for a `github:` or `git:` source: the
-   clone, `git rev-parse` of the ref as a commit (of the lock's `sha` when the lock has an entry
-   for the source), and the checkout of that commit. Any of them stops the command with the
-   error `source`, no location and the message `cannot fetch '<source>': <line>`. `<source>` is
-   the stack entry as written, ref included; it holds no credentials (§5.2). `<line>` comes
-   from the standard error of the git call that failed, in this order:
-   1. decode it as UTF-8, with U+FFFD in place of each invalid sequence;
-   2. split it at each line feed (a carriage return does not end a line);
-   3. remove control and format characters from each line (decision-26, class 1);
-   4. remove Unicode White_Space from both ends of each line;
-   5. take the first line that is not empty.
+**A failed fetch** (TASK-65). Three git steps can fail for a `github:` or `git:` source: the
+clone, `git rev-parse` of the ref as a commit (of the lock's `sha` when the lock has an entry
+for the source), and the checkout of that commit. Any of them stops the command with the
+error `source`, no location and the message `cannot fetch '<source>': <line>`. `<source>` is
+the stack entry as written, ref included; it holds no credentials (§5.2). `<line>` comes
+from the standard error of the git call that failed, in this order:
+1. decode it as UTF-8, with U+FFFD in place of each invalid sequence;
+2. split it at each line feed (a carriage return does not end a line);
+3. remove control and format characters from each line (decision-26, class 1);
+4. remove Unicode White_Space from both ends of each line;
+5. take the first line that is not empty.
 
-   When no line is left, the message is `cannot fetch '<source>'` with nothing after it.
-   `<source>` is stripped as in step 3. Git's standard error carries what the remote and the
-   transport (for example `ssh`) wrote, so it is untrusted. Nothing else of git's standard
-   output or standard error is printed. Git and the programs it starts, such as `ssh`, never
-   prompt: alz runs them so that they cannot reach the terminal ("Git subprocesses" below),
-   because alz could neither see nor sanitise what they write there. A key with a passphrase
-   therefore has to be in an agent, and a host whose key is not yet known fails the fetch with
-   the message above (TASK-70).
+When no line is left, the message is `cannot fetch '<source>'` with nothing after it.
+`<source>` is stripped as in step 3. Git's standard error carries what the remote and the
+transport (for example `ssh`) wrote, so it is untrusted. Nothing else of git's standard
+output or standard error is printed. Git and the programs it starts, such as `ssh`, never
+prompt: alz runs them so that they cannot reach the terminal ("Git subprocesses" below),
+because alz could neither see nor sanitise what they write there. A key with a passphrase
+therefore has to be in an agent, and a host whose key is not yet known fails the fetch with
+the message above (TASK-70).
 
-   Once git has succeeded, a failure to read the clone or an existing entry for the hash
-   comparison above, or to move the clone into the cache, is not a fetch failure:
-   - a name that is not valid UTF-8 is the §5.3 "File names" error;
-   - anything else is the error `cache`, with no location and the message
-     `cannot store '<source>' in the layer cache at <cache directory>`.
+Once git has succeeded, a failure to read the clone or an existing entry for the hash
+comparison above, or to move the clone into the cache, is not a fetch failure:
+- a name that is not valid UTF-8 is the §5.3 "File names" error;
+- anything else is the error `cache`, with no location and the message
+  `cannot store '<source>' in the layer cache at <cache directory>`.
 
-   **Git subprocesses** (TASK-63, TASK-70; decision-24). Every git call that resolves a source
-   (`clone`, `rev-parse`, `checkout`, `ls-tree`, `cat-file`) runs the `git` found on `PATH`, with
-   an argument list and no shell. A revision follows `--end-of-options`, and `--` comes only
-   before paths. Refs and object ids are validated before they are used (§5.2, §5.3).
-   - **Version.** alz needs git 2.30 or later, the first version whose `rev-parse` accepts
-     `--end-of-options`.
-     - Before the first git call of a command, and only when a source needs git, alz runs
-       `git version`.
-     - A version below 2.30 stops the command with the error `git`, no location, and the
-       message `alz needs git 2.30 or later; found <version>`. `<version>` is the version
-       git printed, stripped.
-     - Output that does not read as `git version <major>.<minor>…` gives
-       `an unreadable version` in place of `<version>`, and a git that cannot be started gives
-       `found none`.
-     - The note on 2.44 (`GIT_NO_LAZY_FETCH`, below) still applies, and so does the advice to
-       use 2.45.1 or later when a local `git:` source may be an untrusted repository
-       (`docs/target-facts.md` §11).
-   - **Environment.** Each call gets alz's own environment with these changes and no others:
-     - Removed: `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
-       `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, `GIT_NAMESPACE` and
-       `GIT_CEILING_DIRECTORIES`, which point git at another repository. Also removed:
-       `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` and every `GIT_CONFIG_KEY_<n>` and
-       `GIT_CONFIG_VALUE_<n>`, which carry the `-c` options of a parent git.
-     - Set: `GIT_TERMINAL_PROMPT=0`.
-     - A clone of a source classed as a remote may use `https` and `ssh` only. It is run with
-       `-c protocol.allow=never -c protocol.https.allow=always -c protocol.ssh.allow=always`,
-       with `GIT_PROTOCOL_FROM_USER=0`, and with `GIT_ALLOW_PROTOCOL=https:ssh`. git uses
-       `GIT_ALLOW_PROTOCOL` before every `protocol.*.allow`, the user's configuration included,
-       so this is the setting that a user's `protocol.ext.allow=always` cannot undo. A
-       `GIT_ALLOW_PROTOCOL` of the user's own can only narrow it: the value is cut down to the
-       `https` and `ssh` that it names, and is empty, allowing nothing, when it names neither
-       (§7.12). A remote URL that is not `https` or `ssh` (`http://`, `git://`, `file://` by way of
-       a rewrite) therefore fails the clone with the failed fetch of "A failed fetch".
-     - A clone of a local `git:` source is run with `--no-local`: git copies the objects through its
-       own transport, and never hard-links the source's object files into the cache.
-     - Every call that reads a pinned layer's tree also sets `GIT_NO_REPLACE_OBJECTS=1`,
-       `GIT_NO_LAZY_FETCH=1` and `GIT_LITERAL_PATHSPECS=1` (below).
-   - **Which git.** alz looks `git` up once per run, in the `PATH` of its own environment, folder
-     by folder, and takes the first regular file with an execute bit. An empty entry and a relative
-     entry are skipped, because they name the working directory, which may be the repository being
-     read. The version check and every call run that one absolute path. When no folder holds git
-     the error is `found none` (above). A copy of alz that cannot be started, as when the running
-     executable has gone, is the error `git` with no location and the message `alz cannot find its
-     own executable, which it needs to run git`. git and its version check are started only when a
-     source needs a clone or a pinned `path:` layer reads its tree: a layer that the lock pins and
-     the cache holds is read without them.
+**Git subprocesses** (TASK-63, TASK-70; decision-24). Every git call that resolves a source
+(`clone`, `rev-parse`, `checkout`, `ls-tree`, `cat-file`) runs the `git` found on `PATH`, with
+an argument list and no shell. A revision follows `--end-of-options`, and `--` comes only
+before paths. Refs and object ids are validated before they are used (§5.2, §5.3).
+- **Version.** alz needs git 2.30 or later, the first version whose `rev-parse` accepts
+  `--end-of-options`.
+  - Before the first git call of a command, and only when a source needs git, alz runs
+    `git version`.
+  - A version below 2.30 stops the command with the error `git`, no location, and the
+    message `alz needs git 2.30 or later; found <version>`. `<version>` is the version
+    git printed, stripped.
+  - Output that does not read as `git version <major>.<minor>…` gives
+    `an unreadable version` in place of `<version>`, and a git that cannot be started gives
+    `found none`.
+  - The note on 2.44 (`GIT_NO_LAZY_FETCH`, below) still applies, and so does the advice to
+    use 2.45.1 or later when a local `git:` source may be an untrusted repository
+    (`docs/target-facts.md` §11).
+- **Environment.** Each call gets alz's own environment with these changes and no others:
+  - Removed: `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+    `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_COMMON_DIR`, `GIT_NAMESPACE` and
+    `GIT_CEILING_DIRECTORIES`, which point git at another repository. Also removed:
+    `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` and every `GIT_CONFIG_KEY_<n>` and
+    `GIT_CONFIG_VALUE_<n>`, which carry the `-c` options of a parent git.
+  - Set: `GIT_TERMINAL_PROMPT=0`.
+  - A clone of a source classed as a remote may use `https` and `ssh` only. It is run with
+    `-c protocol.allow=never -c protocol.https.allow=always -c protocol.ssh.allow=always`,
+    with `GIT_PROTOCOL_FROM_USER=0`, and with `GIT_ALLOW_PROTOCOL=https:ssh`. git uses
+    `GIT_ALLOW_PROTOCOL` before every `protocol.*.allow`, the user's configuration included,
+    so this is the setting that a user's `protocol.ext.allow=always` cannot undo. A
+    `GIT_ALLOW_PROTOCOL` of the user's own can only narrow it: the value is cut down to the
+    `https` and `ssh` that it names, and is empty, allowing nothing, when it names neither
+    (§7.12). A remote URL that is not `https` or `ssh` (`http://`, `git://`, `file://` by way of
+    a rewrite) therefore fails the clone with the failed fetch of "A failed fetch".
+  - A clone of a local `git:` source is run with `--no-local`: git copies the objects through its
+    own transport, and never hard-links the source's object files into the cache.
+  - Every call that reads a pinned layer's tree also sets `GIT_NO_REPLACE_OBJECTS=1`,
+    `GIT_NO_LAZY_FETCH=1` and `GIT_LITERAL_PATHSPECS=1` (below).
+- **Which git.** alz looks `git` up once per run, in the `PATH` of its own environment, folder
+  by folder, and takes the first regular file with an execute bit. An empty entry and a relative
+  entry are skipped, because they name the working directory, which may be the repository being
+  read. The version check and every call run that one absolute path. When no folder holds git
+  the error is `found none` (above). A copy of alz that cannot be started, as when the running
+  executable has gone, is the error `git` with no location and the message `alz cannot find its
+  own executable, which it needs to run git`. git and its version check are started only when a
+  source needs a clone or a pinned `path:` layer reads its tree: a layer that the lock pins and
+  the cache holds is read without them.
 
-     A git hook receives `GIT_INDEX_FILE` and, in a linked worktree, `GIT_DIR`. So when alz
-     runs from a hook, these calls never read or write the user's index or repository. The
-     user's git configuration files, credential helpers, `url.<base>.insteadOf` rules and ssh
-     settings keep working. Calls on the repository being built (§9.4) are not part of this
-     rule; their environment is §9.4's.
-   - **No terminal.** Git and the programs it starts never reach the terminal.
-     - alz starts git through a copy of itself, run with an internal argument that is not
-       part of the command-line interface. The copy starts a new session (`setsid`) and then
-       runs git as its child, so git and `ssh` have no controlling terminal and cannot open
-       `/dev/tty`. The copy writes one byte to its standard output once the session has started,
-       before git runs, and alz takes it off the stream: alz treats the copy's process group as
-       git's only after that byte.
-     - **Abandoned calls.** git runs in a session of its own, so an interrupt that reaches alz
-       does not reach it. The copy therefore waits for git and ends git's whole process group,
-       `ssh` included, when alz is gone (interrupted or killed), and alz ends the group when it
-       abandons a call (an error, a panic or the deadline below). No git or `ssh` is left running
-       after alz ends. The copy ends with git's exit status. When alz ends a call it ends the
-       copy and, once the byte has arrived, the group; if the byte arrives after the copy was
-       ended, the group is ended then. Once alz has the copy's exit status it never signals that
-       process id again, since the system may have given it to another process; and it reads
-       git's output for half a second more at most, then returns git's result, so a process that
-       outlives git and keeps the pipes open (an `ssh` kept for later connections) does not hold
-       the call to its deadline.
-     - Standard input is the null device, except for the batch calls whose input alz writes.
-     - A SMOKE run (TASK-55.4.3, Darwin 25.6, git 2.50.1) started a pseudo-terminal with
-       `script(1)`. A process that opened `/dev/tty` there succeeded when it was started
-       directly, and failed with ENXIO ("Device not configured") when it was started through
-       the copy. The copy must not be a process group leader when it calls `setsid`, which is
-       why the runner starts it as an ordinary child.
-     - The user's `core.sshCommand` and `GIT_SSH_COMMAND` are left as they are.
-     - An `ssh` agent keeps working, and so does a graphical `SSH_ASKPASS` program, which does
-       not use the terminal.
-   - **Deadlines.** A clone may run for 10 minutes, and any other git call for 2 minutes. When
-     a call runs longer, alz ends git's whole process group, `ssh` included, and the step
-     fails:
-     - for a `github:` or `git:` source, with `cannot fetch '<source>': git did not finish
-       within <n> seconds`, where `<n>` is 600 or 120;
-     - for a pinned `path:` layer, with `cannot read '<source>' at <ref>: git did not finish
-       within <n> seconds`.
-   - Only the machine-readable output that each call asks for is read from git's standard
-     output. Its standard error is read only as "A failed fetch" says.
+  A git hook receives `GIT_INDEX_FILE` and, in a linked worktree, `GIT_DIR`. So when alz
+  runs from a hook, these calls never read or write the user's index or repository. The
+  user's git configuration files, credential helpers, `url.<base>.insteadOf` rules and ssh
+  settings keep working. Calls on the repository being built (§9.4) are not part of this
+  rule; their environment is §9.4's.
+- **No terminal.** Git and the programs it starts never reach the terminal.
+  - alz starts git through a copy of itself, run with an internal argument that is not
+    part of the command-line interface. The copy starts a new session (`setsid`) and then
+    runs git as its child, so git and `ssh` have no controlling terminal and cannot open
+    `/dev/tty`. The copy writes one byte to its standard output once the session has started,
+    before git runs, and alz takes it off the stream: alz treats the copy's process group as
+    git's only after that byte.
+  - **Abandoned calls.** git runs in a session of its own, so an interrupt that reaches alz
+    does not reach it. The copy therefore waits for git and ends git's whole process group,
+    `ssh` included, when alz is gone (interrupted or killed), and alz ends the group when it
+    abandons a call (an error, a panic or the deadline below). No git or `ssh` is left running
+    after alz ends. The copy ends with git's exit status. When alz ends a call it ends the
+    copy and, once the byte has arrived, the group; if the byte arrives after the copy was
+    ended, the group is ended then. Once alz has the copy's exit status it never signals that
+    process id again, since the system may have given it to another process; and it reads
+    git's output for half a second more at most, then returns git's result, so a process that
+    outlives git and keeps the pipes open (an `ssh` kept for later connections) does not hold
+    the call to its deadline.
+  - Standard input is the null device, except for the batch calls whose input alz writes.
+  - A SMOKE run (TASK-55.4.3, Darwin 25.6, git 2.50.1) started a pseudo-terminal with
+    `script(1)`. A process that opened `/dev/tty` there succeeded when it was started
+    directly, and failed with ENXIO ("Device not configured") when it was started through
+    the copy. The copy must not be a process group leader when it calls `setsid`, which is
+    why the runner starts it as an ordinary child.
+  - The user's `core.sshCommand` and `GIT_SSH_COMMAND` are left as they are.
+  - An `ssh` agent keeps working, and so does a graphical `SSH_ASKPASS` program, which does
+    not use the terminal.
+- **Deadlines.** A clone may run for 10 minutes, and any other git call for 2 minutes. When
+  a call runs longer, alz ends git's whole process group, `ssh` included, and the step
+  fails:
+  - for a `github:` or `git:` source, with `cannot fetch '<source>': git did not finish
+    within <n> seconds`, where `<n>` is 600 or 120;
+  - for a pinned `path:` layer, with `cannot read '<source>' at <ref>: git did not finish
+    within <n> seconds`.
+- Only the machine-readable output that each call asks for is read from git's standard
+  output. Its standard error is read only as "A failed fetch" says.
 
-   **Other messages of resolution** (TASK-55.4.11). Each is stripped as every diagnostic is
-   (decision-26, class 1) and has no location unless it says so:
-   - `source`: `'<source>': a local git: path must not contain '..' segments; use a path without
-     them`, for a local `git:` path with a `..` segment (§7.12), and `'<source>': not a valid
-     file:// URL` for a `file://` URL that names no path.
-   - `source`: `cannot find the working directory`, when the process has none.
-   - `git`: `alz cannot find its own executable, which it needs to run git`, when alz cannot
-     start its copy for the call (above).
-   - `layer`: `layer.yaml in layer '<source>' cannot be read`, for a `layer.yaml` that cannot be
-     opened or read for another reason than "missing" and "not a regular file" (§5.3).
-   - `env-file`, at `<layer>:<path>`: `layers must not contain .env files; remove it`.
-   - `cache-index` (a warning, §6 below): `cache entry pathref@<hex>-<sha> in the layer cache at
-     <dir> cannot be written`. A folder at that name is the error `cache`: `cache entry
-     pathref@<hex>-<sha> in the layer cache at <dir> is a folder; delete it and rebuild`.
-   - `lock`, at `layer.lock`: `layer.lock must be a regular file, not a link or a folder`,
-     `layer.lock cannot be read`, and, for a field that is missing or invalid, `the lock's
-     <field> is missing or not valid; delete the lock and rebuild`, where `<field>` is one of
-     `the document`, `lockVersion`, `visibility`, `layers`, `layers[].name`, `layers[].source`,
-     `layers[].rev`, `layers[].sha`, `layers[].contentHash`, `files`, `a key of files` and
-     `a value of files`. The value is never printed.
+**Other messages of resolution** (TASK-55.4.11). Each is stripped as every diagnostic is
+(decision-26, class 1) and has no location unless it says so:
+- `source`: `'<source>': a local git: path must not contain '..' segments; use a path without
+  them`, for a local `git:` path with a `..` segment (§7.12), and `'<source>': not a valid
+  file:// URL` for a `file://` URL that names no path.
+- `source`: `cannot find the working directory`, when the process has none.
+- `git`: `alz cannot find its own executable, which it needs to run git`, when alz cannot
+  start its copy for the call (above).
+- `layer`: `layer.yaml in layer '<source>' cannot be read`, for a `layer.yaml` that cannot be
+  opened or read for another reason than "missing" and "not a regular file" (§5.3).
+- `env-file`, at `<layer>:<path>`: `layers must not contain .env files; remove it`.
+- `cache-index` (a warning, §6 below): `cache entry pathref@<hex>-<sha> in the layer cache at
+  <dir> cannot be written`. A folder at that name is the error `cache`: `cache entry
+  pathref@<hex>-<sha> in the layer cache at <dir> is a folder; delete it and rebuild`.
+- `lock`, at `layer.lock`: `layer.lock must be a regular file, not a link or a folder`,
+  `layer.lock cannot be read`, and, for a field that is missing or invalid, `the lock's
+  <field> is missing or not valid; delete the lock and rebuild`, where `<field>` is one of
+  `the document`, `lockVersion`, `visibility`, `layers`, `layers[].name`, `layers[].source`,
+  `layers[].rev`, `layers[].sha`, `layers[].contentHash`, `files`, `a key of files` and
+  `a value of files`. The value is never printed.
 
-   A pinned `path:` layer is `tree2@<git tree id>`, where the tree is the layer's directory at the
-   commit. The prefix is the format version: entries named `tree@<id>`, written by older versions
-   with `git checkout-index`, may differ from the tree by attribute conversions, so they are
-   ignored and written again (and never removed). Reading the tree:
+**Pinned `path:` layers.** A pinned `path:` layer is `tree2@<git tree id>`, where the tree is the layer's directory at the
+commit. The prefix is the format version: entries named `tree@<id>`, written by older versions
+with `git checkout-index`, may differ from the tree by attribute conversions, so they are
+ignored and written again (and never removed). Reading the tree:
 
-   - The top of the repository that `git rev-parse --show-toplevel` reports is walked like a
-     layer directory (§6 "Layers in or around an account folder") before git is asked anything
-     else there. One that touches an account folder, which `core.worktree` or a `.git` file can
-     arrange, is refused with the error `source` of that paragraph, naming the layer.
-   - Standard output of the git calls that read the tree is read up to 64 MiB for a listing or
-     object contents (`ls-tree -r`, `cat-file --batch`) and 64 KiB for a one-line answer. More is
-     a failed read, `cannot read '<source>' at <ref>: git wrote more output than alz accepts`.
-   - `git ls-tree` must list the layer's path as a directory (mode `040000`, type `tree`), so a
-     symbolic link or a submodule entry, whose recorded id could be any tree id, is refused as an
-     unresolvable ref.
-   - Every git call that reads the tree sets `GIT_NO_REPLACE_OBJECTS=1` and
-     `GIT_NO_LAZY_FETCH=1`: no replace ref swaps an object, and no partial clone fetches one.
-     Git honours `GIT_NO_LAZY_FETCH` from version 2.44; an older git may still fetch a missing
-     blob from a partial clone's promisor remote.
-   - The repository being built must hold every blob the tree lists, as a blob
-     (`git cat-file --batch-check`), before a cached entry is trusted or a new one is written, so
-     another repository's tree id never selects an entry whose content this repository lacks.
-   - Links and submodule entries inside the tree are skipped, as the loader skips links in a git
-     or unpinned layer, so a hub with `CLAUDE.md -> AGENTS.md` keeps working. They are not
-     written, and a link found in an entry is a change. A path with a backslash, a `.` or `..`
-     segment or a `.git` segment, or one that is not valid UTF-8 (§5.3 "File names"), is
-     refused. The same rule is the one for every relative path in `layer.lock` and in a layer
-     (`SafeRelPath`): the `.git` comparison ignores ASCII case (`.GIT` names `.git` on a
-     case-insensitive file system), and a segment `.git.` or `.git ` (a trailing dot or space,
-     which Windows drops) counts as `.git`.
-   - A tree with two paths that are equal after Unicode NFC normalisation and lowercasing, or a
-     file and a folder with such names, is refused before anything is written, because one file
-     system would merge them.
-   - These refusals are the error `layer`, with no location, and name the layer by its source and
-     never a path: a path that is not valid UTF-8 gives the message of §5.3 "File names"; a path
-     that is not safe gives `the git tree of layer '<source>' lists a path with a backslash, a
-     '.', '..' or '.git' segment; rename it`; two paths that one file system would merge give
-     `the git tree of layer '<source>' lists two paths that one file system would merge (equal
-     after Unicode normalisation and lowercasing); rename one`. Every path the tree lists is
-     judged, links and submodules too, but only the files are compared for merging.
-   - A layer at the top of its repository (`git rev-parse --show-prefix` is empty) is the commit's
-     own tree. A git step that fails before the tree is listed, because the folder is not in a
-     repository or the ref is unknown, is `cannot resolve ref`; one that fails while the tree is
-     read, or that does not finish, is `cannot read '<source>' at <ref>: <line>`, and so is a
-     blob the repository does not hold (`the repository does not hold the file '<path>'`).
+- The top of the repository that `git rev-parse --show-toplevel` reports is walked like a
+  layer directory (§6 "Layers in or around an account folder") before git is asked anything
+  else there. One that touches an account folder, which `core.worktree` or a `.git` file can
+  arrange, is refused with the error `source` of that paragraph, naming the layer.
+- Standard output of the git calls that read the tree is read up to 64 MiB for a listing or
+  object contents (`ls-tree -r`, `cat-file --batch`) and 64 KiB for a one-line answer. More is
+  a failed read, `cannot read '<source>' at <ref>: git wrote more output than alz accepts`.
+- `git ls-tree` must list the layer's path as a directory (mode `040000`, type `tree`), so a
+  symbolic link or a submodule entry, whose recorded id could be any tree id, is refused as an
+  unresolvable ref.
+- Every git call that reads the tree sets `GIT_NO_REPLACE_OBJECTS=1` and
+  `GIT_NO_LAZY_FETCH=1`: no replace ref swaps an object, and no partial clone fetches one.
+  Git honours `GIT_NO_LAZY_FETCH` from version 2.44; an older git may still fetch a missing
+  blob from a partial clone's promisor remote.
+- The repository being built must hold every blob the tree lists, as a blob
+  (`git cat-file --batch-check`), before a cached entry is trusted or a new one is written, so
+  another repository's tree id never selects an entry whose content this repository lacks.
+- Links and submodule entries inside the tree are skipped, as the loader skips links in a git
+  or unpinned layer, so a hub with `CLAUDE.md -> AGENTS.md` keeps working. They are not
+  written, and a link found in an entry is a change. A path with a backslash, a `.` or `..`
+  segment or a `.git` segment, or one that is not valid UTF-8 (§5.3 "File names"), is
+  refused. The same rule is the one for every relative path in `layer.lock` and in a layer
+  (`SafeRelPath`): the `.git` comparison ignores ASCII case (`.GIT` names `.git` on a
+  case-insensitive file system), and a segment `.git.` or `.git ` (a trailing dot or space,
+  which Windows drops) counts as `.git`.
+- A tree with two paths that are equal after Unicode NFC normalisation and lowercasing, or a
+  file and a folder with such names, is refused before anything is written, because one file
+  system would merge them.
+- These refusals are the error `layer`, with no location, and name the layer by its source and
+  never a path: a path that is not valid UTF-8 gives the message of §5.3 "File names"; a path
+  that is not safe gives `the git tree of layer '<source>' lists a path with a backslash, a
+  '.', '..' or '.git' segment; rename it`; two paths that one file system would merge give
+  `the git tree of layer '<source>' lists two paths that one file system would merge (equal
+  after Unicode normalisation and lowercasing); rename one`. Every path the tree lists is
+  judged, links and submodules too, but only the files are compared for merging.
+- A layer at the top of its repository (`git rev-parse --show-prefix` is empty) is the commit's
+  own tree. A git step that fails before the tree is listed, because the folder is not in a
+  repository or the ref is unknown, is `cannot resolve ref`; one that fails while the tree is
+  read, or that does not finish, is `cannot read '<source>' at <ref>: <line>`, and so is a
+  blob the repository does not hold (`the repository does not hold the file '<path>'`).
 
-   Next to each `tree2@` entry the commands that resolve a pinned `path:` layer keep an index
-   entry, `pathref@<sha256 of the layer directory's real path>-<commit sha>`, that names the
-   tree, so account resolution can find the entry without git (§7.13 "No fetch on resolve").
-   It is only a pointer: whatever it names is still checked against the lock. A directory at
-   its name is the cache error ("delete it and rebuild"); any other failure to write it, such as
-   a read-only cache, is the warning `cache-index` and does not stop the build, and account
-   resolution reports a miss until the entry exists.
+**The index entry.** Next to each `tree2@` entry the commands that resolve a pinned `path:` layer keep an index
+entry, `pathref@<sha256 of the layer directory's real path>-<commit sha>`, that names the
+tree, so account resolution can find the entry without git (§7.13 "No fetch on resolve").
+It is only a pointer: whatever it names is still checked against the lock. A directory at
+its name is the cache error ("delete it and rebuild"); any other failure to write it, such as
+a read-only cache, is the warning `cache-index` and does not stop the build, and account
+resolution reports a miss until the entry exists.
 
-   The entry is written from the tree's own blobs (`git cat-file`), each checked against its id,
-   not by `git checkout-index`, so no attributes file of the working repository
-   (`.gitattributes`, `info/attributes`), no `core.attributesFile`, no `core.autocrlf` and no
-   filter (LFS included, so an LFS file is its pointer text) changes a byte, and in-tree
-   attributes are not applied either. Files get mode `0644`, or `0755` when the tree records an
-   executable. The written entry is verified before it gets its name, and every later read of a
-   `tree2@` entry is verified too, whatever the lock says: it is compared with `git ls-tree -r`
-   of that tree, with every file present with the blob id git computes over its bytes (no
-   filters), the executable bit equal to the mode, no extra file and no link, and the entry itself
-   a real directory. Names the loader skips (`.DS_Store`, `.git`, `node_modules`) are ignored in
-   an entry unless the tree has them. Names are compared in NFC, because HFS+ returns NFD and APFS
-   keeps the form it was written in. A difference stops the build with the "delete that
-   directory" error, so an entry whose tree is unchanged but whose commit moved (docs commits in
-   a hub) is still checked. Repository-supplied text in these errors (paths, sources) is quoted,
-   with control and format characters removed.
+**Writing and verifying an entry.** The entry is written from the tree's own blobs (`git cat-file`), each checked against its id,
+not by `git checkout-index`, so no attributes file of the working repository
+(`.gitattributes`, `info/attributes`), no `core.attributesFile`, no `core.autocrlf` and no
+filter (LFS included, so an LFS file is its pointer text) changes a byte, and in-tree
+attributes are not applied either. Files get mode `0644`, or `0755` when the tree records an
+executable. The written entry is verified before it gets its name, and every later read of a
+`tree2@` entry is verified too, whatever the lock says: it is compared with `git ls-tree -r`
+of that tree, with every file present with the blob id git computes over its bytes (no
+filters), the executable bit equal to the mode, no extra file and no link, and the entry itself
+a real directory. Names the loader skips (`.DS_Store`, `.git`, `node_modules`) are ignored in
+an entry unless the tree has them. Names are compared in NFC, because HFS+ returns NFD and APFS
+keeps the form it was written in. A difference stops the build with the "delete that
+directory" error, so an entry whose tree is unchanged but whose commit moved (docs commits in
+a hub) is still checked. Repository-supplied text in these errors (paths, sources) is quoted,
+with control and format characters removed.
 
-   Changes a user can see in 0.x: a symlinked `layer.yaml` is refused; in-tree attributes (eol,
-   ident, filters such as LFS) are no longer applied to pinned layers; paths with a backslash or a
-   `.git` segment are refused; links in a pinned layer are skipped; a hub cloned without blobs
-   (`--filter=blob:none`) and pinned to a ref whose files were never fetched fails with "does not
-   hold the file" (run `git fetch` for that ref, or use a full clone); and every git and tree cache
-   entry is fetched or written once again under its new name.
+**Changes in 0.x.** Changes a user can see in 0.x: a symlinked `layer.yaml` is refused; in-tree attributes (eol,
+ident, filters such as LFS) are no longer applied to pinned layers; paths with a backslash or a
+`.git` segment are refused; links in a pinned layer are skipped; a hub cloned without blobs
+(`--filter=blob:none`) and pinned to a ref whose files were never fetched fails with "does not
+hold the file" (run `git fetch` for that ref, or use a full clone); and every git and tree cache
+entry is fetched or written once again under its new name.
+**Validating the stack.**
+
 2. Validate the stack: visibility ordering (§3.1), layer schema, no duplicate layer names.
    The layers are first read, each by its own rule (steps above and §5.3): a failure of one
    entry does not stop the others, so one run reports every problem, in stack order. The layer
@@ -1019,13 +1021,15 @@ entry (§6) or an entry whose content is not what the lock recorded.
    second is the "no longer matches git tree" error (`cached layer '<source>' no longer matches
    git tree <id>: its files in <dir> changed after they were cached; delete that directory and
    rebuild`, the error `cache`, no location).
+**Steps 3 to 7.**
+
 3. For each item type, collect items from all layers **in stack order** (general → specific).
 4. Apply the merge rule for that type (§7).
 5. Check: slots filled, budgets met, leak guard on public layers, permission floor kept.
 6. Render each target with its adapter (§8) into a temp dir.
 7. Diff against the repo. Write only generated paths. Update `layer.lock`.
 
-The build is **pure and deterministic**: the same inputs give byte-identical outputs
+**Determinism.** The build is **pure and deterministic**: the same inputs give byte-identical outputs
 (sorted keys, stable ordering, no timestamps in file bodies).
 
 **Name order.** Wherever alz sorts names, paths or keys, it compares them by Unicode code
