@@ -1,10 +1,15 @@
 # LAYERING-SPEC.md — Layered agent configuration for any client and project
 
-**Status:** Draft v1 · 2026-11-22 (§7.12 commit identity added; needs agent-layerz 0.2.0.
+**Status:** Draft v1 · 2026-11-26 (§7.12 commit identity added; needs agent-layerz 0.2.0.
 §7.13 account selection specified and planned in TASK-50, aligned with the tool facts in
 `docs/target-facts.md` §12; built so far (TASK-50.8): the `account` layer field, who may
 declare it, and the refusal of layers that set the account variables, none of which changes
-generated output yet)
+generated output yet. §8.0 adapter contract and the open target ids of §5.2 specified
+(decision-40, TASK-104) and built by TASK-105 to TASK-112 and TASK-127; generated output stays
+byte for byte the same. The wider `targets` grammar, the `no adapter for` error and the
+`unenforced` field of `permissions.yaml` change the layer format and an error text, so they need
+a minor version bump: 0.1.0 to 0.2.0, the first Rust release (TASK-55.8.4), with a CHANGELOG
+entry, or the next minor version for any of them that ships later)
 **Audience:** a coding agent (Claude Code / Codex) implementing the tool, and humans who use it
 **Name:** `agent-layerz`, with the CLI command `alz`
 
@@ -135,12 +140,13 @@ Every directory is optional. A layer may contain only `instructions/`.
   relative to `hooks/` (§7.5);
 - `permissions.yaml`, `mcp.yaml`, `models.yaml` and `settings.yaml`;
 - `targets/claude/CLAUDE.extra.md` (§7.1), and `targets/<target>/<path>` for a known target
-  (`claude`, `codex`), which are the passthrough files (§7.11).
+  (`claude`, `codex`; from TASK-106 any target id, §5.2 **Target ids**), which are the
+  passthrough files (§7.11).
 
 Any other path, such as a README or a folder of notes, is part of the content hash (§5.3) but is
 no item. One exception: each file below a folder in `targets/` whose name is not a known target
-is an error (code `passthrough`) that names the file (§7.11). A file directly in `targets/` is no
-item.
+(from TASK-106: not a target id) is an error (code `passthrough`) that names the file (§7.11). A
+file directly in `targets/` is no item.
 
 **Markdown frontmatter.** Instruction, agent, overlay, `SKILL.md`, command, rule and
 `CLAUDE.extra.md` files are Markdown with optional YAML frontmatter. CRLF line ends are read as
@@ -510,7 +516,9 @@ repository without `layer.yaml` is the error `no-manifest`.
   `github:` or `git:` source carries its ref after `@`; a `ref` field on such an entry is checked
   but has no effect.
 - `targets` is a list of target names (§8), `claude` when absent. Any other name is an error that
-  names `targets[<n>]`.
+  names `targets[<n>]`. From TASK-106 `targets` is a list of target ids (**Target ids**, below):
+  an entry that is not a target id is that error, and a target id that no adapter renders is the
+  error `target` of §8 **Targets without an adapter**.
 - `workspace.hub` and each entry of `workspace.add_dirs` are non-empty paths relative to the
   repository: not absolute and not starting with `~`. A `\` is read as `/`, the path is
   normalised and a trailing `/` removed. Among the additional directories the hub comes first, and
@@ -526,6 +534,21 @@ repository without `layer.yaml` is the error `no-manifest`.
 - An optional field or section whose value is null, written as nothing, `~` or `null`, counts as
   absent (an empty `mcp:` is no `mcp`). A required field that is null, such as `stack:` with
   nothing after it, is reported as missing.
+
+**Target ids** (decision-40; TASK-105 adds the type, TASK-106 uses it). A target id names an
+agent tool that alz may write configuration for. It is 1 to 32 characters: a lower-case ASCII
+letter, then lower-case ASCII letters, digits and `-`, which is `^[a-z][a-z0-9-]{0,31}$`. So
+`claude`, `codex` and `antigravity` are target ids, and `Claude`, `9x`, `my_tool` and an empty
+text are not. Until TASK-106 alz accepts only `claude` and `codex` wherever it reads a target.
+From TASK-106:
+- `targets` takes any target id (field rules, above).
+- The top level of `settings.yaml` (§7.9), the keys of an alias in `models.yaml` (§7.8) and the
+  folders of `targets/` (§4.1, §7.11) take any target id as well. Such a section or folder for an
+  id that is not in `targets` is still read and checked as those sections say, as far as a check
+  does not need the target's adapter, gives no diagnostic of its own and is never written. So a
+  shared layer can carry sections for a tool that some of its users do not build for.
+- The `account` map (§7.13) and `alz use` name families of account folders, `claude` and `codex`,
+  not adapters, and take only those two.
 
 **Source forms** (TASK-55.3). A `source` prints back as the text it was read from, byte for byte
 (`layer.lock` and `allowed.yaml` store that text). Each error is `manifest` at `layer.yaml` and
@@ -1333,6 +1356,32 @@ default_mode: default
   never `true`, because Claude Code takes that key as a string, and the two `block...` keys as
   booleans (`docs/target-facts.md` §13, TASK-55.5.16).
 
+**Targets that cannot enforce an item** (decision-40, TASK-127). A layer's deny rules and the
+floor fields it sets to `true` are its security items (§8.0 **Model.**). When a target's adapter
+cannot express one, the build fails (§8.0 **Security items a target cannot enforce.**) unless the
+layer that declares the item opts that target out of it, by name, in `unenforced`:
+
+```yaml
+deny: [ "read:.env*", "bash:rm -rf *" ]
+block_writes_outside: true
+unenforced:                          # what this layer accepts that a target does not enforce
+  codex:
+    deny: [ "bash:rm -rf *" ]        # rules of this layer's own deny
+    floor_fields: [ block_writes_outside ]
+```
+
+- `unenforced` is a mapping whose keys are target ids (§5.2 **Target ids**). Each value is a
+  mapping with `deny`, a list of rules, and `floor_fields`, a list of the floor field names
+  above, each optional and nothing else.
+- An entry covers only an item of its own layer: a `deny` entry is a rule that this layer's own
+  `deny` adds, and a `floor_fields` entry is a floor field this layer sets to `true`. Any other
+  entry, a key that is not a target id or another shape is a `permissions` error. So a more
+  specific layer can never opt a target out of a more general layer's item, and security only
+  gets stricter down the stack (§9.3).
+- `unenforced` is not merged across layers and is never written. An entry for a target that is
+  not in `targets`, or whose adapter expresses the item, has no effect.
+- Until TASK-127 `unenforced` is an unknown field of `permissions.yaml`, so a `permissions` error.
+
 ### 7.7 MCP servers
 `mcp.yaml` defines servers by id:
 
@@ -1383,8 +1432,9 @@ roles:
 ```
 
 - Aliases and roles are deep-merged, and the most specific value wins.
-- Each alias maps target names (`claude`, `codex`) to model ids. Any other key in an alias is an
-  error (code `models`) that names the file and prints the key quoted (§10.1).
+- Each alias maps target names (`claude`, `codex`; from TASK-106 any target id, §5.2
+  **Target ids**) to model ids. Any other key in an alias is an error (code `models`) that names
+  the file and prints the key quoted (§10.1).
 - An agent's `model: inherit` resolves through its `role`. An explicit alias overrides the role.
 - Concrete model ids live **only** here, so swapping models is a one-line change in one layer.
 - Alias names, role names and concrete model ids are any text that is not blank.
@@ -1399,8 +1449,8 @@ claude: { <native settings.json keys> }
 codex:  { <native config.toml keys> }
 ```
 
-The top level of `settings.yaml` takes only the target names `claude` and `codex`, and each
-value is a mapping; `null` or any other value is an error. Any other top-level key, whatever it is, is an error (code `settings`). The
+The top level of `settings.yaml` takes only the target names `claude` and `codex` (from TASK-106
+any target id, §5.2 **Target ids**), and each value is a mapping; `null` or any other value is an error. Any other top-level key, whatever it is, is an error (code `settings`). The
 error names the layer and the file and prints the key quoted (§10.1), and none of that file's
 settings are merged. Per target, the merged settings are ordered maps of the keys that passed
 these checks (TASK-55.5).
@@ -1625,13 +1675,15 @@ the agent works on matching files (e.g. `backend.md` → `src/**`).
 
 ### 7.11 Passthrough (`targets/<target>/…`)
 This is the escape hatch for target features the neutral schema doesn't cover. Only a folder
-named after a known target (`claude`, `codex`) holds passthrough files; each file below any other
-folder in `targets/` is an error (code `passthrough`) that names the file (§4.1). Files are
-copied into place, and the most specific layer wins per path. The build warns on each use
-so passthroughs get turned into first-class items over time.
+named after a known target (`claude`, `codex`; from TASK-106 any target id, §5.2 **Target ids**)
+holds passthrough files; each file below any other folder in `targets/` is an error (code
+`passthrough`) that names the file (§4.1). Files are copied into place, and the most specific
+layer wins per path. The build warns on each use so passthroughs get turned into first-class
+items over time.
 - The warning is `raw passthrough to <path>; consider turning it into a first-class item`
   (code `passthrough`). A file below another folder of `targets/` gets the error `this file is
-  below a folder of targets/ that is not a target: claude or codex (§7.11)`.
+  below a folder of targets/ that is not a target: claude or codex (§7.11)`; from TASK-106 the
+  message is `this file is below a folder of targets/ that is not a target id (§5.2)`.
 - A refused passthrough file gives its errors only, and no warning (TASK-55.5.12).
 - A passthrough file whose path is the path of a generated file, compared after case folding
   (§4.3), is the error `passthrough` at `<layer>:<file>`, with the message `passthrough <path>
@@ -2502,8 +2554,9 @@ generated output does not change, and the cache index lives in the cache.
 
 ## 8. Target adapters
 
-Each adapter maps the resolved neutral model onto native files. Adapters are plugins of the
-tool (one module each), so new targets need no core changes.
+Each adapter maps the resolved neutral model onto native files. An adapter is a pure function
+on a versioned model behind a contract (§8.0), so a new target needs no change to the core.
+Until TASK-108 the core calls the one adapter, Claude's, directly.
 
 **What an adapter may rely on** (TASK-55.6). An adapter relies only on what
 `docs/target-facts.md` records about the tool, and adds no output that rests on a fact that is
@@ -2515,9 +2568,130 @@ Today those rows are:
 
 The three permission floor keys (§7.6) are written once target-facts records them (TASK-76).
 
-Only the Claude adapter exists. A manifest whose `targets` holds `codex` is the error `target` at
-`layer.yaml`, with the message `the 'codex' adapter is not implemented yet (implemented:
-claude)`. Any other name is a manifest error (§5.2). Codex output is TASK-18.
+**Targets without an adapter** (decision-40, TASK-106). Only the Claude adapter exists. A
+manifest whose `targets` holds `codex` is the error `target` at `layer.yaml`, with the message
+`the 'codex' adapter is not implemented yet (implemented: claude)`, and keeps that message and
+its exit code until the Codex adapter exists (TASK-126, on the contract of §8.0). Until TASK-106
+any other name is a manifest error (§5.2). From TASK-106 a target id (§5.2 **Target ids**) that
+no registered adapter renders, other than `codex`, is the error `target` at `layer.yaml`, with
+the message `no adapter for '<id>' (available: <ids>)`, where `<ids>` are the registered
+adapters' ids in name order joined with `, `: today `no adapter for 'antigravity' (available:
+claude)`. Each such target is reported once, and the build writes nothing.
+
+### 8.0 Adapter contract
+
+decision-40. This section is the contract that TASK-105 to TASK-112 and TASK-127 build; each
+paragraph names the task that makes it true. Until then the code does what the rest of §8 says.
+Each of those tasks keeps the generated output byte for byte the same, which the acceptance suite
+and `alz check` on this repository prove. The Rust names are those of the contract crate
+`alz-adapter`; the tasks' plans settle the rest.
+
+**Model.** (TASK-105, TASK-107) The core gives an adapter a neutral model: the merged layers for
+one target, as §7.1 to §7.10 define them. It holds the agents for that target with that target's
+native fields, the skills, commands, slot stubs, rules, hooks with their scripts, permissions,
+enabled MCP servers, models resolved for the target and the target's own native settings, with
+the sources that each generated header names (§4.3). `AGENTS.md` (§7.1, §7.12), passthrough files
+(§7.11) and accounts (§7.13) stay the core's and are not in the model. The model has a version,
+`major.minor`; this spec defines model 1.0. A minor version only adds to the model, and a major
+version may change or remove. Model 1.0 has two kinds of security item: each deny rule of the
+merged permissions and each floor field of §7.6 that is set. Each item holds the layers that
+declare it.
+
+**Descriptor.** (TASK-105, TASK-108, TASK-110, TASK-112) Each adapter states, as static data:
+- its target id (§5.2) and the model version it is built for;
+- the verified range of the tool's versions, which `alz doctor` checks;
+- its territory: the files and folders it may write;
+- its managed folders (§4.3), its protected patterns (§4.5) and the files it always adopts (§4.3);
+- its native vocabulary: its settings keys with their types, its first-class, reserved and floor
+  keys with their order (§7.9), its native agent fields (§7.2) and its native hook events (§7.5);
+- its facts file, which records the tool's facts the adapter relies on (§8 **What an adapter may
+  rely on**).
+
+§8.1 gives the Claude adapter's values.
+
+**Rendering.** (TASK-105, TASK-108) An adapter is a pure function: from the model and a context
+it returns its output, and does nothing else. It never reads or writes a file, starts a process,
+or reads the environment or the clock, so the same model and context give the same output. The
+context holds what the stack manifest says that is not a layer item: the additional directories,
+`workspace.hub` first and then `workspace.add_dirs` (§5.2). In Rust:
+
+```rust
+pub trait Adapter {
+    /// The adapter's static data.
+    fn descriptor(&self) -> &Descriptor;
+    /// The files, diagnostics and coverage report for one target.
+    fn render(&self, model: &Model, context: &Context) -> Output;
+}
+```
+
+The trait is public, not sealed. The `alz` binary chooses the adapters it registers; it
+registers `claude`. An adapter built for another major version of the model, or for a later
+minor version than the core's, is refused when it is registered; for an adapter built into alz
+that is a compile error. Each target of `targets` is rendered by its own adapter, in the order of
+`targets`.
+
+**Output.** (TASK-105, TASK-108) An adapter returns files, diagnostics and a coverage report
+(below). Each file has a path relative to the repository and one of four kinds of content:
+- `Json`: a JSON value, written by the core's stable JSON emitter with keys in name order (§6);
+  no header (§4.3).
+- `Markdown`: a body text and an optional frontmatter, which is either a YAML mapping written by
+  §10.2's emitter or the frontmatter text of a layer file kept byte for byte (a skill's
+  `SKILL.md`, §8.1), and the sources of its header. The core writes the header of §4.3: an HTML
+  comment line first when there is no frontmatter, and a YAML comment line right after the
+  opening `---` when there is. An adapter has no way to write or change the header.
+- `Toml`: a TOML value. The core's TOML emitter and the header of a TOML file come with the first
+  adapter that writes TOML (the Codex adapter, TASK-126).
+- `Bytes`: bytes kept as they are, with an executable bit; no header (copied skill files, hook
+  scripts).
+
+A diagnostic has a level (error, warning or note), a code (§10.1 **Adapter codes.**), optionally
+the layer file it is about, and a message. The message is untrusted text, which the core strips
+(class 1 of §10.1). An error from an adapter fails the build like any other error.
+
+**Output checks.** (TASK-109) The core checks every adapter's output before anything is written.
+Each failure is the error `target`, without `<where>`; its message names the adapter's id, the
+rule and, for a path, the path stripped (class 1), and the build writes nothing (§4.3, the
+writing rule). The core refuses:
+- a path that is not a safe relative path: empty, absolute, with a `\`, with an empty, `.`, `..`
+  or `.git` segment, or with a control or format character (class 1);
+- a path outside the adapter's territory: neither a file of the territory nor below one of its
+  folders;
+- a path that only the core writes: `AGENTS.md`, `layer.yaml`, `layer.lock`, or a path below
+  `.layer/` or `.git/`, each matched as §4.5 matches protected paths;
+- more than 10000 files, a file of more than 16 MiB, or more than 256 MiB in all;
+- a diagnostic code that is not one of the adapter's codes (§10.1 **Adapter codes.**);
+- a coverage report that leaves out a security item of the model, names an item the model does
+  not hold, or names one item twice.
+
+Output that passes goes on as today: a file at a protected path is dropped with the warning
+`protected` (§4.5), two files at one path are the error `collision` (§4.3), and a passthrough
+file at a generated path is the error `passthrough` (§7.11). The core merges a target's native
+settings with the key rules of the adapter's descriptor, so the security floor (§7.6, §7.9, §9.3)
+stays the core's (TASK-110).
+
+**Coverage report.** (TASK-109) For each security item of the model, the adapter states how its
+output enforces the item on the tool:
+- `expressed`: as the model states it;
+- `approximated`: at least as strictly, in another form, such as a broader deny rule; the adapter
+  says how in a warning with one of its own codes;
+- `not expressed`: anything else.
+
+The core cannot check what a native key means, only that every item is accounted for; the facts
+check (§8 **What an adapter may rely on**) and review check the mapping. An item of a kind that a
+later minor version of the model adds is left out of the report of an adapter built for an earlier
+version, so a layer that uses it fails the build on that target until the adapter supports it.
+The Claude adapter reports every item as expressed.
+
+**Security items a target cannot enforce.** (TASK-127) An item reported `not expressed` is the
+error `target` at `<layer>:permissions.yaml`, never a warning, once for each layer that declares
+the item and does not opt that target out of it (§7.6 **Targets that cannot enforce an item**).
+The message names the item and the target. For a deny rule it is `the '<target>' adapter cannot
+express the deny rule '<rule>' of layer <layer>; remove the target, or list the rule under
+unenforced.<target>.deny in that layer's permissions.yaml`, with the rule stripped (class 1). For
+a floor field it is `the '<target>' adapter cannot express the floor field <field> of layer
+<layer>; remove the target, or list the field under unenforced.<target>.floor_fields in that
+layer's permissions.yaml`. When every layer that declares the item opts the target out of it, the
+build goes on without the item on that target and reports nothing for it.
 
 ### 8.1 `claude` adapter
 | Neutral item | Output |
@@ -2609,6 +2783,8 @@ target-facts section each item relies on is given in brackets.
 - **Managed folders**: `.claude/agents`, `.claude/skills`, `.claude/rules` and `.claude/hooks`
   (§4.3).
 - **Adopted always**: `.claude/settings.json` and `.mcp.json` (§4.3).
+- **Territory** (§8.0, checked from TASK-109): `CLAUDE.md`, `.mcp.json` and the folder
+  `.claude/`.
 - **Verified range**: Claude Code `>=2.1.311 <2.2.0`, which `alz doctor` checks.
 
 ### 8.2 `codex` adapter
@@ -3021,7 +3197,7 @@ How values print in these messages:
 | `protected` | warning | a file that a layer ships at a protected path, which the build leaves out (§4.5) |
 | `layer` | error | a file or folder name with a control or format character (§5.3), a source of a generated header that holds a control or format character or `-->` (§4.3) |
 | `passthrough` | error | a passthrough path that is the path of a generated file after case folding (§4.3, §7.11) |
-| `target` | error | a target that has no adapter (§8) |
+| `target` | error | a target that has no adapter (§8); from TASK-109, adapter output that fails an output check of §8.0; from TASK-127, a security item a target cannot enforce that its layers did not opt out of (§8.0) |
 | `claude-agent` | error | an agent with an empty tools list, whose model is not a Claude model value, or with a native whole number beyond 64 bits, which alz cannot write (§8.1) |
 | `tool-scope` | warning | an agent tool with a scope, which Claude cannot keep (§8.1) |
 | `hook-on-fail` | warning | `on_fail: deny` on an event where Claude cannot block, or cannot block on a crash (§8.1) |
@@ -3030,6 +3206,24 @@ How values print in these messages:
 | `ls` | error | `alz ls --live`: no claude target, a probe that failed, a built item Claude did not load (§10.3) |
 | `claude` | warning | a line that Claude printed on its standard error or as non-JSON output during `alz ls --live` |
 | `init` | error | `alz init` where a `layer.yaml` exists, with a name that is not a layer name, or with a hub tag that is not a git ref (§10.3) |
+
+**Adapter codes.** (decision-40, TASK-109) A diagnostic that an adapter returns (§8.0) has one of
+two kinds of code:
+- a shared adapter code: `models`, `tool-scope` or `hook-on-fail`, each with the level and the
+  meaning the tables above give it;
+- an adapter's own code, `<id>-<word>`: the adapter's target id (§5.2), `-`, and groups of
+  lower-case ASCII letters and digits joined by single `-`, at most 64 characters in all. The
+  Claude adapter's own code is `claude-agent`. A code that the tables give to the core is never an
+  adapter's own code, even when it starts with an adapter's id and `-`, so an adapter with the id
+  `account` cannot raise `account-allow`. The tables list the codes of the adapters built into alz.
+
+The output checks of §8.0 report every failure as the error `target`, so the level is always
+error: a path that is not a safe relative path, a path outside the adapter's territory, a path
+only the core writes, output past the file and size limits, a code that is neither a shared
+adapter code nor one of the adapter's own codes, and a coverage report that leaves out, adds or
+repeats a security item. From TASK-127 so is a security item a target cannot enforce that its
+layers did not opt out of (§7.6, §8.0). These reasons add no code to the tables: each is the code
+`target`.
 
 **Exit codes.**
 - 0: the command did what was asked, with or without warnings.
