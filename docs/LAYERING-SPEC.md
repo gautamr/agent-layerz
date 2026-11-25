@@ -3403,6 +3403,58 @@ them is an error. `doctor` reports them as part of its report (TASK-55.6).
   does not exist, and `mise.toml` with the `alz:*` tasks when there is no mise config. When there
   is one, the tasks are printed after `add these tasks to your mise config:` instead. A layer gets
   `layer.yaml` and `instructions/00-core.md`.
+- The text of each file, byte for byte, with `<name>` the layer's name and `<visibility>` its
+  visibility. Each file ends in one line feed.
+  - The repo's `layer.yaml`, with no `--stack` and no `--hub`:
+
+    ```yaml
+    stack:
+      # Most general first, for example:
+      # - source: github:<you>/agent-layerz-personal@v1.0.0
+      - source: path:./.layer   # the repo layer, always last
+    targets: [claude]
+    # workspace:
+    #   hub: ../hub             # granted to agents as an additional directory
+    # protected_paths: []       # extra globs the build never touches
+    mcp:
+      enable: []
+    budgets:
+      instructions_max_lines: 400
+    options:
+      commit_generated: true
+      strict_slots: true
+    ```
+
+    With `--stack`, the two example comment lines are left out and each source is written,
+    before the repo layer's line, as `  - source: <source>`, followed by `    ref: <ref>` when it
+    has a pin. With `--hub <dir>`, the two `# workspace:` lines are replaced by `workspace:` and
+    `  hub: <dir>             # granted to agents as an additional directory`.
+  - `.layer/layer.yaml` of a repo and `layer.yaml` of a layer, where `<kind>` is `repo` or `layer`:
+
+    ```yaml
+    name: <name>
+    kind: <kind>
+    visibility: <visibility>
+    version: 0.1.0
+    ```
+
+  - `.layer/instructions/50-repo.md`: `- Describe this repo's commands, paths and contracts here.`
+  - `instructions/00-core.md` of a layer: `- Write the standards of this layer here.`
+  - `mise.toml`, and the tasks that are printed when a mise config exists:
+
+    ```toml
+    [tasks."alz:build"]
+    run = "alz build"
+
+    [tasks."alz:check"]
+    run = "alz check"
+
+    [tasks."alz:diff"]
+    run = "alz diff"
+
+    [tasks."alz:doctor"]
+    run = "alz doctor"
+    ```
 - Every file is created by §4.3's rules, and an existing file is never overwritten.
 - Then come `created <path>` for each file, and `next: run \`alz build --adopt\` to take over
   existing agent config, or \`alz build\`` or `next: run \`alz lint\``.
