@@ -728,6 +728,174 @@ mod tests {
         );
     }
 
+    /// Every `layer.yaml` that §13 item 19 lists as unusable, planted at `repo/nested/layer.yaml`
+    /// (a valid stack manifest until now), with the reason `alz account which` gives for it.
+    const UNUSABLE: [&str; 7] = [
+        "a link",
+        "a folder",
+        "over 1 MiB",
+        "invalid YAML",
+        "past the alias limit",
+        "a stack that fails the schema",
+        "unreadable",
+    ];
+
+    fn plant_unusable(world: &World, kind: &str) -> &'static str {
+        let manifest = "repo/nested/layer.yaml";
+        world.scratch.remove_file(manifest).unwrap_or_default();
+        world.scratch.remove_tree(manifest).unwrap_or_default();
+        match kind {
+            "a link" => {
+                world
+                    .scratch
+                    .write(
+                        "repo/real.yaml",
+                        "stack:\n  - source: path:../.layer\ntargets: [claude]\n",
+                    )
+                    .expect("written");
+                world
+                    .scratch
+                    .make_link(manifest, world.root.join("repo/real.yaml"))
+                    .expect("linked");
+                "layer.yaml cannot be read"
+            }
+            "a folder" => {
+                world.scratch.make_dirs(manifest).expect("made");
+                "layer.yaml cannot be read"
+            }
+            "over 1 MiB" => {
+                let text = format!("stack: []\n# {}\n", "x".repeat(1_048_576));
+                world.scratch.write(manifest, text).expect("written");
+                "layer.yaml cannot be read"
+            }
+            "invalid YAML" => {
+                world
+                    .scratch
+                    .write(manifest, "stack: [\n")
+                    .expect("written");
+                "layer.yaml cannot be read"
+            }
+            "past the alias limit" => {
+                let text = format!("stack: &s []\nmore: [{}]\n", vec!["*s"; 101].join(", "));
+                world.scratch.write(manifest, text).expect("written");
+                "layer.yaml cannot be read"
+            }
+            "a stack that fails the schema" => {
+                world
+                    .scratch
+                    .write(manifest, "stack: 5\n")
+                    .expect("written");
+                "layer.yaml is not valid"
+            }
+            "unreadable" => {
+                world
+                    .scratch
+                    .write(
+                        manifest,
+                        "stack:\n  - source: path:../.layer\ntargets: [claude]\n",
+                    )
+                    .expect("written");
+                world.scratch.set_mode(manifest, 0o000).expect("mode");
+                "layer.yaml cannot be read"
+            }
+            other => unreachable!("an unknown kind: {other}"),
+        }
+    }
+
+    /// Spec §13 item 19: a `layer.yaml` on the way to the root that cannot be read (a link, a
+    /// folder, over 1 MiB, invalid YAML, past the alias limit, unreadable) or whose stack fails
+    /// the schema stops the walk. An allowed root fails closed on the blocked folder, and names
+    /// the file to repair; a root that is not allowed gets the default account, and neither run
+    /// reads the outer repository's configuration.
+    #[test]
+    fn an_unusable_layer_yaml_makes_an_allowed_root_fail_closed_and_a_root_not_allowed_default() {
+        if alz_test_support::running_as_root() {
+            return;
+        }
+        for kind in UNUSABLE {
+            // The outer repository is allowed with the account `outer`; the nested root must never
+            // get it.
+            let world = World::new();
+            world.account_folders(&["outer", "client-a"]);
+            let outer = format!(
+                "- root: \"{root}/repo\"\n  account: {{ claude: outer, codex: outer }}\n  source: \"{root}/client\"\n",
+                root = world.root.display()
+            );
+            let write_allowed = |text: &str| {
+                world
+                    .scratch
+                    .write("state/agent-layerz/allowed.yaml", text)
+                    .expect("written");
+                world
+                    .scratch
+                    .set_mode("state/agent-layerz/allowed.yaml", 0o600)
+                    .expect("a mode");
+            };
+            write_allowed(&outer);
+            let reason = plant_unusable(&world, kind);
+
+            let not_allowed = world.which("repo/nested/sub");
+            let shown = format!("{}/repo/nested/layer.yaml", world.root.display());
+            assert_eq!(
+                not_allowed.code, 0,
+                "{kind}: {}{}",
+                not_allowed.stdout, not_allowed.stderr
+            );
+            assert!(
+                not_allowed
+                    .stdout
+                    .contains("claude: default (source: default)"),
+                "{kind}: {}",
+                not_allowed.stdout
+            );
+            assert!(
+                !not_allowed.stdout.contains("outer"),
+                "{kind}: the outer repository's account applied: {}",
+                not_allowed.stdout
+            );
+            assert!(
+                not_allowed
+                    .stderr
+                    .contains("; the walk for the repository stops here"),
+                "{kind}: {}",
+                not_allowed.stderr
+            );
+
+            write_allowed(&format!(
+                "{outer}- root: \"{root}/repo/nested\"\n  account: {{ claude: client-a, codex: client-a }}\n  source: \"{root}/client\"\n",
+                root = world.root.display()
+            ));
+            let allowed = world.which("repo/nested/sub");
+            assert_eq!(
+                allowed.code, 1,
+                "{kind}: {}{}",
+                allowed.stdout, allowed.stderr
+            );
+            for (target, variable, folder) in [
+                ("claude", "CLAUDE_CONFIG_DIR", "~/.claude-alz-blocked"),
+                ("codex", "CODEX_HOME", "~/.codex-alz-blocked"),
+            ] {
+                assert!(
+                    allowed.stdout.contains(&format!(
+                        "{target}: fails closed (source: layer)\n  use step skipped (no alz use choice)\n  user config step skipped (no accounts.yaml)\n  layer step skipped ({reason}); fails closed\n  the hook applies {variable}={folder} (the blocked folder)\n  fix: repair {shown}\n"
+                    )),
+                    "{kind}: {}",
+                    allowed.stdout
+                );
+            }
+            assert!(
+                !allowed.stdout.contains("outer"),
+                "{kind}: {}",
+                allowed.stdout
+            );
+            // Let the scratch directory be removed.
+            world
+                .scratch
+                .set_mode("repo/nested/layer.yaml", 0o600)
+                .unwrap_or_default();
+        }
+    }
+
     /// Spec §13 item 24: `alz init` prints a refused `account` declaration as a warning and
     /// still exits 0.
     #[test]

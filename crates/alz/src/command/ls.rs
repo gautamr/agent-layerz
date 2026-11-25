@@ -50,8 +50,8 @@ fn live(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> u8 {
-    if !computed.manifest.targets().contains(&TargetName::Claude) {
-        return fail(stderr, Message::new("--live needs the claude target"));
+    if let Err(diagnostic) = require_claude(computed.manifest.targets().as_slice()) {
+        return emit_diagnostics(&Diagnostics::new().with(diagnostic), stderr);
     }
     let Some(directory) = surroundings.directory.path() else {
         return fail(stderr, Message::new("cannot find the working directory"));
@@ -73,6 +73,19 @@ fn live(
     }
 }
 
+/// `--live` asks Claude, so the manifest has to build for it (§10.3).
+fn require_claude(targets: &[TargetName]) -> Result<(), Diagnostic> {
+    if targets.contains(&TargetName::Claude) {
+        Ok(())
+    } else {
+        Err(Diagnostic::error(
+            Code::Ls,
+            None,
+            Message::new("--live needs the claude target"),
+        ))
+    }
+}
+
 fn fail(stderr: &mut impl Write, message: Message) -> u8 {
     emit_diagnostics(
         &Diagnostics::new().with(Diagnostic::error(Code::Ls, None, message)),
@@ -83,4 +96,26 @@ fn fail(stderr: &mut impl Write, message: Message) -> u8 {
 fn write_text(stream: &mut impl Write, text: &str) -> io::Result<()> {
     stream.write_all(text.as_bytes())?;
     stream.flush()
+}
+
+#[cfg(test)]
+mod tests {
+    use alz_core::target::TargetName;
+
+    use super::require_claude;
+
+    /// Spec §10.3 `alz ls [--live]`: `--live` needs the `claude` target, else it is
+    /// `error [ls] --live needs the claude target`. No manifest can name only another target yet
+    /// (the Codex adapter is TASK-18), so the check is tested where it is made.
+    #[test]
+    fn live_needs_the_claude_target() {
+        assert!(require_claude(&[TargetName::Claude]).is_ok());
+        assert!(require_claude(&[TargetName::Codex, TargetName::Claude]).is_ok());
+        let refused = require_claude(&[TargetName::Codex]).expect_err("no claude target");
+        assert_eq!(
+            refused.to_string(),
+            "error [ls] --live needs the claude target"
+        );
+        assert!(require_claude(&[]).is_err());
+    }
 }

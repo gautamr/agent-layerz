@@ -214,4 +214,29 @@ mod tests {
         let env = child_environment(Purpose::Version, &vars(&[("HOME", "/h")]));
         assert_eq!(names(&env), ["HOME"]);
     }
+
+    /// Spec §10.3 `alz ls --live` and `alz doctor`: the session may run 180 seconds and the
+    /// version call 10, and the output caps are 4 MiB and 64 KiB for the session, 64 KiB for the
+    /// version call and 64 KiB of standard error. The binary has no seam to shorten these, so the
+    /// values are asserted here and the effect of a deadline and a cap in `tests/tool_runner.rs`.
+    #[test]
+    fn the_session_runs_180_seconds_with_4_mib_of_output_and_the_version_call_10_with_64_kib() {
+        use std::time::Duration;
+
+        assert_eq!(Purpose::Probe.deadline(), Duration::from_secs(180));
+        assert_eq!(Purpose::Version.deadline(), Duration::from_secs(10));
+        assert_eq!(Purpose::Probe.stdout_cap(), 4 * 1024 * 1024);
+        assert_eq!(Purpose::Version.stdout_cap(), 64 * 1024);
+        assert_eq!(Purpose::STDERR_CAP, 64 * 1024);
+    }
+
+    /// Spec §10.3 `alz ls --live`: a session that outruns its time is
+    /// `could not run <bin>: it did not finish within 180 seconds`.
+    #[test]
+    fn a_session_that_outruns_its_time_says_it_did_not_finish_within_180_seconds() {
+        let error = crate::tool::ToolError::TimedOut {
+            after: Purpose::Probe.deadline(),
+        };
+        assert_eq!(error.to_string(), "it did not finish within 180 seconds");
+    }
 }
