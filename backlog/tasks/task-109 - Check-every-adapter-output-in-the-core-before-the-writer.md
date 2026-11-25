@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-25T19:14:00Z'
+updated_date: '2026-11-25T19:52:00Z'
 labels:
   - area:adapter
   - area:security
@@ -37,3 +37,16 @@ decision-40 point 4: the core refuses adapter output that leaves the adapter's t
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-26): decision-40 accepted. When an adapter cannot express a security item (for example a decision class's rules on a target without allow/ask/deny lists), alz fails the build with an error naming the item and the target, never a warning; a layer may opt that target out of the item explicitly.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @architect
+created: 2026-11-25T19:52:00Z
+
+---
+
+From TASK-104 (spec, @architect): §8.0 'Output checks.' and 'Coverage report.' and §10.1 'Adapter codes.' state what this task makes true, with the limits 10000 files, 16 MiB per file and 256 MiB in all, and the shared adapter codes models, tool-scope and hook-on-fail. The refusal of an item reported not expressed, and the opt-out field unenforced, are TASK-127 (owner decision of 2026-11-26), which depends on this task.
+
+---
+<!-- COMMENTS:END -->
