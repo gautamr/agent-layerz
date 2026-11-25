@@ -466,21 +466,9 @@ fn rendered() -> FileTree {
 
 /// What the adapter writes that no fact of `docs/target-facts.md` records: a key of a file kind
 /// whose rows name it nowhere, or no verified row at all for a location. Each is a difference from
-/// §8 "What an adapter may rely on". The facts have to be verified and recorded, by a docs task
-/// (TASK-97), and the key leaves this list when they are.
-const NO_FACT_RECORDS: &[(Kind, &str)] = &[
-    (Kind::SkillField, "name"),
-    (Kind::SkillField, "description"),
-    (Kind::SkillField, "argument-hint"),
-    (Kind::PermissionsKey, "allow"),
-    (Kind::PermissionsKey, "ask"),
-    (Kind::PermissionsKey, "deny"),
-    (Kind::McpKey, "command"),
-    (Kind::McpKey, "args"),
-    (Kind::McpKey, "env"),
-    (Kind::McpKey, "type"),
-    (Kind::McpKey, "url"),
-];
+/// §8 "What an adapter may rely on". The facts have to be verified and recorded, by a docs task,
+/// and the key leaves this list when they are. Empty since TASK-97 recorded the last eleven.
+const NO_FACT_RECORDS: &[(Kind, &str)] = &[];
 
 #[test]
 fn every_output_key_the_claude_adapter_writes_rests_on_a_recorded_fact() {
