@@ -409,6 +409,43 @@ mod tests {
         }
     }
 
+    /// Spec §13 item 18: a declaration in the repo layer fails the build and names the layer
+    /// "even with `kind: client`": the layer lies inside the repository, so its kind does not
+    /// make it the private client layer outside the repository that §7.12 allows.
+    #[test]
+    fn a_repo_layer_of_kind_client_may_not_declare_an_identity_and_the_build_names_it() {
+        let workspace = Workspace::new();
+        workspace
+            .scratch
+            .write(
+                "work/repo/layer.yaml",
+                "stack:\n  - source: path:../personal\n  - source: path:./.layer\ntargets: [claude]\n",
+            )
+            .expect("written");
+        workspace
+            .scratch
+            .write(
+                "work/repo/.layer/layer.yaml",
+                "name: shop-api\nkind: client\nvisibility: private\nversion: 0.1.0\ncommit_identity:\n  name: Owner Example\n  email: owner@client.example\n",
+            )
+            .expect("written");
+        let before = workspace.tree_of("repo");
+        let run = workspace.alz(&["build"]);
+        assert_eq!(run.code, 1, "{}", run.stderr);
+        let line = run
+            .stderr
+            .lines()
+            .find(|line| line.starts_with("error [identity]"))
+            .unwrap_or_else(|| panic!("no identity error: {}", run.stderr));
+        assert!(line.contains("shop-api"), "{line}");
+        assert!(
+            !run.stderr.contains("owner@client.example"),
+            "{}",
+            run.stderr
+        );
+        assert_eq!(workspace.tree_of("repo"), before, "nothing is written");
+    }
+
     /// Spec §13 item 18: the Commits section names the layer that declares the identity, and
     /// without a declaration `AGENTS.md` has no Commits section.
     #[test]

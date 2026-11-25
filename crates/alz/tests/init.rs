@@ -210,6 +210,69 @@ mod tests {
         );
     }
 
+    /// Spec §10 (`alz init`): a schema error in a layer of the stack, and a layer that may not
+    /// declare `commit_identity`, are each printed as a warning, the scaffold is written and
+    /// `init` exits 0; `alz build` then fails on the same problem.
+    #[test]
+    fn a_schema_error_or_a_refused_declaration_in_the_stack_is_a_warning_and_init_exits_zero() {
+        let cases = [
+            (
+                "a schema error",
+                "name: bad\nkind: group\nvisibility: bogus\n",
+                "warning [",
+            ),
+            (
+                "a layer that may not declare commit_identity",
+                "name: bad\nkind: group\nvisibility: private\ncommit_identity:\n  name: Owner Example\n  email: owner@client.example\n",
+                "warning [identity]",
+            ),
+        ];
+        for (what, layer, warning) in cases {
+            let place = Place::new();
+            place.scratch.make_dirs("outside/bad").expect("made");
+            place.scratch.make_dirs("outside/first").expect("made");
+            place
+                .scratch
+                .write(
+                    "outside/first/layer.yaml",
+                    "name: first\nkind: personal\nvisibility: private\n",
+                )
+                .expect("written");
+            place
+                .scratch
+                .write("outside/bad/layer.yaml", layer)
+                .expect("written");
+            let run = place.alz(&[
+                "init",
+                "--name",
+                "repo",
+                "--stack",
+                "../outside/first",
+                "--stack",
+                "../outside/bad",
+            ]);
+            assert_eq!(run.code, 0, "{what}: {}", run.stderr);
+            assert!(
+                run.stderr.lines().any(|line| line.starts_with(warning)),
+                "{what}: {}",
+                run.stderr
+            );
+            assert!(
+                !run.stderr.lines().any(|line| line.starts_with("error")),
+                "{what}: {}",
+                run.stderr
+            );
+            assert!(
+                run.stdout.starts_with("created layer.yaml\n"),
+                "{what}: {}",
+                run.stdout
+            );
+            assert!(place.text(".layer/layer.yaml").is_some(), "{what}");
+            let built = place.alz(&["build"]);
+            assert_eq!(built.code, 1, "{what}: {}", built.stderr);
+        }
+    }
+
     #[test]
     fn a_source_not_there_yet_adds_the_note_after_the_warnings_of_the_other_problems() {
         let place = Place::new();
