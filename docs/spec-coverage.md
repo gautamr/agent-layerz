@@ -42,7 +42,7 @@ task walks it and the spec gets sub-anchors.
 | §5 | 14 | 1 | 0 | 0 | 15 |
 | §6 | 13 | 1 | 0 | 0 | 14 |
 | §7 | 42 | 2 | 4 | 0 | 48 |
-| §8 | 3 | 1 | 1 | 1 | 6 |
+| §8 | 4 | 1 | 1 | 0 | 6 |
 | §9 | 9 | 1 | 0 | 0 | 10 |
 | §10 | 32 | 3 | 0 | 0 | 35 |
 | §11 | 0 | 1 | 0 | 0 | 1 |
@@ -50,12 +50,12 @@ task walks it and the spec gets sub-anchors.
 | §13 | 28 | 1 | 4 | 0 | 33 |
 | §14 | 0 | 1 | 0 | 0 | 1 |
 | §15 | 0 | 1 | 0 | 0 | 1 |
-| all | 157 | 24 | 9 | 1 | 191 |
+| all | 158 | 24 | 9 | 0 | 191 |
 
 | Gap task | Sections | gap rows |
 | --- | --- | ---: |
 | TASK-55.9.6 | §4, §5, §6 | 0 |
-| TASK-55.9.7 | §7 (7.1 to 7.11), §8, §11 | 1 |
+| TASK-55.9.7 | §7 (7.1 to 7.11), §8, §11 | 0 |
 | TASK-55.9.8 | §7.12, §7.13, §9 | 0 |
 | TASK-55.9.9 | §0 to §3, §10, §12 to §15 | 0 |
 
@@ -179,7 +179,7 @@ them.
 | §7.13 No generated output | covered | crates/alz/tests/account_declaration.rs::a_declared_account_changes_no_generated_byte_and_no_line_of_the_report, crates/alz/tests/allow_hint.rs::build_prints_the_note_at_a_terminal_and_changes_nothing_else |
 | §7.13 Layer format. | covered | crates/alz-core/src/layer/meta/tests.rs::account_accepts_what_test_29_accepts, crates/alz-core/src/layer/meta/tests.rs::unknown_fields_are_reported_as_quoted_keys_and_never_with_their_values, crates/alz/tests/account_declaration.rs::a_layer_that_may_not_declare_an_account_fails_the_build_naming_it_and_writes_nothing |
 | §8 | n/a | container heading; the rules are in §8.1 to §8.4 |
-| §8 What an adapter may rely on | gap | the test crates/alz-core/src/target/claude/tests/facts.rs::every_output_key_the_claude_adapter_writes_rests_on_a_recorded_fact reads every frontmatter field, settings key, `.mcp.json` key and file location the Claude adapter writes and checks it against the verified rows of docs/target-facts.md, and it found 11 keys that no row records (skill `name`, `description` and `argument-hint`; permissions `allow`, `ask` and `deny`; the `.mcp.json` server keys `command`, `args`, `env`, `type` and `url`); TASK-97 records them, and the row is covered when its list of known keys (NO_FACT_RECORDS) is empty |
+| §8 What an adapter may rely on | covered | crates/alz-core/src/target/claude/tests/facts.rs::every_output_key_the_claude_adapter_writes_rests_on_a_recorded_fact, crates/alz-core/src/target/claude/tests/facts.rs::the_stack_makes_the_adapter_write_every_kind_of_key_section_8_1_lists, crates/alz-core/src/target/claude/tests/facts.rs::a_key_that_no_verified_row_records_is_reported, crates/alz-core/src/target/claude/tests/facts.rs::the_rows_the_spec_lists_as_unverified_are_the_only_unverified_rows_the_adapter_relies_on |
 | §8.1 | covered | crates/alz-core/src/target/claude/tests.rs::fixture_01_is_written_byte_for_byte, crates/alz-core/src/target/claude/tests.rs::fixture_03_is_written_and_warns_of_the_scoped_tool, crates/alz-core/src/target/claude/tests.rs::fixture_04_is_written_byte_for_byte, crates/alz-core/src/target/claude/tests.rs::fixture_05_is_written_byte_for_byte, crates/alz-core/src/target/claude/tests.rs::fixture_06_is_written_with_the_slot_stub, crates/alz-core/src/target/claude/tests.rs::fixture_18_is_written_byte_for_byte, crates/alz-core/src/target/claude/tests.rs::fixture_22_is_written_byte_for_byte, crates/alz-core/src/target/claude/tests.rs::native_fields_keep_source_order_after_the_fixed_fields_not_name_order, crates/alz-core/src/target/claude/tests.rs::an_agent_that_targets_only_codex_has_no_claude_file, crates/alz-core/src/target/claude/tests/settings.rs::the_mixed_stack_is_written_byte_for_byte, crates/alz-core/src/target/claude/tests/settings.rs::nothing_is_written_when_nothing_is_set_and_no_server_is_enabled, crates/alz-core/src/target/claude/tests/settings.rs::a_script_two_hooks_run_is_copied_once |
 | §8.2 | planned | the Codex adapter is not built yet (TASK-18); no output for `.codex/agents/*.toml`, `.codex/config.toml` or `.agents/skills` exists, and a target without an adapter is the error `target` |
 | §8.3 | covered | crates/alz-core/src/render/gitignore/tests.rs::committing_the_files_removes_the_block_and_nothing_else, crates/alz-core/src/render/gitignore/tests.rs::a_new_block_lists_each_generated_path_in_name_order, crates/alz-core/src/stack/tests.rs::options_are_true_or_false_and_true_when_absent |
@@ -275,4 +275,3 @@ of the anchor is proven.
 | Anchor | Difference | Task |
 | --- | --- | --- |
 | §6 Other messages of resolution. | The spec says a missing working directory is the error `source`; through `ls` and `build` it is the error `write` (through `open_repository`), and `lint` reports a missing `layer.yaml` first. Only `StackResolver::in_working_directory` gives `source` (tested directly). | TASK-96 |
-| §8 What an adapter may rely on | The Claude adapter writes 11 keys that no verified row of `docs/target-facts.md` records (skill `name`, `description` and `argument-hint`; permissions `allow`, `ask` and `deny`; the `.mcp.json` server keys `command`, `args`, `env`, `type` and `url`). The facts test lists them in `NO_FACT_RECORDS`; the row stays `gap` until TASK-97 records them. | TASK-97 |
