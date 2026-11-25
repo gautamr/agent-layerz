@@ -1788,710 +1788,710 @@ account:                       # per target; a target left out is not decided by
   codex: client-a-api
 ```
 
-- **Account names** (built, TASK-50.8). A name matches `^[a-z0-9][a-z0-9-]*$` and has at most 64
-  characters, and the map's keys are target names (§8). Anything else in the field, such as a path or a secret, is a schema error from
-  `layer.yaml` parsing and `alz lint`, because the name becomes part of a folder path and of
-  the shell hook's output. `default` always means the default account (built, TASK-50.10),
-  and an account name that alz reads from `accounts.yaml`, from `allowed.yaml` or from
-  `alz account which --use` must match the same rule, or it is ignored with a warning (the
-  option is refused). A value that breaks the name rule never appears in a warning, so it is
-  never repeated. A name that `alz run --account` or `alz use` passes is checked the same
-  way: one that is not an account name fails closed (below) for that target, so `alz run` and
-  `alz use` stop and it never falls to a lower step, and alz never builds a path from it.
-- **Folders per target** (TASK-50.2, TASK-50.3). Each target adapter (§8) defines its variable
-  and its folders, and alz sets only these variables. Account selection for Codex only sets
-  `CODEX_HOME`, so it needs none of the rest of the Codex adapter (§8.2). The facts behind
-  this table are §12 items 10 to 18:
+**Account names** (built, TASK-50.8). A name matches `^[a-z0-9][a-z0-9-]*$` and has at most 64
+characters, and the map's keys are target names (§8). Anything else in the field, such as a path or a secret, is a schema error from
+`layer.yaml` parsing and `alz lint`, because the name becomes part of a folder path and of
+the shell hook's output. `default` always means the default account (built, TASK-50.10),
+and an account name that alz reads from `accounts.yaml`, from `allowed.yaml` or from
+`alz account which --use` must match the same rule, or it is ignored with a warning (the
+option is refused). A value that breaks the name rule never appears in a warning, so it is
+never repeated. A name that `alz run --account` or `alz use` passes is checked the same
+way: one that is not an account name fails closed (below) for that target, so `alz run` and
+`alz use` stop and it never falls to a lower step, and alz never builds a path from it.
+**Folders per target** (TASK-50.2, TASK-50.3). Each target adapter (§8) defines its variable
+and its folders, and alz sets only these variables. Account selection for Codex only sets
+`CODEX_HOME`, so it needs none of the rest of the Codex adapter (§8.2). The facts behind
+this table are §12 items 10 to 18:
 
-  | Target | Variable | Default account | Named account `<name>` |
-  |---|---|---|---|
-  | `claude` | `CLAUDE_CONFIG_DIR` | variable unset: `~/.claude` plus `~/.claude.json` | `~/.claude-<name>`, with its own `.claude.json` inside |
-  | `codex` | `CODEX_HOME` | variable unset: `~/.codex` | `~/.codex-<name>` |
+| Target | Variable | Default account | Named account `<name>` |
+|---|---|---|---|
+| `claude` | `CLAUDE_CONFIG_DIR` | variable unset: `~/.claude` plus `~/.claude.json` | `~/.claude-<name>`, with its own `.claude.json` inside |
+| `codex` | `CODEX_HOME` | variable unset: `~/.codex` | `~/.codex-<name>` |
 
-  The default account is always the variable unset, and it never fails, even when its
-  folder does not exist yet. alz unsets the variable for it and never exports the default
-  folder's path: Claude treats `CLAUDE_CONFIG_DIR=~/.claude` as a different account, with
-  `.claude.json` and the login keyed to that folder, while Codex treats an empty `CODEX_HOME`
-  as unset and resolves a set one to its real path (§12 items 10 and 11). Neither tool falls
-  back to the default folder when the variable is set (§12 item 13).
-- **Who may declare it** (built, TASK-50.8; the run-time handling is built in the resolver and
-  `alz account which`, TASK-50.10, and `alz run` and the hook will call the same resolver).
-  The same two layers as `commit_identity`, with the same
-  test for "outside the repository" and the same build errors (§7.12): the first stack entry,
-  or one private or confidential `kind: client` layer outside the repository. The client
-  layer's value replaces the first layer's whole value, a per-target map included; the two
-  are never mixed. A declaration by any other layer is a build
-  error that names the layers (and `alz init` prints it as a warning, §10), and, once built,
-  `alz run`, the shell hook and `alz account which` ignore it and print one warning (the
-  resolver reports it once, whatever the number of targets). When
-  two client layers declare, neither applies: the build fails, and resolution reports a
-  conflict (the cache reader's `conflict` status, TASK-50.9) and applies no declaration. A
-  declaration by a layer inside the repository, the first layer included, fails the build
-  but never decides anything in resolution: it is only reported as ignored, so it can neither
-  win nor create a conflict, and editing `.layer/` never blocks the account (decision-18).
-  `alz lint` of a single layer checks the shape only. In the hub repo itself (§4.4)
-  `layer/` is inside the repository and cannot declare, so hub sessions get their account
-  from the user config's `folders`.
-- **Layers cannot set the variables** (built, TASK-50.8). No layer may set an account variable, or
-  the variables that locate the account folders, alz's own files and the layer cache, through
-  declarative configuration: environment settings, MCP environments, agent frontmatter and
-  passthrough files (§7.9 lists every form). Items that run code, such as hooks and MCP
-  commands, are outside this rule; the allow step is the control for those (§7.9 'Limit').
-- **User config** (built, TASK-50.10). The owner's override lives in
-  `${XDG_CONFIG_HOME:-~/.config}/agent-layerz/accounts.yaml`. It is written by hand: alz reads
-  it and never writes or rewrites it. It is machine-local, outside every repository, never
-  committed and never generated. Account names in it follow the same rule:
+The default account is always the variable unset, and it never fails, even when its
+folder does not exist yet. alz unsets the variable for it and never exports the default
+folder's path: Claude treats `CLAUDE_CONFIG_DIR=~/.claude` as a different account, with
+`.claude.json` and the login keyed to that folder, while Codex treats an empty `CODEX_HOME`
+as unset and resolves a set one to its real path (§12 items 10 and 11). Neither tool falls
+back to the default folder when the variable is set (§12 item 13).
+**Who may declare it** (built, TASK-50.8; the run-time handling is built in the resolver and
+`alz account which`, TASK-50.10, and `alz run` and the hook will call the same resolver).
+The same two layers as `commit_identity`, with the same
+test for "outside the repository" and the same build errors (§7.12): the first stack entry,
+or one private or confidential `kind: client` layer outside the repository. The client
+layer's value replaces the first layer's whole value, a per-target map included; the two
+are never mixed. A declaration by any other layer is a build
+error that names the layers (and `alz init` prints it as a warning, §10), and, once built,
+`alz run`, the shell hook and `alz account which` ignore it and print one warning (the
+resolver reports it once, whatever the number of targets). When
+two client layers declare, neither applies: the build fails, and resolution reports a
+conflict (the cache reader's `conflict` status, TASK-50.9) and applies no declaration. A
+declaration by a layer inside the repository, the first layer included, fails the build
+but never decides anything in resolution: it is only reported as ignored, so it can neither
+win nor create a conflict, and editing `.layer/` never blocks the account (decision-18).
+`alz lint` of a single layer checks the shape only. In the hub repo itself (§4.4)
+`layer/` is inside the repository and cannot declare, so hub sessions get their account
+from the user config's `folders`.
+**Layers cannot set the variables** (built, TASK-50.8). No layer may set an account variable, or
+the variables that locate the account folders, alz's own files and the layer cache, through
+declarative configuration: environment settings, MCP environments, agent frontmatter and
+passthrough files (§7.9 lists every form). Items that run code, such as hooks and MCP
+commands, are outside this rule; the allow step is the control for those (§7.9 'Limit').
+**User config** (built, TASK-50.10). The owner's override lives in
+`${XDG_CONFIG_HOME:-~/.config}/agent-layerz/accounts.yaml`. It is written by hand: alz reads
+it and never writes or rewrites it. It is machine-local, outside every repository, never
+committed and never generated. Account names in it follow the same rule:
 
-  ```yaml
-  default_name: personal           # what the default account is called on this machine
-  folders:                         # a folder and everything below it → an account
-    ~/work/client-a: client-a
-    ~/work/client-b:
-      claude: client-b
-      codex: default
-  ```
+```yaml
+default_name: personal           # what the default account is called on this machine
+folders:                         # a folder and everything below it → an account
+  ~/work/client-a: client-a
+  ~/work/client-b:
+    claude: client-b
+    codex: default
+```
 
-  `default_name` is the name the default account goes by on this machine: a layer or
-  `--account` that names it gets the default account, as `default` always does. alz warns
-  when `~/.claude-<default_name>` or `~/.codex-<default_name>` exists, because that folder
-  can then never be chosen. Paths are absolute or start with `~/`.
-  - The top level must be a mapping, or the whole file is ignored with a warning. An unknown
-    key, a `default_name` that is not an account name, and a `folders` entry whose key is not an
-    absolute path or `~/...`, or whose value is not an account name or a map of target to name
-    (`default` allowed), are each ignored with one warning; the key is printed only through
-    quoting. A key that lies inside an account folder or inside a folder `CLAUDE_CONFIG_DIR` or
-    `CODEX_HOME` names, or is `$HOME` or above it, is ignored with a warning, as written before
-    any file system call and again once it is real (an `allowed.yaml` root inside such a
-    configured folder is kept instead, below). A key that does not resolve matches nothing, silently. Two keys that resolve to the
-    same directory with different values are both ignored, with a warning.
-  - The entry that applies is the one with the longest real path that is the working directory
-    or one of its parents. If it names no account for a target, that target skips the user config
-    step; a shorter entry is not tried.
-  - Its warnings have these codes (§10.1; their texts are in §10.3): `account-config-shape` for a
-    top level or a `folders` that is not a mapping, `account-config-key` for an unknown key,
-    `account-config-default-name` for a `default_name` that is not an account name,
-    `account-default-name-folder` for a `default_name` that is also an account folder's name,
-    `account-config-folder` for an ignored `folders` key or entry, and `account-config-duplicate`
-    for two keys that resolve to one directory.
-- **Allow state** (built, TASK-50.10 and TASK-50.11; decision-16, decision-20). Approvals live in
-  `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`, a file only
-  `alz account allow` writes. It holds one entry per repository root, sorted by root (name
-  order, §6):
+`default_name` is the name the default account goes by on this machine: a layer or
+`--account` that names it gets the default account, as `default` always does. alz warns
+when `~/.claude-<default_name>` or `~/.codex-<default_name>` exists, because that folder
+can then never be chosen. Paths are absolute or start with `~/`.
+- The top level must be a mapping, or the whole file is ignored with a warning. An unknown
+  key, a `default_name` that is not an account name, and a `folders` entry whose key is not an
+  absolute path or `~/...`, or whose value is not an account name or a map of target to name
+  (`default` allowed), are each ignored with one warning; the key is printed only through
+  quoting. A key that lies inside an account folder or inside a folder `CLAUDE_CONFIG_DIR` or
+  `CODEX_HOME` names, or is `$HOME` or above it, is ignored with a warning, as written before
+  any file system call and again once it is real (an `allowed.yaml` root inside such a
+  configured folder is kept instead, below). A key that does not resolve matches nothing, silently. Two keys that resolve to the
+  same directory with different values are both ignored, with a warning.
+- The entry that applies is the one with the longest real path that is the working directory
+  or one of its parents. If it names no account for a target, that target skips the user config
+  step; a shorter entry is not tried.
+- Its warnings have these codes (§10.1; their texts are in §10.3): `account-config-shape` for a
+  top level or a `folders` that is not a mapping, `account-config-key` for an unknown key,
+  `account-config-default-name` for a `default_name` that is not an account name,
+  `account-default-name-folder` for a `default_name` that is also an account folder's name,
+  `account-config-folder` for an ignored `folders` key or entry, and `account-config-duplicate`
+  for two keys that resolve to one directory.
+**Allow state** (built, TASK-50.10 and TASK-50.11; decision-16, decision-20). Approvals live in
+`${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`, a file only
+`alz account allow` writes. It holds one entry per repository root, sorted by root (name
+order, §6):
 
-  ```yaml
-  # written by alz account allow; deleting the file withdraws every approval
-  - root: /home/you/work/client-c/api    # real path of the repository root
-    account:                             # the accepted account per target
-      claude: client-c
-      codex: client-c
-    source: /home/you/work/client-c/hub/layer  # local layer's real path, or URL without ref
-  ```
+```yaml
+# written by alz account allow; deleting the file withdraws every approval
+- root: /home/you/work/client-c/api    # real path of the repository root
+  account:                             # the accepted account per target
+    claude: client-c
+    codex: client-c
+  source: /home/you/work/client-c/hub/layer  # local layer's real path, or URL without ref
+```
 
-  On read, the top level is a list (an empty file is an empty list), or the file is ignored
-  with a warning. Each entry is a map with exactly `root` (an absolute path), `account` (a
-  non-empty map of target to account name) and `source` (a non-empty text). An entry that is
-  anything else, such as one whose `root` is not absolute or whose account names break the name
-  rule, is ignored with a warning that holds only its position. A `root` that is not its own
-  real path (a link, or another spelling) is ignored, because `alz account allow` records the
-  real path. A `root` that lies inside an account folder, or is `$HOME` or above it, is ignored
-  (as written, before any file system call, and again once it is real); one that lies inside a
-  folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names is kept, unlike a `folders` key of
-  `accounts.yaml`, so that the repository fails closed there (below). A `root` that does not resolve matches nothing. Two entries with the same real root are both ignored, with a warning, so
-  that root is not allowed (one warning names both positions). A `root` or `source` may hold
-  U+007F to U+009F, U+2028 and U+2029, which a path can hold: `alz account allow` writes them as
-  escapes (§10.2), so none is raw in the file, and the reader of `allowed.yaml` alone accepts them
-  after YAML has applied its escapes (§7.13 "What else makes a YAML file invalid" refuses them in
-  every other file); any other control character in a path still makes the file unreadable, so
-  `allow` refuses to write it (TASK-73).
-  - Its warnings have the codes `account-allowed-shape` (the top level is not a list) and
-    `account-allowed-entry` (an ignored entry, or entries with the same root) (§10.1; their texts
-    are in §10.3). They name an entry by its position, counted from 1, never by its content.
-- **Both files** (built, TASK-50.10; writing `allowed.yaml`, TASK-50.11, decision-20). alz ignores
-  `accounts.yaml` or `allowed.yaml`, with a warning, when its real path is inside the current
-  repository, when the user does not own it, when group or others can write it or its
-  directory or any parent directory below `$HOME`, when its directory or one of those parents
-  is not owned by the user (root is accepted for a directory outside `$HOME`; the directory of
-  the file as located and the directory of its real path, when the file is a link, are both
-  checked), or
-  when the `XDG_*` variable that locates it points somewhere other than its default
-  (`~/.config` or `~/.local/state`, compared as real paths) while `__MISE_DIFF` or
-  `DIRENV_DIFF` exists. alz cannot tell whether mise or direnv set that variable for a
-  repository, because it only checks that their variables exist and never reads them
-  (decision-17, "Values set outside alz" below). The warning names the `XDG_*` variable and
-  says that mise or direnv is active here. alz also ignores `allowed.yaml`, with a warning,
-  when its real path, or its path as located (a link placed inside a work tree), lies inside
-  any git work tree, found by `lstat` of `.git` in each directory above it (no git runs); the
-  warning names the `.git` that was found. The owner checks of both files compare with the
-  effective user id, as the layer cache's do; only the home folder for an unset `HOME` comes
-  from the real user id ("Environment" below). The warnings of this part have the codes
-  `account-file-ignored` (a file ignored, with the reason, invalid YAML included),
-  `account-xdg-relative` (an `XDG_CONFIG_HOME` or `XDG_STATE_HOME` that is not absolute) and
-  `account-file-in-work-tree` (`accounts.yaml` inside a git work tree), and `HOME` that is not an
-  absolute path is `account-home` (§10.1; texts in §10.3). A checkout could have planted the file, and the mise
-  and direnv check above does not cover a shim-only mise (§12 item 20, unverified).
-  `accounts.yaml` in a work tree only gets a warning, and is still read. Only a git checkout (a
-  `.git` folder or file) is detected: an archive, a jj repository without git, Mercurial, Sapling
-  and a bare repository used for dotfiles are not, so none of them is refused. A `~/.git` makes
-  every `allowed.yaml` below it ignored, and so withdraws every approval.
-  - An `XDG_*` value that is empty or not an absolute path counts as unset, as the XDG Base
-    Directory specification says; a relative value also gets a warning.
-  - Both files may be links: each is read at its real path, as a regular file of at most
-    1 MiB, with the YAML alias limit, and the folder of the link and the folder of its target
-    are both checked. A file that is not valid YAML, or that is not a regular file of that
-    size, is ignored with a warning. Invalid YAML is the reason `it is not valid YAML`
-    (`account-file-ignored`), so `alz account allow` refuses such an `allowed.yaml` as ignored,
-    not as `not a list`.
-  - A platform where the user id cannot be read, and a path that names an account folder as
-    written, mean the file is ignored, before any file system call on it. A `$HOME` that is not
-    an absolute path ignores both files with one warning and sets no account folder: a named
-    account from `alz run` or `alz use` then fails closed, and every other target keeps the
-    default account.
-  - The two `XDG_*` checks above come before the existence check, so a lookup that mise or
-    direnv moved to a folder that does not exist is still reported with the warning that names
-    the variable, not as "not found".
-  - A file that does not exist is not a problem: step 3 or step 4 is skipped, and
-    `alz account which` says "not found".
+On read, the top level is a list (an empty file is an empty list), or the file is ignored
+with a warning. Each entry is a map with exactly `root` (an absolute path), `account` (a
+non-empty map of target to account name) and `source` (a non-empty text). An entry that is
+anything else, such as one whose `root` is not absolute or whose account names break the name
+rule, is ignored with a warning that holds only its position. A `root` that is not its own
+real path (a link, or another spelling) is ignored, because `alz account allow` records the
+real path. A `root` that lies inside an account folder, or is `$HOME` or above it, is ignored
+(as written, before any file system call, and again once it is real); one that lies inside a
+folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names is kept, unlike a `folders` key of
+`accounts.yaml`, so that the repository fails closed there (below). A `root` that does not resolve matches nothing. Two entries with the same real root are both ignored, with a warning, so
+that root is not allowed (one warning names both positions). A `root` or `source` may hold
+U+007F to U+009F, U+2028 and U+2029, which a path can hold: `alz account allow` writes them as
+escapes (§10.2), so none is raw in the file, and the reader of `allowed.yaml` alone accepts them
+after YAML has applied its escapes (§7.13 "What else makes a YAML file invalid" refuses them in
+every other file); any other control character in a path still makes the file unreadable, so
+`allow` refuses to write it (TASK-73).
+- Its warnings have the codes `account-allowed-shape` (the top level is not a list) and
+  `account-allowed-entry` (an ignored entry, or entries with the same root) (§10.1; their texts
+  are in §10.3). They name an entry by its position, counted from 1, never by its content.
+**Both files** (built, TASK-50.10; writing `allowed.yaml`, TASK-50.11, decision-20). alz ignores
+`accounts.yaml` or `allowed.yaml`, with a warning, when its real path is inside the current
+repository, when the user does not own it, when group or others can write it or its
+directory or any parent directory below `$HOME`, when its directory or one of those parents
+is not owned by the user (root is accepted for a directory outside `$HOME`; the directory of
+the file as located and the directory of its real path, when the file is a link, are both
+checked), or
+when the `XDG_*` variable that locates it points somewhere other than its default
+(`~/.config` or `~/.local/state`, compared as real paths) while `__MISE_DIFF` or
+`DIRENV_DIFF` exists. alz cannot tell whether mise or direnv set that variable for a
+repository, because it only checks that their variables exist and never reads them
+(decision-17, "Values set outside alz" below). The warning names the `XDG_*` variable and
+says that mise or direnv is active here. alz also ignores `allowed.yaml`, with a warning,
+when its real path, or its path as located (a link placed inside a work tree), lies inside
+any git work tree, found by `lstat` of `.git` in each directory above it (no git runs); the
+warning names the `.git` that was found. The owner checks of both files compare with the
+effective user id, as the layer cache's do; only the home folder for an unset `HOME` comes
+from the real user id ("Environment" below). The warnings of this part have the codes
+`account-file-ignored` (a file ignored, with the reason, invalid YAML included),
+`account-xdg-relative` (an `XDG_CONFIG_HOME` or `XDG_STATE_HOME` that is not absolute) and
+`account-file-in-work-tree` (`accounts.yaml` inside a git work tree), and `HOME` that is not an
+absolute path is `account-home` (§10.1; texts in §10.3). A checkout could have planted the file, and the mise
+and direnv check above does not cover a shim-only mise (§12 item 20, unverified).
+`accounts.yaml` in a work tree only gets a warning, and is still read. Only a git checkout (a
+`.git` folder or file) is detected: an archive, a jj repository without git, Mercurial, Sapling
+and a bare repository used for dotfiles are not, so none of them is refused. A `~/.git` makes
+every `allowed.yaml` below it ignored, and so withdraws every approval.
+- An `XDG_*` value that is empty or not an absolute path counts as unset, as the XDG Base
+  Directory specification says; a relative value also gets a warning.
+- Both files may be links: each is read at its real path, as a regular file of at most
+  1 MiB, with the YAML alias limit, and the folder of the link and the folder of its target
+  are both checked. A file that is not valid YAML, or that is not a regular file of that
+  size, is ignored with a warning. Invalid YAML is the reason `it is not valid YAML`
+  (`account-file-ignored`), so `alz account allow` refuses such an `allowed.yaml` as ignored,
+  not as `not a list`.
+- A platform where the user id cannot be read, and a path that names an account folder as
+  written, mean the file is ignored, before any file system call on it. A `$HOME` that is not
+  an absolute path ignores both files with one warning and sets no account folder: a named
+  account from `alz run` or `alz use` then fails closed, and every other target keeps the
+  default account.
+- The two `XDG_*` checks above come before the existence check, so a lookup that mise or
+  direnv moved to a folder that does not exist is still reported with the warning that names
+  the variable, not as "not found".
+- A file that does not exist is not a problem: step 3 or step 4 is skipped, and
+  `alz account which` says "not found".
 
-  `alz account which` prints the paths of both files. `alz account allow` and `--remove` are the
-  only code that writes `allowed.yaml` (decision-20):
-  - It holds an exclusive lock file `allowed.yaml.lock` (named after the real file for a link), next to the file that is replaced,
-    while it reads and writes. The lock file is created with `O_CREAT|O_EXCL|O_NOFOLLOW` and
-    mode `0600`; a lock that exists is polled every 50 ms for up to 10 seconds, then the
-    command refuses, names the lock file and says to delete it if no `alz account allow` is
-    running. alz never removes a lock it did not create, and never follows a lock that is a
-    link.
-  - Under the lock it reads the file again with the reader above. It refuses, and changes
-    nothing, in every state the reader ignores (for the file, its directory or `XDG_STATE_HOME`
-    as mise or direnv may have moved it), for a dangling link or anything that is not a regular
-    file, and for a file that holds an entry the reader ignores (a bad shape, a relative root,
-    an invalid name, a root that is not its real path, two entries for one root): it names
-    their positions only and says to fix or delete the file. alz never repairs: no `chmod` of
-    an existing file or directory, no dropped entry, no removed stale lock.
-  - It keeps the entries sorted by root and replaces the entry for the same real root. Entries
-    that are valid but whose root does not resolve are kept. It writes the file at its real
-    path (a link is kept), through a temporary file `.allowed.yaml.<pid>-<8 hex>.tmp` (named after the real file for a link) in the same
-    directory (`O_EXCL|O_NOFOLLOW`, mode `0600` whatever the umask, flushed) and a rename. Missing
-    directories are created with mode `0700` and an existing directory keeps its mode and must
-    pass the checks above. A result over 1 MiB, one that does not parse back to the same
-    entries, or one that the reader does not read back as written is an error. After the last
-    `--remove` the file holds `[]`.
-  - Every path it writes is built from `$HOME`, `XDG_STATE_HOME` and fixed names, never from
-    repository text. It never lies inside the repository, an account folder or a git work tree
-    or, for a linked `allowed.yaml`, the directory of its real path, which passes the same
-    checks. Missing parent folders are created with mode `0700`, and only after the place is
-    known to be safe.
-  - A link, or a link in a folder above the file (its real path differs from where it is looked
-    for), is followed only to a file that is empty, holds `[]`, or starts with the header alz
-    writes (`# written by alz account allow; …`); any other target may be somebody else's file,
-    and the command refuses and changes nothing, before it asks anything and again under the
-    lock. The target is checked once more just before the rename and refused if it is no longer
-    the file that was read.
-- **Trust and `alz account allow`** (built: the resolution side, TASK-50.10; `alz account
-  allow`, `--remove` and the build and check hints, TASK-50.11; decision-16). The repo manifest is repository
-  content and chooses the stack, so a cloned repository can name an external layer that names
-  one of your accounts: the weakness §7.12 "Trust" describes for the commit identity. The
-  session would then run with that account's logins and MCP connections. So an account named
-  by a layer applies only after `alz account allow` in that repository:
-  - `allow` reads the stack the way resolution does for an allowed repository (below), with
-    the same function, so it accepts exactly what resolution will apply. On a cache miss it
-    changes nothing and says to run `alz build`; when several client layers declare, it says to
-    remove one declaration and run `alz build`; when the layers name no account, it says so
-    (and names `alz account allow --remove` when this root has an entry); a declaration of the
-    reserved name `alz-blocked` is refused. A declaration made inside the repository is never
-    offered: it is printed as a warning, as `alz account which` does.
-  - It checks that a person is at a terminal before any file system call: it refuses and
-    changes nothing when standard input is not a terminal or when it runs inside an agent
-    session (any agent-session marker below is set, even to an empty value). It names every
-    reason that applies and the markers by name, never by value, and for `CLAUDECODE` adds
-    that Claude Code also sets it in an IDE's integrated terminal. There is no `--yes`, `-y`
-    or any other way to answer: they are usage errors (exit 2). Only the terminal module
-    reads standard input (`alz-io`'s `terminal`).
-  - Before it asks, it checks that `allowed.yaml` can be written (the states above) and
-    refuses without a prompt otherwise; an entry equal to the current declaration for this
-    root prints `already allowed` and exits 0 without a prompt or a write.
-  - It prints the repository, the account per target and whether its account folder exists (by
-    name only, §9.1; a target the layers leave out is said so), the declaring layer and its
-    position in the stack, its source and `ref` as written, its revision (the commit in
-    `layer.lock`, or none for an unpinned `path:` layer), the source that will be recorded,
-    and the entry that is allowed now when it differs. Everything that comes from the
-    repository is quoted, with every character other than printable ASCII shown as `\u{XXXX}`
-    (account names, which are validated, are unchanged); the prompt repeats the root and the
-    source, because the details go to standard output and the prompt to standard error. It then asks the person to confirm by typing the account name (not
-    `y` or `n`): one prompt for each distinct account name, in target order, and each answer
-    without its surrounding spaces and tabs must equal the name. Anything else, the end of
-    input (text typed and then ended by Ctrl-D or Ctrl-C, with no line feed, is the end of input,
-    not an answer) or Ctrl-C ends with `not confirmed; nothing changed` and exit 1. The answer is never
-    printed. While it reads an answer, the terminal keeps its line editing and echo, but its
-    interrupt key sends no signal and ends the line instead, so Ctrl-C reaches alz as an answer
-    that is not the name and answers no. alz restores the terminal's settings after each answer
-    and on every other path, an error included. When it cannot read or change those settings,
-    it asks nothing and ends the same way (TASK-55.7). After the last answer it reads the declaration again and refuses if the map,
-    the recorded source, the revision or the layer is not what was shown.
-  - It records the repository's real root, the accepted per-target map (with the targets it
-    leaves out) and the declaring layer's source: the remote URL without its ref, or the real
-    path of a local layer. Step 4 of the resolution applies only while the resolved map and
-    the source both equal the recorded ones; any difference, including a target added to or
-    removed from the map, skips step 4 for every target. A ref bump needs no new approval,
-    because the account is what is approved, not the layer's revision.
-  - `alz account allow --remove` removes this repository root's entry, under the same lock
-    file. It has the same terminal and agent-session checks, because without an entry the
-    repository goes back to the default account, and asks for the recorded account names the
-    way `allow` does. It does not read the stack, so it works on a cache miss, with an
-    unreadable `layer.yaml` and after the declaration is gone. With no file or no entry for
-    this root it prints `nothing to remove`, exits 0 and creates nothing. Deleting
-    `allowed.yaml` removes every entry.
-  - `alz build` and `alz check`, which read the stack anyway, print the `alz account allow`
-    command when a layer names an account in a repository that is not allowed, or when an
-    allowed entry has changed (then with the old and new values). They print it as a
-    `note [account-allow]` line on standard error, only when standard input is a terminal and
-    no agent-session marker is set; neither standard output nor any generated file changes.
-    `alz check` prints it only when its own comparison passed, whatever the identity result,
-    because otherwise `allow` would find a cache miss. Other forms: `alz account allow
-    --remove` when the layers no longer declare and this root has an entry; the reason (`allowed.yaml` is ignored, is not a list, or has an ignored entry, with its
-    positions only), then `then run: alz account allow`; only the miss reason on a cache miss,
-    and only when the merged configuration names an account. No hint is printed for a root at or above `$HOME`, inside an account
-    folder or inside a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names, where resolution never
-    applies an account. `alz account which` prints the command only when an allowed entry has
-    changed; for a repository that is not allowed yet, it reports only that step 4 was skipped.
-    The shell hook and `alz run` never print it for a repository that is not allowed yet; `alz
-    run` names `alz account allow` only as the fix when it fails closed on a changed
-    declaration or source (§10).
-  - Accounts set in the user config need no approval, because the owner wrote them.
-  - **Agent-session markers** (§12 item 19). A process counts as inside an agent session when
-    any of `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `AI_AGENT`, `CODEX_THREAD_ID`,
-    `CODEX_SESSION_ID` or `CODEX_CI` is set, even to an empty value. Claude sets the first
-    three in its shell commands and hooks, and `CLAUDECODE` in its stdio MCP servers. Codex
-    sets `CODEX_THREAD_ID` and `CODEX_SESSION_ID` in its shell commands and `CODEX_CI` in
-    unified-exec ones; those are read from its source and not yet observed (owner check O5 in
-    `docs/target-facts.md` §12.2, a release gate: the Codex part is not shipped as verified
-    until the owner has run it). Only Claude Code and Codex sessions are detected; a session
-    of any other agent sets none of these names and looks like a person. Claude also sets `CLAUDECODE` in an IDE's integrated
-    terminal, so `alz account allow` refuses there too: the person runs it in a terminal
-    window outside the IDE. Codex sets no marker in its stdio MCP servers, so there only the
-    terminal check applies. A marker proves a session, but its absence proves nothing,
-    because any process can unset these variables (Limit, below).
-  - **Limit.** alz runs as the user, so an agent that can write outside the repository can
-    edit `accounts.yaml` or `allowed.yaml` itself, and a process it starts can unset the
-    session markers; the terminal and session checks only stop it from running
-    `alz account allow` directly. The real protection is a sandbox that limits the agent's
-    writes to the working directory, with `allowed.yaml` kept outside every repository. The
-    personal layer should also hold deny rules, which no more specific layer can remove
-    (§7.6), for `read:`, `write:` and `edit:` on `~/.config/agent-layerz/**` and
-    `~/.local/state/agent-layerz/**`, and for `bash:alz account allow*`. These rules only slow
-    an agent down; they are not a guard (§12 item 21). Nor does a sandbox that confines writes
-    stop an agent from asking a program outside it to open a real terminal: `tmux` (a socket
-    it can reach), `open` (LaunchServices) and `osascript` can start a terminal window that is
-    not marked and has a TTY. Whether the Claude and Codex sandboxes block these is owner check
-    O8 (`docs/target-facts.md` §12.2); until it is run, the terminal check is a speed bump. Claude's documentation says a Bash rule
-    is not a security boundary, and `sh -c '…'`, a full path or a script runs the same
-    command past it. Its Read and Edit denies stop the file tools and simple shell reads and
-    writes, but reach every shell command only together with the sandbox's
-    `filesystem.denyRead` and `denyWrite`. Codex accepts `~/` paths in its deny-read patterns;
-    how far its rules reach is owner check O6.
-  - **Limit.** The checks on the two files and their folders are best effort. They do not
-    cover `$HOME` itself (its owner and mode are not checked; only the directories below it
-    on the way to the file are), parents of a directory outside `$HOME`, the targets of a
-    chain of links after the first hop (only the folder of the link and the folder of its final
-    real path are checked), or access control lists. An `allowed.yaml` entry records a real
-    root, so whoever can write the parent of that root can plant a directory there that
-    resolves to the same real path as another checkout; that needs write access to the parent,
-    which the entry does not guard against. Both accepted: they need the same access as editing
-    the files.
-  - **Limit.** An allowed repository ends on the default account, with a warning each time,
-    when alz cannot trust `allowed.yaml`: the file is ignored because it lies inside the
-    repository, inside a git work tree or inside an account folder (a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names, at
-    or above the file, included), is not owned by you, can be written by group or others (or its folder or a
-    parent below `$HOME` can), cannot be read as a regular file of at most 1 MiB, is not valid
-    YAML, or the platform has no user id; `XDG_STATE_HOME` points away from `~/.local/state`
-    while mise or direnv is active; or `$HOME` is not an absolute path. A repository
-    whose entry is not its real path, or whose root lies at or above `$HOME` or inside an
-    account folder by name, is not allowed either. The default account is the safe outcome for
-    a repository that is not allowed, but it is a different account from the one the person
-    approved, so these cases are visible only in the warning.
-- **Resolution** (built as a resolver and `alz account which`, TASK-50.10; `alz run`,
-  TASK-50.3, and `alz use` with the hook, TASK-50.6, call the same resolver), for each target,
-  first match wins:
-  1. `alz run <tool> --account <name>`, for that run only;
-  2. `alz use <tool> --account <name>`, for the current terminal until
-     `alz use <tool> --reset`;
-  3. the user config's `folders` entry for the working directory: the longest path that is
-     the directory itself or one of its parents;
-  4. the layer declaration, if allowed (above) and readable without a fetch (below);
-  5. the default account.
+`alz account which` prints the paths of both files. `alz account allow` and `--remove` are the
+only code that writes `allowed.yaml` (decision-20):
+- It holds an exclusive lock file `allowed.yaml.lock` (named after the real file for a link), next to the file that is replaced,
+  while it reads and writes. The lock file is created with `O_CREAT|O_EXCL|O_NOFOLLOW` and
+  mode `0600`; a lock that exists is polled every 50 ms for up to 10 seconds, then the
+  command refuses, names the lock file and says to delete it if no `alz account allow` is
+  running. alz never removes a lock it did not create, and never follows a lock that is a
+  link.
+- Under the lock it reads the file again with the reader above. It refuses, and changes
+  nothing, in every state the reader ignores (for the file, its directory or `XDG_STATE_HOME`
+  as mise or direnv may have moved it), for a dangling link or anything that is not a regular
+  file, and for a file that holds an entry the reader ignores (a bad shape, a relative root,
+  an invalid name, a root that is not its real path, two entries for one root): it names
+  their positions only and says to fix or delete the file. alz never repairs: no `chmod` of
+  an existing file or directory, no dropped entry, no removed stale lock.
+- It keeps the entries sorted by root and replaces the entry for the same real root. Entries
+  that are valid but whose root does not resolve are kept. It writes the file at its real
+  path (a link is kept), through a temporary file `.allowed.yaml.<pid>-<8 hex>.tmp` (named after the real file for a link) in the same
+  directory (`O_EXCL|O_NOFOLLOW`, mode `0600` whatever the umask, flushed) and a rename. Missing
+  directories are created with mode `0700` and an existing directory keeps its mode and must
+  pass the checks above. A result over 1 MiB, one that does not parse back to the same
+  entries, or one that the reader does not read back as written is an error. After the last
+  `--remove` the file holds `[]`.
+- Every path it writes is built from `$HOME`, `XDG_STATE_HOME` and fixed names, never from
+  repository text. It never lies inside the repository, an account folder or a git work tree
+  or, for a linked `allowed.yaml`, the directory of its real path, which passes the same
+  checks. Missing parent folders are created with mode `0700`, and only after the place is
+  known to be safe.
+- A link, or a link in a folder above the file (its real path differs from where it is looked
+  for), is followed only to a file that is empty, holds `[]`, or starts with the header alz
+  writes (`# written by alz account allow; …`); any other target may be somebody else's file,
+  and the command refuses and changes nothing, before it asks anything and again under the
+  lock. The target is checked once more just before the rename and refused if it is no longer
+  the file that was read.
+**Trust and `alz account allow`** (built: the resolution side, TASK-50.10; `alz account
+allow`, `--remove` and the build and check hints, TASK-50.11; decision-16). The repo manifest is repository
+content and chooses the stack, so a cloned repository can name an external layer that names
+one of your accounts: the weakness §7.12 "Trust" describes for the commit identity. The
+session would then run with that account's logins and MCP connections. So an account named
+by a layer applies only after `alz account allow` in that repository:
+- `allow` reads the stack the way resolution does for an allowed repository (below), with
+  the same function, so it accepts exactly what resolution will apply. On a cache miss it
+  changes nothing and says to run `alz build`; when several client layers declare, it says to
+  remove one declaration and run `alz build`; when the layers name no account, it says so
+  (and names `alz account allow --remove` when this root has an entry); a declaration of the
+  reserved name `alz-blocked` is refused. A declaration made inside the repository is never
+  offered: it is printed as a warning, as `alz account which` does.
+- It checks that a person is at a terminal before any file system call: it refuses and
+  changes nothing when standard input is not a terminal or when it runs inside an agent
+  session (any agent-session marker below is set, even to an empty value). It names every
+  reason that applies and the markers by name, never by value, and for `CLAUDECODE` adds
+  that Claude Code also sets it in an IDE's integrated terminal. There is no `--yes`, `-y`
+  or any other way to answer: they are usage errors (exit 2). Only the terminal module
+  reads standard input (`alz-io`'s `terminal`).
+- Before it asks, it checks that `allowed.yaml` can be written (the states above) and
+  refuses without a prompt otherwise; an entry equal to the current declaration for this
+  root prints `already allowed` and exits 0 without a prompt or a write.
+- It prints the repository, the account per target and whether its account folder exists (by
+  name only, §9.1; a target the layers leave out is said so), the declaring layer and its
+  position in the stack, its source and `ref` as written, its revision (the commit in
+  `layer.lock`, or none for an unpinned `path:` layer), the source that will be recorded,
+  and the entry that is allowed now when it differs. Everything that comes from the
+  repository is quoted, with every character other than printable ASCII shown as `\u{XXXX}`
+  (account names, which are validated, are unchanged); the prompt repeats the root and the
+  source, because the details go to standard output and the prompt to standard error. It then asks the person to confirm by typing the account name (not
+  `y` or `n`): one prompt for each distinct account name, in target order, and each answer
+  without its surrounding spaces and tabs must equal the name. Anything else, the end of
+  input (text typed and then ended by Ctrl-D or Ctrl-C, with no line feed, is the end of input,
+  not an answer) or Ctrl-C ends with `not confirmed; nothing changed` and exit 1. The answer is never
+  printed. While it reads an answer, the terminal keeps its line editing and echo, but its
+  interrupt key sends no signal and ends the line instead, so Ctrl-C reaches alz as an answer
+  that is not the name and answers no. alz restores the terminal's settings after each answer
+  and on every other path, an error included. When it cannot read or change those settings,
+  it asks nothing and ends the same way (TASK-55.7). After the last answer it reads the declaration again and refuses if the map,
+  the recorded source, the revision or the layer is not what was shown.
+- It records the repository's real root, the accepted per-target map (with the targets it
+  leaves out) and the declaring layer's source: the remote URL without its ref, or the real
+  path of a local layer. Step 4 of the resolution applies only while the resolved map and
+  the source both equal the recorded ones; any difference, including a target added to or
+  removed from the map, skips step 4 for every target. A ref bump needs no new approval,
+  because the account is what is approved, not the layer's revision.
+- `alz account allow --remove` removes this repository root's entry, under the same lock
+  file. It has the same terminal and agent-session checks, because without an entry the
+  repository goes back to the default account, and asks for the recorded account names the
+  way `allow` does. It does not read the stack, so it works on a cache miss, with an
+  unreadable `layer.yaml` and after the declaration is gone. With no file or no entry for
+  this root it prints `nothing to remove`, exits 0 and creates nothing. Deleting
+  `allowed.yaml` removes every entry.
+- `alz build` and `alz check`, which read the stack anyway, print the `alz account allow`
+  command when a layer names an account in a repository that is not allowed, or when an
+  allowed entry has changed (then with the old and new values). They print it as a
+  `note [account-allow]` line on standard error, only when standard input is a terminal and
+  no agent-session marker is set; neither standard output nor any generated file changes.
+  `alz check` prints it only when its own comparison passed, whatever the identity result,
+  because otherwise `allow` would find a cache miss. Other forms: `alz account allow
+  --remove` when the layers no longer declare and this root has an entry; the reason (`allowed.yaml` is ignored, is not a list, or has an ignored entry, with its
+  positions only), then `then run: alz account allow`; only the miss reason on a cache miss,
+  and only when the merged configuration names an account. No hint is printed for a root at or above `$HOME`, inside an account
+  folder or inside a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names, where resolution never
+  applies an account. `alz account which` prints the command only when an allowed entry has
+  changed; for a repository that is not allowed yet, it reports only that step 4 was skipped.
+  The shell hook and `alz run` never print it for a repository that is not allowed yet; `alz
+  run` names `alz account allow` only as the fix when it fails closed on a changed
+  declaration or source (§10).
+- Accounts set in the user config need no approval, because the owner wrote them.
+- **Agent-session markers** (§12 item 19). A process counts as inside an agent session when
+  any of `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `AI_AGENT`, `CODEX_THREAD_ID`,
+  `CODEX_SESSION_ID` or `CODEX_CI` is set, even to an empty value. Claude sets the first
+  three in its shell commands and hooks, and `CLAUDECODE` in its stdio MCP servers. Codex
+  sets `CODEX_THREAD_ID` and `CODEX_SESSION_ID` in its shell commands and `CODEX_CI` in
+  unified-exec ones; those are read from its source and not yet observed (owner check O5 in
+  `docs/target-facts.md` §12.2, a release gate: the Codex part is not shipped as verified
+  until the owner has run it). Only Claude Code and Codex sessions are detected; a session
+  of any other agent sets none of these names and looks like a person. Claude also sets `CLAUDECODE` in an IDE's integrated
+  terminal, so `alz account allow` refuses there too: the person runs it in a terminal
+  window outside the IDE. Codex sets no marker in its stdio MCP servers, so there only the
+  terminal check applies. A marker proves a session, but its absence proves nothing,
+  because any process can unset these variables (Limit, below).
+- **Limit.** alz runs as the user, so an agent that can write outside the repository can
+  edit `accounts.yaml` or `allowed.yaml` itself, and a process it starts can unset the
+  session markers; the terminal and session checks only stop it from running
+  `alz account allow` directly. The real protection is a sandbox that limits the agent's
+  writes to the working directory, with `allowed.yaml` kept outside every repository. The
+  personal layer should also hold deny rules, which no more specific layer can remove
+  (§7.6), for `read:`, `write:` and `edit:` on `~/.config/agent-layerz/**` and
+  `~/.local/state/agent-layerz/**`, and for `bash:alz account allow*`. These rules only slow
+  an agent down; they are not a guard (§12 item 21). Nor does a sandbox that confines writes
+  stop an agent from asking a program outside it to open a real terminal: `tmux` (a socket
+  it can reach), `open` (LaunchServices) and `osascript` can start a terminal window that is
+  not marked and has a TTY. Whether the Claude and Codex sandboxes block these is owner check
+  O8 (`docs/target-facts.md` §12.2); until it is run, the terminal check is a speed bump. Claude's documentation says a Bash rule
+  is not a security boundary, and `sh -c '…'`, a full path or a script runs the same
+  command past it. Its Read and Edit denies stop the file tools and simple shell reads and
+  writes, but reach every shell command only together with the sandbox's
+  `filesystem.denyRead` and `denyWrite`. Codex accepts `~/` paths in its deny-read patterns;
+  how far its rules reach is owner check O6.
+- **Limit.** The checks on the two files and their folders are best effort. They do not
+  cover `$HOME` itself (its owner and mode are not checked; only the directories below it
+  on the way to the file are), parents of a directory outside `$HOME`, the targets of a
+  chain of links after the first hop (only the folder of the link and the folder of its final
+  real path are checked), or access control lists. An `allowed.yaml` entry records a real
+  root, so whoever can write the parent of that root can plant a directory there that
+  resolves to the same real path as another checkout; that needs write access to the parent,
+  which the entry does not guard against. Both accepted: they need the same access as editing
+  the files.
+- **Limit.** An allowed repository ends on the default account, with a warning each time,
+  when alz cannot trust `allowed.yaml`: the file is ignored because it lies inside the
+  repository, inside a git work tree or inside an account folder (a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names, at
+  or above the file, included), is not owned by you, can be written by group or others (or its folder or a
+  parent below `$HOME` can), cannot be read as a regular file of at most 1 MiB, is not valid
+  YAML, or the platform has no user id; `XDG_STATE_HOME` points away from `~/.local/state`
+  while mise or direnv is active; or `$HOME` is not an absolute path. A repository
+  whose entry is not its real path, or whose root lies at or above `$HOME` or inside an
+  account folder by name, is not allowed either. The default account is the safe outcome for
+  a repository that is not allowed, but it is a different account from the one the person
+  approved, so these cases are visible only in the warning.
+**Resolution** (built as a resolver and `alz account which`, TASK-50.10; `alz run`,
+TASK-50.3, and `alz use` with the hook, TASK-50.6, call the same resolver), for each target,
+first match wins:
+1. `alz run <tool> --account <name>`, for that run only;
+2. `alz use <tool> --account <name>`, for the current terminal until
+   `alz use <tool> --reset`;
+3. the user config's `folders` entry for the working directory: the longest path that is
+   the directory itself or one of its parents;
+4. the layer declaration, if allowed (above) and readable without a fetch (below);
+5. the default account.
 
-  A step that names no account for this target is skipped. `alz account which` prints the
-  account per target and its source: `use`, `environment` (a value set outside alz, see
-  below), `user config`, `layer` or `default`, with the reason for every skipped step.
-- **Paths** (built, TASK-50.10; decision-19). The repository root is the nearest directory at
-  or above the working directory whose `layer.yaml` has a `stack` key (§5.2); a `layer.yaml`
-  without one, such as a layer's own manifest (§5.1), is skipped and the walk goes on. Each
-  `layer.yaml` read on the way is parsed only up to 1 MiB and with a limit on YAML aliases.
-  - A `layer.yaml` on the way that cannot be used stops the walk: a link, a folder, a file
-    over 1 MiB or one that cannot be read, invalid YAML, a file past the alias limit, or a
-    stack that does not pass the schema. That directory is the root, with one warning that
-    names the file and says why; the walk never goes on past it, so a nested checkout with a
-    broken manifest never gets the outer repository's account. If that root is in `allowed`
-    the hook applies the blocked folder (alz cannot tell that the recorded source is still in
-    the stack) and the fix is to repair the file; otherwise the default account applies.
-  - The walk never opens a `layer.yaml` at `$HOME`, above it or in an account folder: it
-    stops there with no repository (reported as "no repository here" at or above `$HOME`, and
-    as inside an account folder below one), and a working directory that names an account
-    folder as written is refused before any file system call. The working directory is
-    resolved once and nothing resolves it again, and the user config step is skipped for a
-    working directory in an account folder.
-  - A working directory inside a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names, but not
-    under `~/.claude*` or `~/.codex*`, finds no root and opens nothing there. It is known only
-    as that folder's real path: nothing below the folder is looked at. If `allowed.yaml` holds
-    an entry whose real root is that folder, one of its parents or lies inside it (it may be
-    where the working directory is), every target that entry names fails closed on the blocked
-    folder (`alz account which` says so and that the layers are not read); with no such entry
-    the default account applies. The user config step still applies, and its `folders` entries
-    are matched against that folder's real path.
-  - A directory that only contains a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names (for
-    example a repository with such a folder inside it) stays a root; step 4 for it is a cache
-    miss (`account-folder`), so an allowed repository fails closed on the recorded account and
-    one that is not allowed gets the default account, never an outer repository's.
-  - `layer.yaml` and the two files are opened without following a link and without waiting for
-    a writer, so a FIFO put in their place is refused instead of hanging the prompt. Paths are resolved to
-  real paths using the file system's own spelling of each name, as in §7.12. A `folders`
-  entry matches whole path segments, so `~/work/client-a` does not match `~/work/client-ab`.
-  An `allowed` entry matches only the exact real root of the repository whose manifest is
-  being resolved, so a nested repository needs its own entry. An entry whose path does not
-  resolve matches nothing.
-- **No fetch on resolve** (built, TASK-50.9 and TASK-50.10; the commands that call it are
-  `alz account which`, `alz run` (TASK-50.3) and the hook (TASK-50.6)). Resolution (the shell hook, `alz run`, `alz account which`) never
-  fetches, clones or runs git, and writes nothing. If the repository root is not in `allowed`,
-  step 4 is skipped without reading the stack. If it is, resolution reads each layer's
-  `layer.yaml` with the same validation as `build`. A layer under the repository root as
-  written is inside. For any other `path:` layer or local `git:` source, whether it is inside is
-  decided from its real path, and one that does not resolve is a cache miss
-  (`layer-directory-missing`), never a layer to skip. The real path is found one component at a
-  time, as §6 "Layers in or around an account folder" says: each resolved prefix is checked
-  before the next component is looked at, so no name inside an account folder is `lstat`ed,
-  read as a link or opened, even through a link planted in the repository (TASK-52). It reads from:
-  - a `github:` or `git:` layer outside the repository: its cache entry for the commit the
-    lock pins;
-  - a `path:` layer outside the repository with a `ref`: the cache entry named by the cache
-    index. Next to each `tree2@<tree>` entry (§6), every command that resolves a pinned
-    `path:` layer (`build` and the other commands in §5.3) writes an index entry keyed by the
-    layer directory's real path and the commit SHA, for example
-    `pathref@<sha256 of the real path>-<sha>`, whose whole content is the tree id (lowercase,
-    no newline). It is written through a temporary file and a rename, rewritten when it
-    differs, and never removed. `build` and resolution compute the real path with the same
-    function, and resolution computes it from the manifest without git and reads only the
-    index entry for that path, so a repository cannot select another source's entry. The
-    lock entry must record the manifest's ref (its `rev`), otherwise the lock is for another
-    ref and the layer is a miss until `alz build` runs (`lock-ref-mismatch`). An
-    index entry is written only for a tree that git lists as a directory at that path (§6),
-    never for a link or submodule entry, so the index never names a tree that the layer's own
-    repository does not hold at that path. The entry is used only when `lstat` shows a regular
-    file whose whole content is 40 or 64 hexadecimal characters, as long as the commit's id;
-  - a `path:` layer without a `ref` outside the repository: the layer in place. Its content
-    hash is checked (below), so an edit since the last `alz build` is a miss;
-  - a layer inside the repository (§7.12), whatever its source, is read only to warn when it
-    declares an account, which it may not. Only its `layer.yaml` is read, in place, as a
-    regular file of at most 1 MiB with the YAML alias limit. It is never checked against the
-    lock, and a `layer.yaml` that cannot be read or parsed is skipped, so editing `.layer/`
-    never changes or blocks the account. A `git:` layer inside the repository is not read.
+A step that names no account for this target is skipped. `alz account which` prints the
+account per target and its source: `use`, `environment` (a value set outside alz, see
+below), `user config`, `layer` or `default`, with the reason for every skipped step.
+**Paths** (built, TASK-50.10; decision-19). The repository root is the nearest directory at
+or above the working directory whose `layer.yaml` has a `stack` key (§5.2); a `layer.yaml`
+without one, such as a layer's own manifest (§5.1), is skipped and the walk goes on. Each
+`layer.yaml` read on the way is parsed only up to 1 MiB and with a limit on YAML aliases.
+- A `layer.yaml` on the way that cannot be used stops the walk: a link, a folder, a file
+  over 1 MiB or one that cannot be read, invalid YAML, a file past the alias limit, or a
+  stack that does not pass the schema. That directory is the root, with one warning that
+  names the file and says why; the walk never goes on past it, so a nested checkout with a
+  broken manifest never gets the outer repository's account. If that root is in `allowed`
+  the hook applies the blocked folder (alz cannot tell that the recorded source is still in
+  the stack) and the fix is to repair the file; otherwise the default account applies.
+- The walk never opens a `layer.yaml` at `$HOME`, above it or in an account folder: it
+  stops there with no repository (reported as "no repository here" at or above `$HOME`, and
+  as inside an account folder below one), and a working directory that names an account
+  folder as written is refused before any file system call. The working directory is
+  resolved once and nothing resolves it again, and the user config step is skipped for a
+  working directory in an account folder.
+- A working directory inside a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names, but not
+  under `~/.claude*` or `~/.codex*`, finds no root and opens nothing there. It is known only
+  as that folder's real path: nothing below the folder is looked at. If `allowed.yaml` holds
+  an entry whose real root is that folder, one of its parents or lies inside it (it may be
+  where the working directory is), every target that entry names fails closed on the blocked
+  folder (`alz account which` says so and that the layers are not read); with no such entry
+  the default account applies. The user config step still applies, and its `folders` entries
+  are matched against that folder's real path.
+- A directory that only contains a folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names (for
+  example a repository with such a folder inside it) stays a root; step 4 for it is a cache
+  miss (`account-folder`), so an allowed repository fails closed on the recorded account and
+  one that is not allowed gets the default account, never an outer repository's.
+- `layer.yaml` and the two files are opened without following a link and without waiting for
+  a writer, so a FIFO put in their place is refused instead of hanging the prompt. Paths are resolved to
+real paths using the file system's own spelling of each name, as in §7.12. A `folders`
+entry matches whole path segments, so `~/work/client-a` does not match `~/work/client-ab`.
+An `allowed` entry matches only the exact real root of the repository whose manifest is
+being resolved, so a nested repository needs its own entry. An entry whose path does not
+resolve matches nothing.
+**No fetch on resolve** (built, TASK-50.9 and TASK-50.10; the commands that call it are
+`alz account which`, `alz run` (TASK-50.3) and the hook (TASK-50.6)). Resolution (the shell hook, `alz run`, `alz account which`) never
+fetches, clones or runs git, and writes nothing. If the repository root is not in `allowed`,
+step 4 is skipped without reading the stack. If it is, resolution reads each layer's
+`layer.yaml` with the same validation as `build`. A layer under the repository root as
+written is inside. For any other `path:` layer or local `git:` source, whether it is inside is
+decided from its real path, and one that does not resolve is a cache miss
+(`layer-directory-missing`), never a layer to skip. The real path is found one component at a
+time, as §6 "Layers in or around an account folder" says: each resolved prefix is checked
+before the next component is looked at, so no name inside an account folder is `lstat`ed,
+read as a link or opened, even through a link planted in the repository (TASK-52). It reads from:
+- a `github:` or `git:` layer outside the repository: its cache entry for the commit the
+  lock pins;
+- a `path:` layer outside the repository with a `ref`: the cache entry named by the cache
+  index. Next to each `tree2@<tree>` entry (§6), every command that resolves a pinned
+  `path:` layer (`build` and the other commands in §5.3) writes an index entry keyed by the
+  layer directory's real path and the commit SHA, for example
+  `pathref@<sha256 of the real path>-<sha>`, whose whole content is the tree id (lowercase,
+  no newline). It is written through a temporary file and a rename, rewritten when it
+  differs, and never removed. `build` and resolution compute the real path with the same
+  function, and resolution computes it from the manifest without git and reads only the
+  index entry for that path, so a repository cannot select another source's entry. The
+  lock entry must record the manifest's ref (its `rev`), otherwise the lock is for another
+  ref and the layer is a miss until `alz build` runs (`lock-ref-mismatch`). An
+  index entry is written only for a tree that git lists as a directory at that path (§6),
+  never for a link or submodule entry, so the index never names a tree that the layer's own
+  repository does not hold at that path. The entry is used only when `lstat` shows a regular
+  file whose whole content is 40 or 64 hexadecimal characters, as long as the commit's id;
+- a `path:` layer without a `ref` outside the repository: the layer in place. Its content
+  hash is checked (below), so an edit since the last `alz build` is a miss;
+- a layer inside the repository (§7.12), whatever its source, is read only to warn when it
+  declares an account, which it may not. Only its `layer.yaml` is read, in place, as a
+  regular file of at most 1 MiB with the YAML alias limit. It is never checked against the
+  lock, and a `layer.yaml` that cannot be read or parsed is skipped, so editing `.layer/`
+  never changes or blocks the account. A `git:` layer inside the repository is not read.
 
-  A lock `sha` is used only when it is 40 or 64 lowercase hexadecimal characters and the lock
-  has exactly one entry for the source. A `sha` that is short, upper-case or empty makes the
-  whole lock invalid (§5.3), so it is the miss `layer.lock cannot be read`, like any other lock
-  that does not parse; `layer.lock holds a commit id that is not valid` is an entry that parses
-  but has no `sha` for a `git:`, `github:` or pinned `path:` layer, or has one for an unpinned
-  `path:` layer. Resolution checks each layer outside the repository
-  against the lock's content hash (§5.3), which covers every file of the layer, with
-  `verifyCachedLayer`, before `layer.yaml` is parsed, and a mismatch counts as a cache miss.
-  Each file is read once, never through a link, and the bytes hashed are the bytes parsed. It is
-  opened relative to the folder that holds it, and its type and size are checked with `fstat`
-  on the handle that is read (decision-27), so a name swapped between two calls cannot change
-  what was checked. A
-  layer with more than 2000 entries, or more than 16 MiB in all, is a cache miss
-  (`unreadable`); `alz build` has no such limit in all. A file of more than 16 MiB is
-  unreadable in both (`unreadable`; in the build, the error `layer` of §5.3 "File names" that
-  says a file cannot be read). The entries are the names the walk lists in
-  the layer directory and in each folder below it: files, folders, links, other entries and
-  `.env` files all count, while the skipped names (`.git`, `.DS_Store`, `node_modules`, §5.3),
-  everything below them and the layer directory itself do not. The walk stops at entry 2001.
-  The 16 MiB are the sizes of the files that are read, so `.env` files and links add nothing.
-  The stack validation (§6 step 2) covers only
-  the layers outside the repository, so editing `.layer/` cannot make it fail.
-  A repository root, cache or layer directory that lies inside an account folder, or contains
-  one (`$HOME` or above it, or the folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names), is a
-  cache miss, and nothing in it is opened (§9.1). A working directory inside a folder that
-  `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names (mise or direnv can point it at a repository or at a
-  parent of one) is the one case where the repository root is not found, because nothing in
-  that folder is opened, so no manifest is read there: resolution checks `allowed.yaml` only,
-  and an entry whose real root is that folder, one of its parents or inside it fails closed on
-  the blocked folder for that entry's targets (the "Paths" rule above). A source path that names one as written
-  (`~/.claude-x`, a case variant, a `file://` URL) is a miss before any file system call on it,
-  and the canonical clone path of a local `git:` source is checked too. A `git:` source with a
-  `..` segment in its URL is a miss (`source-invalid`), because the operating system could resolve
-  it through a link. A cache directory inside the repository is a miss (`cache-in-repo`),
-  whatever sets its location. A cache root that does not exist holds no entries
-  (`index-missing` for a pinned `path:` layer, `cache-entry-missing` for a git layer). A cache
-  entry that another user owns, or that cannot be opened for any reason but being missing or a
-  link, is `unreadable`, and an index entry that is not a regular file holding an id as long as
-  the commit's is `index-invalid`. A cache root that this user does not own or that group or others can write (the rule of §6, checked with `fstat` on the handle that is kept) is `unreadable`, and so is an index entry that this user does not own; neither is read. For an unpinned `path:` layer read in place, a `layer.yaml`
-  that is not a regular file is `layer-invalid`, before the content hash; in a cache entry, a
-  link at `layer.yaml` is `content-hash`.
-  A cache that `XDG_CACHE_HOME` locates away from `~/.cache` (compared as real paths) while
-  `__MISE_DIFF` or `DIRENV_DIFF` exists is not trusted for the same reason as the two files
-  above: resolution reads no layer and the layer step is a cache miss (`cache-location`). An
-  empty or relative `XDG_CACHE_HOME` counts as unset. The reader reports `conflict` as a
-  status of its own, so that no caller can read it as "no declaration". Anything else above that cannot be verified
-  is a cache miss too, and a cache miss skips step 4 and fails closed (below). The lock does
-  not change. The cache keys of git sources are unambiguous (§6), so a repository cannot make
-  resolution read another source's entry by naming a similar URL.
-- **YAML limits** (TASK-65; decision-28). Every YAML file alz reads, in every command, is read
-  as strict UTF-8 and capped at 1 MiB, and parsed with the YAML alias limit. That covers
-  `layer.yaml`, every frontmatter block (the 1 MiB counts the whole file that holds it), a
-  layer's settings files, `accounts.yaml` and `allowed.yaml`. A file past any limit counts as
-  invalid YAML. The YAML alias limit is five budgets:
-  - at most 100 aliases (`*name`) in a document, counted as they are written in the text, not
-    as they expand;
-  - at most 64 mappings and sequences nested inside one another: a document that is one scalar
-    has none, and `a: [x]` has two. Depth is counted in the tree as aliases expand it, so an
-    alias at depth d of a node h levels deep reaches d + h;
-  - at most 20000 nodes (scalars, aliases, mappings and sequences) in a document;
-  - at most 10000 parse events replayed through aliases. Each scalar, each alias and the start
-    and end of each mapping or sequence is one event, so each use of an alias of a large node
-    costs that node's size. An alias inside that node costs one event plus the size of its own
-    anchor's node, each time the outer node is replayed;
-  - at most 4 MiB (4194304 bytes) of scalar text in a document, counting a scalar again each time
-    an alias replays it. A file is at most 1 MiB, so scalars as written never reach the budget;
-    aliases of large scalars do (a 100 KiB scalar used by 41 aliases). It bounds the memory of the
-    parsed tree. The error is `yaml` with the message `more than 4 MiB of scalar text, counting
-    each alias use again`.
+A lock `sha` is used only when it is 40 or 64 lowercase hexadecimal characters and the lock
+has exactly one entry for the source. A `sha` that is short, upper-case or empty makes the
+whole lock invalid (§5.3), so it is the miss `layer.lock cannot be read`, like any other lock
+that does not parse; `layer.lock holds a commit id that is not valid` is an entry that parses
+but has no `sha` for a `git:`, `github:` or pinned `path:` layer, or has one for an unpinned
+`path:` layer. Resolution checks each layer outside the repository
+against the lock's content hash (§5.3), which covers every file of the layer, with
+`verifyCachedLayer`, before `layer.yaml` is parsed, and a mismatch counts as a cache miss.
+Each file is read once, never through a link, and the bytes hashed are the bytes parsed. It is
+opened relative to the folder that holds it, and its type and size are checked with `fstat`
+on the handle that is read (decision-27), so a name swapped between two calls cannot change
+what was checked. A
+layer with more than 2000 entries, or more than 16 MiB in all, is a cache miss
+(`unreadable`); `alz build` has no such limit in all. A file of more than 16 MiB is
+unreadable in both (`unreadable`; in the build, the error `layer` of §5.3 "File names" that
+says a file cannot be read). The entries are the names the walk lists in
+the layer directory and in each folder below it: files, folders, links, other entries and
+`.env` files all count, while the skipped names (`.git`, `.DS_Store`, `node_modules`, §5.3),
+everything below them and the layer directory itself do not. The walk stops at entry 2001.
+The 16 MiB are the sizes of the files that are read, so `.env` files and links add nothing.
+The stack validation (§6 step 2) covers only
+the layers outside the repository, so editing `.layer/` cannot make it fail.
+A repository root, cache or layer directory that lies inside an account folder, or contains
+one (`$HOME` or above it, or the folder `CLAUDE_CONFIG_DIR` or `CODEX_HOME` names), is a
+cache miss, and nothing in it is opened (§9.1). A working directory inside a folder that
+`CLAUDE_CONFIG_DIR` or `CODEX_HOME` names (mise or direnv can point it at a repository or at a
+parent of one) is the one case where the repository root is not found, because nothing in
+that folder is opened, so no manifest is read there: resolution checks `allowed.yaml` only,
+and an entry whose real root is that folder, one of its parents or inside it fails closed on
+the blocked folder for that entry's targets (the "Paths" rule above). A source path that names one as written
+(`~/.claude-x`, a case variant, a `file://` URL) is a miss before any file system call on it,
+and the canonical clone path of a local `git:` source is checked too. A `git:` source with a
+`..` segment in its URL is a miss (`source-invalid`), because the operating system could resolve
+it through a link. A cache directory inside the repository is a miss (`cache-in-repo`),
+whatever sets its location. A cache root that does not exist holds no entries
+(`index-missing` for a pinned `path:` layer, `cache-entry-missing` for a git layer). A cache
+entry that another user owns, or that cannot be opened for any reason but being missing or a
+link, is `unreadable`, and an index entry that is not a regular file holding an id as long as
+the commit's is `index-invalid`. A cache root that this user does not own or that group or others can write (the rule of §6, checked with `fstat` on the handle that is kept) is `unreadable`, and so is an index entry that this user does not own; neither is read. For an unpinned `path:` layer read in place, a `layer.yaml`
+that is not a regular file is `layer-invalid`, before the content hash; in a cache entry, a
+link at `layer.yaml` is `content-hash`.
+A cache that `XDG_CACHE_HOME` locates away from `~/.cache` (compared as real paths) while
+`__MISE_DIFF` or `DIRENV_DIFF` exists is not trusted for the same reason as the two files
+above: resolution reads no layer and the layer step is a cache miss (`cache-location`). An
+empty or relative `XDG_CACHE_HOME` counts as unset. The reader reports `conflict` as a
+status of its own, so that no caller can read it as "no declaration". Anything else above that cannot be verified
+is a cache miss too, and a cache miss skips step 4 and fails closed (below). The lock does
+not change. The cache keys of git sources are unambiguous (§6), so a repository cannot make
+resolution read another source's entry by naming a similar URL.
+**YAML limits** (TASK-65; decision-28). Every YAML file alz reads, in every command, is read
+as strict UTF-8 and capped at 1 MiB, and parsed with the YAML alias limit. That covers
+`layer.yaml`, every frontmatter block (the 1 MiB counts the whole file that holds it), a
+layer's settings files, `accounts.yaml` and `allowed.yaml`. A file past any limit counts as
+invalid YAML. The YAML alias limit is five budgets:
+- at most 100 aliases (`*name`) in a document, counted as they are written in the text, not
+  as they expand;
+- at most 64 mappings and sequences nested inside one another: a document that is one scalar
+  has none, and `a: [x]` has two. Depth is counted in the tree as aliases expand it, so an
+  alias at depth d of a node h levels deep reaches d + h;
+- at most 20000 nodes (scalars, aliases, mappings and sequences) in a document;
+- at most 10000 parse events replayed through aliases. Each scalar, each alias and the start
+  and end of each mapping or sequence is one event, so each use of an alias of a large node
+  costs that node's size. An alias inside that node costs one event plus the size of its own
+  anchor's node, each time the outer node is replayed;
+- at most 4 MiB (4194304 bytes) of scalar text in a document, counting a scalar again each time
+  an alias replays it. A file is at most 1 MiB, so scalars as written never reach the budget;
+  aliases of large scalars do (a 100 KiB scalar used by 41 aliases). It bounds the memory of the
+  parsed tree. The error is `yaml` with the message `more than 4 MiB of scalar text, counting
+  each alias use again`.
 
-  decision-28 names the serde-saphyr options, not how they count. They are set so that these
-  five hold (TASK-55.3).
-- **What else makes a YAML file invalid** (TASK-55.3; decision-28 as amended on 2026-11-23). The
-  scope is the same as for the limits above:
-  - **Control characters.** The file's text may hold tab, line feed and carriage return, since YAML
-    reads CR and CRLF as line breaks. Any other character of U+0000 to U+001F, U+007F to U+009F
-    (NEL, U+0085, included), U+2028 or U+2029 is an error. After YAML has applied its escapes and
-    normalised its line breaks, every key and value may hold only tab and line feed, so an escape
-    such as `"\x07"`, `"\e"`, `"\r"` or `"\u2028"` is an error as well. Format characters
-    (category Cf) are a rule of the individual field, not of YAML, because emoji sequences use
-    U+200D (§7.12).
-  - **Tags.** An explicit tag outside the YAML 1.2 core set (`!!str`, `!!int`, `!!float`, `!!bool`,
-    `!!null`, `!!map`, `!!seq`) is the error `yaml-tag`. That covers `!!binary`, `!!timestamp`,
-    `!!set`, `!!omap`, `!!merge`, `!!value`, local tags such as `!foo` and other global tags such
-    as `!!python/object`. Nothing is decoded or dropped silently.
-  - **Documents.** A file with more than one document is an error.
-  - **Aliases.** An alias whose anchor is not defined before it (unresolved), and an alias inside
-    the node its own anchor names (cyclic, as in `&a [*a]`), are errors.
-  - **Keys.** Two equal keys in one mapping are an error.
-  - **Types.** Where a field expects text, a number is an error that suggests quoting the value.
-    Where it expects a whole number, a float without a fractional part counts as one (§5.1, §5.2).
-  - **Errors.** Each of these, and each limit above, is the error `yaml` (a tag: `yaml-tag`) at
-    `<where>:<line>:<column>` (§10.1), with a message that names the kind of problem only. It never
-    quotes the file: no scalar, no anchor or alias name, no tag. The one exception is a duplicate
-    key, printed as a quoted key (§10.1).
+decision-28 names the serde-saphyr options, not how they count. They are set so that these
+five hold (TASK-55.3).
+**What else makes a YAML file invalid** (TASK-55.3; decision-28 as amended on 2026-11-23). The
+scope is the same as for the limits above:
+- **Control characters.** The file's text may hold tab, line feed and carriage return, since YAML
+  reads CR and CRLF as line breaks. Any other character of U+0000 to U+001F, U+007F to U+009F
+  (NEL, U+0085, included), U+2028 or U+2029 is an error. After YAML has applied its escapes and
+  normalised its line breaks, every key and value may hold only tab and line feed, so an escape
+  such as `"\x07"`, `"\e"`, `"\r"` or `"\u2028"` is an error as well. Format characters
+  (category Cf) are a rule of the individual field, not of YAML, because emoji sequences use
+  U+200D (§7.12).
+- **Tags.** An explicit tag outside the YAML 1.2 core set (`!!str`, `!!int`, `!!float`, `!!bool`,
+  `!!null`, `!!map`, `!!seq`) is the error `yaml-tag`. That covers `!!binary`, `!!timestamp`,
+  `!!set`, `!!omap`, `!!merge`, `!!value`, local tags such as `!foo` and other global tags such
+  as `!!python/object`. Nothing is decoded or dropped silently.
+- **Documents.** A file with more than one document is an error.
+- **Aliases.** An alias whose anchor is not defined before it (unresolved), and an alias inside
+  the node its own anchor names (cyclic, as in `&a [*a]`), are errors.
+- **Keys.** Two equal keys in one mapping are an error.
+- **Types.** Where a field expects text, a number is an error that suggests quoting the value.
+  Where it expects a whole number, a float without a fractional part counts as one (§5.1, §5.2).
+- **Errors.** Each of these, and each limit above, is the error `yaml` (a tag: `yaml-tag`) at
+  `<where>:<line>:<column>` (§10.1), with a message that names the kind of problem only. It never
+  quotes the file: no scalar, no anchor or alias name, no tag. The one exception is a duplicate
+  key, printed as a quoted key (§10.1).
 
-  More than one document is an error.
-- **Environment** (TASK-65). Resolution reads the values of exactly these variables, by name:
-  `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `ALZ_SET_CLAUDE_CONFIG_DIR`, `ALZ_SET_CODEX_HOME`,
-  `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`. Of `__MISE_DIFF` and `DIRENV_DIFF`
-  it checks only that they exist ("Values set outside alz"). No other variable changes the
-  account it resolves or what it prints: not `ALZ_USE_<TARGET>` ("`alz use` stays in the
-  shell"), not the agent-session markers, and not `GIT_*`, since resolution runs no git. A set
-  `HOME` is used as given, so an empty or relative one is not an absolute path (above). An
-  unset `HOME` is the home directory that the user database records for the real user id
-  (`getpwuid_r` of `getuid()`, as Rust's `std::env::home_dir` does; TASK-55.7), not for the
-  effective user id. When the database has no entry for that id, or its
-  home directory is not absolute (an empty one included), alz acts as for a `HOME` that is not
-  an absolute path (TASK-72).
-- **A named account that cannot apply fails closed** (resolver and `alz account which` built,
-  TASK-50.10; `alz run`, TASK-50.3; `alz use` and the hook, TASK-50.6; decision-16). A named account cannot apply when its folder does not exist, explicit (steps
-  1 and 2) or implicit (steps 3 and 4), or when, in an allowed repository, step 4 is skipped
-  because of a cache miss, a changed declaration, or a recorded source that is no longer in
-  the stack. Then alz never uses the default account, and never a newly declared account:
-  - `alz run` and `alz use` fail before anything starts, exit non-zero and name the fix. For
-    a missing folder they list the account folders that exist by name only; on a cache miss
-    they say to run `alz build`; on a changed declaration or source, `alz account allow`.
-  - The shell hook warns and always sets the variable of each target that the recorded entry
-    or the declaration names:
-    - to the chosen account's folder when that folder is missing;
-    - to the recorded account's folder on a cache miss while the recorded source is still
-      in the stack; when the recorded account is `default` (or the configured `default_name`)
-      the variable is unset, because the approved account is the default account;
-    - to the blocked folder, `~/.claude-alz-blocked` or `~/.codex-alz-blocked`, when the
-      declaration changed or is gone, the recorded source is no longer in the stack, several
-      client layers declare (a conflict), or the repository's `layer.yaml` cannot be read.
+More than one document is an error.
+**Environment** (TASK-65). Resolution reads the values of exactly these variables, by name:
+`HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `ALZ_SET_CLAUDE_CONFIG_DIR`, `ALZ_SET_CODEX_HOME`,
+`XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`. Of `__MISE_DIFF` and `DIRENV_DIFF`
+it checks only that they exist ("Values set outside alz"). No other variable changes the
+account it resolves or what it prints: not `ALZ_USE_<TARGET>` ("`alz use` stays in the
+shell"), not the agent-session markers, and not `GIT_*`, since resolution runs no git. A set
+`HOME` is used as given, so an empty or relative one is not an absolute path (above). An
+unset `HOME` is the home directory that the user database records for the real user id
+(`getpwuid_r` of `getuid()`, as Rust's `std::env::home_dir` does; TASK-55.7), not for the
+effective user id. When the database has no entry for that id, or its
+home directory is not absolute (an empty one included), alz acts as for a `HOME` that is not
+an absolute path (TASK-72).
+**A named account that cannot apply fails closed** (resolver and `alz account which` built,
+TASK-50.10; `alz run`, TASK-50.3; `alz use` and the hook, TASK-50.6; decision-16). A named account cannot apply when its folder does not exist, explicit (steps
+1 and 2) or implicit (steps 3 and 4), or when, in an allowed repository, step 4 is skipped
+because of a cache miss, a changed declaration, or a recorded source that is no longer in
+the stack. Then alz never uses the default account, and never a newly declared account:
+- `alz run` and `alz use` fail before anything starts, exit non-zero and name the fix. For
+  a missing folder they list the account folders that exist by name only; on a cache miss
+  they say to run `alz build`; on a changed declaration or source, `alz account allow`.
+- The shell hook warns and always sets the variable of each target that the recorded entry
+  or the declaration names:
+  - to the chosen account's folder when that folder is missing;
+  - to the recorded account's folder on a cache miss while the recorded source is still
+    in the stack; when the recorded account is `default` (or the configured `default_name`)
+    the variable is unset, because the approved account is the default account;
+  - to the blocked folder, `~/.claude-alz-blocked` or `~/.codex-alz-blocked`, when the
+    declaration changed or is gone, the recorded source is no longer in the stack, several
+    client layers declare (a conflict), or the repository's `layer.yaml` cannot be read.
 
-    Whether an account folder exists is decided from one listing of `$HOME` (§9.1): a
-    directory or a link named `.claude-<name>` or `.codex-<name>` exists, nothing in it is
-    opened, and `alz-blocked` never counts as existing.
+  Whether an account folder exists is decided from one listing of `$HOME` (§9.1): a
+  directory or a link named `.claude-<name>` or `.codex-<name>` exists, nothing in it is
+  opened, and `alz-blocked` never counts as existing.
 
-    alz never creates the blocked folders, and `alz account init` refuses the name
-    `alz-blocked`. A tool whose variable names a folder that does not exist behaves as
-    follows (§12 item 18), and both count as failing closed (owner decision 8 in TASK-50.1):
-    - Claude creates the folder with mode `0755` (the umask default, not the `0700` that
-      `alz account init` uses) and starts logged out; an interactive start offers to log in.
-      So `~/.claude-alz-blocked`, or a missing named folder, comes into existence at the
-      first such Claude start, and a login there would make it usable.
-    - Codex refuses to start (`CODEX_HOME points to … but that path does not exist`) and
-      creates nothing.
+  alz never creates the blocked folders, and `alz account init` refuses the name
+  `alz-blocked`. A tool whose variable names a folder that does not exist behaves as
+  follows (§12 item 18), and both count as failing closed (owner decision 8 in TASK-50.1):
+  - Claude creates the folder with mode `0755` (the umask default, not the `0700` that
+    `alz account init` uses) and starts logged out; an interactive start offers to log in.
+    So `~/.claude-alz-blocked`, or a missing named folder, comes into existence at the
+    first such Claude start, and a login there would make it usable.
+  - Codex refuses to start (`CODEX_HOME points to … but that path does not exist`) and
+    creates nothing.
 
-    `alz doctor` does not count the blocked folders as accounts, but warns when one exists
-    (TASK-50.4), so the person can delete it; given the behaviour above, only
-    `~/.claude-alz-blocked` is expected to appear.
-  - `alz account which` reports `layer step skipped (<reason>); fails closed`, what the hook
-    applies (the missing folder, the recorded account or the blocked folder), and the fix
-    command. The fix is `alz account init <name>` for a missing folder (with the account
-    folders that exist, by name), `alz build` for a cache miss, `alz account allow` for a
-    changed declaration or source, `alz account allow --remove` when the layers no longer
-    declare an account, removing one declaration and then `alz build` for a conflict, and
-    repairing `<root>/layer.yaml` for a manifest that cannot be read. A named account whose
-    folder is missing is reported as `<step> step names <name>, but <folder> does not exist;
-    fails closed`; for the reserved name `alz-blocked` the fix says the name is reserved instead of naming `alz account init`. A target that the allowed entry does not name is skipped without failing.
+  `alz doctor` does not count the blocked folders as accounts, but warns when one exists
+  (TASK-50.4), so the person can delete it; given the behaviour above, only
+  `~/.claude-alz-blocked` is expected to appear.
+- `alz account which` reports `layer step skipped (<reason>); fails closed`, what the hook
+  applies (the missing folder, the recorded account or the blocked folder), and the fix
+  command. The fix is `alz account init <name>` for a missing folder (with the account
+  folders that exist, by name), `alz build` for a cache miss, `alz account allow` for a
+  changed declaration or source, `alz account allow --remove` when the layers no longer
+  declare an account, removing one declaration and then `alz build` for a conflict, and
+  repairing `<root>/layer.yaml` for a manifest that cannot be read. A named account whose
+  folder is missing is reported as `<step> step names <name>, but <folder> does not exist;
+  fails closed`; for the reserved name `alz-blocked` the fix says the name is reserved instead of naming `alz account init`. A target that the allowed entry does not name is skipped without failing.
 
-  This amends decision-15's "falls back to the default account" (decision-16).
-- **Values set outside alz** (resolver and `alz account which` built, TASK-50.10; the hook that
-  exports the markers, TASK-50.6; `alz run`, TASK-50.3; decision-17). The shell hook
-  exports, next to each variable it sets, a marker that holds the exact value it set:
-  `ALZ_SET_CLAUDE_CONFIG_DIR` and `ALZ_SET_CODEX_HOME`. A current value that differs from its
-  marker, or that has none, is foreign: alz leaves it alone and warns once that it was
-  `set outside alz`, and it takes the place of steps 3 to 5. An explicit `--account` (steps 1
-  and 2) replaces it. The marker also gives `alz account which` its `environment` source. A
-  variable that is set but empty is foreign (without a marker that holds the empty text); an
-  unset variable never is, and a marker without its variable is stale and ignored.
-  - When `__MISE_DIFF` or `DIRENV_DIFF` exists, the warning adds `mise or direnv is active
-    here`. alz checks only that these variables exist. It never reads, decodes, prints or
-    logs their values: each holds every variable mise or direnv set, with its value, secrets
-    included, and neither encoding is a stable interface (§12 item 20).
-  - **Limit.** Claude applies `env.CLAUDE_CONFIG_DIR` from user settings (the chosen
-    folder's own `settings.json`), from `--settings` and from managed settings over the value
-    alz set, at least for the session's subprocesses (§12 items 10 and 15). alz never reads
-    those files, so it can neither see this nor warn about it. Project and local settings
-    cannot set the variable, because Claude drops it there, so for Claude the rule that
-    layers cannot set it (§7.9) is defence in depth.
-  - **Limit.** A Codex `shell_environment_policy` that alz did not generate, in a hand-written
-    project `.codex/config.toml` or in the account's own `config.toml`, can change or drop the
-    variables for Codex's shell commands (§12 item 15). alz never reads those files, so this
-    is outside its control.
-- **What a session passes on** (tool facts, no alz behaviour; §12 item 15). Claude's hooks,
-  its Bash tool and its stdio MCP servers inherit `CLAUDE_CONFIG_DIR`, unless
-  `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` removes it from all three or
-  `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1` gives MCP servers only a baseline environment. Codex's
-  hooks inherit `CODEX_HOME` from the environment the session started with, and its shell
-  commands get it through `shell_environment_policy` (by default the whole environment).
-  Codex's stdio MCP servers do not inherit `CODEX_HOME` or `CLAUDE_CONFIG_DIR` unless the
-  server's `env_vars` lists them, so an MCP server that runs `codex` or `claude` uses the
-  default account. The same holds for a Codex shell command whose policy leaves the
-  variables out (`include_only`, or an `inherit` other than `all`).
-- **`alz use` stays in the shell** (the argument is built, TASK-50.10; `alz use`, TASK-50.6).
-  `alz use` keeps its choice in unexported shell variables held by the `alz` shell function,
-  which passes the choice to `alz run` as `--account`, and to the hook's resolution and to
-  `alz account which` as `--use <target>=<name>` (repeatable, once per target); that is the
-  `use` source. An unknown target, an invalid name, a target named twice or a positional
-  argument is a usage error. An exported `ALZ_USE_<TARGET>` or any other environment variable is
-  never read as an `alz use` choice, so a forged one changes nothing.
-- **Shell hook** (TASK-50.6). `alz run` (TASK-50.3) starts one tool with the variable set and
-  needs no hook. A program cannot change its parent shell's environment, so, as with mise,
-  `alz use` and switching by folder need the hook from `eval "$(alz activate zsh)"` (or
-  `bash`). The hook defines the `alz` shell function that `alz use` needs, and runs when it
-  is loaded and at each prompt where the working directory changed. It then sets each
-  target's variable and marker to the resolved account, or unsets them where the default
-  account applies. Only `alz use` changes a foreign value. Because the output is evaluated:
-  - the output contains only lines `export NAME='value'` and `unset NAME`, for the account
-    variables and the `ALZ_SET_*` markers;
-  - each value is built from `$HOME` and a validated account name, never from other text,
-    and is single-quoted with every `'` written as `'\''`;
-  - every message goes to standard error, sanitised as in §9.4 (home shown as `~`, control
-    characters removed);
-  - the activate script quotes every expansion.
-- **Shared and per-account items** (TASK-50.5; decision-17, which amends decision-16's
-  "init shares config only"). `alz account init <name>` shares nothing by default: it creates
-  the named account folders with mode `0700` and makes no link, so each account starts with
-  its own user-level configuration. Personal agents and skills still reach every alz
-  repository through `alz build` at project scope, the same in every account (§8.4). The user
-  can share an item on purpose with `--share <item>`, which links the account's item to the
-  default account folder's copy and prints a warning that names the item's limits (below).
-  `--share` accepts only the items in the table's middle column, written without the slash
-  (`agents`, `commands`, `CLAUDE.md`, `skills`, `plugins`, `settings.json`, `projects`,
-  `AGENTS.md`, `sessions`, `memories`; `skills` applies to both targets), and rejects anything
-  else before planning. Both tools read linked items and write through the links
-  (§12 item 14):
+This amends decision-15's "falls back to the default account" (decision-16).
+**Values set outside alz** (resolver and `alz account which` built, TASK-50.10; the hook that
+exports the markers, TASK-50.6; `alz run`, TASK-50.3; decision-17). The shell hook
+exports, next to each variable it sets, a marker that holds the exact value it set:
+`ALZ_SET_CLAUDE_CONFIG_DIR` and `ALZ_SET_CODEX_HOME`. A current value that differs from its
+marker, or that has none, is foreign: alz leaves it alone and warns once that it was
+`set outside alz`, and it takes the place of steps 3 to 5. An explicit `--account` (steps 1
+and 2) replaces it. The marker also gives `alz account which` its `environment` source. A
+variable that is set but empty is foreign (without a marker that holds the empty text); an
+unset variable never is, and a marker without its variable is stale and ignored.
+- When `__MISE_DIFF` or `DIRENV_DIFF` exists, the warning adds `mise or direnv is active
+  here`. alz checks only that these variables exist. It never reads, decodes, prints or
+  logs their values: each holds every variable mise or direnv set, with its value, secrets
+  included, and neither encoding is a stable interface (§12 item 20).
+- **Limit.** Claude applies `env.CLAUDE_CONFIG_DIR` from user settings (the chosen
+  folder's own `settings.json`), from `--settings` and from managed settings over the value
+  alz set, at least for the session's subprocesses (§12 items 10 and 15). alz never reads
+  those files, so it can neither see this nor warn about it. Project and local settings
+  cannot set the variable, because Claude drops it there, so for Claude the rule that
+  layers cannot set it (§7.9) is defence in depth.
+- **Limit.** A Codex `shell_environment_policy` that alz did not generate, in a hand-written
+  project `.codex/config.toml` or in the account's own `config.toml`, can change or drop the
+  variables for Codex's shell commands (§12 item 15). alz never reads those files, so this
+  is outside its control.
+**What a session passes on** (tool facts, no alz behaviour; §12 item 15). Claude's hooks,
+its Bash tool and its stdio MCP servers inherit `CLAUDE_CONFIG_DIR`, unless
+`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` removes it from all three or
+`CLAUDE_CODE_MCP_ALLOWLIST_ENV=1` gives MCP servers only a baseline environment. Codex's
+hooks inherit `CODEX_HOME` from the environment the session started with, and its shell
+commands get it through `shell_environment_policy` (by default the whole environment).
+Codex's stdio MCP servers do not inherit `CODEX_HOME` or `CLAUDE_CONFIG_DIR` unless the
+server's `env_vars` lists them, so an MCP server that runs `codex` or `claude` uses the
+default account. The same holds for a Codex shell command whose policy leaves the
+variables out (`include_only`, or an `inherit` other than `all`).
+**`alz use` stays in the shell** (the argument is built, TASK-50.10; `alz use`, TASK-50.6).
+`alz use` keeps its choice in unexported shell variables held by the `alz` shell function,
+which passes the choice to `alz run` as `--account`, and to the hook's resolution and to
+`alz account which` as `--use <target>=<name>` (repeatable, once per target); that is the
+`use` source. An unknown target, an invalid name, a target named twice or a positional
+argument is a usage error. An exported `ALZ_USE_<TARGET>` or any other environment variable is
+never read as an `alz use` choice, so a forged one changes nothing.
+**Shell hook** (TASK-50.6). `alz run` (TASK-50.3) starts one tool with the variable set and
+needs no hook. A program cannot change its parent shell's environment, so, as with mise,
+`alz use` and switching by folder need the hook from `eval "$(alz activate zsh)"` (or
+`bash`). The hook defines the `alz` shell function that `alz use` needs, and runs when it
+is loaded and at each prompt where the working directory changed. It then sets each
+target's variable and marker to the resolved account, or unsets them where the default
+account applies. Only `alz use` changes a foreign value. Because the output is evaluated:
+- the output contains only lines `export NAME='value'` and `unset NAME`, for the account
+  variables and the `ALZ_SET_*` markers;
+- each value is built from `$HOME` and a validated account name, never from other text,
+  and is single-quoted with every `'` written as `'\''`;
+- every message goes to standard error, sanitised as in §9.4 (home shown as `~`, control
+  characters removed);
+- the activate script quotes every expansion.
+**Shared and per-account items** (TASK-50.5; decision-17, which amends decision-16's
+"init shares config only"). `alz account init <name>` shares nothing by default: it creates
+the named account folders with mode `0700` and makes no link, so each account starts with
+its own user-level configuration. Personal agents and skills still reach every alz
+repository through `alz build` at project scope, the same in every account (§8.4). The user
+can share an item on purpose with `--share <item>`, which links the account's item to the
+default account folder's copy and prints a warning that names the item's limits (below).
+`--share` accepts only the items in the table's middle column, written without the slash
+(`agents`, `commands`, `CLAUDE.md`, `skills`, `plugins`, `settings.json`, `projects`,
+`AGENTS.md`, `sessions`, `memories`; `skills` applies to both targets), and rejects anything
+else before planning. Both tools read linked items and write through the links
+(§12 item 14):
 
-  | Target | Per account; shared only with `--share` | Always per account, never linked |
-  |---|---|---|
-  | `claude` | `agents/`, `commands/`, `CLAUDE.md`, `skills/` and `plugins/` (entry by entry, below), `settings.json`, `projects/` | logins and MCP OAuth logins (the Keychain entry keyed to the folder, or `.credentials.json`); `.claude.json` (workspace trust, per-project state, user MCP servers); `synced/` and `.trash/` inside `skills/` and `plugins/`; prompt history; file checkpoints |
-  | `codex` | `AGENTS.md`, `skills/`, `sessions/`, `memories/` | logins (`auth.json`, or a keyring entry keyed to the folder); `config.toml` |
+| Target | Per account; shared only with `--share` | Always per account, never linked |
+|---|---|---|
+| `claude` | `agents/`, `commands/`, `CLAUDE.md`, `skills/` and `plugins/` (entry by entry, below), `settings.json`, `projects/` | logins and MCP OAuth logins (the Keychain entry keyed to the folder, or `.credentials.json`); `.claude.json` (workspace trust, per-project state, user MCP servers); `synced/` and `.trash/` inside `skills/` and `plugins/`; prompt history; file checkpoints |
+| `codex` | `AGENTS.md`, `skills/`, `sessions/`, `memories/` | logins (`auth.json`, or a keyring entry keyed to the folder); `config.toml` |
 
-  Limits of opting in (`docs/target-facts.md` §12.1):
-  - Claude `skills/` and `plugins/` are linked entry by entry. `--share skills` or
-    `--share plugins` creates a real `skills/` or `plugins/` folder (mode `0700`) in the
-    account and links each entry of the default copy except `synced` and `.trash`, where
-    claude.ai's sync writes each account's organisation items. A whole-folder link would put
-    every account's synced items in one folder, where the other accounts load them and each
-    sync removes the others' (change C4). An entry that already exists in the account is left
-    alone and listed, never moved aside, because a backup inside `skills/` would load as a
-    skill. Entries added to the default copy later are linked by running the command again.
-    Per-entry links load for skills (SMOKE). For `plugins/`, whose entries are files that
-    Claude rewrites (`installed_plugins.json`, `known_marketplaces.json`), they are not
-    verified yet; TASK-50.5 records that fact before it builds `--share plugins`.
-  - With `plugins` shared, Claude records each plugin's install path under the folder of the
-    account that installed it (change C10), so deleting that account folder can break the
-    plugin for the other accounts. Install plugins from the default account.
-  - Codex rewrites `skills/.system/` at start with the skills of its own version. With
-    `skills` shared it writes through the link into the shared folder, so accounts started
-    with different Codex versions rewrite it at each switch (change C5).
-  - `settings.json` carries the keys that carry or pin a login (`apiKeyHelper`, `env` tokens,
-    `forceLoginMethod`, `forceLoginOrgUUID` and others; §12 item 16), so sharing it shares
-    them.
-  - Whether Codex keeps a linked `sessions/` or `memories/` or replaces it needs a login to
-    observe (owner check O7). Claude's `projects/` was not tested as a link; TASK-50.5
-    records that fact before it builds `--share projects`.
+Limits of opting in (`docs/target-facts.md` §12.1):
+- Claude `skills/` and `plugins/` are linked entry by entry. `--share skills` or
+  `--share plugins` creates a real `skills/` or `plugins/` folder (mode `0700`) in the
+  account and links each entry of the default copy except `synced` and `.trash`, where
+  claude.ai's sync writes each account's organisation items. A whole-folder link would put
+  every account's synced items in one folder, where the other accounts load them and each
+  sync removes the others' (change C4). An entry that already exists in the account is left
+  alone and listed, never moved aside, because a backup inside `skills/` would load as a
+  skill. Entries added to the default copy later are linked by running the command again.
+  Per-entry links load for skills (SMOKE). For `plugins/`, whose entries are files that
+  Claude rewrites (`installed_plugins.json`, `known_marketplaces.json`), they are not
+  verified yet; TASK-50.5 records that fact before it builds `--share plugins`.
+- With `plugins` shared, Claude records each plugin's install path under the folder of the
+  account that installed it (change C10), so deleting that account folder can break the
+  plugin for the other accounts. Install plugins from the default account.
+- Codex rewrites `skills/.system/` at start with the skills of its own version. With
+  `skills` shared it writes through the link into the shared folder, so accounts started
+  with different Codex versions rewrite it at each switch (change C5).
+- `settings.json` carries the keys that carry or pin a login (`apiKeyHelper`, `env` tokens,
+  `forceLoginMethod`, `forceLoginOrgUUID` and others; §12 item 16), so sharing it shares
+  them.
+- Whether Codex keeps a linked `sessions/` or `memories/` or replaces it needs a login to
+  observe (owner check O7). Claude's `projects/` was not tested as a link; TASK-50.5
+  records that fact before it builds `--share projects`.
 
-- **`alz account init` safety** (TASK-50.5).
-  - It refuses the names `default` and `alz-blocked` (the blocked folders, above) and the
-    configured `default_name`.
-  - It uses `lstat` throughout. It refuses when an account folder, or the parent of a shared
-    item (the account folder, or the account's `skills/` or `plugins/` for an entry), is a
-    symbolic link, or when an account folder's real path is the default folder.
-  - It plans every step before it acts, and changes nothing when the plan has any problem.
-    `--dry-run` prints the plan and stops.
-  - It creates folders with mode `0700`. It links only items named with `--share`, and only
-    those that exist in the default folder.
-  - It moves an existing whole item aside only by renaming it in the same folder to
-    `<item>.alz-backup-<UTC timestamp>` (for example `agents.alz-backup-20261122T101500Z`),
-    never by copying and never over an existing backup. A backup name never matches
-    `.claude-*` or `.codex-*`, so account discovery (§8.4) never takes a backup for an
-    account folder. Entries of Claude's `skills/` and `plugins/` are never moved aside
-    (above).
-  - Running it again with the same arguments changes nothing, unless the default copy of a
-    shared `skills/` or `plugins/` gained an entry, which it then links.
-- **Trust is per account** (TASK-50.4). Workspace trust lives in per-account state, which alz
-  never opens, so alz never determines whether a repository is trusted. Claude keeps it in the
-  folder's `.claude.json`, keyed on the repository root (the main checkout for a worktree);
-  Codex keeps it in the folder's `config.toml` (§12 items 10 and 11). `alz doctor` prints a
-  static notice that trust is per account, so a repository trusted on one account needs
-  accepting again on another.
-- **Logins kept outside the account folder** (tool facts; §12 items 12 and 17).
-  - **Limit.** For Claude, account selection separates only the logins Claude keeps per
-    folder: `/login` credentials and MCP OAuth logins, in the Keychain entry keyed to the
-    folder or in `.credentials.json`. Anthropic profiles in `~/.config/anthropic` (with
-    `ANTHROPIC_PROFILE`), Console sign-ins without an API key, credentials in environment
-    variables (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`) and
-    cloud-provider credentials are shared by every folder, and several of them take
-    precedence over `/login` (change C3).
-  - **Known limit: Codex MCP logins** (the owner has deferred this decision). In Codex's
-    default credential mode, MCP OAuth logins are stored in the OS keyring, when one is
-    available, under the server's name, URL and headers, not under the account folder, so
-    every `CODEX_HOME` on the machine shares one login per server. Account selection does not separate them
-    (`docs/target-facts.md` §12 item 17, change C2; read from source, owner check O3).
-- **No generated output** (built, TASK-50.10). The build writes no account value into any generated
-  file or the lock and sets no variable, so the output stays byte-identical whatever account
-  is chosen.
-- **Layer format.** `account` is a new `layer.yaml` field. Unknown fields are a schema error
-  (§5.1), so a layer that declares it needs the minor release that ships TASK-50.2, and §5.1
-  lists the field from that release on. The new build error for layers that set the account
-  variables (§7.9) can fail a build that passes today, so it needs a release note too. The
-  user config, the allow state and the commands in §10 are new user-facing surface;
-  generated output does not change, and the cache index lives in the cache.
+**`alz account init` safety** (TASK-50.5).
+- It refuses the names `default` and `alz-blocked` (the blocked folders, above) and the
+  configured `default_name`.
+- It uses `lstat` throughout. It refuses when an account folder, or the parent of a shared
+  item (the account folder, or the account's `skills/` or `plugins/` for an entry), is a
+  symbolic link, or when an account folder's real path is the default folder.
+- It plans every step before it acts, and changes nothing when the plan has any problem.
+  `--dry-run` prints the plan and stops.
+- It creates folders with mode `0700`. It links only items named with `--share`, and only
+  those that exist in the default folder.
+- It moves an existing whole item aside only by renaming it in the same folder to
+  `<item>.alz-backup-<UTC timestamp>` (for example `agents.alz-backup-20261122T101500Z`),
+  never by copying and never over an existing backup. A backup name never matches
+  `.claude-*` or `.codex-*`, so account discovery (§8.4) never takes a backup for an
+  account folder. Entries of Claude's `skills/` and `plugins/` are never moved aside
+  (above).
+- Running it again with the same arguments changes nothing, unless the default copy of a
+  shared `skills/` or `plugins/` gained an entry, which it then links.
+**Trust is per account** (TASK-50.4). Workspace trust lives in per-account state, which alz
+never opens, so alz never determines whether a repository is trusted. Claude keeps it in the
+folder's `.claude.json`, keyed on the repository root (the main checkout for a worktree);
+Codex keeps it in the folder's `config.toml` (§12 items 10 and 11). `alz doctor` prints a
+static notice that trust is per account, so a repository trusted on one account needs
+accepting again on another.
+**Logins kept outside the account folder** (tool facts; §12 items 12 and 17).
+- **Limit.** For Claude, account selection separates only the logins Claude keeps per
+  folder: `/login` credentials and MCP OAuth logins, in the Keychain entry keyed to the
+  folder or in `.credentials.json`. Anthropic profiles in `~/.config/anthropic` (with
+  `ANTHROPIC_PROFILE`), Console sign-ins without an API key, credentials in environment
+  variables (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`) and
+  cloud-provider credentials are shared by every folder, and several of them take
+  precedence over `/login` (change C3).
+- **Known limit: Codex MCP logins** (the owner has deferred this decision). In Codex's
+  default credential mode, MCP OAuth logins are stored in the OS keyring, when one is
+  available, under the server's name, URL and headers, not under the account folder, so
+  every `CODEX_HOME` on the machine shares one login per server. Account selection does not separate them
+  (`docs/target-facts.md` §12 item 17, change C2; read from source, owner check O3).
+**No generated output** (built, TASK-50.10). The build writes no account value into any generated
+file or the lock and sets no variable, so the output stays byte-identical whatever account
+is chosen.
+**Layer format.** `account` is a new `layer.yaml` field. Unknown fields are a schema error
+(§5.1), so a layer that declares it needs the minor release that ships TASK-50.2, and §5.1
+lists the field from that release on. The new build error for layers that set the account
+variables (§7.9) can fail a build that passes today, so it needs a release note too. The
+user config, the allow state and the commands in §10 are new user-facing surface;
+generated output does not change, and the cache index lives in the cache.
 
 ---
 

@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:06:00Z'
+updated_date: '2026-11-25T14:36:00Z'
 labels:
   - area:rust
   - area:test
@@ -42,4 +42,6 @@ From docs/spec-coverage.md (TASK-55.9.5): 1 gap row in §7.12, §7.13 and §9: '
 First split §7.13 into anchors (### headings or bold leads, no change of meaning), then audit it (from 55.9.5).
 
 Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+
+Done on branch test/spec-7-12-9-task-55.9.8. Spec 7.13 split into 25 bold-lead anchors (Account names, Folders per target, Who may declare it, Layers cannot set the variables, User config, Allow state, Both files, Trust and alz account allow, Resolution, Paths, No fetch on resolve, YAML limits, What else makes a YAML file invalid, Environment, A named account that cannot apply fails closed, Values set outside alz, What a session passes on, alz use stays in the shell, Shell hook, Shared and per-account items, alz account init safety, Trust is per account, Logins kept outside the account folder, No generated output, Layer format.) plus the heading row; the bullets lost their dash and two spaces of indent only, the text is unchanged. New tests: crates/alz/tests/account_declaration.rs (6, fixture 29), yaml_limits.rs (4, fixture 34), account_root.rs (2, fixture 31), leak_guard_fields.rs (2, fixture 10), commit_identity_output.rs (2, fixture 26), and 2 end-to-end allow flow tests in account_allow.rs (fixture 32, pty). Matrix: 26 section 7.13 rows (20 covered, 4 planned: Shell hook, Shared and per-account items, account init safety, Trust is per account; 2 n/a), rows of 7.12, 9.2, 9.3 and 9.4 topped up with named tests; no gap row is left in 7.12, 7.13 or 9; spec_coverage guard passes. Not done: the rows are checked by test names and the assertions of the tests I re-read, not clause by clause for every older test; fixture 30-account-cache-read is still named by no test. AC1 and AC2 hold per the guard; AC3 (CI on both platforms) and AC4 not yet confirmed here.
 <!-- SECTION:NOTES:END -->

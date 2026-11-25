@@ -16,14 +16,14 @@
 )]
 mod tests {
     use std::io::{Read, Write};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::process::{Child, ChildStdin, Command, Stdio};
     use std::sync::mpsc::{self, Receiver};
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
 
     use alz_core::account::AgentSessionMarker;
-    use alz_test_support::{ScratchDir, pty_run_executable, read_tree};
+    use alz_test_support::{ScratchDir, copy_tree, pty_run_executable, read_tree};
     use assert_cmd::cargo::cargo_bin_cmd;
 
     const PATIENCE: Duration = Duration::from_secs(30);
@@ -65,6 +65,66 @@ mod tests {
                 .expect("the real path of the scratch folder")
                 .join("repo");
             Self { scratch, root }
+        }
+
+        /// `fixtures/32-account-allow` in a scratch folder: the repository `repo` with its client
+        /// layer `hub/layer`, pinned at the tag `v1` of the repository `hub`.
+        fn pinned() -> Self {
+            let scratch = ScratchDir::new().expect("a scratch directory");
+            let fixture =
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/32-account-allow");
+            copy_tree(&fixture, &scratch.join("work")).expect("the fixture is copied");
+            scratch.make_dir("home").expect("made");
+            let root = scratch
+                .real_path()
+                .expect("the real path of the scratch folder")
+                .join("work/repo");
+            let world = Self { scratch, root };
+            world.hub_vcs(&["init", "--quiet", "--initial-branch=main"]);
+            world.commit_hub();
+            world
+        }
+
+        fn hub_vcs(&self, args: &[&str]) {
+            let status = Command::new("git")
+                .arg("-C")
+                .arg(self.scratch.join("work/hub"))
+                .args(args)
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin")
+                .env("HOME", self.scratch.join("home"))
+                .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_AUTHOR_NAME", "Test")
+                .env("GIT_AUTHOR_EMAIL", "test@example.com")
+                .env("GIT_COMMITTER_NAME", "Test")
+                .env("GIT_COMMITTER_EMAIL", "test@example.com")
+                .stdout(Stdio::null())
+                .status()
+                .expect("the version control tool runs");
+            assert!(status.success(), "{args:?}");
+        }
+
+        /// Commits the hub as it is and moves the tag `v1` to the commit.
+        fn commit_hub(&self) {
+            self.hub_vcs(&["add", "-A"]);
+            self.hub_vcs(&["commit", "--quiet", "--message", "hub"]);
+            self.hub_vcs(&["tag", "--force", "v1"]);
+        }
+
+        /// `alz` with standard input closed and no terminal, as a script runs it.
+        fn plain(&self, args: &[&str]) -> Finished {
+            let alz = Command::new(cargo_bin_cmd!("alz").get_program());
+            let output = self
+                .command(alz, &[], args)
+                .env("PATH", "/usr/bin:/bin")
+                .stdin(Stdio::null())
+                .output()
+                .expect("alz runs");
+            Finished {
+                code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            }
         }
 
         const STATE_FILE: &'static str = "home/.local/state/agent-layerz/allowed.yaml";
@@ -407,5 +467,127 @@ mod tests {
             assert_eq!(finished.stdout, "");
             assert_ne!(finished.stderr, "");
         }
+    }
+
+    /// Spec §7.13 "Trust and `alz account allow`" and "Resolution": a layer's declaration, offered
+    /// from the layers of the repository (fixture 32, a client layer pinned at a tag), is applied
+    /// only after a person confirms it by typing each account name; the entry that is recorded
+    /// is the real root, the accepted map and the layer's real path; a second run says
+    /// `already allowed` without a question; and `alz account which` then reports the `layer` step.
+    #[test]
+    fn a_declared_account_applies_only_after_the_person_types_its_names_and_is_then_recorded() {
+        let world = World::pinned();
+        for folder in [".claude-client-a", ".codex-client-a-api"] {
+            world
+                .scratch
+                .make_dir(format!("home/{folder}"))
+                .expect("made");
+        }
+        let built = world.plain(&["build"]);
+        assert_eq!(built.code, Some(0), "{}", built.stderr);
+        let before = world.plain(&["account", "which"]);
+        assert_eq!(before.code, Some(0), "{}", before.stderr);
+        assert!(
+            before.stdout.contains("claude: default (source: default)")
+                && before
+                    .stdout
+                    .contains("layer step skipped (no allowed.yaml)"),
+            "{}",
+            before.stdout
+        );
+
+        let mut run = world.on_terminal(&[], &["account", "allow"]);
+        run.wait_for_stderr("Type client-a ");
+        run.type_in(b"client-a\n");
+        run.wait_for_stderr("Type client-a-api ");
+        run.type_in(b"client-a-api\n");
+        let finished = run.finish();
+        assert_eq!(
+            finished.code,
+            Some(0),
+            "{}{}",
+            finished.stdout,
+            finished.stderr
+        );
+        let hub_layer = world
+            .scratch
+            .real_path()
+            .expect("real")
+            .join("work/hub/layer");
+        assert_eq!(
+            world.scratch.read_text(World::STATE_FILE).expect("read"),
+            format!(
+                "{HEADER}- root: {}\n  account:\n    claude: client-a\n    codex: client-a-api\n  source: {}\n",
+                world.root.display(),
+                hub_layer.display()
+            ),
+            "{}",
+            finished.stdout
+        );
+
+        let which = world.plain(&["account", "which"]);
+        assert_eq!(which.code, Some(0), "{}", which.stderr);
+        assert!(
+            which.stdout.contains("claude: client-a (source: layer)")
+                && which.stdout.contains("codex: client-a-api (source: layer)"),
+            "{}",
+            which.stdout
+        );
+
+        let again = world.on_terminal(&[], &["account", "allow"]).finish();
+        assert_eq!(again.code, Some(0), "{}", again.stderr);
+        assert!(again.stdout.contains("already allowed"), "{}", again.stdout);
+        assert!(!again.stderr.contains("Type "), "{}", again.stderr);
+    }
+
+    /// Spec §7.13 "A named account that cannot apply fails closed" and "Trust": once the layer's
+    /// declaration changes, an allowed repository never gets the new account and never the default
+    /// one; `alz account which` fails closed and names `alz account allow` as the fix, and
+    /// nothing but `alz account allow` changes the allow state.
+    #[test]
+    fn a_changed_declaration_of_an_allowed_repository_fails_closed_and_asks_for_a_new_approval() {
+        let world = World::pinned();
+        for folder in [".claude-client-a", ".codex-client-a-api"] {
+            world
+                .scratch
+                .make_dir(format!("home/{folder}"))
+                .expect("made");
+        }
+        assert_eq!(world.plain(&["build"]).code, Some(0));
+        let mut run = world.on_terminal(&[], &["account", "allow"]);
+        run.wait_for_stderr("Type client-a ");
+        run.type_in(b"client-a\n");
+        run.wait_for_stderr("Type client-a-api ");
+        run.type_in(b"client-a-api\n");
+        assert_eq!(run.finish().code, Some(0));
+        let state = world.scratch.read_text(World::STATE_FILE).expect("read");
+
+        world
+            .scratch
+            .write(
+                "work/hub/layer/layer.yaml",
+                "name: client\nkind: client\nvisibility: private\nversion: 0.1.0\naccount:\n  claude: client-b\n  codex: client-a-api\n",
+            )
+            .expect("written");
+        world.commit_hub();
+        assert_eq!(world.plain(&["build"]).code, Some(0));
+        let which = world.plain(&["account", "which"]);
+        assert_eq!(which.code, Some(1), "{}{}", which.stdout, which.stderr);
+        assert!(
+            which.stdout.contains("claude: fails closed")
+                && which.stdout.contains("alz account allow"),
+            "{}",
+            which.stdout
+        );
+        assert!(
+            !which.stdout.contains("claude: default") && !which.stdout.contains("client-b ("),
+            "{}",
+            which.stdout
+        );
+        assert_eq!(
+            world.scratch.read_text(World::STATE_FILE).expect("read"),
+            state,
+            "nothing but alz account allow changes the state"
+        );
     }
 }
