@@ -3,9 +3,10 @@ id: TASK-97
 title: >-
   Record the facts behind 11 Claude output keys that target-facts does not
   record
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-25T14:45:00Z'
+updated_date: '2026-11-25T15:23:00Z'
 labels:
   - bug
   - area:docs

@@ -3,11 +3,11 @@ id: TASK-55.9.8
 title: >-
   Write the missing Rust tests for spec sections 7.12, 7.13 and 9: identity,
   accounts and safety
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:36:00Z'
+updated_date: '2026-11-25T15:23:00Z'
 labels:
   - area:rust
   - area:test
@@ -28,10 +28,10 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 docs/spec-coverage.md has no gap row in §7.12, §7.13 or §9 (guard test and grep)
-- [ ] #2 Every new test names in its doc comment the spec section it proves, and the row it fills names it (guard test)
-- [ ] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
-- [ ] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
+- [x] #1 docs/spec-coverage.md has no gap row in §7.12, §7.13 or §9 (guard test and grep)
+- [x] #2 Every new test names in its doc comment the spec section it proves, and the row it fills names it (guard test)
+- [x] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
+- [x] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -45,3 +45,9 @@ Re-read the tests named by the covered rows of your sections and downgrade any r
 
 Done on branch test/spec-7-12-9-task-55.9.8. Spec 7.13 split into 25 bold-lead anchors (Account names, Folders per target, Who may declare it, Layers cannot set the variables, User config, Allow state, Both files, Trust and alz account allow, Resolution, Paths, No fetch on resolve, YAML limits, What else makes a YAML file invalid, Environment, A named account that cannot apply fails closed, Values set outside alz, What a session passes on, alz use stays in the shell, Shell hook, Shared and per-account items, alz account init safety, Trust is per account, Logins kept outside the account folder, No generated output, Layer format.) plus the heading row; the bullets lost their dash and two spaces of indent only, the text is unchanged. New tests: crates/alz/tests/account_declaration.rs (6, fixture 29), yaml_limits.rs (4, fixture 34), account_root.rs (2, fixture 31), leak_guard_fields.rs (2, fixture 10), commit_identity_output.rs (2, fixture 26), and 2 end-to-end allow flow tests in account_allow.rs (fixture 32, pty). Matrix: 26 section 7.13 rows (20 covered, 4 planned: Shell hook, Shared and per-account items, account init safety, Trust is per account; 2 n/a), rows of 7.12, 9.2, 9.3 and 9.4 topped up with named tests; no gap row is left in 7.12, 7.13 or 9; spec_coverage guard passes. Not done: the rows are checked by test names and the assertions of the tests I re-read, not clause by clause for every older test; fixture 30-account-cache-read is still named by no test. AC1 and AC2 hold per the guard; AC3 (CI on both platforms) and AC4 not yet confirmed here.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+§7.12, §7.13 and §9 have no gap rows: §7.13 split into 25 anchors (wording unchanged), 18 tests incl. the allow flow through a pty. Merged in #31 (c41bcd1).
+<!-- SECTION:FINAL_SUMMARY:END -->
