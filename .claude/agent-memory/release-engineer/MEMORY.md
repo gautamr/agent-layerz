@@ -1,0 +1,1 @@
+- [CI gotchas](ci-gotchas.md) — pinning annotated tags, mise auto-install, cargo-audit arch, path-filter choice

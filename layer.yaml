@@ -1,7 +1,6 @@
 # agent-layerz builds its own agent configuration with alz.
 stack:
-  - source: path:../agent-layerz-personal # moves to github: once the personal layer is public (see backlog)
-    ref: v0.4.0
+  - source: github:gautamr/agent-layerz-personal@v0.5.0 # the public personal layer
   - source: path:./.layer # this repository's layer
 targets: [claude]
 mcp:

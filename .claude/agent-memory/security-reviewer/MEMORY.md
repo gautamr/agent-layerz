@@ -1,0 +1,1 @@
+- [Review tooling limits](review_tooling_limits.md) — no shell in this agent; read crate sources from ~/.cargo/registry

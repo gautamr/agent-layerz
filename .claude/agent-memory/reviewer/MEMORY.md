@@ -1,0 +1,6 @@
+- [Review tooling: no shell](project_review_tooling.md) — reviewer cannot run git diff/tests; review by reading, attribute check results to the caller
+- [Pre-change baseline binary](project_pre_change_baseline.md) — ~/.local/bin/alz may show old source for refactor checks (can be too old); dist/ is new code
+- [Private FRAMEWORK-GAPS.md](project_private_framework_gaps.md) — git-excluded work order with client names; expected there, never quote it
+- [Description bullets vs ACs](project_description_bullets_vs_acs.md) — subtask Descriptions list required cases; ACs get ticked anyway, grep each bullet
+- [Spec-coverage audits](project_spec_coverage_audits.md) — rows omit existing tests and spec messages go unasserted; grep the message text, sort gaps into missing vs unnamed
+- [Empty decision bodies](project_empty_decision_bodies.md) — backlog decisions can carry only a title; read the body of every cited decision
