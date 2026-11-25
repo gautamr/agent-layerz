@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T14:06:00Z'
+updated_date: '2026-11-25T14:33:00Z'
 labels:
   - area:rust
   - area:test
@@ -43,4 +43,6 @@ From docs/spec-coverage.md (TASK-55.9.5): 12 gap rows: §10.1 Merge diagnostics,
 Correction (55.9.5): the gap rows in your sections are now 11, not 12: §13.13 (two targets) is planned under TASK-18 (the Codex adapter is not built yet).
 
 Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+
+55.9.9 partial (branch test/spec-10-13-task-55.9.9). Rows now covered: section 10.1 Merge diagnostics, 10.1 Build and command diagnostics, 10.3 alz build, 10.3 alz check, 13.12, 13.14 (tests: crates/alz/tests/diagnostic_codes.rs, build_check.rs, account_acceptance.rs). 10.3 alz init: the spec now states the scaffolded files' contents; init.rs::every_scaffolded_file_has_the_text_the_spec_states checks the files against the spec text. AC1 not met: gap rows left are 13.18, 13.19, 13.20, 13.24 (narrowed: declarers refused and client allowed shown; account which ignoring with one warning and init warning not shown) and 13.28. No difference from the spec found, so no alz fix and no bug task. Evidence: mise run rust:check passes; spec_coverage guard passes (summary: gap 8 overall, 5 in section 13).
 <!-- SECTION:NOTES:END -->
