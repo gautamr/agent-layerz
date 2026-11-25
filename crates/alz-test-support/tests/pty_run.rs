@@ -98,7 +98,9 @@ mod tests {
             drop(self.input.take());
             let status = self.child.wait().expect("the driver ends");
             let stdout = self.stdout.recv_timeout(PATIENCE).expect("stdout is read");
-            let stderr = self.stderr.try_iter().collect::<Vec<_>>().join("\n");
+            // Every line, up to the end of the stream: the reader thread drops its sender at the end
+            // of file, so this waits for the last line instead of taking only those already passed on.
+            let stderr = self.stderr.iter().collect::<Vec<_>>().join("\n");
             Finished {
                 code: status.code(),
                 stdout: String::from_utf8(stdout).expect("stdout is text"),
