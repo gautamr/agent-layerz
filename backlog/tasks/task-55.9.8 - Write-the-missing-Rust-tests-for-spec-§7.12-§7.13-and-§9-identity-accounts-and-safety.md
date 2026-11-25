@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T17:45:00Z'
+updated_date: '2026-11-25T14:06:00Z'
 labels:
   - area:rust
   - area:test
@@ -33,3 +33,13 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 - [ ] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
 - [ ] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From docs/spec-coverage.md (TASK-55.9.5): 1 gap row in §7.12, §7.13 and §9: '§7.13' (the whole account section is one anchor of about 740 lines with no sub-anchors, unaudited; add anchors in the spec, then name tests per bullet). §7.12 and §9 have no gap rows. Fixtures unnamed by tests: 10-leak-guard, 29-account-layer, 30-account-cache-read, 31-account-which, 32-account-allow, 34-yaml-limits.
+
+First split §7.13 into anchors (### headings or bold leads, no change of meaning), then audit it (from 55.9.5).
+
+Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+<!-- SECTION:NOTES:END -->

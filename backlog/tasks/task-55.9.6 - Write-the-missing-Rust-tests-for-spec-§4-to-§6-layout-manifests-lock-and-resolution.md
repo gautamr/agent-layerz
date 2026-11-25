@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-24T17:45:00Z'
+updated_date: '2026-11-25T14:06:00Z'
 labels:
   - area:rust
   - area:test
@@ -32,3 +32,13 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 - [ ] #3 mise run rust:check passes, and the rust workflow passes on ubuntu-latest and macos-latest with the Linux-only cases
 - [ ] #4 Every difference from the spec that a new test found is fixed here or tracked by a bug task this task depends on (notes)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From docs/spec-coverage.md (TASK-55.9.5): 1 gap row in §4 to §6: '§6' (the whole resolution section is one anchor with no sub-anchors, unaudited; add anchors in the spec, then name tests per step). Fixtures unnamed by tests: 11-visibility, 28-cache-integrity, 33-name-order, 35-manifest-schema, 14-non-destructive, 20-adopt-native, 20-adopt-native-plain, 39-writer-rules.
+
+First split §6 into anchors (### headings or bold leads, no change of meaning), then audit it (from 55.9.5).
+
+Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
+<!-- SECTION:NOTES:END -->

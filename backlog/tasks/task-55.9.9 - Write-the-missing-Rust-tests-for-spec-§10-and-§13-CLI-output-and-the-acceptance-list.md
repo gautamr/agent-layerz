@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-24T17:44:00Z'
-updated_date: '2026-11-25T13:09:00Z'
+updated_date: '2026-11-25T14:06:00Z'
 labels:
   - area:rust
   - area:test
@@ -37,4 +37,10 @@ decision-39: test/ may be deleted only when every requirement of docs/LAYERING-S
 
 <!-- SECTION:NOTES:BEGIN -->
 §10.3 alz init no longer states the scaffolded files' contents; state them in the spec and test them (from 55.9.4).
+
+From docs/spec-coverage.md (TASK-55.9.5): 12 gap rows: §10.1 Merge diagnostics, §10.1 Build and command diagnostics, §10.3 alz build, §10.3 alz check, and §13.12, §13.13, §13.14, §13.18, §13.19, §13.20, §13.24, §13.28. §0 to §3, §12, §14, §15 have none. §13.21 to §13.23 are planned (TASK-50.3, TASK-50.6, TASK-50.5), not gaps. Fixtures unnamed by tests: 14-non-destructive, 38-emitter-drift, 31-account-which, 32-account-allow, 28-cache-integrity.
+
+Correction (55.9.5): the gap rows in your sections are now 11, not 12: §13.13 (two targets) is planned under TASK-18 (the Codex adapter is not built yet).
+
+Re-read the tests named by the covered rows of your sections and downgrade any row whose test does not assert the requirement (from 55.9.5).
 <!-- SECTION:NOTES:END -->
