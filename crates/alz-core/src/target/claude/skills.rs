@@ -69,7 +69,7 @@ fn skill_markdown(skill_file: &SkillFile, path: String, skill: &Skill) -> Made {
 }
 
 /// The text between the opening and the closing `---` line, with its line feeds, and the text
-/// after the closing line's line feed. Line endings are read as line feeds throughout, as the spec
+/// after the closing `---`, which starts with its line feed when the file has one. Line endings are read as line feeds throughout, as the spec
 /// reads them. `None` when the text opens no block or never closes it.
 fn kept_parts(bytes: &[u8]) -> Option<(String, String)> {
     let text = std::str::from_utf8(bytes).ok()?.replace("\r\n", "\n");
@@ -85,10 +85,7 @@ fn kept_parts(bytes: &[u8]) -> Option<(String, String)> {
         })
         .err()?;
     let (before, from_fence) = rest.split_at(closing);
-    let after = from_fence
-        .strip_prefix(FENCE)
-        .and_then(|tail| tail.strip_prefix('\n'))
-        .unwrap_or_default();
+    let after = from_fence.strip_prefix(FENCE).unwrap_or_default();
     Some((before.to_owned(), after.to_owned()))
 }
 

@@ -43,7 +43,8 @@ pub struct Markdown {
     pub frontmatter: Option<Frontmatter>,
     /// The text after the frontmatter. With a [`Frontmatter::Mapping`] or no frontmatter, the text
     /// without its final line feed, which the core adds; with [`Frontmatter::Kept`], the text of
-    /// the layer file after its closing `---` line, byte for byte.
+    /// the layer file after its closing `---`, byte for byte, with the line feed that ends the
+    /// closing line when the file has one.
     pub body: String,
     /// The sources the core writes the header from (§4.3): an HTML comment line first when there
     /// is no frontmatter, and a YAML comment line right after the opening `---` when there is.

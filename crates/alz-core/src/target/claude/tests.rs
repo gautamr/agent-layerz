@@ -392,16 +392,13 @@ proptest! {
 
 /// The `SKILL.md` of a layer reaches the output as the layer wrote it, in line feeds, with the
 /// core's header as the first line of its frontmatter (§4.3, §8.1): the same bytes as inserting the
-/// header into the text.
-#[test]
-fn a_skill_md_is_kept_byte_for_byte_with_the_header_right_after_the_opening_fence() {
+/// header into the text, for every text the layer parser accepts.
+fn skill_md_written(text: &str) -> (String, String) {
     use alz_adapter::{Adapter, Context, LayerName, Model, Skill, SkillFile, Source};
 
     use crate::render::header::{Sources, insert_frontmatter_header};
     use crate::render::sources::refs_of_sources;
 
-    let text =
-        "---\r\nname: glossary\r\ndescription: \"Terms\"   \r\n---\r\n\r\n# Glossary\r\nBody.\r\n";
     let source = Source::new(
         LayerName::try_from("personal").expect("a layer name"),
         "skills/glossary/SKILL.md",
@@ -423,5 +420,30 @@ fn a_skill_md_is_kept_byte_for_byte_with_the_header_right_after_the_opening_fenc
     let written = tree
         .get(&path(".claude/skills/glossary/SKILL.md"))
         .expect("the skill file");
-    assert_eq!(String::from_utf8_lossy(&written.bytes), expected);
+    (
+        String::from_utf8_lossy(&written.bytes).into_owned(),
+        expected,
+    )
+}
+
+#[test]
+fn a_skill_md_is_kept_byte_for_byte_with_the_header_right_after_the_opening_fence() {
+    let text =
+        "---\r\nname: glossary\r\ndescription: \"Terms\"   \r\n---\r\n\r\n# Glossary\r\nBody.\r\n";
+    let (written, expected) = skill_md_written(text);
+    assert_eq!(written, expected);
+}
+
+#[test]
+fn a_kept_frontmatter_without_a_final_line_feed_stays_as_it_was() {
+    for text in [
+        "---\nname: glossary\ndescription: Terms\n---",
+        "---\r\nname: glossary\r\ndescription: Terms\r\n---",
+        "---\nname: glossary\ndescription: Terms\n---\n",
+        "---\n---",
+        "---\nname: glossary\n---\n\nBody without a final line feed",
+    ] {
+        let (written, expected) = skill_md_written(text);
+        assert_eq!(written, expected, "{text:?}");
+    }
 }

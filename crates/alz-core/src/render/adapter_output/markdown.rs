@@ -114,7 +114,7 @@ fn mapped(sources: &Sources, fields: &EmitValue, body: &str) -> String {
 }
 
 /// `---`, the header comment, the layer file's frontmatter as it is, `---`, then the rest of the
-/// layer file as it is.
+/// layer file as it is, which starts with the line feed after the closing fence when it has one.
 fn kept_text(sources: &Sources, kept: &str, body: &str) -> String {
     let separator = if kept.is_empty() || kept.ends_with('\n') {
         ""
@@ -122,7 +122,7 @@ fn kept_text(sources: &Sources, kept: &str, body: &str) -> String {
         "\n"
     };
     format!(
-        "---\n{}\n{kept}{separator}---\n{body}",
+        "---\n{}\n{kept}{separator}---{body}",
         frontmatter_header(sources)
     )
 }
