@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-26T04:35:00Z'
+updated_date: '2026-11-26T05:09:00Z'
 labels:
   - area:adapter
 milestone: m-8
@@ -31,6 +31,12 @@ TargetName {Claude, Codex} is matched in about 40 files; decision-40 point 5 ope
 - [ ] #4 crates/alz-io/src/account uses its own account-family type and not TargetId (grep)
 - [ ] #5 The acceptance suite, mise run rust:check and mise run alz:check pass with unchanged output
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementation (commits b9e06b0, 932f67d on feat/open-target-ids-task-106). AC1: grep -rn 'enum TargetName' crates finds nothing; alz-core names targets through alz_adapter::TargetId, with crate::target::claude()/codex() as the two ids the code names and REGISTERED = [claude] for the 'available' list. AC2: crates/alz/tests/open_target_ids.rs a_target_id_without_an_adapter_is_the_error_target_listing_the_available_adapters (exit 1, 'error [target] layer.yaml: no adapter for antigravity (available: claude)', tree unchanged), each_target_without_an_adapter_is_reported_once, the_codex_target_keeps_its_message_and_exit_code (same message, exit 1). AC3: sections_for_an_id_that_is_not_built_for_give_no_diagnostic_and_are_never_written (antigravity in settings.yaml, models.yaml, targets/antigravity/: exit 0, empty stderr, same generated files as a build without them, none holds their content). This test exposed that the raw passthrough warning was emitted at read time for a file never written; the warning now waits in the merge state and finish keeps only those of targets in the manifest (lint of a layer alone still warns for all). AC4: crates/alz-io/src/account has no TargetId; the closed AccountFamily {Claude, Codex} is defined in alz-core/src/account/family.rs (the account model is in alz-core) and used by alz-core account, alz-io account and alz account/use code. AC5: mise run rust:ci exit 0 (fmt, clippy -D warnings, tests incl. golden-trees and fixture tests unchanged, doc, MSRV, deny, audit); mise run alz:check: 'check passed: 67 generated files match the layers and the lock'. Existing tests that used lower-case words as unknown keys or targets (bogus, gemini, cursor, other, constructor...) now use non-id spellings, since those words are target ids. Spec: §5.2/§7.9/§7.11/§8 text updated (no warning for files of an id not built for); docs/spec-coverage.md rows 5.2 Target ids and 8 Targets without an adapter are covered and the summary updated. Left open: agent native sections (7.2) and hook native events stay closed to claude/codex; native key tables still keep target as a static str until TASK-110.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
