@@ -1,10 +1,11 @@
 ---
 id: TASK-112
 title: Turn the target-facts test into a harness every adapter passes
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
+updated_date: '2026-11-26T08:26:00Z'
 labels:
   - area:adapter
 milestone: m-8
