@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-26T03:23:00Z'
+updated_date: '2026-11-26T03:59:00Z'
 labels:
   - area:adapter
   - area:security
@@ -29,7 +29,7 @@ decision-40 point 4: the core refuses adapter output that leaves the adapter's t
 - [ ] #1 A test adapter writing outside its territory, or AGENTS.md, layer.yaml, layer.lock, .layer/x or .git/x, gets the error 'target' and the build writes nothing (one test per path)
 - [ ] #2 Output beyond the file-count or byte limits is the error 'target' (tests)
 - [ ] #3 A code outside the shared adapter codes and the <id>- namespace is the error 'target', and a message with control characters is stripped (tests)
-- [ ] #4 A deny rule or floor field missing from the coverage report fails the build; the Claude adapter reports every one as expressed (tests)
+- [ ] #4 A security item of any of the four kinds of spec §8.0 Model. (a deny rule, a floor field, the default_mode floor, a locked hook) missing from the coverage report fails the build; the Claude adapter reports every one as expressed, until TASK-127 changes the locked hook with on_fail: deny on stop, subagent_stop or post_tool (tests, one per kind)
 <!-- AC:END -->
 
 ## Implementation Notes

@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-26T03:24:00Z'
+updated_date: '2026-11-26T04:00:00Z'
 labels:
   - area:adapter
   - needs:owner-approval
@@ -57,6 +57,9 @@ Evidence (2026-11-26, @architect, branch docs/adapter-contract-spec-task-104):
 
 Owner answers (2026-11-26, relayed by the coordinator): the spec is approved. Only the layer that set an item may opt a target out of it (as written). TASK-127 is needed before the Codex adapter only, not 0.2.0: TASK-126 now depends on TASK-127 (deps TASK-112, TASK-115, TASK-119, TASK-127), and TASK-55.8.4 is unchanged. Locked hooks and the default_mode floor are security items too.
 Amendment (second commit, @architect): §8.0 Model. lists four kinds of security item (deny rules, set floor fields, the default_mode floor, locked hooks that run on the target). §7.6 unenforced gains default_mode: true (only in the layer whose floor is in force) and hooks: [ids] (the layer's own locked hooks), with the same own-items rule and a 'permissions' error for anything else. §8.0 Security items a target cannot enforce gives a message for each of the four kinds. §7.5 says a locked hook is a security item rather than TASK-101's warning. The status line says unenforced ships after 0.2.0 with the next minor version. No new anchor, so no new matrix row; TASK-127's ACs were rewritten for the four kinds, and TASK-105 and TASK-109 got comments. cargo test -p alz-test-support --test spec_coverage: 9 passed.
+
+Owner (2026-11-26, relayed): a locked hook with on_fail: deny on an event where the target cannot block (Claude: stop, subagent_stop, post_tool) is a security item the target cannot enforce: the error 'target' naming the hook and the target, unless its layer opts it out with unenforced.<target>.hooks. This replaces the hook-on-fail warning for locked hooks only, from TASK-127; the warning stays until then. Lead defaults: no note for opted-out items; agent native sections stay closed to unknown ids; the limits 10000 files, 16 MiB per file, 256 MiB in all stay.
+Amendment (third commit, @architect): §8.0 Model. (on_fail is part of a locked hook item; that case is not expressed from TASK-127), §8.0 Coverage report. (Claude reports it as not expressed from TASK-127), §8.1 hooks bullet and §7.5 (warning for unlocked hooks only from TASK-127; every hook keeps the warning until then), §10.1 hook-on-fail row reason, status line (TASK-127 turns that warning into an error for locked hooks, next minor version). No anchor changed, so no matrix row changed. TASK-109 AC #4 removed and re-added for all four kinds (unchecked). TASK-127 gains AC #5 (the locked on_fail case, with and without the opt-out, unlocked keeps the warning), and its Claude AC (now #6) was replaced to match. cargo test -p alz-test-support --test spec_coverage: 9 passed.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

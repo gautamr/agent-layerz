@@ -8,8 +8,9 @@ generated output yet. §8.0 adapter contract and the open target ids of §5.2 sp
 (decision-40, TASK-104) and built by TASK-105 to TASK-112 and TASK-127; generated output stays
 byte for byte the same. The wider `targets` grammar and the `no adapter for` error change the
 layer format and an error text, so they need a minor version bump: 0.1.0 to 0.2.0, the first
-Rust release (TASK-55.8.4), with a CHANGELOG entry. The `unenforced` field of `permissions.yaml`
-(TASK-127) comes before the Codex adapter, after 0.2.0, and needs the next minor version)
+Rust release (TASK-55.8.4), with a CHANGELOG entry. TASK-127 comes before the Codex adapter,
+after 0.2.0, and needs the next minor version: it adds the `unenforced` field of
+`permissions.yaml` and turns the `hook-on-fail` warning for a locked hook into an error)
 **Audience:** a coding agent (Claude Code / Codex) implementing the tool, and humans who use it
 **Name:** `agent-layerz`, with the CLI command `alz`
 
@@ -1301,7 +1302,9 @@ Rules:
 - (Planned, TASK-101.) A hook event a target doesn't support becomes a build **warning** for that target. The
   report lists which guardrails fall back to pre-commit/CI. A locked hook is a security item
   instead (§8.0): a target that cannot run it is the error of §8.0 unless its layer opts the
-  target out (§7.6, TASK-127).
+  target out (§7.6, TASK-127). So is a locked hook with `on_fail: deny` on an event where the
+  target cannot block; an unlocked one keeps the warning `hook-on-fail` (§8.1). Until TASK-127
+  both get that warning.
 - `id` is any text with a visible character. A diagnostic prints it as a quoted key (§10.1).
 - `timeout` is a positive whole number of seconds (TASK-55.5.8).
 - `on_fail` defaults to `warn`.
@@ -2610,8 +2613,11 @@ version may change or remove. Model 1.0 has four kinds of security item:
 - the `default_mode` floor (§7.6), when a layer sets `floor: true` and it is not refused: the
   merged mode is never looser than the strictest floor;
 - each locked hook (§7.5) that runs on the target: every one with a neutral event, and one with a
-  target's own event (`<target>:<Event>`) on that target only. How a hook's failure is handled
-  stays as each adapter's section says (`hook-on-fail`, §8.1).
+  target's own event (`<target>:<Event>`) on that target only. Its `on_fail` is part of the item:
+  a locked hook with `on_fail: deny` on an event where the target cannot block is not expressed
+  (on Claude: `stop`, `subagent_stop` and `post_tool`, §8.1). That takes effect with TASK-127,
+  together with the opt-out of §7.6; until then such a hook gets the warning `hook-on-fail` as
+  any hook does.
 
 Each item holds the layers that set it: for a deny rule or a floor field each layer that declares
 it, for the `default_mode` floor each layer whose floor is in force, and for a locked hook the one
@@ -2700,7 +2706,8 @@ The core cannot check what a native key means, only that every item is accounted
 check (§8 **What an adapter may rely on**) and review check the mapping. An item of a kind that a
 later minor version of the model adds is left out of the report of an adapter built for an earlier
 version, so a layer that uses it fails the build on that target until the adapter supports it.
-The Claude adapter reports every item as expressed.
+The Claude adapter reports every item as expressed, except, from TASK-127, a locked hook with
+`on_fail: deny` on `stop`, `subagent_stop` or `post_tool`, which it reports as not expressed.
 
 **Security items a target cannot enforce.** (TASK-127) An item reported `not expressed` is the
 error `target` at `<layer>:permissions.yaml`, never a warning, once for each layer that set the
@@ -2794,7 +2801,10 @@ target-facts section each item relies on is given in brackets.
     `type: command`, `command`, and `timeout` and `onFailure` when set. `on_fail: deny` gives
     `onFailure: block`; on `stop` and `subagent_stop` it gives nothing and the warning
     `hook-on-fail`, and on `post_tool` it gives `block` and the warning `hook-on-fail`, because a
-    post-tool hook cannot block. A `run:` script is copied once to
+    post-tool hook cannot block. From TASK-127 that warning is for unlocked hooks only: for a
+    locked hook (§7.5) these cases are a security item Claude cannot enforce, so the build fails
+    with the error `target` of §8.0 naming the hook and the target, unless its layer lists the hook
+    under `unenforced.claude.hooks` (§7.6). Until TASK-127 every hook gets the warning. A `run:` script is copied once to
     `.claude/hooks/<layer>/<path inside hooks/>` with its executable bit, and the command is
     `"${CLAUDE_PROJECT_DIR}/<that path>"`. A `command:` is written with each `${PROJECT_DIR}`
     (§7.5) replaced by `${CLAUDE_PROJECT_DIR}`;
@@ -3229,7 +3239,7 @@ How values print in these messages:
 | `target` | error | a target that has no adapter (§8); from TASK-109, adapter output that fails an output check of §8.0; from TASK-127, a security item a target cannot enforce that its layers did not opt out of (§8.0) |
 | `claude-agent` | error | an agent with an empty tools list, whose model is not a Claude model value, or with a native whole number beyond 64 bits, which alz cannot write (§8.1) |
 | `tool-scope` | warning | an agent tool with a scope, which Claude cannot keep (§8.1) |
-| `hook-on-fail` | warning | `on_fail: deny` on an event where Claude cannot block, or cannot block on a crash (§8.1) |
+| `hook-on-fail` | warning | `on_fail: deny` on an event where Claude cannot block, or cannot block on a crash (§8.1); from TASK-127 for unlocked hooks only, and a locked one is the error `target` (§8.0) |
 | `adopt` | error, or note | `--adopt` without a repo layer inside the repository, each problem of the adoption plan; the note says how a native file was adopted (§4.3) |
 | `explain` | error | `alz explain` for a name the merged result does not have (§10.3) |
 | `ls` | error | `alz ls --live`: no claude target, a probe that failed, a built item Claude did not load (§10.3) |
