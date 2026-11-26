@@ -7,6 +7,11 @@ use crate::lock::ObjectId;
 use crate::merge::{Merging, Placement, Placements, merge};
 use crate::path::SafeRelPath;
 use crate::stack::{GitRef, Manifest, Pin, ResolvedLayer, ResolvedStack, Source};
+use crate::target::Registry;
+use alz_adapter::{
+    Adapter, Context, Coverage, Descriptor, MODEL_VERSION, Model, NativeVocabulary, Output,
+    TargetId, ToolVersion, ToolVersionRange,
+};
 
 /// A layer called `name` of kind `kind`, with the files `(path, text)`. It is private, so a stack
 /// of such layers is a valid stack (§3.1).
@@ -87,6 +92,7 @@ pub(crate) fn merged_with(layers: Vec<ResolvedLayer>, options: &str) -> Merging 
         &ResolvedStack::validate(layers).expect("a stack"),
         &Manifest::from_yaml(&node).expect("a manifest"),
         &Placements::default(),
+        &Registry::builtin(),
     )
 }
 
@@ -113,6 +119,7 @@ pub(crate) fn merged_placed(layers: Vec<ResolvedLayer>, inside: &[&str]) -> Merg
         &ResolvedStack::validate(layers).expect("a stack"),
         &Manifest::from_yaml(&node).expect("a manifest"),
         &placements,
+        &Registry::builtin(),
     )
 }
 
@@ -144,4 +151,32 @@ pub(crate) fn lines_but_slots(found: &Merging) -> Vec<String> {
 /// `layer.yaml`.
 pub(crate) fn origin_of(layer: crate::layer::LayerName) -> crate::merge::Origin {
     crate::merge::Origin::in_test(layer)
+}
+
+/// An adapter that renders nothing, for a descriptor of a test.
+struct Probe(Descriptor);
+
+impl Adapter for Probe {
+    fn descriptor(&self) -> &Descriptor {
+        &self.0
+    }
+
+    fn render(&self, _model: &Model, _context: &Context) -> Output {
+        Output::new(Vec::new(), Vec::new(), Coverage::default())
+    }
+}
+
+/// A registry whose only adapter is for `target` and whose descriptor states `vocabulary`: the
+/// key rules of a target that the core knows nothing of.
+pub(crate) fn registry_with_vocabulary(target: &str, vocabulary: NativeVocabulary) -> Registry {
+    let mut descriptor = Descriptor::new(
+        TargetId::try_from(target).expect("a target id"),
+        MODEL_VERSION,
+        ToolVersionRange::new(ToolVersion::new(1, 0, 0), ToolVersion::new(2, 0, 0)),
+        "docs/probe-facts.md",
+    );
+    descriptor.vocabulary = vocabulary;
+    Registry::new()
+        .with(Box::new(Probe(descriptor)))
+        .expect("the test adapter is built for this model")
 }

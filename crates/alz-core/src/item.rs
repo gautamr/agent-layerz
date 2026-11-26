@@ -40,10 +40,7 @@ pub use instruction::{
 pub use list_edit::{EditSegment, EditSign, WrittenEdit};
 pub use mcp::{McpItems, McpRefusal, McpServer, McpServerId, Transport};
 pub use model::{BlankModelName, ConcreteModel, ModelAlias, ModelItems, Models};
-pub use native_keys::{
-    AGENT_KEYS, AgentKey, KEYS, KeyRule, Looseness, Loosening, NativeKey, Step, Strictness,
-    loosenings, native_key,
-};
+pub use native_keys::{KeyRule, KeyRules, Looseness, Loosening, NativeKey, Step, Strictness};
 pub use native_types::{CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, Ends, Field, Shape, Span, Typed};
 pub use passthrough::{PassthroughFile, PassthroughItems};
 pub use permission::{

@@ -33,7 +33,13 @@ fn build(layers: Vec<ResolvedLayer>, manifest: &str) -> (Rendered, ResolvedStack
     let node = parse_document(manifest.as_bytes()).expect("valid YAML");
     let manifest = Manifest::from_yaml(&node).expect("a manifest");
     let stack = ResolvedStack::validate(layers).expect("a stack");
-    let (merged, found) = merge(&stack, &manifest, &Placements::default()).into_parts();
+    let (merged, found) = merge(
+        &stack,
+        &manifest,
+        &Placements::default(),
+        &Registry::builtin(),
+    )
+    .into_parts();
     assert!(!found.has_errors(), "{found}");
     let merged = merged.expect("no error was found");
     (render(&Registry::builtin(), &merged, &manifest), stack)

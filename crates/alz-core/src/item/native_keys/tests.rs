@@ -3,10 +3,27 @@ use std::collections::BTreeMap;
 use crate::merge::Tree;
 use alz_adapter::TargetId;
 
-use super::{
-    AGENT_KEYS, KEYS, KeyRule, Looseness, NativeKey, Step, Strictness, loosenings, native_key,
-    refusal,
-};
+use super::super::agent::AGENT_KEYS;
+use super::spec_lists::descriptor_rows;
+use super::{KeyRule, KeyRules, Looseness, Step, Strictness};
+use crate::target::Registry;
+
+/// The rules of `target` in the built-in registry: Claude's adapter states them, and Codex has a
+/// descriptor-only entry.
+fn rules<'a>(registry: &'a Registry, target: &TargetId) -> KeyRules<'a> {
+    registry
+        .key_rules(target)
+        .expect("claude and codex have key rules")
+}
+
+/// The key path of the row of `target` that refuses the key at `names`.
+fn refused_path(target: &TargetId, names: &[&str]) -> Option<String> {
+    let registry = Registry::builtin();
+    let owned: Vec<String> = names.iter().map(|name| (*name).to_owned()).collect();
+    rules(&registry, target)
+        .refusal(&steps(&owned))
+        .map(|row| row.path().to_owned())
+}
 
 /// No loosening.
 const NOTHING: [Looseness; 0] = [];
@@ -28,25 +45,20 @@ fn list(values: &[&str]) -> Tree {
 
 /// How `after` loosens `before` at `path` of Claude's settings.
 fn claude(path: &str, before: &Tree, after: &Tree) -> Vec<Looseness> {
-    loosenings(
-        crate::target::claude(),
-        &at(path, before.clone()),
-        &at(path, after.clone()),
-    )
-    .into_iter()
-    .map(|found| found.how())
-    .collect()
+    loosened(crate::target::claude(), path, before, after)
 }
 
 fn codex(path: &str, before: &Tree, after: &Tree) -> Vec<Looseness> {
-    loosenings(
-        crate::target::codex(),
-        &at(path, before.clone()),
-        &at(path, after.clone()),
-    )
-    .into_iter()
-    .map(|found| found.how())
-    .collect()
+    loosened(crate::target::codex(), path, before, after)
+}
+
+fn loosened(target: &TargetId, path: &str, before: &Tree, after: &Tree) -> Vec<Looseness> {
+    let registry = Registry::builtin();
+    rules(&registry, target)
+        .loosenings(&at(path, before.clone()), &at(path, after.clone()))
+        .into_iter()
+        .map(|found| found.how())
+        .collect()
 }
 
 /// The steps of a key path, with `*` as a key and `**` as nothing.
@@ -65,7 +77,8 @@ fn steps(names: &[String]) -> Vec<Step<'_>> {
 
 #[test]
 fn every_row_has_non_empty_segments_and_matches_its_own_instance() {
-    for row in KEYS {
+    let registry = Registry::builtin();
+    for row in descriptor_rows(&registry) {
         assert!(
             row.path().split('.').all(|segment| !segment.is_empty()),
             "{}",
@@ -73,7 +86,9 @@ fn every_row_has_non_empty_segments_and_matches_its_own_instance() {
         );
         let names = instance(row.path());
         assert!(
-            native_key(&crate::target::id(row.target()), &steps(&names)).is_some(),
+            rules(&registry, row.target())
+                .native_key(&steps(&names))
+                .is_some(),
             "{}",
             row.display_path()
         );
@@ -82,7 +97,9 @@ fn every_row_has_non_empty_segments_and_matches_its_own_instance() {
 
 #[test]
 fn no_row_is_listed_twice() {
-    let mut paths: Vec<_> = KEYS.iter().map(|row| (row.target(), row.path())).collect();
+    let registry = Registry::builtin();
+    let rows = descriptor_rows(&registry);
+    let mut paths: Vec<_> = rows.iter().map(|row| (row.target(), row.path())).collect();
     paths.sort_unstable();
     let all = paths.len();
     paths.dedup();
@@ -91,11 +108,12 @@ fn no_row_is_listed_twice() {
 
 #[test]
 fn a_key_that_is_a_floor_is_not_also_refused() {
-    for row in KEYS {
+    let registry = Registry::builtin();
+    for row in descriptor_rows(&registry) {
         if let KeyRule::Floor(_) = row.rule() {
             let names = instance(row.path());
             assert_eq!(
-                refusal(&crate::target::id(row.target()), &steps(&names)),
+                rules(&registry, row.target()).refusal(&steps(&names)),
                 None,
                 "{}",
                 row.display_path()
@@ -123,30 +141,28 @@ fn the_agent_keys_are_servers_and_hooks_of_each_target() {
 
 #[test]
 fn wildcards_stand_for_one_key_and_a_run_of_keys() {
-    let path = |names: &[&str]| -> Option<&'static str> {
-        let owned: Vec<String> = names.iter().map(|name| (*name).to_owned()).collect();
-        refusal(crate::target::codex(), &steps(&owned)).map(NativeKey::path)
-    };
-    assert_eq!(path(&["features", "hooks"]), Some("features.hooks"));
+    let path = |names: &[&str]| refused_path(crate::target::codex(), names);
     assert_eq!(
-        path(&["profiles", "dev", "features", "hooks"]),
+        path(&["features", "hooks"]).as_deref(),
+        Some("features.hooks")
+    );
+    assert_eq!(
+        path(&["profiles", "dev", "features", "hooks"]).as_deref(),
         Some("**.features.hooks")
     );
     assert_eq!(
-        path(&["x", "y", "features", "codex_hooks"]),
+        path(&["x", "y", "features", "codex_hooks"]).as_deref(),
         Some("**.features.codex_hooks")
     );
     assert_eq!(path(&["projects", "trust_level"]), None);
     assert_eq!(
-        path(&["projects", "/work/shop", "trust_level"]),
+        path(&["projects", "/work/shop", "trust_level"]).as_deref(),
         Some("projects.*.trust_level")
     );
     assert_eq!(path(&["features", "other"]), None);
+    let registry = Registry::builtin();
     assert_eq!(
-        refusal(
-            crate::target::codex(),
-            &[Step::Key("features"), Step::Unnamed]
-        ),
+        rules(&registry, crate::target::codex()).refusal(&[Step::Key("features"), Step::Unnamed]),
         None
     );
 }
@@ -411,8 +427,8 @@ fn a_union_list_may_grow_and_may_not_change_kind() {
 
 #[test]
 fn a_key_nobody_set_before_or_set_to_null_is_free() {
-    let none = loosenings(
-        crate::target::claude(),
+    let registry = Registry::builtin();
+    let none = rules(&registry, crate::target::claude()).loosenings(
         &Tree::Map(BTreeMap::new()),
         &at("sandbox.enabled", Tree::Bool(false)),
     );
@@ -432,7 +448,8 @@ fn a_key_that_is_not_a_floor_may_change_freely() {
 #[test]
 fn every_floor_row_is_checked_by_its_strictness() {
     // A looser or differently-kinded value for each row is refused.
-    for row in KEYS {
+    let registry = Registry::builtin();
+    for row in descriptor_rows(&registry) {
         let KeyRule::Floor(strictness) = row.rule() else {
             continue;
         };
@@ -442,8 +459,8 @@ fn every_floor_row_is_checked_by_its_strictness() {
         let (held, looser) = match strictness {
             Strictness::Flag(stricter) => (Tree::Bool(stricter), Tree::Bool(!stricter)),
             Strictness::Ladder(ranks) => {
-                let strictest = ranks.last().and_then(|rank| rank.first()).copied();
-                let loosest = ranks.first().and_then(|rank| rank.first()).copied();
+                let strictest = ranks.last().and_then(|rank| rank.first());
+                let loosest = ranks.first().and_then(|rank| rank.first());
                 match (strictest, loosest) {
                     (Some(strict), Some(loose)) if ranks.len() > 1 => (text(strict), text(loose)),
                     _ => (text("disable"), text("other")),
@@ -452,11 +469,8 @@ fn every_floor_row_is_checked_by_its_strictness() {
             Strictness::NoAdditions => (list(&["held"]), list(&["held", "added"])),
             Strictness::Union => (list(&["held"]), text("scalar")),
         };
-        let found = loosenings(
-            &crate::target::id(row.target()),
-            &at(row.path(), held),
-            &at(row.path(), looser),
-        );
+        let found = rules(&registry, row.target())
+            .loosenings(&at(row.path(), held), &at(row.path(), looser));
         assert_eq!(found.len(), 1, "{}", row.display_path());
         assert_eq!(found[0].key().path(), row.path());
     }
@@ -466,8 +480,8 @@ fn every_floor_row_is_checked_by_its_strictness() {
 fn the_error_names_the_layer_and_file_and_the_key_path_without_a_value() {
     use crate::diagnostic::Where;
     use crate::untrusted_text::Stripped;
-    let found = loosenings(
-        crate::target::claude(),
+    let registry = Registry::builtin();
+    let found = rules(&registry, crate::target::claude()).loosenings(
         &at("sandbox.enabled", Tree::Bool(true)),
         &at("sandbox.enabled", Tree::Bool(false)),
     );
@@ -483,10 +497,14 @@ fn the_error_names_the_layer_and_file_and_the_key_path_without_a_value() {
 
 // The refusals that TASK-76 corrected.
 
-fn reserved_reason(target: &TargetId, names: &[&str]) -> Option<&'static str> {
+fn reserved_reason(target: &TargetId, names: &[&str]) -> Option<String> {
+    let registry = Registry::builtin();
     let owned: Vec<String> = names.iter().map(|name| (*name).to_owned()).collect();
-    match refusal(target, &steps(&owned)).map(NativeKey::rule) {
-        Some(KeyRule::Reserved(reason)) => Some(reason),
+    match rules(&registry, target)
+        .refusal(&steps(&owned))
+        .map(|row| row.rule())
+    {
+        Some(KeyRule::Reserved(reason)) => Some(reason.to_owned()),
         Some(KeyRule::FirstClass(_) | KeyRule::Floor(_)) | None => None,
     }
 }
@@ -511,13 +529,13 @@ fn a_key_that_only_a_user_or_managed_scope_reads_is_reserved_for_that_reason() {
         let names: Vec<&str> = key.split('.').collect();
         assert_eq!(
             reserved_reason(crate::target::claude(), &names),
-            Some(outside),
+            Some(outside.to_owned()),
             "{key}"
         );
     }
     assert_eq!(
         reserved_reason(crate::target::codex(), &["windows"]),
-        Some(outside)
+        Some(outside.to_owned())
     );
 }
 
@@ -533,7 +551,7 @@ fn a_claude_key_that_runs_a_command_outside_hooks_is_reserved() {
     ] {
         assert_eq!(
             reserved_reason(crate::target::claude(), &[key]),
-            Some("it runs a command outside hooks.yaml and its locks"),
+            Some("it runs a command outside hooks.yaml and its locks".to_owned()),
             "{key}"
         );
     }
@@ -552,19 +570,20 @@ fn claude_mcp_servers_is_refused_without_calling_it_a_key_claude_reads() {
 fn codex_profile_is_refused_as_removed_and_profiles_as_ignored_in_a_project() {
     assert_eq!(
         reserved_reason(crate::target::codex(), &["profile"]),
-        Some("removed by Codex 0.169.0 (use --profile)")
+        Some("removed by Codex 0.169.0 (use --profile)".to_owned())
     );
     assert_eq!(
         reserved_reason(crate::target::codex(), &["profiles"]),
-        Some("Codex ignores it in a project's config.toml")
+        Some("Codex ignores it in a project's config.toml".to_owned())
     );
 }
 
 #[test]
 fn a_profile_is_refused_as_a_whole_so_no_row_below_it_is_reachable() {
-    for row in KEYS {
+    let registry = Registry::builtin();
+    for row in descriptor_rows(&registry) {
         assert!(
-            !(row.target() == "codex" && row.path().starts_with("profiles.")),
+            !(row.target() == crate::target::codex() && row.path().starts_with("profiles.")),
             "{}",
             row.display_path()
         );

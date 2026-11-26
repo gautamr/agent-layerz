@@ -24,6 +24,8 @@ use alz_adapter::TargetId;
 
 use super::list_edit::{WrittenEdit, refine_edit, written_edit};
 use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
+#[cfg(test)]
+pub(in crate::item) use native::AGENT_KEYS;
 pub use native::NativeFields;
 pub(in crate::item) use native::tree_of;
 pub use ordered_tree::{NativeMap, NativeValue};

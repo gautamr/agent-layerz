@@ -1,10 +1,9 @@
 use std::collections::BTreeSet;
 
-use crate::item::{
-    AGENT_KEYS, CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, KEYS, KeyRule, Step, native_key,
-};
+use crate::item::{CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, KeyRule, Step};
+use crate::target::Registry;
 
-use crate::item::NativeKey;
+use super::super::agent::AGENT_KEYS;
 
 use super::{Field, Shape};
 
@@ -121,10 +120,14 @@ fn a_key_that_the_security_table_refuses_is_not_a_typed_key() {
         }
         let names: Vec<&str> = path.split('.').collect();
         let steps: Vec<Step<'_>> = names.iter().map(|name| Step::Key(name)).collect();
-        let row = native_key(crate::target::claude(), &steps);
+        let registry = Registry::builtin();
+        let row = registry
+            .key_rules(crate::target::claude())
+            .expect("the Claude adapter is built in")
+            .native_key(&steps);
         assert!(
             !matches!(
-                row.map(NativeKey::rule),
+                row.map(|row| row.rule()),
                 Some(KeyRule::FirstClass(_) | KeyRule::Reserved(_))
             ),
             "{path} is refused by the security table, so it has no type"
@@ -135,8 +138,12 @@ fn a_key_that_the_security_table_refuses_is_not_a_typed_key() {
 #[test]
 fn every_claude_floor_key_has_a_type() {
     let typed: BTreeSet<String> = paths("", CLAUDE_SETTINGS).into_iter().collect();
-    for row in KEYS {
-        if row.target() == "claude" && matches!(row.rule(), KeyRule::Floor(_)) {
+    let registry = Registry::builtin();
+    let rules = registry
+        .key_rules(crate::target::claude())
+        .expect("the Claude adapter is built in");
+    for row in rules.rows() {
+        if matches!(row.rule(), KeyRule::Floor(_)) {
             assert!(
                 typed.contains(row.path()),
                 "the floor key {} has no type",

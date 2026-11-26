@@ -10,9 +10,10 @@ use crate::diagnostic::Where;
 use crate::item::{Settings, SettingsTree};
 use crate::layer::LayerName;
 use crate::merge::Tree;
-use crate::merge::testing::origin_of;
+use crate::merge::testing::{origin_of, registry_with_vocabulary};
+use crate::target::Registry;
 use crate::untrusted_text::Stripped;
-use alz_adapter::TargetId;
+use alz_adapter::{FloorKey, FloorRule, NativeVocabulary, TargetId};
 
 use super::SettingsState;
 
@@ -144,8 +145,13 @@ proptest! {
     ) {
         let first = Settings::new([(crate::target::claude().clone(), a.clone())]);
         let second = Settings::new([(crate::target::claude().clone(), b.clone())]);
-        let (state, _) = SettingsState::default().apply(&first, &origin_of(layer("one")), &here());
-        let (state, _) = state.apply(&second, &origin_of(layer("two")), &here());
+        let (state, _) = SettingsState::default().apply(
+            &first,
+            &origin_of(layer("one")),
+            &here(),
+            &Registry::builtin(),
+        );
+        let (state, _) = state.apply(&second, &origin_of(layer("two")), &here(), &Registry::builtin());
         let folded = state.finish();
         let claude = folded.get(crate::target::claude()).map(|settings| settings.value().clone());
         prop_assert_eq!(claude, Some(a.deep_merge(b)));
@@ -292,7 +298,12 @@ proptest! {
         let denied = ["sandbox", "network", "deniedDomains"];
         let web_search = ["web_search"];
         stack.iter().enumerate().try_fold(SettingsState::default(), |before, (index, layer)| {
-            let (after, _) = before.clone().apply(&layer.settings(), &origin_of(name(index)), &here());
+            let (after, _) = before.clone().apply(
+                &layer.settings(),
+                &origin_of(name(index)),
+                &here(),
+                &Registry::builtin(),
+            );
             // A boolean that was at its stricter value stays there.
             if held(&before, claude, &enabled) == Some(Tree::Bool(true)) {
                 prop_assert_eq!(held(&after, claude, &enabled), Some(Tree::Bool(true)));
@@ -328,4 +339,113 @@ proptest! {
 
 fn name(index: usize) -> LayerName {
     LayerName::try_from(format!("l{index}").as_str()).expect("a layer name")
+}
+
+// The same laws for a target that a test descriptor states: the floor is the core's, so it holds
+// for any key rules an adapter hands over (§8.0 **Descriptor.**).
+
+fn probe() -> TargetId {
+    TargetId::try_from("probe").expect("a target id")
+}
+
+/// The ranks of the ladder floor `level` of the test descriptor, loosest first; `mid` and `middle`
+/// are one rank.
+const LEVELS: [&str; 5] = ["low", "mid", "middle", "high", "novel"];
+
+fn rank_of(value: &str) -> Option<usize> {
+    match value {
+        "low" => Some(0),
+        "mid" | "middle" => Some(1),
+        "high" => Some(2),
+        _ => None,
+    }
+}
+
+/// A registry whose only adapter is a test descriptor with a flag floor, `locked` (`true` is
+/// stricter), and a ladder floor, `level`.
+fn probe_registry() -> Registry {
+    registry_with_vocabulary(
+        "probe",
+        NativeVocabulary::default().with_key_rules(
+            Vec::new(),
+            Vec::new(),
+            vec![
+                FloorKey::new("locked", FloorRule::TrueIsStricter),
+                FloorKey::new(
+                    "level",
+                    FloorRule::Ranked(vec![
+                        vec!["low".to_owned()],
+                        vec!["mid".to_owned(), "middle".to_owned()],
+                        vec!["high".to_owned()],
+                    ]),
+                ),
+            ],
+        ),
+    )
+}
+
+/// What one layer sets of the two floors of the test descriptor.
+fn probe_layers() -> impl Strategy<Value = (Option<bool>, Option<&'static str>)> {
+    (
+        proptest::option::of(proptest::bool::ANY),
+        proptest::option::of(proptest::sample::select(LEVELS.to_vec())),
+    )
+}
+
+fn probe_settings(locked: Option<bool>, level: Option<&str>) -> Settings {
+    let entries: BTreeMap<String, Tree> = [
+        locked.map(|flag| ("locked", Tree::Bool(flag))),
+        level.map(|value| ("level", Tree::Text(value.to_owned()))),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|(key, value)| (key.to_owned(), value))
+    .collect();
+    Settings::new([(probe(), SettingsTree::from(entries))])
+}
+
+proptest! {
+    #[test]
+    fn a_flag_floor_and_a_ladder_floor_of_a_test_descriptor_never_loosen_down_the_stack(
+        stack in vec(probe_layers(), 0..6),
+    ) {
+        let registry = probe_registry();
+        let target = probe();
+        stack.iter().enumerate().try_fold(SettingsState::default(), |before, (index, (locked, level))| {
+            let (after, found) = before.clone().apply(
+                &probe_settings(*locked, *level),
+                &origin_of(name(index)),
+                &here(),
+                &registry,
+            );
+            // A flag at its stricter value stays there.
+            if held(&before, &target, &["locked"]) == Some(Tree::Bool(true)) {
+                prop_assert_eq!(held(&after, &target, &["locked"]), Some(Tree::Bool(true)));
+            }
+            // A ladder value never moves down its ranks, and one in no rank never changes.
+            if let Some(Tree::Text(was)) = held(&before, &target, &["level"]) {
+                let now = held(&after, &target, &["level"]);
+                let Some(Tree::Text(now)) = now else {
+                    return Err(proptest::test_runner::TestCaseError::fail("the level was lost"));
+                };
+                if let (Some(was), Some(now)) = (rank_of(&was), rank_of(&now)) {
+                    prop_assert!(now >= was);
+                } else {
+                    prop_assert_eq!(now, was);
+                }
+            }
+            // A layer that loosens a floor is an error and changes nothing.
+            if found.has_errors() {
+                prop_assert_eq!(
+                    held(&after, &target, &["locked"]),
+                    held(&before, &target, &["locked"])
+                );
+                prop_assert_eq!(
+                    held(&after, &target, &["level"]),
+                    held(&before, &target, &["level"])
+                );
+            }
+            Ok(after)
+        })?;
+    }
 }

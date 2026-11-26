@@ -27,11 +27,14 @@ fn of(files: &[(&str, &str)], target: &TargetId) -> Option<Tree> {
 }
 
 fn tree_of(target: &TargetId, yaml: &str) -> Tree {
-    crate::item::SettingsItems::read(&settings_layer("t", yaml))
-        .0
-        .into_file()
-        .and_then(|(_, file)| file.of(target).map(SettingsTree::to_tree))
-        .expect("settings of the target")
+    crate::item::SettingsItems::read(
+        &settings_layer("t", yaml),
+        &crate::target::Registry::builtin(),
+    )
+    .0
+    .into_file()
+    .and_then(|(_, file)| file.of(target).map(SettingsTree::to_tree))
+    .expect("settings of the target")
 }
 
 fn tree(yaml: &str) -> Tree {

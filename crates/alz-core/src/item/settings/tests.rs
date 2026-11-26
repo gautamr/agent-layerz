@@ -3,12 +3,15 @@ use proptest::prelude::{prop_assert, prop_assert_eq, proptest};
 use crate::item::{Settings, SettingsItems};
 use crate::merge::Tree;
 use crate::merge::testing::layer;
+use crate::target::Registry;
 use alz_adapter::TargetId;
 
 /// What the layer `personal` with this `settings.yaml` gives.
 fn read(yaml: &str) -> (Option<Settings>, Vec<String>) {
-    let (items, found) =
-        SettingsItems::read(&layer("personal", "personal", &[("settings.yaml", yaml)]));
+    let (items, found) = SettingsItems::read(
+        &layer("personal", "personal", &[("settings.yaml", yaml)]),
+        &Registry::builtin(),
+    );
     (
         items.into_file().map(|(_, settings)| settings),
         found.iter().map(ToString::to_string).collect(),
@@ -33,7 +36,8 @@ fn refused(yaml: &str) -> Vec<String> {
 
 #[test]
 fn a_layer_without_settings_yaml_or_with_an_empty_one_has_no_settings() {
-    let (items, found) = SettingsItems::read(&layer("personal", "personal", &[]));
+    let (items, found) =
+        SettingsItems::read(&layer("personal", "personal", &[]), &Registry::builtin());
     assert!(items.into_file().is_none());
     assert_eq!(found.iter().count(), 0);
     assert_eq!(read(""), (None, Vec::new()));
@@ -369,7 +373,7 @@ fn the_names_of_a_first_class_item_are_ordinary_keys_where_codex_does_not_read_t
 
 /// The yaml of `target` that sets the key path of a row (a wildcard stands for the key `x`, and
 /// `**` for nothing) to a scalar.
-fn yaml_of(row: &crate::item::NativeKey) -> String {
+fn yaml_of(row: &crate::item::NativeKey<'_>) -> String {
     let keys: Vec<&str> = row
         .path()
         .split('.')
@@ -385,31 +389,37 @@ fn yaml_of(row: &crate::item::NativeKey) -> String {
 
 #[test]
 fn every_key_that_the_table_refuses_is_refused_with_its_path_and_no_value() {
-    use crate::item::{KEYS, KeyRule, Step, native_key};
-    for row in KEYS {
-        let (KeyRule::FirstClass(_) | KeyRule::Reserved(_)) = row.rule() else {
-            continue;
-        };
-        let found = refused(&yaml_of(row));
-        // The first row that matches the path is the one that is named.
-        let names: Vec<String> = row
-            .path()
-            .split('.')
-            .filter(|segment| *segment != "**")
-            .map(|segment| if segment == "*" { "x" } else { segment }.to_owned())
-            .collect();
-        let steps: Vec<_> = names.iter().map(|name| Step::Key(name)).collect();
-        let first = native_key(&crate::target::id(row.target()), &steps)
-            .expect("the table has the row")
-            .display_path();
-        assert!(
-            found.iter().any(
-                |line| line.starts_with("error [settings] personal:settings.yaml:")
-                    && line.contains(&format!("'{first}'"))
-            ),
-            "{}: {found:?}",
-            row.display_path()
-        );
+    use crate::item::{KeyRule, Step};
+    let registry = Registry::builtin();
+    for target in [crate::target::claude(), crate::target::codex()] {
+        let rules = registry
+            .key_rules(target)
+            .expect("claude has an adapter and codex a descriptor-only entry");
+        for row in rules.rows() {
+            let (KeyRule::FirstClass(_) | KeyRule::Reserved(_)) = row.rule() else {
+                continue;
+            };
+            let found = refused(&yaml_of(&row));
+            // The first row that matches the path is the one that is named.
+            let names: Vec<String> = row
+                .path()
+                .split('.')
+                .filter(|segment| *segment != "**")
+                .map(|segment| if segment == "*" { "x" } else { segment }.to_owned())
+                .collect();
+            let steps: Vec<_> = names.iter().map(|name| Step::Key(name)).collect();
+            let first = rules
+                .native_key(&steps)
+                .expect("the table has the row")
+                .display_path();
+            assert!(
+                found.iter().any(|line| line
+                    .starts_with("error [settings] personal:settings.yaml:")
+                    && line.contains(&format!("'{first}'"))),
+                "{}: {found:?}",
+                row.display_path()
+            );
+        }
     }
 }
 
@@ -763,4 +773,77 @@ fn an_allowlist_entry_that_claude_would_skip_is_refused() {
         "claude:\n  allowedMcpServers:\n    - {serverName: ok_name-1}\n    - {serverCommand: [bin]}\n",
     );
     only("claude:\n  deniedMcpServers:\n    - {serverName: has space}\n");
+}
+
+// The key rules come from the descriptor of the target (§8.0 **Descriptor.**, TASK-110).
+
+/// What the layer `personal` with this `settings.yaml` gives when `registry` holds the adapters.
+fn read_with(registry: &Registry, yaml: &str) -> (Option<Settings>, Vec<String>) {
+    let (items, found) = SettingsItems::read(
+        &layer("personal", "personal", &[("settings.yaml", yaml)]),
+        registry,
+    );
+    (
+        items.into_file().map(|(_, settings)| settings),
+        found.iter().map(ToString::to_string).collect(),
+    )
+}
+
+#[test]
+fn a_target_section_is_checked_with_the_key_rules_of_its_descriptor() {
+    use alz_adapter::{FirstClassKey, NativeVocabulary, ReservedKey};
+    let registry = crate::merge::testing::registry_with_vocabulary(
+        "probe",
+        NativeVocabulary::default().with_key_rules(
+            vec![FirstClassKey::new("model", "models.yaml")],
+            vec![ReservedKey::new(
+                "deep.secret",
+                "the probe keeps it to itself",
+            )],
+            Vec::new(),
+        ),
+    );
+    let (settings, found) = read_with(
+        &registry,
+        "probe:\n  model: x\n  deep:\n    secret: 1\n  other: 2\n",
+    );
+    assert_eq!(settings, None);
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(
+        found[0].contains("'probe.model' is set through models.yaml"),
+        "{found:?}"
+    );
+    assert!(
+        found[1].contains(
+            "'probe.deep.secret' is not set in settings.yaml: the probe keeps it to itself"
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_target_with_neither_an_adapter_nor_a_descriptor_is_read_as_a_mapping_and_nothing_more() {
+    // `claude` has no adapter in this registry, and `antigravity` never had one: both are read as
+    // a mapping, whatever they hold.
+    let registry = Registry::new();
+    let (settings, found) = read_with(
+        &registry,
+        "claude:\n  hooks: {}\nantigravity:\n  permissions: 1\n",
+    );
+    assert_eq!(found, Vec::<String>::new());
+    let settings = settings.expect("a settings file");
+    assert!(settings.of(crate::target::claude()).is_some());
+    assert!(settings.of(&crate::target::id("antigravity")).is_some());
+}
+
+#[test]
+fn codex_is_validated_without_an_adapter_by_the_descriptor_only_entry_of_the_core() {
+    let (settings, found) = read_with(&Registry::new(), "codex:\n  hooks: {}\n");
+    assert_eq!(settings, None);
+    assert_eq!(
+        found,
+        [
+            "error [settings] personal:settings.yaml:2:3: 'codex.hooks' is set through hooks/hooks.yaml"
+        ]
+    );
 }

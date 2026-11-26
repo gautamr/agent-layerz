@@ -62,6 +62,7 @@ pub fn adopt_first<W: Write>(
         merged: &computed.merged,
         natives: found.natives(),
         agents_md: found.agents_md(),
+        registry: &Registry::builtin(),
     };
     let adoption = match plan_adoption(&input) {
         Ok(adoption) => adoption,

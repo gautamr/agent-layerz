@@ -47,6 +47,7 @@ use crate::merge::rules::{MergedRule, RuleState};
 use crate::merge::settings::SettingsState;
 use crate::merge::skills::{MergedSkills, SkillState, SlotDemand};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
+use crate::target::Registry;
 use alz_adapter::TargetId;
 
 /// What a kind needs to absorb one layer: the layer, where it lies in the stack and where the layer
@@ -56,6 +57,7 @@ pub struct LayerContext<'a> {
     layer: &'a ResolvedLayer,
     index: usize,
     placement: Placement,
+    registry: &'a Registry,
 }
 
 impl<'a> LayerContext<'a> {
@@ -67,12 +69,20 @@ impl<'a> LayerContext<'a> {
 
     /// The first layer of a stack of one, for the checks of `alz lint` that read a layer alone
     /// (§10). Its placement is [`Placement::Inside`], the stricter answer.
-    pub(super) const fn alone(layer: &'a ResolvedLayer) -> Self {
+    pub(super) const fn alone(layer: &'a ResolvedLayer, registry: &'a Registry) -> Self {
         Self {
             layer,
             index: 0,
             placement: Placement::Inside,
+            registry,
         }
+    }
+
+    /// The adapters of the build, whose descriptors state the key rules of each target's native
+    /// settings (§7.9).
+    #[must_use]
+    pub const fn registry(&self) -> &'a Registry {
+        self.registry
     }
 
     /// Where the layer lies in relation to the repository.
@@ -379,10 +389,16 @@ impl Accumulator {
     }
 }
 
-/// Merges the layers of `stack` (§7). Pure: the same input gives an equal result, because every
-/// collection is ordered and the fold runs in stack order.
+/// Merges the layers of `stack` (§7), with the key rules that the adapters of `registry` state
+/// for each target's native settings (§7.9). Pure: the same input gives an equal result, because
+/// every collection is ordered and the fold runs in stack order.
 #[must_use]
-pub fn merge(stack: &ResolvedStack, manifest: &Manifest, placements: &Placements) -> Merging {
+pub fn merge(
+    stack: &ResolvedStack,
+    manifest: &Manifest,
+    placements: &Placements,
+    registry: &Registry,
+) -> Merging {
     stack
         .layers()
         .iter()
@@ -391,6 +407,7 @@ pub fn merge(stack: &ResolvedStack, manifest: &Manifest, placements: &Placements
             layer,
             index,
             placement: placements.of(layer.meta().name()),
+            registry,
         })
         .fold(Accumulator::default(), |state, context| {
             state.absorb(&context)

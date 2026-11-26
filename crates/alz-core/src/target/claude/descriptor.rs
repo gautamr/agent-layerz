@@ -1,9 +1,13 @@
 //! The Claude adapter's descriptor (spec §8.0 **Descriptor.**, §8.1): its static data.
 //!
-//! The native vocabulary stays empty until the core takes the key rules from the descriptor
-//! (TASK-110).
+//! The native vocabulary holds the key rules of Claude's settings (TASK-110); the typed keys and
+//! the native agent fields stay in the core until their own move.
 
-use alz_adapter::{Descriptor, MODEL_VERSION, Territory, ToolVersion, ToolVersionRange};
+use alz_adapter::{
+    Descriptor, MODEL_VERSION, NativeVocabulary, Territory, ToolVersion, ToolVersionRange,
+};
+
+use super::key_rules;
 
 /// The facts file that records what the adapter relies on.
 const FACTS_FILE: &str = "docs/target-facts.md";
@@ -39,5 +43,10 @@ pub(super) fn descriptor() -> Descriptor {
     descriptor.managed_folders = owned(&MANAGED_FOLDERS);
     descriptor.protected_patterns = owned(&PROTECTED_PATTERNS);
     descriptor.adopted_files = owned(&ADOPTED_FILES);
+    descriptor.vocabulary = NativeVocabulary::default().with_key_rules(
+        key_rules::first_class_keys(),
+        key_rules::reserved_keys(),
+        key_rules::floor_keys(),
+    );
     descriptor
 }

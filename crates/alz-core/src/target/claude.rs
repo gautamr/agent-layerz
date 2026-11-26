@@ -13,6 +13,7 @@ pub mod facts;
 mod frontmatter;
 mod hooks;
 mod instructions;
+mod key_rules;
 mod mcp;
 mod permissions;
 mod rules;

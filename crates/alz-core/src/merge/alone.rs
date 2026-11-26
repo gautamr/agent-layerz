@@ -15,14 +15,15 @@ use crate::merge::rules::RuleState;
 use crate::merge::settings::SettingsState;
 use crate::merge::stack::LayerContext;
 use crate::stack::ResolvedLayer;
+use crate::target::Registry;
 
 /// What is wrong with `layer` taken as a stack of its own: the errors and warnings of every kind
 /// in the order of the spec (instructions, agents, skills, rules, hooks, permissions, MCP,
 /// models, settings, passthrough), then the `slot` errors of its `provides_slots`. A diagnostic
 /// that names a more general layer the layer does not have (`unresolved`) is dropped.
 #[must_use]
-pub fn check_alone(layer: &ResolvedLayer) -> Diagnostics {
-    let context = LayerContext::alone(layer);
+pub fn check_alone(layer: &ResolvedLayer, registry: &Registry) -> Diagnostics {
+    let context = LayerContext::alone(layer, registry);
     let (_, instructions) = InstructionState::default().absorb(&context);
     let (_, agents) = AgentState::default().absorb(&context);
     let (provided, skills) = SkillItems::read(layer);

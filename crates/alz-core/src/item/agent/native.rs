@@ -2,7 +2,7 @@
 //! neutral schema does not model, passed through to that target only, and deep-merged by overlays.
 //! Servers and hooks come only through `mcp.yaml` and `hooks.yaml`, so the keys that would bring
 //! them past those files (`claude.mcpServers`, `codex.mcp_servers`, and `hooks` of either target)
-//! are refused; the keys are the rows of [`AGENT_KEYS`](crate::item::AGENT_KEYS).
+//! are refused; the keys are the rows of [`AGENT_KEYS`].
 
 use std::collections::BTreeMap;
 
@@ -14,11 +14,65 @@ use crate::yaml::fields::Section;
 use crate::yaml::{Mapping, Node, Value};
 use alz_adapter::TargetId;
 
-use super::super::native_keys::{AGENT_KEYS, Step};
+use super::super::native_keys::Step;
 use super::super::native_types::{CLAUDE_AGENT_FIELDS, Typed};
 use super::super::protected_variable::codex_policies;
 use super::super::schema_diagnostics;
 use super::ordered_tree::{NativeMap, NativeValue};
+
+/// A key of an agent's native fields that is refused: servers and hooks come only through
+/// `mcp.yaml` and `hooks.yaml` (§7.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::item) struct AgentKey {
+    target: &'static str,
+    key: &'static str,
+    owner: &'static str,
+}
+
+impl AgentKey {
+    /// The target whose native fields hold the key.
+    #[must_use]
+    pub const fn target(&self) -> &'static str {
+        self.target
+    }
+
+    /// The key, at the top of the target's mapping.
+    #[must_use]
+    pub const fn key(&self) -> &'static str {
+        self.key
+    }
+
+    /// The place that sets what the key would set.
+    #[must_use]
+    pub const fn owner(&self) -> &'static str {
+        self.owner
+    }
+}
+
+/// The keys of an agent's native fields that duplicate a first-class item. Like the neutral keys
+/// below, they stay in the core until the descriptor's native agent fields take them over.
+pub(in crate::item) const AGENT_KEYS: &[AgentKey] = &[
+    AgentKey {
+        target: "claude",
+        key: "mcpServers",
+        owner: "mcp.yaml",
+    },
+    AgentKey {
+        target: "claude",
+        key: "hooks",
+        owner: "hooks/hooks.yaml",
+    },
+    AgentKey {
+        target: "codex",
+        key: "mcp_servers",
+        owner: "mcp.yaml",
+    },
+    AgentKey {
+        target: "codex",
+        key: "hooks",
+        owner: "hooks/hooks.yaml",
+    },
+];
 
 /// The keys of a target's map that have a neutral field, and so are refused inside it (§7.2).
 /// The spec names `tools`, `model` and `permissionMode` and leaves the rest of the list open; this
