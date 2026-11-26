@@ -27,7 +27,7 @@ impl ScratchDir {
     ///
     /// # Errors
     ///
-    /// The error of creating the directory, or `AlreadyExists` once [`NAME_ATTEMPTS`] names in a
+    /// The error of creating the directory, or `AlreadyExists` once 1000 names in a
     /// row were taken.
     pub fn new() -> io::Result<Self> {
         let base = std::env::temp_dir();
