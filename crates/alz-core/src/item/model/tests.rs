@@ -1,6 +1,6 @@
 use crate::item::{ConcreteModel, ModelAlias, ModelItems, Models};
 use crate::merge::testing::layer;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 fn read(yaml: &str) -> (Option<Models>, Vec<String>) {
     let (items, found) = ModelItems::read(&layer("personal", "personal", &[("models.yaml", yaml)]));
@@ -24,13 +24,16 @@ fn aliases_roles_and_default_are_read_into_ordered_maps() {
     let aliases: Vec<&str> = models.aliases().keys().map(ModelAlias::as_str).collect();
     assert_eq!(aliases, ["fast", "strong"]);
     let strong = models.aliases().get(&alias("strong")).expect("strong");
-    let targets: Vec<(TargetName, &str)> = strong
+    let targets: Vec<(TargetId, &str)> = strong
         .iter()
-        .map(|(target, model)| (*target, model.as_str()))
+        .map(|(target, model)| (target.clone(), model.as_str()))
         .collect();
     assert_eq!(
         targets,
-        [(TargetName::Claude, "opus"), (TargetName::Codex, "big")]
+        [
+            (crate::target::claude().clone(), "opus"),
+            (crate::target::codex().clone(), "big")
+        ]
     );
     let roles: Vec<(&str, &str)> = models
         .roles()
@@ -53,10 +56,10 @@ fn a_layer_without_models_yaml_or_with_an_empty_one_has_no_models() {
 fn an_alias_key_that_is_not_a_target_is_refused_naming_the_file_whatever_the_key() {
     for key in [
         "__proto__",
-        "constructor",
+        "Constructor",
         "Claude",
         "CLAUDE",
-        "gemini",
+        "Gemini",
         "",
         "claude ",
     ] {
@@ -128,7 +131,7 @@ fn the_shape_of_each_part_is_checked() {
 
 #[test]
 fn every_problem_of_the_file_is_reported() {
-    let (models, found) = read("aliases:\n  a: { x: y }\nroles:\n  r: 1\nextra: 1\n");
+    let (models, found) = read("aliases:\n  a: { X: y }\nroles:\n  r: 1\nextra: 1\n");
     assert_eq!(models, None);
     assert_eq!(found.len(), 3, "{found:?}");
 }

@@ -5,7 +5,6 @@ use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Whe
 use crate::item::{ModelAlias, NativeValue, ToolGrant};
 use crate::merge::{Merged, MergedAgent, MergedModels, Traced};
 use crate::render::yaml::{EmitMap, EmitValue};
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
 use super::frontmatter::{all_origins, file, place, sources, text};
@@ -23,7 +22,7 @@ pub(super) fn render(merged: &Merged) -> Output {
             agent
                 .value()
                 .targets()
-                .is_none_or(|targets| targets.contains(&TargetName::Claude))
+                .is_none_or(|targets| targets.contains(crate::target::claude()))
         })
         .map(|agent| one(agent, merged.models()))
         .fold(Output::default(), Output::then)
@@ -203,7 +202,7 @@ fn native_model(
     match alias {
         Err(problem) => (None, Diagnostics::new().with(problem)),
         Ok(None) => (None, Diagnostics::new()),
-        Ok(Some(alias)) => match models.model(&alias, TargetName::Claude) {
+        Ok(Some(alias)) => match models.model(&alias, crate::target::claude()) {
             None => (
                 None,
                 Diagnostics::new().with(Diagnostic::warning(
@@ -237,7 +236,7 @@ fn native_model(
 
 /// The native fields of Claude as emitted entries, or the first key whose value alz cannot write.
 fn native_fields(agent: &MergedAgent) -> Result<Vec<(String, EmitValue)>, String> {
-    agent.native().of(TargetName::Claude).map_or_else(
+    agent.native().of(crate::target::claude()).map_or_else(
         || Ok(Vec::new()),
         |map| {
             map.iter()

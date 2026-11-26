@@ -3,6 +3,7 @@ use std::cell::Cell;
 use proptest::prelude::{any, prop_assert, proptest};
 
 use super::which_report;
+use crate::account::AccountFamily;
 use crate::account::resolution::{
     AllowedFact, ConfigFact, EnvironmentFact, ExistingFolders, Explicit, ExplicitName, Facts,
     FileFact, FileOutcome, HomeFact, ManifestFact, NoRepository, Repository, Stack, VariableFact,
@@ -14,7 +15,6 @@ use crate::account::{
 };
 use crate::diagnostic::{Diagnostics, Message};
 use crate::path::AbsolutePath;
-use crate::target::TargetName;
 use crate::untrusted_text::{Stripped, has_control_or_format};
 
 struct Fixed(CachedDeclaration, Cell<usize>);
@@ -124,11 +124,11 @@ fn a_missing_folder_reports_the_text_of_the_spec_and_exits_1() {
     let mut facts = base();
     facts.folders = ExistingFolders::new([name("a"), name("b")], []);
     facts.explicit.used = vec![(
-        TargetName::Claude,
+        AccountFamily::Claude,
         ExplicitName::Valid(AccountChoice::Named(name("nope"))),
     )];
     facts.explicit.run = Some((
-        TargetName::Codex,
+        AccountFamily::Codex,
         ExplicitName::Valid(AccountChoice::Named(name("alz-blocked"))),
     ));
     let (lines, exit) = report(&facts, &nothing());
@@ -157,8 +157,8 @@ fn a_cache_miss_names_the_recorded_account_and_asks_for_a_build() {
     facts.allowed.entries = vec![AllowEntry::new(
         path("/work/a"),
         NonEmptyTargetMap::from_entries([
-            (TargetName::Claude, name("client")),
-            (TargetName::Codex, name("default")),
+            (AccountFamily::Claude, name("client")),
+            (AccountFamily::Codex, name("default")),
         ])
         .expect("a map"),
         AllowedSource::try_from("/s").expect("a source"),
@@ -196,7 +196,7 @@ fn a_changed_declaration_and_a_removed_one_name_their_fix() {
     facts.allowed.file.outcome = FileOutcome::Read;
     facts.allowed.entries = vec![AllowEntry::new(
         path("/work/a"),
-        NonEmptyTargetMap::from_entries([(TargetName::Claude, name("client"))]).expect("a map"),
+        NonEmptyTargetMap::from_entries([(AccountFamily::Claude, name("client"))]).expect("a map"),
         AllowedSource::try_from("/s").expect("a source"),
     )];
     let (lines, _) = report(&facts, &nothing());
@@ -299,7 +299,7 @@ proptest! {
         if let Ok(stale) = AbsolutePath::try_from(stale.as_str()) {
             facts.allowed.unresolved = vec![stale];
         }
-        facts.explicit.used = vec![(TargetName::Codex, ExplicitName::NotAName)];
+        facts.explicit.used = vec![(AccountFamily::Codex, ExplicitName::NotAName)];
         let result = resolve(&facts, &nothing());
         let report = which_report(&facts, &result, Diagnostics::new());
         for line in report.lines() {

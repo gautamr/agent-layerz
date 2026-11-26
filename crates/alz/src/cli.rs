@@ -4,9 +4,9 @@
 use std::path::PathBuf;
 
 use alz_core::account::AccountChoice;
+use alz_core::account::AccountFamily;
 use alz_core::explain::ItemType;
 use alz_core::layer::Visibility;
-use alz_core::target::TargetName;
 use clap::error::ErrorKind;
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 
@@ -82,7 +82,7 @@ pub struct WhichArgs {
 /// One `--use <target>=<name>`: a known target and an account name or `default`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UseChoice {
-    pub target: TargetName,
+    pub target: AccountFamily,
     pub choice: AccountChoice,
 }
 
@@ -92,8 +92,8 @@ impl WhichArgs {
     /// # Errors
     ///
     /// A clap error of kind argument conflict when a target is given more than once.
-    pub fn use_choices(&self) -> Result<Vec<(TargetName, AccountChoice)>, clap::Error> {
-        match TargetName::ALL.into_iter().find(|target| {
+    pub fn use_choices(&self) -> Result<Vec<(AccountFamily, AccountChoice)>, clap::Error> {
+        match AccountFamily::ALL.into_iter().find(|target| {
             self.choices
                 .iter()
                 .filter(|choice| choice.target == *target)
@@ -118,7 +118,7 @@ fn parse_use(text: &str) -> Result<UseChoice, String> {
     let (target, name) = text
         .split_once('=')
         .ok_or_else(|| "expected <target>=<name>".to_owned())?;
-    let target = TargetName::try_from(target)
+    let target = AccountFamily::try_from(target)
         .map_err(|_unknown| "the target must be claude or codex".to_owned())?;
     let choice = AccountChoice::try_from(name).map_err(|_invalid| {
         "the name must be lower-case letters, digits and '-' (or default)".to_owned()

@@ -4,6 +4,7 @@
 
 use std::fmt;
 
+use crate::account::AccountFamily;
 use crate::account::allow::Offer;
 use crate::account::person::NotAPerson;
 use crate::account::resolution::{ExistingFolders, HomeFact, NoRepository};
@@ -13,7 +14,6 @@ use crate::account::{AccountName, AllowEntry, AllowFileProblem, Miss};
 use crate::diagnostic::{Message, MessagePart};
 use crate::layer::LayerName;
 use crate::path::AbsolutePath;
-use crate::target::TargetName;
 use crate::untrusted_text::{Escaped, Stripped};
 
 /// Which of the two commands runs.
@@ -261,7 +261,7 @@ fn entry_source(entry: &AllowEntry) -> Escaped {
 #[must_use]
 pub fn offer_lines(offer: &Offer, home: &HomeFact, folders: &ExistingFolders) -> Vec<Message> {
     let entry = offer.entry();
-    let accounts = TargetName::ALL.into_iter().map(|target| {
+    let accounts = AccountFamily::ALL.into_iter().map(|target| {
         let head = Message::new("  ")
             .then(MessagePart::printable(&target))
             .then(": ");

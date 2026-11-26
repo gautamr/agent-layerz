@@ -10,6 +10,7 @@ license = "MIT"
 repository = "https://github.com/gautamr/agent-layerz"
 
 [workspace.dependencies]
+alz-adapter = { path = "crates/alz-adapter", version = "0.1.0" }
 alz-core = { path = "crates/alz-core", version = "0.1.0" }
 alz-io = { path = "crates/alz-io", version = "0.1.0" }
 alz-test-support = { path = "crates/alz-test-support", version = "0.1.0" }

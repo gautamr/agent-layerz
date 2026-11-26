@@ -3,7 +3,7 @@
 //! the reporter's; nothing here builds a sentence.
 
 use crate::item::{AgentOverlay, Glob, OverlayMode, RuleExtension, WrittenEdit};
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// What a layer did to an item.
 ///
@@ -75,7 +75,7 @@ pub enum AgentChange {
     /// A neutral scalar field it sets.
     Scalar(AgentScalar),
     /// A target's native fields it sets.
-    Native(TargetName),
+    Native(TargetId),
     /// An edit of `skills`.
     Skills(WrittenEdit),
     /// An edit of `targets`.
@@ -119,7 +119,7 @@ impl AgentChange {
                 overlay
                     .native()
                     .iter()
-                    .map(|(target, _)| Self::Native(target)),
+                    .map(|(target, _)| Self::Native(target.clone())),
             )
             .chain(skills)
             .chain(targets)

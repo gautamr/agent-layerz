@@ -15,9 +15,9 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
 
+    use alz_core::account::AccountFamily;
     use alz_core::account::{AccountFolders, AccountName};
     use alz_core::path::AbsolutePath;
-    use alz_core::target::TargetName;
     use alz_io::{
         AccountFolderNames, ManifestState, NoRoot, OnDisk, Place, PlaceLookup, ReadOnlyDir,
         Repository, WorkingDirectory, find_root,
@@ -430,25 +430,25 @@ mod tests {
             }
         }
         let claude: Vec<&str> = listed
-            .names(TargetName::Claude)
+            .names(AccountFamily::Claude)
             .map(AccountName::as_str)
             .collect();
         let codex: Vec<&str> = listed
-            .names(TargetName::Codex)
+            .names(AccountFamily::Codex)
             .map(AccountName::as_str)
             .collect();
         assert_eq!(claude, ["alpha"]);
         assert_eq!(codex, ["beta", "linked"]);
         let blocked = AccountName::try_from("alz-blocked").expect("a name");
-        assert!(!listed.exists(TargetName::Claude, &blocked));
-        assert!(!listed.exists(TargetName::Codex, &blocked));
+        assert!(!listed.exists(AccountFamily::Claude, &blocked));
+        assert!(!listed.exists(AccountFamily::Codex, &blocked));
     }
 
     #[test]
     fn a_home_that_cannot_be_listed_has_no_accounts() {
         let machine = Machine::new();
         let listed = AccountFolderNames::list(&machine.abs("home/not-there"));
-        assert_eq!(listed.names(TargetName::Claude).count(), 0);
-        assert_eq!(listed.names(TargetName::Codex).count(), 0);
+        assert_eq!(listed.names(AccountFamily::Claude).count(), 0);
+        assert_eq!(listed.names(AccountFamily::Codex).count(), 0);
     }
 }

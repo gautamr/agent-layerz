@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::diagnostic::Diagnostics;
+use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::item::{PassthroughFile, PassthroughItems};
 use crate::merge::action::Action;
 use crate::merge::algebra::Replace;
@@ -19,11 +19,11 @@ use crate::merge::provenance::{Origin, Provenance, Traced};
 use crate::merge::stack::LayerContext;
 use crate::path::SafeRelPath;
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// The merged files of each target, by their path inside the target's folder, each with the
 /// layers that had the path.
-pub type MergedPassthrough = BTreeMap<TargetName, Replace<SafeRelPath, Traced<PassthroughFile>>>;
+pub type MergedPassthrough = BTreeMap<TargetId, Replace<SafeRelPath, Traced<PassthroughFile>>>;
 
 /// What the layers so far say about one path: the file of the most specific layer, and the layers
 /// that had the path, most general first. The first defined the path and each later one replaced
@@ -72,19 +72,25 @@ impl PathChain {
 /// The state of the fold for passthrough files. `PassthroughState::default()` is the identity of
 /// [`PassthroughState::merge`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub(super) struct PassthroughState(BTreeMap<TargetName, BTreeMap<SafeRelPath, PathChain>>);
+pub(super) struct PassthroughState {
+    files: BTreeMap<TargetId, BTreeMap<SafeRelPath, PathChain>>,
+    /// The warnings of the files read, each with its file's target, in layer and path order;
+    /// `finish` keeps those of the targets the build is for (§5.2 **Target ids**).
+    warnings: Vec<(TargetId, Diagnostic)>,
+}
 
 impl PassthroughState {
     /// The files of one layer: each path has the layer as its only contributor.
     fn of_layer(items: PassthroughItems, layer: &ResolvedLayer) -> Self {
-        Self(
-            items
+        Self {
+            warnings: Vec::new(),
+            files: items
                 .into_files()
                 .into_iter()
                 .map(|file| {
                     let origin = Origin::new(layer, file.source().clone());
                     (
-                        file.target(),
+                        file.target().clone(),
                         BTreeMap::from([(file.path().clone(), PathChain::of(file, origin))]),
                     )
                 })
@@ -93,26 +99,53 @@ impl PassthroughState {
                         union_with(before, later, PathChain::merge)
                     })
                 }),
-        )
+        }
     }
 
     /// The state with what a more specific layer says: per target and path, its file wins.
     pub(super) fn merge(self, later: Self) -> Self {
-        Self(union_with(self.0, later.0, |before, later| {
-            union_with(before, later, PathChain::merge)
-        }))
+        Self {
+            files: union_with(self.files, later.files, |before, later| {
+                union_with(before, later, PathChain::merge)
+            }),
+            warnings: self.warnings.into_iter().chain(later.warnings).collect(),
+        }
     }
 
     /// The state after one more, more specific, layer, with the warning of each file it uses and
-    /// the problems of the files it holds.
+    /// the problems of the files it holds. For a layer linted alone, which has no targets.
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
         let (items, found) = PassthroughItems::read(context.layer());
         (self.merge(Self::of_layer(items, context.layer())), found)
     }
 
-    /// The merged files.
-    pub(super) fn finish(self) -> MergedPassthrough {
-        self.0
+    /// The state after one more layer, with the problems of the files it holds. The warnings of
+    /// its files stay in the state until [`PassthroughState::finish`], which knows the targets.
+    pub(super) fn absorb_deferring(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
+        let (items, warnings, found) = PassthroughItems::read_apart(context.layer());
+        let layer = Self {
+            warnings,
+            ..Self::of_layer(items, context.layer())
+        };
+        (self.merge(layer), found)
+    }
+
+    /// The merged files, and the warnings of the files whose target `built_for` accepts: a file
+    /// of a target id that is not built for is checked and never written, so it has no warning
+    /// (§5.2 **Target ids**).
+    pub(super) fn finish(
+        self,
+        built_for: impl Fn(&TargetId) -> bool,
+    ) -> (MergedPassthrough, Diagnostics) {
+        let warnings = self
+            .warnings
+            .into_iter()
+            .filter(|(target, _)| built_for(target))
+            .fold(Diagnostics::new(), |found, (_, warning)| {
+                found.with(warning)
+            });
+        let files = self
+            .files
             .into_iter()
             .map(|(target, files)| {
                 (
@@ -123,7 +156,8 @@ impl PassthroughState {
                         .collect(),
                 )
             })
-            .collect()
+            .collect();
+        (files, warnings)
     }
 }
 

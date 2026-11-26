@@ -9,6 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+alz-adapter.workspace = true
 regex-lite.workspace = true
 serde.workspace = true
 serde-saphyr.workspace = true

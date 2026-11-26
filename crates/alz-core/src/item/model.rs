@@ -1,7 +1,7 @@
 //! The model routing of a layer (spec §7.8): `models.yaml`, with `aliases`, `roles` and `default`.
 //!
 //! An alias is a logical name that maps each target to a concrete model id, so the concrete ids
-//! live only here. The map of an alias is keyed by [`TargetName`]: a key that is not a target is a
+//! live only here. The map of an alias is keyed by [`TargetId`]: a key that is not a target is a
 //! `models` error naming the file, whatever the key. A role names the alias it routes to, and
 //! `default` names the alias of the session. Whether those aliases exist is known only after the
 //! merge, because a more general layer may define them.
@@ -11,16 +11,16 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
+use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::layer::ItemPath;
 use crate::merge::Replace;
 use crate::path::SafeRelPath;
 use crate::schema::{SchemaError, unknown_fields};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::{KeyPath, Section};
 use crate::yaml::{self, Mapping, Node, Value, YamlText};
+use alz_adapter::TargetId;
 
 use super::{Role, place, schema_diagnostics};
 
@@ -80,7 +80,7 @@ model_name! {
 /// What one `models.yaml` says.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Models {
-    aliases: BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>>,
+    aliases: BTreeMap<ModelAlias, Replace<TargetId, ConcreteModel>>,
     alias_order: Vec<ModelAlias>,
     roles: BTreeMap<Role, ModelAlias>,
     default: Option<ModelAlias>,
@@ -89,7 +89,7 @@ pub struct Models {
 impl Models {
     /// The aliases, each with the concrete model of each target it names.
     #[must_use]
-    pub const fn aliases(&self) -> &BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>> {
+    pub const fn aliases(&self) -> &BTreeMap<ModelAlias, Replace<TargetId, ConcreteModel>> {
         &self.aliases
     }
 
@@ -273,7 +273,7 @@ fn read_aliases(node: &Node, at: &Where) -> Result<AliasesRead, Diagnostics> {
 
 /// The aliases of a file by name, and the names in the order the file writes them.
 type AliasesRead = (
-    BTreeMap<ModelAlias, Replace<TargetName, ConcreteModel>>,
+    BTreeMap<ModelAlias, Replace<TargetId, ConcreteModel>>,
     Vec<ModelAlias>,
 );
 
@@ -283,13 +283,13 @@ fn read_targets(
     alias: &str,
     node: &Node,
     at: &Where,
-) -> Result<Replace<TargetName, ConcreteModel>, Diagnostics> {
+) -> Result<Replace<TargetId, ConcreteModel>, Diagnostics> {
     let mapping = entries(node, "an alias must map each target to a model id", at)?;
     let (targets, found) = mapping.entries().fold(
         (Vec::new(), Diagnostics::new()),
         |(targets, found), (key, value)| {
             let read = match key.value() {
-                Value::Text(text) => TargetName::try_from(text.as_str()).map_err(|_not_a_target| {
+                Value::Text(text) => TargetId::try_from(text.as_str()).map_err(|_not_a_target| {
                     problem(
                         at,
                         key,
@@ -315,14 +315,14 @@ fn read_targets(
             }
             .and_then(|target| match value.value() {
                 Value::Text(text) => ConcreteModel::try_from(text.as_str())
-                    .map(|model| (target, model))
-                    .map_err(|_blank| model_problem(alias, target, at, value)),
+                    .map_err(|_blank| model_problem(alias, &target, at, value))
+                    .map(|model| (target, model)),
                 Value::Null
                 | Value::Bool(_)
                 | Value::Int(_)
                 | Value::Float(_)
                 | Value::Seq(_)
-                | Value::Map(_) => Err(model_problem(alias, target, at, value)),
+                | Value::Map(_) => Err(model_problem(alias, &target, at, value)),
             });
             match read {
                 Ok(entry) => (targets.into_iter().chain([entry]).collect(), found),
@@ -337,14 +337,14 @@ fn read_targets(
     }
 }
 
-fn model_problem(alias: &str, target: TargetName, at: &Where, value: &Node) -> Diagnostics {
+fn model_problem(alias: &str, target: &TargetId, at: &Where, value: &Node) -> Diagnostics {
     problem(
         at,
         value,
         Message::new("alias ")
             .then(QuotedKey::from_untrusted(alias))
             .then(": the model of ")
-            .then(target.as_str())
+            .then(MessagePart::printable(target))
             .then(" must be a model id, text that is not empty"),
     )
 }

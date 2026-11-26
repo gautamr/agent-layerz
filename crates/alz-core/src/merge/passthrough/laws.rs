@@ -72,7 +72,7 @@ proptest! {
             .fold(PassthroughState::default(), |state_so_far, (index, files)| {
                 state_so_far.merge(state(&format!("l{index}"), files))
             })
-            .finish();
+            .finish(|_| true).0;
         // What each (target, path) should hold: the last layer's content, and the layers in order.
         let expected: BTreeMap<(String, String), (String, Vec<String>)> = stack
             .iter()

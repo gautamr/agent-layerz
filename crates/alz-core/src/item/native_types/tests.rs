@@ -3,7 +3,6 @@ use std::collections::BTreeSet;
 use crate::item::{
     AGENT_KEYS, CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, KEYS, KeyRule, Step, native_key,
 };
-use crate::target::TargetName;
 
 use crate::item::NativeKey;
 
@@ -122,7 +121,7 @@ fn a_key_that_the_security_table_refuses_is_not_a_typed_key() {
         }
         let names: Vec<&str> = path.split('.').collect();
         let steps: Vec<Step<'_>> = names.iter().map(|name| Step::Key(name)).collect();
-        let row = native_key(TargetName::Claude, &steps);
+        let row = native_key(crate::target::claude(), &steps);
         assert!(
             !matches!(
                 row.map(NativeKey::rule),
@@ -137,7 +136,7 @@ fn a_key_that_the_security_table_refuses_is_not_a_typed_key() {
 fn every_claude_floor_key_has_a_type() {
     let typed: BTreeSet<String> = paths("", CLAUDE_SETTINGS).into_iter().collect();
     for row in KEYS {
-        if row.target() == TargetName::Claude && matches!(row.rule(), KeyRule::Floor(_)) {
+        if row.target() == "claude" && matches!(row.rule(), KeyRule::Floor(_)) {
             assert!(
                 typed.contains(row.path()),
                 "the floor key {} has no type",
@@ -164,7 +163,7 @@ fn an_agent_field_is_neither_a_neutral_key_nor_a_first_class_key() {
         assert!(
             !AGENT_KEYS
                 .iter()
-                .any(|row| row.target() == TargetName::Claude && row.key() == field.name()),
+                .any(|row| row.target() == "claude" && row.key() == field.name()),
             "{}",
             field.name()
         );

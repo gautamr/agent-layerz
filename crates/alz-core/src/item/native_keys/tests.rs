@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::merge::Tree;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 use super::{
     AGENT_KEYS, KEYS, KeyRule, Looseness, NativeKey, Step, Strictness, loosenings, native_key,
@@ -29,7 +29,7 @@ fn list(values: &[&str]) -> Tree {
 /// How `after` loosens `before` at `path` of Claude's settings.
 fn claude(path: &str, before: &Tree, after: &Tree) -> Vec<Looseness> {
     loosenings(
-        TargetName::Claude,
+        crate::target::claude(),
         &at(path, before.clone()),
         &at(path, after.clone()),
     )
@@ -40,7 +40,7 @@ fn claude(path: &str, before: &Tree, after: &Tree) -> Vec<Looseness> {
 
 fn codex(path: &str, before: &Tree, after: &Tree) -> Vec<Looseness> {
     loosenings(
-        TargetName::Codex,
+        crate::target::codex(),
         &at(path, before.clone()),
         &at(path, after.clone()),
     )
@@ -73,7 +73,7 @@ fn every_row_has_non_empty_segments_and_matches_its_own_instance() {
         );
         let names = instance(row.path());
         assert!(
-            native_key(row.target(), &steps(&names)).is_some(),
+            native_key(&crate::target::id(row.target()), &steps(&names)).is_some(),
             "{}",
             row.display_path()
         );
@@ -83,7 +83,7 @@ fn every_row_has_non_empty_segments_and_matches_its_own_instance() {
 #[test]
 fn no_row_is_listed_twice() {
     let mut paths: Vec<_> = KEYS.iter().map(|row| (row.target(), row.path())).collect();
-    paths.sort();
+    paths.sort_unstable();
     let all = paths.len();
     paths.dedup();
     assert_eq!(paths.len(), all);
@@ -95,7 +95,7 @@ fn a_key_that_is_a_floor_is_not_also_refused() {
         if let KeyRule::Floor(_) = row.rule() {
             let names = instance(row.path());
             assert_eq!(
-                refusal(row.target(), &steps(&names)),
+                refusal(&crate::target::id(row.target()), &steps(&names)),
                 None,
                 "{}",
                 row.display_path()
@@ -113,10 +113,10 @@ fn the_agent_keys_are_servers_and_hooks_of_each_target() {
     assert_eq!(
         keys,
         [
-            (TargetName::Claude, "mcpServers", "mcp.yaml"),
-            (TargetName::Claude, "hooks", "hooks/hooks.yaml"),
-            (TargetName::Codex, "mcp_servers", "mcp.yaml"),
-            (TargetName::Codex, "hooks", "hooks/hooks.yaml"),
+            ("claude", "mcpServers", "mcp.yaml"),
+            ("claude", "hooks", "hooks/hooks.yaml"),
+            ("codex", "mcp_servers", "mcp.yaml"),
+            ("codex", "hooks", "hooks/hooks.yaml"),
         ]
     );
 }
@@ -125,7 +125,7 @@ fn the_agent_keys_are_servers_and_hooks_of_each_target() {
 fn wildcards_stand_for_one_key_and_a_run_of_keys() {
     let path = |names: &[&str]| -> Option<&'static str> {
         let owned: Vec<String> = names.iter().map(|name| (*name).to_owned()).collect();
-        refusal(TargetName::Codex, &steps(&owned)).map(NativeKey::path)
+        refusal(crate::target::codex(), &steps(&owned)).map(NativeKey::path)
     };
     assert_eq!(path(&["features", "hooks"]), Some("features.hooks"));
     assert_eq!(
@@ -143,7 +143,10 @@ fn wildcards_stand_for_one_key_and_a_run_of_keys() {
     );
     assert_eq!(path(&["features", "other"]), None);
     assert_eq!(
-        refusal(TargetName::Codex, &[Step::Key("features"), Step::Unnamed]),
+        refusal(
+            crate::target::codex(),
+            &[Step::Key("features"), Step::Unnamed]
+        ),
         None
     );
 }
@@ -409,7 +412,7 @@ fn a_union_list_may_grow_and_may_not_change_kind() {
 #[test]
 fn a_key_nobody_set_before_or_set_to_null_is_free() {
     let none = loosenings(
-        TargetName::Claude,
+        crate::target::claude(),
         &Tree::Map(BTreeMap::new()),
         &at("sandbox.enabled", Tree::Bool(false)),
     );
@@ -449,7 +452,11 @@ fn every_floor_row_is_checked_by_its_strictness() {
             Strictness::NoAdditions => (list(&["held"]), list(&["held", "added"])),
             Strictness::Union => (list(&["held"]), text("scalar")),
         };
-        let found = loosenings(row.target(), &at(row.path(), held), &at(row.path(), looser));
+        let found = loosenings(
+            &crate::target::id(row.target()),
+            &at(row.path(), held),
+            &at(row.path(), looser),
+        );
         assert_eq!(found.len(), 1, "{}", row.display_path());
         assert_eq!(found[0].key().path(), row.path());
     }
@@ -460,7 +467,7 @@ fn the_error_names_the_layer_and_file_and_the_key_path_without_a_value() {
     use crate::diagnostic::Where;
     use crate::untrusted_text::Stripped;
     let found = loosenings(
-        TargetName::Claude,
+        crate::target::claude(),
         &at("sandbox.enabled", Tree::Bool(true)),
         &at("sandbox.enabled", Tree::Bool(false)),
     );
@@ -476,7 +483,7 @@ fn the_error_names_the_layer_and_file_and_the_key_path_without_a_value() {
 
 // The refusals that TASK-76 corrected.
 
-fn reserved_reason(target: TargetName, names: &[&str]) -> Option<&'static str> {
+fn reserved_reason(target: &TargetId, names: &[&str]) -> Option<&'static str> {
     let owned: Vec<String> = names.iter().map(|name| (*name).to_owned()).collect();
     match refusal(target, &steps(&owned)).map(NativeKey::rule) {
         Some(KeyRule::Reserved(reason)) => Some(reason),
@@ -503,13 +510,13 @@ fn a_key_that_only_a_user_or_managed_scope_reads_is_reserved_for_that_reason() {
     ] {
         let names: Vec<&str> = key.split('.').collect();
         assert_eq!(
-            reserved_reason(TargetName::Claude, &names),
+            reserved_reason(crate::target::claude(), &names),
             Some(outside),
             "{key}"
         );
     }
     assert_eq!(
-        reserved_reason(TargetName::Codex, &["windows"]),
+        reserved_reason(crate::target::codex(), &["windows"]),
         Some(outside)
     );
 }
@@ -525,7 +532,7 @@ fn a_claude_key_that_runs_a_command_outside_hooks_is_reserved() {
         "fileSuggestion",
     ] {
         assert_eq!(
-            reserved_reason(TargetName::Claude, &[key]),
+            reserved_reason(crate::target::claude(), &[key]),
             Some("it runs a command outside hooks.yaml and its locks"),
             "{key}"
         );
@@ -534,7 +541,7 @@ fn a_claude_key_that_runs_a_command_outside_hooks_is_reserved() {
 
 #[test]
 fn claude_mcp_servers_is_refused_without_calling_it_a_key_claude_reads() {
-    let reason = reserved_reason(TargetName::Claude, &["mcpServers"]).expect("a reserved key");
+    let reason = reserved_reason(crate::target::claude(), &["mcpServers"]).expect("a reserved key");
     assert!(
         reason.contains("documents no such settings key"),
         "{reason}"
@@ -544,11 +551,11 @@ fn claude_mcp_servers_is_refused_without_calling_it_a_key_claude_reads() {
 #[test]
 fn codex_profile_is_refused_as_removed_and_profiles_as_ignored_in_a_project() {
     assert_eq!(
-        reserved_reason(TargetName::Codex, &["profile"]),
+        reserved_reason(crate::target::codex(), &["profile"]),
         Some("removed by Codex 0.169.0 (use --profile)")
     );
     assert_eq!(
-        reserved_reason(TargetName::Codex, &["profiles"]),
+        reserved_reason(crate::target::codex(), &["profiles"]),
         Some("Codex ignores it in a project's config.toml")
     );
 }
@@ -557,7 +564,7 @@ fn codex_profile_is_refused_as_removed_and_profiles_as_ignored_in_a_project() {
 fn a_profile_is_refused_as_a_whole_so_no_row_below_it_is_reachable() {
     for row in KEYS {
         assert!(
-            !(row.target() == TargetName::Codex && row.path().starts_with("profiles.")),
+            !(row.target() == "codex" && row.path().starts_with("profiles.")),
             "{}",
             row.display_path()
         );

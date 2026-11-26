@@ -12,7 +12,6 @@ use std::path::Path;
 
 use alz_core::doctor::{ClaudeFacts, Facts, Installed, Report};
 use alz_core::live::Built;
-use alz_core::target::TargetName;
 use alz_core::target::claude::facts::Version;
 use alz_core::{Diagnostics, Stripped};
 use alz_io::{
@@ -50,7 +49,7 @@ fn facts_of(surroundings: Surroundings<'_>, root: &Path, pipeline: Pipeline) -> 
         .map(|computed| Built::of(&computed.merged));
     let manifest = pipeline.manifest.as_ref();
     let builds_for_claude =
-        manifest.is_none_or(|manifest| manifest.targets().contains(&TargetName::Claude));
+        manifest.is_none_or(|manifest| manifest.targets().contains(alz_core::target::claude()));
     let client_root = manifest
         .and_then(|manifest| manifest.workspace().hub())
         .and_then(|hub| client_root_of(root, Path::new(hub.as_str())));

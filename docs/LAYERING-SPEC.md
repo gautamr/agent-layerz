@@ -517,7 +517,7 @@ repository without `layer.yaml` is the error `no-manifest`.
   `github:` or `git:` source carries its ref after `@`; a `ref` field on such an entry is checked
   but has no effect.
 - `targets` is a list of target names (§8), `claude` when absent. Any other name is an error that
-  names `targets[<n>]`. From TASK-106 `targets` is a list of target ids (**Target ids**, below):
+  names `targets[<n>]`. `targets` is a list of target ids (**Target ids**, below):
   an entry that is not a target id is that error, and a target id that no adapter renders is the
   error `target` of §8 **Targets without an adapter**.
 - `workspace.hub` and each entry of `workspace.add_dirs` are non-empty paths relative to the
@@ -540,14 +540,14 @@ repository without `layer.yaml` is the error `no-manifest`.
 agent tool that alz may write configuration for. It is 1 to 32 characters: a lower-case ASCII
 letter, then lower-case ASCII letters, digits and `-`, which is `^[a-z][a-z0-9-]{0,31}$`. So
 `claude`, `codex` and `antigravity` are target ids, and `Claude`, `9x`, `my_tool` and an empty
-text are not. Until TASK-106 alz accepts only `claude` and `codex` wherever it reads a target.
-From TASK-106:
+text are not. Alz reads every target through this grammar:
 - `targets` takes any target id (field rules, above).
 - The top level of `settings.yaml` (§7.9), the keys of an alias in `models.yaml` (§7.8) and the
   folders of `targets/` (§4.1, §7.11) take any target id as well. Such a section or folder for an
   id that is not in `targets` is still read and checked as those sections say, as far as a check
-  does not need the target's adapter, gives no diagnostic of its own and is never written. So a
-  shared layer can carry sections for a tool that some of its users do not build for.
+  does not need the target's adapter, gives no diagnostic of its own and is never written, and a file of such a `targets/<id>/`
+  folder gives no `raw passthrough` warning (§7.11), because the warning is for a file that is
+  written. So a shared layer can carry sections for a tool that some of its users do not build for.
 - The `account` map (§7.13) and `alz use` name families of account folders, `claude` and `codex`,
   not adapters, and take only those two.
 
@@ -2585,8 +2585,7 @@ The three permission floor keys (§7.6) are written once target-facts records th
 **Targets without an adapter** (decision-40, TASK-106). Only the Claude adapter exists. A
 manifest whose `targets` holds `codex` is the error `target` at `layer.yaml`, with the message
 `the 'codex' adapter is not implemented yet (implemented: claude)`, and keeps that message and
-its exit code until the Codex adapter exists (TASK-126, on the contract of §8.0). Until TASK-106
-any other name is a manifest error (§5.2). From TASK-106 a target id (§5.2 **Target ids**) that
+its exit code until the Codex adapter exists (TASK-126, on the contract of §8.0). A target id (§5.2 **Target ids**) that
 no registered adapter renders, other than `codex`, is the error `target` at `layer.yaml`, with
 the message `no adapter for '<id>' (available: <ids>)`, where `<ids>` are the registered
 adapters' ids in name order joined with `, `: today `no adapter for 'antigravity' (available:

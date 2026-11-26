@@ -3,7 +3,6 @@ use crate::diagnostic::{Diagnostics, Where};
 use crate::item::{PassthroughFile, PassthroughItems};
 use crate::merge::testing::layer;
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
 use super::check;
@@ -501,17 +500,17 @@ fn a_file_is_kept_byte_for_byte_with_its_target_and_paths() {
             .iter()
             .map(PassthroughFile::target)
             .collect::<Vec<_>>(),
-        [TargetName::Claude, TargetName::Codex]
+        [crate::target::claude(), crate::target::codex()]
     );
 }
 
 #[test]
 fn a_file_below_a_folder_that_is_not_a_target_is_an_error_naming_the_file() {
-    let (items, lines) = read(&[("targets/claud/x.json", "{}\n")]);
+    let (items, lines) = read(&[("targets/Claud/x.json", "{}\n")]);
     assert_eq!(
         lines,
         [
-            "error [passthrough] personal:targets/claud/x.json: this file is below a folder of targets/ that is not a target: claude or codex (\u{a7}7.11)"
+            "error [passthrough] personal:targets/Claud/x.json: this file is below a folder of targets/ that is not a target id (\u{a7}5.2)"
         ]
     );
     assert_eq!(items.files(), []);
@@ -520,14 +519,14 @@ fn a_file_below_a_folder_that_is_not_a_target_is_an_error_naming_the_file() {
 #[test]
 fn every_file_below_an_unknown_folder_is_named_even_deep_down() {
     let (_, lines) = read(&[
-        ("targets/claud/a/b/c.md", "x"),
+        ("targets/Claud/a/b/c.md", "x"),
         ("targets/codex/ok.md", "x"),
-        ("targets/other/y.md", "x"),
+        ("targets/Other/y.md", "x"),
     ]);
     let errs: Vec<&String> = errors(&lines);
     assert_eq!(errs.len(), 2, "{lines:?}");
-    assert!(errs[0].contains("personal:targets/claud/a/b/c.md:"));
-    assert!(errs[1].contains("personal:targets/other/y.md:"));
+    assert!(errs[0].contains("personal:targets/Claud/a/b/c.md:"));
+    assert!(errs[1].contains("personal:targets/Other/y.md:"));
 }
 
 #[test]

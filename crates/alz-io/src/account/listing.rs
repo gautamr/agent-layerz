@@ -8,9 +8,9 @@
 use std::collections::BTreeSet;
 use std::fs::{self, FileType};
 
+use alz_core::account::AccountFamily;
 use alz_core::account::AccountName;
 use alz_core::path::AbsolutePath;
-use alz_core::target::TargetName;
 
 /// The reserved name of the blocked folders, `~/.claude-alz-blocked` and `~/.codex-alz-blocked`.
 const BLOCKED: &str = "alz-blocked";
@@ -52,19 +52,19 @@ impl AccountFolderNames {
     }
 
     /// The names that exist for `target`, in name order.
-    pub fn names(&self, target: TargetName) -> impl Iterator<Item = &AccountName> + '_ {
+    pub fn names(&self, target: AccountFamily) -> impl Iterator<Item = &AccountName> + '_ {
         match target {
-            TargetName::Claude => self.claude.iter(),
-            TargetName::Codex => self.codex.iter(),
+            AccountFamily::Claude => self.claude.iter(),
+            AccountFamily::Codex => self.codex.iter(),
         }
     }
 
     /// Whether the folder of `name` for `target` exists.
     #[must_use]
-    pub fn exists(&self, target: TargetName, name: &AccountName) -> bool {
+    pub fn exists(&self, target: AccountFamily, name: &AccountName) -> bool {
         match target {
-            TargetName::Claude => self.claude.contains(name),
-            TargetName::Codex => self.codex.contains(name),
+            AccountFamily::Claude => self.claude.contains(name),
+            AccountFamily::Codex => self.codex.contains(name),
         }
     }
 }

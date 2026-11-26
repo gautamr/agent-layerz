@@ -5,9 +5,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use crate::account::AccountFamily;
 use crate::account::{AccountName, MissReason};
 use crate::diagnostic::Diagnostics;
-use crate::target::TargetName;
 
 /// The step that decided a target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -302,7 +302,7 @@ pub struct TargetResolution {
 /// folder), each once.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolution {
-    pub(super) targets: BTreeMap<TargetName, TargetResolution>,
+    pub(super) targets: BTreeMap<AccountFamily, TargetResolution>,
     pub(super) warnings: Diagnostics,
     pub(super) allowed: bool,
 }
@@ -310,12 +310,12 @@ pub struct Resolution {
 impl Resolution {
     /// The decision for `target`.
     #[must_use]
-    pub fn target(&self, target: TargetName) -> Option<&TargetResolution> {
+    pub fn target(&self, target: AccountFamily) -> Option<&TargetResolution> {
         self.targets.get(&target)
     }
 
     /// Each target and its decision, in target order.
-    pub fn targets(&self) -> impl Iterator<Item = (TargetName, &TargetResolution)> + '_ {
+    pub fn targets(&self) -> impl Iterator<Item = (AccountFamily, &TargetResolution)> + '_ {
         self.targets.iter().map(|(target, found)| (*target, found))
     }
 
@@ -342,18 +342,18 @@ impl Resolution {
 
 /// The variable a target's account is set through.
 #[must_use]
-pub const fn variable(target: TargetName) -> &'static str {
+pub const fn variable(target: AccountFamily) -> &'static str {
     match target {
-        TargetName::Claude => "CLAUDE_CONFIG_DIR",
-        TargetName::Codex => "CODEX_HOME",
+        AccountFamily::Claude => "CLAUDE_CONFIG_DIR",
+        AccountFamily::Codex => "CODEX_HOME",
     }
 }
 
 /// The name of the account folder below `$HOME`, `.claude-<name>` or `.codex-<name>`.
 #[must_use]
-pub fn folder_name(target: TargetName, name: &impl fmt::Display) -> String {
+pub fn folder_name(target: AccountFamily, name: &impl fmt::Display) -> String {
     match target {
-        TargetName::Claude => format!(".claude-{name}"),
-        TargetName::Codex => format!(".codex-{name}"),
+        AccountFamily::Claude => format!(".claude-{name}"),
+        AccountFamily::Codex => format!(".codex-{name}"),
     }
 }

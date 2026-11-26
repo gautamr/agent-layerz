@@ -3,7 +3,7 @@
 use std::num::NonZeroU32;
 
 use crate::item::ToolName;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// Text that is not a hook's value for a field: the rule that was broken. The error holds no
 /// input.
@@ -136,15 +136,15 @@ impl NativeEventName {
 /// A target's own event, written `<target>:<Event>`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NativeEvent {
-    target: TargetName,
+    target: TargetId,
     name: NativeEventName,
 }
 
 impl NativeEvent {
     /// The only target the event runs on.
     #[must_use]
-    pub const fn target(&self) -> TargetName {
-        self.target
+    pub const fn target(&self) -> &TargetId {
+        &self.target
     }
 
     /// The event's name in the target's vocabulary.
@@ -170,7 +170,9 @@ impl TryFrom<&str> for HookEvent {
                 text.split_once(':')
                     .and_then(|(target, name)| {
                         Some(NativeEvent {
-                            target: TargetName::try_from(target).ok()?,
+                            target: TargetId::try_from(target)
+                                .ok()
+                                .filter(|id| matches!(id.as_str(), "claude" | "codex"))?,
                             name: NativeEventName::named(name)?,
                         })
                     })

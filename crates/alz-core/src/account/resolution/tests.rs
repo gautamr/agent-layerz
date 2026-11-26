@@ -8,6 +8,7 @@ use super::{
     ManifestProblem, NoRepository, Recorded, Repository, SkipReason, Source, Stack, VariableFact,
     Verdict, resolve,
 };
+use crate::account::AccountFamily;
 use crate::account::CachedLayer;
 use crate::account::{
     AccountChoice, AccountDeclaration, AccountName, AllowEntry, AllowedSource, CachedDeclaration,
@@ -18,7 +19,6 @@ use crate::lint::parse_document;
 use crate::merge::Placement;
 use crate::path::AbsolutePath;
 use crate::stack::{ResolvedLayer, Source as StackSource};
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
 fn name(text: &str) -> AccountName {
@@ -124,9 +124,12 @@ fn declares(account: &str, recorded: &str) -> CachedDeclaration {
 
 fn entry(root: &str, claude: Option<&str>, codex: Option<&str>, source: &str) -> AllowEntry {
     let map = NonEmptyTargetMap::from_entries(
-        [(TargetName::Claude, claude), (TargetName::Codex, codex)]
-            .into_iter()
-            .filter_map(|(target, account)| account.map(|text| (target, name(text)))),
+        [
+            (AccountFamily::Claude, claude),
+            (AccountFamily::Codex, codex),
+        ]
+        .into_iter()
+        .filter_map(|(target, account)| account.map(|text| (target, name(text)))),
     )
     .expect("a non-empty map");
     AllowEntry::new(
@@ -153,7 +156,7 @@ fn allowed(entries: Vec<AllowEntry>) -> Facts {
     }
 }
 
-fn verdict(facts: &Facts, stack: &Fixed, target: TargetName) -> Verdict {
+fn verdict(facts: &Facts, stack: &Fixed, target: AccountFamily) -> Verdict {
     resolve(facts, stack)
         .target(target)
         .expect("every target is decided")
@@ -161,7 +164,7 @@ fn verdict(facts: &Facts, stack: &Fixed, target: TargetName) -> Verdict {
         .clone()
 }
 
-fn source_of(facts: &Facts, stack: &Fixed, target: TargetName) -> Source {
+fn source_of(facts: &Facts, stack: &Fixed, target: AccountFamily) -> Source {
     resolve(facts, stack)
         .target(target)
         .expect("every target is decided")
@@ -181,12 +184,12 @@ fn nothing_named_is_the_default_account_and_never_fails() {
 #[test]
 fn a_named_account_whose_folder_exists_is_applied_and_a_missing_one_fails_closed() {
     let mut facts = base();
-    facts.explicit.run = Some((TargetName::Claude, ExplicitName::Valid(choice("client"))));
+    facts.explicit.run = Some((AccountFamily::Claude, ExplicitName::Valid(choice("client"))));
     facts.folders = ExistingFolders::new([name("other")], []);
     let Verdict::FailsClosed(FailsClosed::MissingFolder {
         name: missing,
         existing,
-    }) = verdict(&facts, &nothing(), TargetName::Claude)
+    }) = verdict(&facts, &nothing(), AccountFamily::Claude)
     else {
         panic!("a missing folder fails closed");
     };
@@ -194,7 +197,7 @@ fn a_named_account_whose_folder_exists_is_applied_and_a_missing_one_fails_closed
     assert_eq!(existing, vec![name("other")]);
     facts.folders = ExistingFolders::new([name("client")], []);
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Claude),
+        verdict(&facts, &nothing(), AccountFamily::Claude),
         Verdict::Applied(Applied::Folder(name("client")))
     );
 }
@@ -204,10 +207,10 @@ fn the_blocked_name_never_exists_so_it_is_a_missing_folder() {
     let mut facts = base();
     facts.folders = ExistingFolders::new([name("alz-blocked")], []);
     facts.explicit.used = vec![(
-        TargetName::Claude,
+        AccountFamily::Claude,
         ExplicitName::Valid(choice("alz-blocked")),
     )];
-    let found = verdict(&facts, &nothing(), TargetName::Claude);
+    let found = verdict(&facts, &nothing(), AccountFamily::Claude);
     assert!(matches!(
         &found,
         Verdict::FailsClosed(failure @ FailsClosed::MissingFolder { .. })
@@ -218,12 +221,12 @@ fn the_blocked_name_never_exists_so_it_is_a_missing_folder() {
 #[test]
 fn an_explicit_name_that_is_not_an_account_name_fails_closed_and_never_falls_through() {
     let mut facts = base();
-    facts.explicit.used = vec![(TargetName::Codex, ExplicitName::NotAName)];
+    facts.explicit.used = vec![(AccountFamily::Codex, ExplicitName::NotAName)];
     facts.config.file = file(FileOutcome::Read);
     facts.config.folders = vec![(path("/work"), AccountDeclaration::Every(choice("client")))];
     facts.folders = ExistingFolders::new([name("client")], [name("client")]);
     let result = resolve(&facts, &nothing());
-    let found = result.target(TargetName::Codex).expect("decided");
+    let found = result.target(AccountFamily::Codex).expect("decided");
     assert_eq!(found.source, Source::Use);
     assert_eq!(
         found.verdict,
@@ -234,7 +237,10 @@ fn an_explicit_name_that_is_not_an_account_name_fails_closed_and_never_falls_thr
         Verdict::FailsClosed(FailsClosed::InvalidName)
     );
     assert_eq!(
-        result.target(TargetName::Claude).expect("decided").source,
+        result
+            .target(AccountFamily::Claude)
+            .expect("decided")
+            .source,
         Source::UserConfig
     );
 }
@@ -243,17 +249,17 @@ fn an_explicit_name_that_is_not_an_account_name_fails_closed_and_never_falls_thr
 fn with_home_not_absolute_a_named_account_fails_closed_and_the_default_still_resolves() {
     let mut facts = base();
     facts.home = HomeFact::NotAbsolute;
-    facts.explicit.run = Some((TargetName::Claude, ExplicitName::Valid(choice("client"))));
+    facts.explicit.run = Some((AccountFamily::Claude, ExplicitName::Valid(choice("client"))));
     facts.explicit.used = vec![(
-        TargetName::Codex,
+        AccountFamily::Codex,
         ExplicitName::Valid(AccountChoice::Default),
     )];
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Claude),
+        verdict(&facts, &nothing(), AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::HomeNotAbsolute)
     );
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Codex),
+        verdict(&facts, &nothing(), AccountFamily::Codex),
         Verdict::Applied(Applied::Default)
     );
 }
@@ -262,9 +268,12 @@ fn with_home_not_absolute_a_named_account_fails_closed_and_the_default_still_res
 fn a_name_equal_to_the_default_name_is_the_default_account() {
     let mut facts = base();
     facts.config.default_name = Some(name("personal"));
-    facts.explicit.run = Some((TargetName::Claude, ExplicitName::Valid(choice("personal"))));
+    facts.explicit.run = Some((
+        AccountFamily::Claude,
+        ExplicitName::Valid(choice("personal")),
+    ));
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Claude),
+        verdict(&facts, &nothing(), AccountFamily::Claude),
         Verdict::Applied(Applied::Default)
     );
 }
@@ -309,9 +318,12 @@ fn a_foreign_value_replaces_steps_three_to_five_but_never_one_and_two() {
         marker: None,
     };
     facts.environment.manager_active = true;
-    facts.explicit.used = vec![(TargetName::Claude, ExplicitName::Valid(choice("client")))];
+    facts.explicit.used = vec![(AccountFamily::Claude, ExplicitName::Valid(choice("client")))];
     let stack = Fixed::new(declares("client", "/s"));
-    assert_eq!(source_of(&facts, &stack, TargetName::Claude), Source::Use);
+    assert_eq!(
+        source_of(&facts, &stack, AccountFamily::Claude),
+        Source::Use
+    );
     facts.explicit.used.clear();
     facts.environment.codex = VariableFact::Set {
         value: "/elsewhere".to_owned(),
@@ -319,7 +331,7 @@ fn a_foreign_value_replaces_steps_three_to_five_but_never_one_and_two() {
     };
     let stack = Fixed::new(declares("client", "/s"));
     let result = resolve(&facts, &stack);
-    let found = result.target(TargetName::Claude).expect("decided");
+    let found = result.target(AccountFamily::Claude).expect("decided");
     assert_eq!(found.source, Source::Environment);
     assert!(matches!(found.verdict, Verdict::Applied(Applied::Kept(_))));
     assert_eq!(
@@ -341,7 +353,7 @@ fn a_foreign_value_replaces_steps_three_to_five_but_never_one_and_two() {
 fn a_marker_without_its_variable_is_stale_and_ignored() {
     let facts = base();
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Claude),
+        verdict(&facts, &nothing(), AccountFamily::Claude),
         Verdict::Applied(Applied::Default)
     );
 }
@@ -364,14 +376,14 @@ fn with_folders(entries: Vec<(&str, AccountDeclaration)>) -> Facts {
 #[test]
 fn the_longest_folders_entry_decides_and_a_shorter_one_is_not_tried() {
     let only_codex = AccountDeclaration::PerTarget(
-        NonEmptyTargetMap::from_entries([(TargetName::Codex, choice("b"))]).expect("a map"),
+        NonEmptyTargetMap::from_entries([(AccountFamily::Codex, choice("b"))]).expect("a map"),
     );
     let facts = with_folders(vec![
         ("/work", AccountDeclaration::Every(choice("a"))),
         ("/work/a", only_codex),
     ]);
     let result = resolve(&facts, &nothing());
-    let claude = result.target(TargetName::Claude).expect("decided");
+    let claude = result.target(AccountFamily::Claude).expect("decided");
     assert_eq!(
         claude.source,
         Source::Default,
@@ -384,7 +396,10 @@ fn the_longest_folders_entry_decides_and_a_shorter_one_is_not_tried() {
             .any(|skip| skip.reason == SkipReason::EntryNamesNoTarget)
     );
     assert_eq!(
-        result.target(TargetName::Codex).expect("decided").verdict,
+        result
+            .target(AccountFamily::Codex)
+            .expect("decided")
+            .verdict,
         Verdict::Applied(Applied::Folder(name("b")))
     );
 }
@@ -395,11 +410,11 @@ fn a_folders_entry_matches_whole_segments_only() {
     let mut near = facts.clone();
     near.known_directory = Some(path("/work/ab"));
     assert_eq!(
-        source_of(&near, &nothing(), TargetName::Claude),
+        source_of(&near, &nothing(), AccountFamily::Claude),
         Source::Default
     );
     assert_eq!(
-        source_of(&facts, &nothing(), TargetName::Claude),
+        source_of(&facts, &nothing(), AccountFamily::Claude),
         Source::UserConfig
     );
 }
@@ -409,7 +424,7 @@ fn a_working_directory_in_an_account_folder_skips_the_user_config() {
     let mut facts = with_folders(vec![("/work", AccountDeclaration::Every(choice("a")))]);
     facts.repository = Repository::None(NoRepository::AccountFolder);
     let result = resolve(&facts, &nothing());
-    let found = result.target(TargetName::Claude).expect("decided");
+    let found = result.target(AccountFamily::Claude).expect("decided");
     assert_eq!(found.source, Source::Default);
     assert_eq!(found.skipped[1].reason, SkipReason::CwdInAccountFolder);
 }
@@ -422,7 +437,7 @@ fn a_repository_that_is_not_allowed_never_reads_the_layers_and_gets_the_default(
     assert_eq!(stack.reads.get(), 0);
     assert!(result.all_resolve());
     assert!(!result.is_allowed());
-    let found = result.target(TargetName::Claude).expect("decided");
+    let found = result.target(AccountFamily::Claude).expect("decided");
     assert_eq!(
         found.skipped.last().map(|skip| skip.reason),
         Some(SkipReason::NotAllowed)
@@ -434,7 +449,7 @@ fn an_allowed_declaration_that_matches_the_entry_applies() {
     let facts = allowed(vec![entry("/work/a", Some("client"), None, "/s")]);
     let stack = Fixed::new(declares("{claude: client}", "/s"));
     assert_eq!(
-        verdict(&facts, &stack, TargetName::Claude),
+        verdict(&facts, &stack, AccountFamily::Claude),
         Verdict::Applied(Applied::Folder(name("client")))
     );
     assert_eq!(
@@ -476,13 +491,13 @@ fn a_changed_map_or_source_skips_step_four_for_every_target_and_warns() {
 #[test]
 fn a_declaration_that_is_gone_fails_closed_with_the_remove_fix() {
     let facts = allowed(vec![entry("/work/a", Some("client"), None, "/s")]);
-    let Verdict::FailsClosed(failure) = verdict(&facts, &nothing(), TargetName::Claude) else {
+    let Verdict::FailsClosed(failure) = verdict(&facts, &nothing(), AccountFamily::Claude) else {
         panic!("fails closed");
     };
     assert_eq!(failure.fix(), super::Fix::AllowRemove);
     assert_eq!(failure.hook(), HookApplies::Blocked);
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Codex),
+        verdict(&facts, &nothing(), AccountFamily::Codex),
         Verdict::Applied(Applied::Default),
         "a target the entry does not name is skipped"
     );
@@ -494,7 +509,7 @@ fn a_cache_miss_keeps_the_recorded_account_and_a_gone_source_blocks() {
     let miss = CachedDeclaration::Miss(Miss::of(MissReason::LockMissing));
     let mut stack = Fixed::new(miss);
     assert_eq!(
-        verdict(&facts, &stack, TargetName::Claude),
+        verdict(&facts, &stack, AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::CacheMiss {
             miss: MissReason::LockMissing,
             recorded: Recorded::Folder {
@@ -504,7 +519,7 @@ fn a_cache_miss_keeps_the_recorded_account_and_a_gone_source_blocks() {
         })
     );
     assert_eq!(
-        verdict(&facts, &stack, TargetName::Codex),
+        verdict(&facts, &stack, AccountFamily::Codex),
         Verdict::FailsClosed(FailsClosed::CacheMiss {
             miss: MissReason::LockMissing,
             recorded: Recorded::Folder {
@@ -515,7 +530,7 @@ fn a_cache_miss_keeps_the_recorded_account_and_a_gone_source_blocks() {
     );
     stack.in_stack = false;
     assert_eq!(
-        verdict(&facts, &stack, TargetName::Claude),
+        verdict(&facts, &stack, AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::SourceGone)
     );
 }
@@ -524,7 +539,7 @@ fn a_cache_miss_keeps_the_recorded_account_and_a_gone_source_blocks() {
 fn a_recorded_default_account_is_unset_by_the_hook_and_still_fails_closed() {
     let facts = allowed(vec![entry("/work/a", Some("default"), None, "/s")]);
     let stack = Fixed::new(CachedDeclaration::Miss(Miss::of(MissReason::Unreadable)));
-    let Verdict::FailsClosed(failure) = verdict(&facts, &stack, TargetName::Claude) else {
+    let Verdict::FailsClosed(failure) = verdict(&facts, &stack, AccountFamily::Claude) else {
         panic!("fails closed");
     };
     assert_eq!(failure.hook(), HookApplies::Recorded(Recorded::Default));
@@ -539,7 +554,7 @@ fn a_manifest_that_cannot_be_used_blocks_an_allowed_root_without_reading_the_lay
     };
     let stack = nothing();
     assert_eq!(
-        verdict(&facts, &stack, TargetName::Claude),
+        verdict(&facts, &stack, AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::Manifest(ManifestProblem::Unreadable))
     );
     assert_eq!(stack.reads.get(), 0);
@@ -551,13 +566,13 @@ fn an_allowed_entry_covering_a_configured_folder_fails_closed_on_the_blocked_fol
     facts.repository = Repository::None(NoRepository::ConfiguredFolder);
     facts.known_directory = Some(path("/work/cfg"));
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Claude),
+        verdict(&facts, &nothing(), AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::ConfiguredFolder)
     );
     facts.allowed.entries.clear();
     let result = resolve(&facts, &nothing());
     assert!(result.all_resolve());
-    let found = result.target(TargetName::Claude).expect("decided");
+    let found = result.target(AccountFamily::Claude).expect("decided");
     assert_eq!(
         found.skipped.last().map(|skip| skip.reason),
         Some(SkipReason::CwdInConfiguredFolder)
@@ -572,7 +587,7 @@ fn an_allowed_entry_inside_a_configured_folder_fails_closed_and_one_beside_it_do
     facts.repository = Repository::None(NoRepository::ConfiguredFolder);
     facts.known_directory = Some(path("/work/cfg"));
     assert_eq!(
-        verdict(&facts, &nothing(), TargetName::Claude),
+        verdict(&facts, &nothing(), AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::ConfiguredFolder)
     );
     facts.allowed.entries = vec![entry("/work/other", Some("client"), None, "/s")];
@@ -588,7 +603,7 @@ fn a_conflict_blocks_and_reports_the_declarations_that_may_not() {
         ignored: Vec::new(),
     });
     assert_eq!(
-        verdict(&facts, &stack, TargetName::Claude),
+        verdict(&facts, &stack, AccountFamily::Claude),
         Verdict::FailsClosed(FailsClosed::Conflict)
     );
 }
@@ -651,14 +666,14 @@ proptest! {
         facts.folders = existing;
         let applies = matches!(&declaration, CachedDeclaration::Declared { declaration: d, .. }
             if d.recorded_source == "/s"
-                && d.map.choice_for(TargetName::Claude).is_some_and(|c| *c == AccountChoice::Named(claude.clone()))
-                && d.map.choice_for(TargetName::Codex).map(|c| match c {
+                && d.map.choice_for(AccountFamily::Claude).is_some_and(|c| *c == AccountChoice::Named(claude.clone()))
+                && d.map.choice_for(AccountFamily::Codex).map(|c| match c {
                     AccountChoice::Default => "default".to_owned(),
                     AccountChoice::Named(n) => n.to_string(),
                 }) == codex.as_ref().map(ToString::to_string));
         let stack = Fixed { in_stack, ..Fixed::new(declaration) };
         let result = resolve(&facts, &stack);
-        for (target, recorded) in [(TargetName::Claude, Some(claude.clone())), (TargetName::Codex, codex.clone())] {
+        for (target, recorded) in [(AccountFamily::Claude, Some(claude.clone())), (AccountFamily::Codex, codex.clone())] {
             let Some(recorded) = recorded else { continue };
             let found = result.target(target).expect("decided");
             if applies {
@@ -688,8 +703,8 @@ proptest! {
     ) {
         let mut facts = allowed(vec![entry("/work/a", Some("client"), None, "/s")]);
         facts.folders = existing;
-        facts.explicit.run = run.clone().map(|c| (TargetName::Claude, ExplicitName::Valid(c)));
-        facts.explicit.used = used.clone().into_iter().map(|c| (TargetName::Claude, ExplicitName::Valid(c))).collect();
+        facts.explicit.run = run.clone().map(|c| (AccountFamily::Claude, ExplicitName::Valid(c)));
+        facts.explicit.used = used.clone().into_iter().map(|c| (AccountFamily::Claude, ExplicitName::Valid(c))).collect();
         if foreign {
             facts.environment.claude = VariableFact::Set { value: "/x".to_owned(), marker: None };
         }
@@ -705,16 +720,16 @@ proptest! {
         } else if config.is_some() {
             Source::UserConfig
         } else {
-            let found = result.target(TargetName::Claude).expect("decided");
+            let found = result.target(AccountFamily::Claude).expect("decided");
             prop_assert!(matches!(found.source, Source::Layer | Source::Default));
             Source::Layer
         };
-        let found = result.target(TargetName::Claude).expect("decided");
+        let found = result.target(AccountFamily::Claude).expect("decided");
         if expected != Source::Layer {
             prop_assert_eq!(found.source, expected);
         }
         // Codex is not named by the allowed entry: skipped, never failed by step 4.
-        let codex = result.target(TargetName::Codex).expect("decided");
+        let codex = result.target(AccountFamily::Codex).expect("decided");
         if codex.source == Source::Default {
             prop_assert!(matches!(codex.verdict, Verdict::Applied(Applied::Default)));
         }

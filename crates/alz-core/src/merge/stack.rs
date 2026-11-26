@@ -47,7 +47,7 @@ use crate::merge::rules::{MergedRule, RuleState};
 use crate::merge::settings::SettingsState;
 use crate::merge::skills::{MergedSkills, SkillState, SlotDemand};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// What a kind needs to absorb one layer: the layer, where it lies in the stack and where the layer
 /// lies in relation to the repository.
@@ -109,7 +109,7 @@ pub struct Merged {
     slot_stubs: BTreeMap<SkillName, SlotDemand>,
     hooks: Vec<Traced<Hook>>,
     permissions: MergedPermissions,
-    settings: BTreeMap<TargetName, Traced<SettingsTree>>,
+    settings: BTreeMap<TargetId, Traced<SettingsTree>>,
     mcp: MergedMcp,
     models: MergedModels,
     passthrough: MergedPassthrough,
@@ -176,7 +176,7 @@ impl Merged {
     /// The settings of each target, deep-merged across layers (§7.9), each with the layers that
     /// set them. A target no layer set has no entry, and no other key can be there.
     #[must_use]
-    pub const fn settings(&self) -> &BTreeMap<TargetName, Traced<SettingsTree>> {
+    pub const fn settings(&self) -> &BTreeMap<TargetId, Traced<SettingsTree>> {
         &self.settings
     }
 
@@ -293,7 +293,7 @@ impl Accumulator {
         let (settings, found_settings) = self.settings.absorb(context);
         let (mcp, found_mcp) = self.mcp.absorb(context);
         let (models, found_models) = self.models.absorb(context);
-        let (passthrough, found_passthrough) = self.passthrough.absorb(context);
+        let (passthrough, found_passthrough) = self.passthrough.absorb_deferring(context);
         let commit_identity = self
             .commit_identity
             .absorb(context, LayerMeta::commit_identity);
@@ -343,6 +343,9 @@ impl Accumulator {
         let (mcp, found_mcp) = self.mcp.finish(manifest);
         let (models, found_unresolved) = self.models.finish();
         let shadowed = self.permissions.shadowed();
+        let (passthrough, found_passthrough) = self
+            .passthrough
+            .finish(|target| manifest.targets().contains(target));
         let (commit_identity, found_identity) =
             self.commit_identity.finish(DeclaredField::CommitIdentity);
         let (account, found_account) = self.account.finish(DeclaredField::Account);
@@ -360,7 +363,7 @@ impl Accumulator {
                 settings: self.settings.finish(),
                 mcp,
                 models,
-                passthrough: self.passthrough.finish(),
+                passthrough,
                 commit_identity,
                 account,
             },
@@ -370,7 +373,8 @@ impl Accumulator {
                 .merge(found_mcp)
                 .merge(found_unresolved)
                 .merge(found_identity)
-                .merge(found_account),
+                .merge(found_account)
+                .merge(found_passthrough),
         )
     }
 }

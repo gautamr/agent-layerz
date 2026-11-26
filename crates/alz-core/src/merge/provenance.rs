@@ -41,11 +41,11 @@ impl Origin {
 
     /// The origin of the layer's file of kind `item`, such as `mcp.yaml`, when the layer has one.
     #[must_use]
-    pub fn of_item(layer: &ResolvedLayer, item: ItemPath<'_>) -> Option<Self> {
+    pub fn of_item(layer: &ResolvedLayer, item: &ItemPath<'_>) -> Option<Self> {
         layer
             .contents()
             .paths()
-            .find(|path| ItemPath::of(path) == item)
+            .find(|path| ItemPath::of(path) == *item)
             .map(|path| Self::new(layer, path.clone()))
     }
 

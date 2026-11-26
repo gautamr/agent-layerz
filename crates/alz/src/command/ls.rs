@@ -6,9 +6,9 @@
 
 use std::io::{self, Write};
 
+use alz_adapter::TargetId;
 use alz_core::listing::Listing;
 use alz_core::live::{Built, Comparison};
-use alz_core::target::TargetName;
 use alz_core::{Code, Diagnostic, Diagnostics, Message};
 
 use crate::cli::LsArgs;
@@ -74,8 +74,8 @@ fn live(
 }
 
 /// `--live` asks Claude, so the manifest has to build for it (§10.3).
-fn require_claude(targets: &[TargetName]) -> Result<(), Diagnostic> {
-    if targets.contains(&TargetName::Claude) {
+fn require_claude(targets: &[TargetId]) -> Result<(), Diagnostic> {
+    if targets.contains(alz_core::target::claude()) {
         Ok(())
     } else {
         Err(Diagnostic::error(
@@ -100,7 +100,6 @@ fn write_text(stream: &mut impl Write, text: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use alz_core::target::TargetName;
 
     use super::require_claude;
 
@@ -109,9 +108,16 @@ mod tests {
     /// (the Codex adapter is TASK-18), so the check is tested where it is made.
     #[test]
     fn live_needs_the_claude_target() {
-        assert!(require_claude(&[TargetName::Claude]).is_ok());
-        assert!(require_claude(&[TargetName::Codex, TargetName::Claude]).is_ok());
-        let refused = require_claude(&[TargetName::Codex]).expect_err("no claude target");
+        assert!(require_claude(&[alz_core::target::claude().clone()]).is_ok());
+        assert!(
+            require_claude(&[
+                alz_core::target::codex().clone(),
+                alz_core::target::claude().clone()
+            ])
+            .is_ok()
+        );
+        let refused =
+            require_claude(&[alz_core::target::codex().clone()]).expect_err("no claude target");
         assert_eq!(
             refused.to_string(),
             "error [ls] --live needs the claude target"

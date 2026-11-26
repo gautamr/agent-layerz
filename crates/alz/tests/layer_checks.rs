@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn a_settings_file_with_a_key_that_is_not_a_target_is_an_error() {
-        let run = lint(&[("settings.yaml", "nottarget: 1\n")]);
+        let run = lint(&[("settings.yaml", "NotTarget: 1\n")]);
         assert_refused(&run, "error [settings] l:settings.yaml:1:1: ");
     }
 

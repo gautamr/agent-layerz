@@ -9,7 +9,6 @@ use crate::item::{
 };
 use crate::merge::{Merged, Traced, Tree};
 use crate::render::tree::{FileMode, GeneratedFile};
-use crate::target::TargetName;
 use crate::untrusted_text::{QuotedKey, Stripped};
 
 use super::document::{map, text};
@@ -83,9 +82,9 @@ fn all(merged: &Merged) -> Hooks {
 /// A hook runs on Claude when its targets say so, and a native event is Claude's own.
 fn runs_on_claude(hook: &Hook) -> bool {
     hook.targets()
-        .is_none_or(|targets| targets.contains(&TargetName::Claude))
+        .is_none_or(|targets| targets.contains(crate::target::claude()))
         && match hook.trigger() {
-            Trigger::Native { event, .. } => event.target() == TargetName::Claude,
+            Trigger::Native { event, .. } => event.target() == crate::target::claude(),
             Trigger::Tool { .. } | Trigger::Lifecycle(_) => true,
         }
 }

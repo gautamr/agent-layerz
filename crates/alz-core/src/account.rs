@@ -9,6 +9,7 @@ mod allow_text;
 mod cached;
 mod confirmation;
 mod declaration;
+mod family;
 mod folder_key;
 mod folders;
 mod name;
@@ -36,6 +37,7 @@ pub use confirmation::{Answer, Confirmation};
 pub use declaration::{
     AccountChoice, AccountDeclaration, AccountShapeError, EmptyTargetMap, NonEmptyTargetMap,
 };
+pub use family::{AccountFamily, AccountFamilyError};
 pub use folder_key::{FolderKey, FolderKeyError, HomeRelative};
 pub use folders::{AccountFolders, Relation, lies_within, names_account_folder};
 pub use name::{AccountName, AccountNameError};

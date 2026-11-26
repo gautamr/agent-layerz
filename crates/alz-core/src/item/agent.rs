@@ -18,9 +18,9 @@ use crate::merge::{Last, ListEdit, OrderedSet};
 use crate::path::SafeRelPath;
 use crate::schema::{Checked, refine, refine_list, require, unknown_fields, zip, zip3};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 use crate::yaml::fields::Section;
+use alz_adapter::TargetId;
 
 use super::list_edit::{WrittenEdit, refine_edit, written_edit};
 use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
@@ -131,7 +131,7 @@ pub struct AgentBase {
     scalars: AgentScalars,
     tools: Option<OrderedSet<ToolGrant>>,
     skills: OrderedSet<SkillName>,
-    targets: Option<OrderedSet<TargetName>>,
+    targets: Option<OrderedSet<TargetId>>,
     native: NativeFields,
     body: String,
 }
@@ -175,7 +175,7 @@ impl AgentBase {
 
     /// The targets the agent is restricted to, `None` for every target.
     #[must_use]
-    pub const fn targets(&self) -> Option<&OrderedSet<TargetName>> {
+    pub const fn targets(&self) -> Option<&OrderedSet<TargetId>> {
         self.targets.as_ref()
     }
 
@@ -203,7 +203,7 @@ pub struct AgentOverlay {
     scalars: AgentScalars,
     tools: Option<ListEdit<ToolGrant>>,
     skills: ListEdit<SkillName>,
-    targets: Option<ListEdit<TargetName>>,
+    targets: Option<ListEdit<TargetId>>,
     written: WrittenEdits,
     native: NativeFields,
     body: String,
@@ -288,7 +288,7 @@ impl AgentOverlay {
 
     /// The edit of the targets, `None` to keep them.
     #[must_use]
-    pub const fn targets(&self) -> Option<&ListEdit<TargetName>> {
+    pub const fn targets(&self) -> Option<&ListEdit<TargetId>> {
         self.targets.as_ref()
     }
 
@@ -434,7 +434,7 @@ fn read_base(
                 refine_list::<ToolGrant>(&section, "tools"),
                 refine_list::<SkillName>(&section, "skills"),
             ),
-            refine_list::<TargetName>(&section, "targets"),
+            refine_list::<TargetId>(&section, "targets"),
         ),
     )
     .map_err(|errors| schema_diagnostics(Code::Agent, &at, &errors));
@@ -500,7 +500,7 @@ fn read_overlay(
         zip3(
             refine_edit::<ToolGrant>(&section, "tools", ListEdit::Replace),
             refine_edit::<SkillName>(&section, "skills", ListEdit::Replace),
-            refine_edit::<TargetName>(&section, "targets", ListEdit::Replace),
+            refine_edit::<TargetId>(&section, "targets", ListEdit::Replace),
         ),
     )
     .map_err(|errors| schema_diagnostics(Code::Agent, &at, &errors));

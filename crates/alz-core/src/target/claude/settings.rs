@@ -7,7 +7,6 @@ use std::collections::BTreeMap;
 use crate::diagnostic::Diagnostics;
 use crate::merge::{Merged, Tree};
 use crate::stack::Workspace;
-use crate::target::TargetName;
 
 use super::document::{file, map, text};
 use super::{Output, hooks, output_path, permissions};
@@ -29,7 +28,7 @@ pub(super) fn render(merged: &Merged, workspace: &Workspace) -> Output {
     });
     let model = merged
         .models()
-        .for_default(TargetName::Claude)
+        .for_default(crate::target::claude())
         .map(|model| text(model.as_str()));
     let generated = map([
         permissions::render(merged, workspace).map(|tree| ("permissions", tree)),
@@ -40,7 +39,7 @@ pub(super) fn render(merged: &Merged, workspace: &Workspace) -> Output {
     .flatten());
     let settings = merged
         .settings()
-        .get(&TargetName::Claude)
+        .get(crate::target::claude())
         .map_or_else(
             || Tree::Map(BTreeMap::new()),
             |traced| traced.value().to_tree(),

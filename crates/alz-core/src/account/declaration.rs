@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 
 use thiserror::Error;
 
+use crate::account::AccountFamily;
 use crate::account::name::{AccountName, AccountNameError};
 use crate::schema::{
     Checked, Refusal, SchemaError, SchemaErrors, refine_node, unknown_fields, zip,
 };
-use crate::target::TargetName;
 use crate::yaml::fields::{KeyPath, Section};
 use crate::yaml::{Node, Value};
 
@@ -46,7 +46,7 @@ impl TryFrom<&str> for AccountChoice {
 
 /// A map from targets to values with at least one entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NonEmptyTargetMap<T>(BTreeMap<TargetName, T>);
+pub struct NonEmptyTargetMap<T>(BTreeMap<AccountFamily, T>);
 
 /// A target map without an entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -60,9 +60,9 @@ impl<T> NonEmptyTargetMap<T> {
     ///
     /// [`EmptyTargetMap`] when there is no entry.
     pub fn from_entries(
-        entries: impl IntoIterator<Item = (TargetName, T)>,
+        entries: impl IntoIterator<Item = (AccountFamily, T)>,
     ) -> Result<Self, EmptyTargetMap> {
-        let map: BTreeMap<TargetName, T> = entries.into_iter().collect();
+        let map: BTreeMap<AccountFamily, T> = entries.into_iter().collect();
         if map.is_empty() {
             Err(EmptyTargetMap)
         } else {
@@ -72,12 +72,12 @@ impl<T> NonEmptyTargetMap<T> {
 
     /// The value of `target`, `None` when the map leaves it out.
     #[must_use]
-    pub fn get(&self, target: TargetName) -> Option<&T> {
+    pub fn get(&self, target: AccountFamily) -> Option<&T> {
         self.0.get(&target)
     }
 
     /// The entries in target order.
-    pub fn iter(&self) -> impl Iterator<Item = (TargetName, &T)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (AccountFamily, &T)> + '_ {
         self.0.iter().map(|(target, value)| (*target, value))
     }
 }
@@ -118,7 +118,7 @@ pub enum AccountDeclaration {
 impl AccountDeclaration {
     /// What the declaration says for `target`: `None` when the layer leaves it undecided.
     #[must_use]
-    pub fn choice_for(&self, target: TargetName) -> Option<&AccountChoice> {
+    pub fn choice_for(&self, target: AccountFamily) -> Option<&AccountChoice> {
         match self {
             Self::Every(choice) => Some(choice),
             Self::PerTarget(map) => map.get(target),
@@ -167,8 +167,8 @@ where
     )]
     pub fn from_node(node: &Node, path: KeyPath) -> Checked<Self> {
         let section = Section::new(node, path.clone()).map_err(SchemaError::from)?;
-        let known = TargetName::ALL.map(TargetName::as_str);
-        let entries = TargetName::ALL
+        let known = AccountFamily::ALL.map(AccountFamily::as_str);
+        let entries = AccountFamily::ALL
             .into_iter()
             .map(|target| {
                 // Test 29: `{claude: null}` is refused, so each entry is read as written.

@@ -68,7 +68,7 @@ impl McpState {
     pub(super) fn absorb(self, context: &LayerContext<'_>) -> (Self, Diagnostics) {
         let layer = context.layer().meta().name();
         let (items, found) = McpItems::read(context.layer());
-        let Some(origin) = Origin::of_item(context.layer(), ItemPath::Mcp) else {
+        let Some(origin) = Origin::of_item(context.layer(), &ItemPath::Mcp) else {
             return (self, found);
         };
         let (servers, refused) = items.into_parts();

@@ -307,13 +307,13 @@ mod tests {
                 "error",
                 &[(
                     "repo/.layer/models.yaml",
-                    "aliases:\n  strong: { bogus: x }\n",
+                    "aliases:\n  strong: { Bogus: x }\n",
                 )],
             ),
             build(
                 "settings",
                 "error",
-                &[("repo/.layer/settings.yaml", "bogus: {}\n")],
+                &[("repo/.layer/settings.yaml", "Bogus: {}\n")],
             ),
             build(
                 "protected-variable",

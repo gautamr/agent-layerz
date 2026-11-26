@@ -288,7 +288,7 @@ mod tests {
         directory
             .write(
                 "layer.yaml",
-                "stack:\n  - source: path:../a\n    ref: [x]\ntargets: [cursor]\nbogus: 1\n",
+                "stack:\n  - source: path:../a\n    ref: [x]\ntargets: [Cursor]\nbogus: 1\n",
             )
             .expect("written");
         let run = alz(directory.path(), &["lint"]);

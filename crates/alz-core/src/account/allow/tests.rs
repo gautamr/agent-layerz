@@ -1,4 +1,5 @@
 use super::{AllowDecision, allowance, distinct_names};
+use crate::account::AccountFamily;
 use crate::account::{
     AccountName, AllowEntry, AllowedSource, CachedDeclaration, CachedLayer, Miss, MissReason,
     NonEmptyTargetMap, decide,
@@ -9,7 +10,6 @@ use crate::lock::ObjectId;
 use crate::merge::Placement;
 use crate::path::AbsolutePath;
 use crate::stack::{GitRef, ResolvedLayer, Source};
-use crate::target::TargetName;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
 
@@ -44,8 +44,8 @@ fn entry(claude: &str, codex: &str, source: &str) -> AllowEntry {
     AllowEntry::new(
         root(),
         NonEmptyTargetMap::from_entries([
-            (TargetName::Claude, name(claude)),
-            (TargetName::Codex, name(codex)),
+            (AccountFamily::Claude, name(claude)),
+            (AccountFamily::Codex, name(codex)),
         ])
         .expect("a map"),
         AllowedSource::try_from(source).expect("a source"),
@@ -89,7 +89,7 @@ fn a_map_is_asked_once_for_each_distinct_name_in_target_order() {
 fn a_target_the_layer_leaves_out_is_not_recorded() {
     let found = allowance(&root(), &declared("{claude: client-a}", "/s", None), None);
     let offer = offer_of(found.decision);
-    assert_eq!(offer.entry().account().get(TargetName::Codex), None);
+    assert_eq!(offer.entry().account().get(AccountFamily::Codex), None);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn the_default_account_is_recorded_as_default() {
     let found = allowance(&root(), &declared("default", "/s", None), None);
     let offer = offer_of(found.decision);
     assert_eq!(
-        offer.entry().account().get(TargetName::Claude),
+        offer.entry().account().get(AccountFamily::Claude),
         Some(&AccountName::default_account())
     );
 }

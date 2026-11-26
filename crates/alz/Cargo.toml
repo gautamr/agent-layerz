@@ -9,6 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+alz-adapter.workspace = true
 alz-core.workspace = true
 alz-io.workspace = true
 clap.workspace = true

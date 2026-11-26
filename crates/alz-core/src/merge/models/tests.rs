@@ -2,7 +2,6 @@ use crate::item::{ConcreteModel, ModelAlias, Role};
 use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 
 fn models_layer(name: &str, yaml: &str) -> ResolvedLayer {
     layer(name, "client", &[("models.yaml", yaml)])
@@ -28,25 +27,25 @@ fn roles_resolve_through_aliases_to_the_model_of_each_target() {
             .for_role(&role(role_name), target)
             .map(ConcreteModel::as_str)
     };
-    assert_eq!(model("planning", TargetName::Claude), Some("opus"));
-    assert_eq!(model("planning", TargetName::Codex), Some("big"));
-    assert_eq!(model("research", TargetName::Claude), Some("sonnet"));
+    assert_eq!(model("planning", crate::target::claude()), Some("opus"));
+    assert_eq!(model("planning", crate::target::codex()), Some("big"));
+    assert_eq!(model("research", crate::target::claude()), Some("sonnet"));
     // The alias has no model for this target; a role nobody routes has none at all.
-    assert_eq!(model("research", TargetName::Codex), None);
-    assert_eq!(model("unrouted", TargetName::Claude), None);
+    assert_eq!(model("research", crate::target::codex()), None);
+    assert_eq!(model("unrouted", crate::target::claude()), None);
     assert_eq!(
         models.alias_of(&role("planning")).map(ModelAlias::as_str),
         Some("strong")
     );
     assert_eq!(
         models
-            .for_default(TargetName::Claude)
+            .for_default(crate::target::claude())
             .map(ConcreteModel::as_str),
         Some("sonnet")
     );
     assert_eq!(
         models
-            .model(&alias("strong"), TargetName::Claude)
+            .model(&alias("strong"), crate::target::claude())
             .map(ConcreteModel::as_str),
         Some("opus")
     );
@@ -66,13 +65,13 @@ fn aliases_and_roles_are_deep_merged_and_the_most_specific_value_wins() {
     // The alias keeps the target the repo did not name and takes its own model for the other.
     assert_eq!(
         models
-            .model(&alias("strong"), TargetName::Claude)
+            .model(&alias("strong"), crate::target::claude())
             .map(ConcreteModel::as_str),
         Some("opus")
     );
     assert_eq!(
         models
-            .model(&alias("strong"), TargetName::Codex)
+            .model(&alias("strong"), crate::target::codex())
             .map(ConcreteModel::as_str),
         Some("huge")
     );
@@ -165,7 +164,7 @@ fn an_alias_of_a_more_general_layer_resolves_the_role_of_a_more_specific_one() {
 fn an_alias_key_that_is_not_a_target_is_an_error_and_the_file_is_not_merged() {
     let found = merged(vec![models_layer(
         "repo",
-        "aliases:\n  strong: { gemini: x, claude: opus }\nroles:\n  planning: strong\n",
+        "aliases:\n  strong: { Gemini: x, claude: opus }\nroles:\n  planning: strong\n",
     )]);
     let printed = lines(&found);
     // The alias of the refused file is not merged, so the role is unresolved too.

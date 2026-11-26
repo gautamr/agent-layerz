@@ -2,6 +2,7 @@ use super::{
     AllowCommand, Refusal, allowed_lines, already_allowed, not_a_person, nothing_to_remove,
     offer_lines, prompt, remove_offer_lines, removed,
 };
+use crate::account::AccountFamily;
 use crate::account::resolution::{ExistingFolders, HomeFact, NoRepository};
 use crate::account::{
     AccountName, AllowDecision, AllowEntry, AllowedSource, CachedDeclaration, CachedLayer,
@@ -13,7 +14,6 @@ use crate::lint::parse_document;
 use crate::merge::Placement;
 use crate::path::AbsolutePath;
 use crate::stack::{GitRef, ResolvedLayer, Source};
-use crate::target::TargetName;
 
 fn path(text: &str) -> AbsolutePath {
     AbsolutePath::try_from(text).expect("an absolute path")
@@ -34,8 +34,8 @@ fn entry(root: &str, claude: &str, codex: &str, source: &str) -> AllowEntry {
     AllowEntry::new(
         path(root),
         NonEmptyTargetMap::from_entries([
-            (TargetName::Claude, name(claude)),
-            (TargetName::Codex, name(codex)),
+            (AccountFamily::Claude, name(claude)),
+            (AccountFamily::Codex, name(codex)),
         ])
         .expect("a map"),
         AllowedSource::try_from(source).expect("a source"),

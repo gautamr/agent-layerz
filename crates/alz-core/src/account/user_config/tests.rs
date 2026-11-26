@@ -3,11 +3,11 @@
 
 use proptest::prelude::{Just, Strategy, any, prop_assert, prop_oneof, proptest};
 
+use crate::account::AccountFamily;
 use crate::account::{
     AccountChoice, AccountDeclaration, AccountName, FolderKey, Reading, UserConfig,
 };
 use crate::diagnostic::{Position, Where};
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 use crate::yaml::{Mapping, Node, Value};
 
@@ -59,11 +59,11 @@ fn reads_the_example_of_the_spec() {
         &AccountDeclaration::Every(named("client-a"))
     );
     assert_eq!(
-        second.choice().choice_for(TargetName::Claude),
+        second.choice().choice_for(AccountFamily::Claude),
         Some(&named("client-b"))
     );
     assert_eq!(
-        second.choice().choice_for(TargetName::Codex),
+        second.choice().choice_for(AccountFamily::Codex),
         Some(&AccountChoice::Default)
     );
 }

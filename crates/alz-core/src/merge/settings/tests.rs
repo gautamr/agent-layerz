@@ -3,7 +3,7 @@ use crate::merge::Tree;
 use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 fn settings_layer(name: &str, yaml: &str) -> ResolvedLayer {
     layer(name, "client", &[("settings.yaml", yaml)])
@@ -17,16 +17,16 @@ fn stack(files: &[(&str, &str)]) -> Vec<ResolvedLayer> {
 }
 
 /// The merged settings of `target` as a tree, after merging the stack without an error.
-fn of(files: &[(&str, &str)], target: TargetName) -> Option<Tree> {
+fn of(files: &[(&str, &str)], target: &TargetId) -> Option<Tree> {
     let found = merged(stack(files));
     assert_eq!(lines(&found), Vec::<String>::new());
     found
         .merged()
-        .and_then(|model| model.settings().get(&target))
+        .and_then(|model| model.settings().get(target))
         .map(|settings| settings.value().to_tree())
 }
 
-fn tree_of(target: TargetName, yaml: &str) -> Tree {
+fn tree_of(target: &TargetId, yaml: &str) -> Tree {
     crate::item::SettingsItems::read(&settings_layer("t", yaml))
         .0
         .into_file()
@@ -35,7 +35,7 @@ fn tree_of(target: TargetName, yaml: &str) -> Tree {
 }
 
 fn tree(yaml: &str) -> Tree {
-    tree_of(TargetName::Claude, yaml)
+    tree_of(crate::target::claude(), yaml)
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn mappings_merge_key_by_key_and_the_more_specific_scalar_wins() {
                 "claude:\n  env:\n    Y: '3'\n    Z: '4'\n  effortLevel: high\n  verbose: true\n",
             ),
         ],
-        TargetName::Claude,
+        crate::target::claude(),
     );
     assert_eq!(
         merged,
@@ -74,7 +74,7 @@ fn two_lists_are_concatenated_without_repeats_and_mappings_in_another_key_order_
                 "claude:\n  availableModels: [b, c, a]\n  spinnerTipsOverride:\n    tips:\n      - {text: t, id: a}\n      - {id: b, text: u}\n",
             ),
         ],
-        TargetName::Claude,
+        crate::target::claude(),
     );
     assert_eq!(
         merged,
@@ -93,12 +93,12 @@ fn a_change_of_kind_is_replaced_by_the_more_specific_value() {
             ("personal", "codex:\n  a: [x]\n  b: 1\n  c: {k: 1}\n"),
             ("repo", "codex:\n  a: 2\n  b: [y]\n  c: [z]\n"),
         ],
-        TargetName::Codex,
+        crate::target::codex(),
     );
     assert_eq!(
         merged,
         Some(tree_of(
-            TargetName::Codex,
+            crate::target::codex(),
             "codex:\n  a: 2\n  b: [y]\n  c: [z]\n"
         ))
     );
@@ -111,20 +111,26 @@ fn the_merged_settings_are_an_ordered_map_of_the_targets_that_some_layer_set() {
         ("repo", "codex:\n  b: 2\n"),
     ]));
     let model = found.merged().expect("no error was found");
-    let targets: Vec<TargetName> = model.settings().keys().copied().collect();
-    assert_eq!(targets, [TargetName::Codex]);
+    let targets: Vec<TargetId> = model.settings().keys().cloned().collect();
+    assert_eq!(targets, [crate::target::codex().clone()]);
     let found = merged(stack(&[
         ("personal", "codex:\n  a: 1\n"),
         ("repo", "claude:\n  verbose: true\n"),
     ]));
-    let targets: Vec<TargetName> = found
+    let targets: Vec<TargetId> = found
         .merged()
         .expect("no error was found")
         .settings()
         .keys()
-        .copied()
+        .cloned()
         .collect();
-    assert_eq!(targets, [TargetName::Claude, TargetName::Codex]);
+    assert_eq!(
+        targets,
+        [
+            crate::target::claude().clone(),
+            crate::target::codex().clone()
+        ]
+    );
 }
 
 #[test]
@@ -135,7 +141,10 @@ fn a_target_keeps_the_layers_that_set_it() {
         ("repo", "claude:\n  fastMode: true\n"),
     ]));
     let model = found.merged().expect("no error was found");
-    let claude = model.settings().get(&TargetName::Claude).expect("claude");
+    let claude = model
+        .settings()
+        .get(crate::target::claude())
+        .expect("claude");
     let parts: Vec<(&str, Action)> = claude
         .provenance()
         .contributions()
@@ -146,13 +155,13 @@ fn a_target_keeps_the_layers_that_set_it() {
         parts,
         [("personal", Action::Define), ("repo", Action::Extend)]
     );
-    let codex = model.settings().get(&TargetName::Codex).expect("codex");
+    let codex = model.settings().get(crate::target::codex()).expect("codex");
     assert_eq!(codex.provenance().contributions().len(), 1);
 }
 
 #[test]
 fn a_layer_with_a_refused_top_level_key_is_reported_and_nothing_is_merged() {
-    for key in ["__proto__", "constructor", "toString", "Claude", "cursor"] {
+    for key in ["__proto__", "Constructor", "toString", "Claude", "Cursor"] {
         let found = merged(stack(&[
             ("personal", "claude:\n  verbose: true\n"),
             ("repo", &format!("{key}:\n  claude:\n    permissions: x\n")),
@@ -206,7 +215,7 @@ fn settings_that_set_other_variables_and_names_that_are_plain_keys_merge() {
             "personal",
             "claude:\n  env:\n    FOO: x\n    __proto__: y\n    constructor: z\n    toString: w\ncodex:\n  shell_environment_policy:\n    inherit: core\n    include_only: [HOME, PATH]\n    exclude: ['*FOO*']\n",
         )],
-        TargetName::Claude,
+        crate::target::claude(),
     );
     assert!(merged.is_some());
 }
@@ -261,7 +270,7 @@ fn a_boolean_floor_may_be_raised_and_repeated() {
                 ("client", "claude:\n  sandbox:\n    enabled: true\n"),
                 ("repo", "claude:\n  sandbox:\n    enabled: true\n"),
             ],
-            TargetName::Claude
+            crate::target::claude()
         ),
         Some(tree("claude:\n  sandbox:\n    enabled: true\n"))
     );
@@ -307,7 +316,7 @@ fn an_ordered_floor_may_only_move_up() {
                 ("personal", "codex:\n  web_search: cached\n"),
                 ("repo", "codex:\n  web_search: disabled\n"),
             ],
-            TargetName::Codex
+            crate::target::codex()
         ),
         Some(Tree::Map(
             [("web_search".to_owned(), Tree::Text("disabled".to_owned()))].into()
@@ -346,7 +355,7 @@ fn a_no_additions_list_may_not_gain_an_entry_but_may_repeat_entries() {
                     "claude:\n  sandbox:\n    network:\n      allowedDomains: [b.example]\n"
                 ),
             ],
-            TargetName::Claude
+            crate::target::claude()
         ),
         Some(tree(
             "claude:\n  sandbox:\n    network:\n      allowedDomains: [a.example, b.example]\n"
@@ -368,7 +377,7 @@ fn a_union_list_grows_and_cannot_change_kind() {
                     "claude:\n  sandbox:\n    filesystem:\n      denyRead: [b]\n"
                 ),
             ],
-            TargetName::Claude
+            crate::target::claude()
         ),
         Some(tree(
             "claude:\n  sandbox:\n    filesystem:\n      denyRead: [a, b]\n"
