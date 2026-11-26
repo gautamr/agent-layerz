@@ -1,11 +1,11 @@
 ---
 id: TASK-105
 title: Create the alz-adapter contract crate with TargetId and model v1
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-26T03:23:00Z'
+updated_date: '2026-11-26T04:07:00Z'
 labels:
   - area:adapter
 milestone: m-8
