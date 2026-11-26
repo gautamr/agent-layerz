@@ -78,7 +78,7 @@ fn the_header_goes_right_after_the_opening_fence_of_a_kept_frontmatter() {
     let output = only(OutputFile::new(
         "a.md",
         Content::Markdown(
-            Markdown::new("\nBody.\n")
+            Markdown::new("\n\nBody.\n")
                 .with_frontmatter(Frontmatter::Kept(kept))
                 .with_sources(vec![source()]),
         ),
