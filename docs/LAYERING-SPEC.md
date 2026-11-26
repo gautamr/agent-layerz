@@ -2572,7 +2572,7 @@ Each adapter maps the resolved neutral model onto native files. An adapter is a 
 on a versioned model behind a contract (§8.0), so a new target needs no change to the core.
 Until TASK-108 the core calls the one adapter, Claude's, directly.
 
-**What an adapter may rely on** (TASK-55.6). An adapter relies only on what
+**What an adapter may rely on** (TASK-55.6, TASK-112). Every adapter relies only on what
 `docs/target-facts.md` records about the tool, and adds no output that rests on a fact that is
 UNVERIFIED there. The Claude adapter's output includes output that rests on a row still marked
 UNVERIFIED. Each such row gets a docs task that verifies it, and no new output is added on it until it is verified.
