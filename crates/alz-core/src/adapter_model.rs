@@ -6,6 +6,7 @@
 //!
 //! | File | Kinds |
 //! | --- | --- |
+//! | `instructions` | the target's own instruction text (§7.1) |
 //! | `agents` | agents (§7.2) with their native fields and the routing of their model (§7.8) |
 //! | `skills` | skills, commands and slot stubs (§7.3, §7.4) |
 //! | `rules` | path-scoped rules (§7.10) |
@@ -20,6 +21,7 @@
 
 mod agents;
 mod hooks;
+mod instructions;
 mod json;
 mod mcp;
 mod models;
@@ -45,6 +47,7 @@ pub(crate) use permissions::mode as contract_mode;
 pub fn model_for(merged: &Merged, target: &TargetId) -> Model {
     let mut model = Model::new(target.clone());
     // `Model` is `#[non_exhaustive]`, so a foreign crate fills a new value field by field.
+    model.target_instructions = instructions::of(merged, target);
     model.agents = agents::of(merged, target);
     model.skills = skills::skills(merged);
     model.commands = skills::commands(merged);

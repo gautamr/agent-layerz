@@ -1,7 +1,8 @@
 use proptest::collection::vec;
 use proptest::prelude::{Strategy, prop_assert, prop_assert_eq, proptest};
 
-use super::{AgentsMd, agents_md_path, claude_md, claude_md_path};
+use super::{AgentsMd, agents_md_path};
+use crate::adapter_model::testing::claude_md_of;
 use crate::lint::parse_document;
 use crate::merge::testing::{layer_pinned, merged_placed};
 use crate::merge::{Merged, Merging};
@@ -44,7 +45,7 @@ fn agents(merged: &Merged) -> String {
 }
 
 fn claude(merged: &Merged) -> String {
-    claude_md(merged).expect("a header without a bad source")
+    claude_md_of(merged).expect("a header without a bad source")
 }
 
 fn case_02() -> Merged {
@@ -301,7 +302,6 @@ fn the_extras_of_every_layer_follow_the_claude_specific_heading_in_stack_order()
 #[test]
 fn the_paths_of_the_two_files_are_the_repository_root() {
     assert_eq!(agents_md_path().as_str(), "AGENTS.md");
-    assert_eq!(claude_md_path().as_str(), "CLAUDE.md");
 }
 
 // Untrusted text.
@@ -321,7 +321,7 @@ fn a_version_that_would_end_the_header_comment_is_the_error_layer_naming_the_fil
         found.to_string(),
         "error [layer] p:instructions/00-core.md: a source of the generated header holds a control or format character or '-->', which would end its comment; rename the file or change the version or ref\n"
     );
-    assert!(claude_md(&merged).is_ok());
+    assert!(claude_md_of(&merged).is_ok());
 }
 
 #[test]

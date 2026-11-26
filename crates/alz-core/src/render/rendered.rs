@@ -2,36 +2,27 @@
 //! what it found, without touching the file system.
 //!
 //! The order is: `AGENTS.md`; then the adapter of each target (`CLAUDE.md`, agents, skills,
-//! commands, rules, `settings.json`, the hook scripts, `.mcp.json`); then the passthrough files
+//! commands, rules, `settings.json`, the hook scripts, `.mcp.json`, all returned by the adapter
+//! and written by the core); then the passthrough files
 //! of the target; then the protected drop, so a protected path leaves the tree whichever source
 //! made it. A [`Rendered`] with an error is not written: [`Rendered::to_write`] gives the tree
 //! only when no error was found.
 
 use crate::adapter_model::model_for;
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
+use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::lock::Lock;
 use crate::merge::Merged;
 use crate::path::SafeRelPath;
-use crate::render::instructions::{AgentsMd, agents_md_path, claude_md, claude_md_path};
+use crate::render::adapter_output;
+use crate::render::instructions::{AgentsMd, agents_md_path};
 use crate::render::lock_of::lock_of;
 use crate::render::passthrough;
-use crate::render::protected::{CLAUDE_MEMORY_PATTERNS, Protected};
+use crate::render::protected::Protected;
 use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
 use crate::stack::{Manifest, ResolvedStack};
-use crate::target::REGISTERED;
-use crate::target::claude::{ClaudeFiles, ClaudeSettingsFiles};
+use crate::target::Registry;
 use crate::untrusted_text::Stripped;
-use alz_adapter::Context;
-use alz_adapter::TargetId;
-
-/// The folders the Claude adapter owns, where a file the build does not make is a collision
-/// (§4.3, §8.1).
-const CLAUDE_MANAGED_FOLDERS: [&str; 4] = [
-    ".claude/agents",
-    ".claude/skills",
-    ".claude/rules",
-    ".claude/hooks",
-];
+use alz_adapter::{Context, TargetId};
 
 /// What a build made: the generated files, what it found, the folders the adapters manage and the
 /// protected paths. It has no public constructor: [`render`] makes it.
@@ -84,15 +75,15 @@ impl Rendered {
     }
 }
 
-/// Renders `merged` for the targets of `manifest`. Pure and deterministic: the same inputs give
-/// the same bytes and the same diagnostics in the same order.
+/// Renders `merged` for the targets of `manifest`, each by its adapter from `registry`. Pure and
+/// deterministic: the same inputs give the same bytes and the same diagnostics in the same order.
 #[must_use]
-pub fn render(merged: &Merged, manifest: &Manifest) -> Rendered {
+pub fn render(registry: &Registry, merged: &Merged, manifest: &Manifest) -> Rendered {
     let targets = manifest.targets();
     let (agents, agents_found) = agents_md(merged, manifest);
     let made = targets
         .iter()
-        .map(|target| adapter(target, merged, manifest))
+        .map(|target| adapter(registry, target, merged, manifest))
         .fold(
             (agents, agents_found),
             |(tree, found), (more, more_found)| {
@@ -104,23 +95,24 @@ pub fn render(merged: &Merged, manifest: &Manifest) -> Rendered {
         let (tree, more) = passthrough::join(tree, merged.passthrough(), target);
         (tree, found.merge(more))
     });
-    let claude = targets.contains(crate::target::claude());
-    let protected = Protected::new(
-        if claude { &CLAUDE_MEMORY_PATTERNS } else { &[] },
-        manifest.protected_paths(),
-    );
+    let descriptors: Vec<&alz_adapter::Descriptor> = targets
+        .iter()
+        .filter_map(|target| registry.descriptor(target))
+        .collect();
+    let patterns: Vec<&str> = descriptors
+        .iter()
+        .flat_map(|descriptor| descriptor.protected_patterns.iter().map(String::as_str))
+        .collect();
+    let protected = Protected::new(&patterns, manifest.protected_paths());
     let (tree, dropped) = protected.drop_from(tree);
     Rendered {
         tree,
         diagnostics: found.merge(dropped),
-        managed_folders: if claude {
-            CLAUDE_MANAGED_FOLDERS
-                .iter()
-                .filter_map(|folder| SafeRelPath::try_from(*folder).ok())
-                .collect()
-        } else {
-            Vec::new()
-        },
+        managed_folders: descriptors
+            .iter()
+            .flat_map(|descriptor| descriptor.managed_folders.iter())
+            .filter_map(|folder| SafeRelPath::try_from(folder.as_str()).ok())
+            .collect(),
         protected,
     }
 }
@@ -136,63 +128,34 @@ fn agents_md(merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
     }
 }
 
-/// The files of one target's adapter, and its diagnostics.
-fn adapter(target: &TargetId, merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
-    match target.as_str() {
-        "claude" => claude(merged, manifest),
-        "codex" => refused(
-            Message::new("the '")
-                .then(MessagePart::printable(target))
-                .then("' adapter is not implemented yet (implemented: claude)"),
-        ),
-        _ => refused(
-            Message::new("no adapter for '")
-                .then(MessagePart::printable(target))
-                .then("' (available: ")
-                .then(Stripped::from_untrusted(&REGISTERED.join(", ")))
-                .then(")"),
-        ),
-    }
-}
-
-/// No files, and the error `target` at `layer.yaml` with `message` (§8 **Targets without an
-/// adapter**).
-fn refused(message: Message) -> (FileTree, Diagnostics) {
-    (
-        FileTree::new(),
-        Diagnostics::new().with(Diagnostic::error(
-            Code::Target,
-            Some(Where::repository_file(Stripped::from_untrusted(
-                "layer.yaml",
-            ))),
-            message,
-        )),
+/// The files of one target's adapter, and its diagnostics: the adapter renders the model, and
+/// the core writes what it returned (§8.0). A target without an adapter is the error `target`.
+fn adapter(
+    registry: &Registry,
+    target: &TargetId,
+    merged: &Merged,
+    manifest: &Manifest,
+) -> (FileTree, Diagnostics) {
+    registry.adapter(target).map_or_else(
+        || {
+            (
+                FileTree::new(),
+                Diagnostics::new().with(registry.refusal(target)),
+            )
+        },
+        |adapter| {
+            let context = Context::new(
+                manifest
+                    .workspace()
+                    .add_dirs()
+                    .iter()
+                    .map(|dir| dir.as_str().to_owned())
+                    .collect(),
+            );
+            let output = adapter.render(&model_for(merged, target), &context);
+            adapter_output::emit(target, &output)
+        },
     )
-}
-
-/// `CLAUDE.md`, the agents, skills, commands and rules, `settings.json`, the hooks and `.mcp.json`.
-fn claude(merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
-    let (thin, thin_found) = match claude_md(merged) {
-        Ok(text) => (single(claude_md_path(), &text), Diagnostics::new()),
-        Err(problems) => (FileTree::new(), problems),
-    };
-    let model = model_for(merged, crate::target::claude());
-    let context = Context::new(
-        manifest
-            .workspace()
-            .add_dirs()
-            .iter()
-            .map(|dir| dir.as_str().to_owned())
-            .collect(),
-    );
-    let (files, files_found) = ClaudeFiles::of(&model).into_parts();
-    let (settings, settings_found) = ClaudeSettingsFiles::of(&model, &context).into_parts();
-    [(files, files_found), (settings, settings_found)]
-        .into_iter()
-        .fold((thin, thin_found), |(tree, found), (more, more_found)| {
-            let (tree, collisions) = join(tree, &more);
-            (tree, found.merge(more_found).merge(collisions))
-        })
 }
 
 /// A tree of the one file `path` with the text `text`.

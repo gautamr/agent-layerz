@@ -1,16 +1,18 @@
-//! The Claude adapter's files for agents, skills, commands, slot stubs and rules (spec §8.1),
-//! made from the model of the adapter contract alone (`alz_adapter::Model`, spec §8.0), never from
-//! the merge types of the core. The result is a [`FileTree`] and the diagnostics of the
-//! rendering; nothing is written.
+//! The Claude adapter (spec §8.1): it implements the contract of `alz-adapter` (§8.0). From the
+//! model of the adapter contract (`alz_adapter::Model`), never from the merge types of the core,
+//! it returns structured files: JSON values, Markdown with its frontmatter and the sources of its
+//! header, and bytes. The core emits them and writes every header (§4.3); nothing here writes one.
 //!
 //! Only what `docs/target-facts.md` records about Claude Code drives the output: the agent
 //! frontmatter fields and tool names (§1), skills and commands (§5) and `paths` in a rule (§9).
 
 mod agents;
+mod descriptor;
 mod document;
 pub mod facts;
 mod frontmatter;
 mod hooks;
+mod instructions;
 mod mcp;
 mod permissions;
 mod rules;
@@ -18,134 +20,88 @@ mod settings;
 mod skills;
 mod tools;
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
-use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
-use alz_adapter::{Context, Model};
+use alz_adapter::{
+    Adapter, Content, Context, Coverage, Descriptor, Diagnostic, Enforcement, Level, Model, Output,
+    OutputFile, Source,
+};
 
 pub use tools::{is_model_value, neutral_permission_mode, neutral_tool};
 
-/// The files of the Claude adapter for agents, skills, commands, slot stubs and rules, and what
-/// the rendering found.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClaudeFiles {
-    tree: FileTree,
-    diagnostics: Diagnostics,
+/// The Claude adapter.
+#[derive(Debug, Clone)]
+pub struct ClaudeAdapter {
+    descriptor: Descriptor,
 }
 
-impl ClaudeFiles {
-    /// Renders every agent, skill, command, slot stub and rule of `model`.
+impl ClaudeAdapter {
+    /// The adapter, with its descriptor.
     #[must_use]
-    pub fn of(model: &Model) -> Self {
-        let (tree, diagnostics) = assemble(vec![
+    pub fn new() -> Self {
+        Self {
+            descriptor: descriptor::descriptor(),
+        }
+    }
+}
+
+impl Default for ClaudeAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Adapter for ClaudeAdapter {
+    fn descriptor(&self) -> &Descriptor {
+        &self.descriptor
+    }
+
+    fn render(&self, model: &Model, context: &Context) -> Output {
+        let made = [
+            instructions::render(model),
             agents::render(model),
             skills::render(model),
             rules::render(model),
-        ]);
-        Self { tree, diagnostics }
-    }
-
-    /// The files, by path.
-    #[must_use]
-    pub const fn tree(&self) -> &FileTree {
-        &self.tree
-    }
-
-    /// The errors and warnings of the rendering.
-    #[must_use]
-    pub const fn diagnostics(&self) -> &Diagnostics {
-        &self.diagnostics
-    }
-
-    /// The tree and the diagnostics, handed over.
-    #[must_use]
-    pub fn into_parts(self) -> (FileTree, Diagnostics) {
-        (self.tree, self.diagnostics)
-    }
-}
-
-/// The files of the Claude adapter for `settings.json`, the hook scripts and `.mcp.json`, and what
-/// the rendering found (spec §8.1). `settings.json` is made from the target's merged settings and
-/// the first-class items (permissions, hooks, the default model, the workspace folders), never
-/// from any other source.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClaudeSettingsFiles {
-    tree: FileTree,
-    diagnostics: Diagnostics,
-}
-
-impl ClaudeSettingsFiles {
-    /// Renders `.claude/settings.json`, the copied hook scripts and `.mcp.json`.
-    #[must_use]
-    pub fn of(model: &Model, context: &Context) -> Self {
-        let (tree, diagnostics) =
-            assemble(vec![settings::render(model, context), mcp::render(model)]);
-        Self { tree, diagnostics }
-    }
-
-    /// The files, by path.
-    #[must_use]
-    pub const fn tree(&self) -> &FileTree {
-        &self.tree
-    }
-
-    /// The errors and warnings of the rendering.
-    #[must_use]
-    pub const fn diagnostics(&self) -> &Diagnostics {
-        &self.diagnostics
-    }
-
-    /// The tree and the diagnostics, handed over.
-    #[must_use]
-    pub fn into_parts(self) -> (FileTree, Diagnostics) {
-        (self.tree, self.diagnostics)
-    }
-}
-
-/// The files of every output in one tree, two outputs of one path a `collision` error, and all
-/// the diagnostics.
-fn assemble(made: Vec<Output>) -> (FileTree, Diagnostics) {
-    let (tree, collisions) = made.iter().flat_map(|output| output.files.iter()).fold(
-        (FileTree::new(), Diagnostics::new()),
-        |(mut tree, collisions), (path, file)| match tree.insert(path.clone(), file.clone()) {
-            Ok(()) => (tree, collisions),
-            Err(collision) => (
-                tree,
-                collisions.with(Diagnostic::error(
-                    Code::Collision,
-                    None,
-                    Message::new("").then(crate::Stripped::from_untrusted(&collision.to_string())),
-                )),
-            ),
-        },
-    );
-    let diagnostics = made
+            settings::render(model, context),
+            mcp::render(model),
+        ]
         .into_iter()
-        .fold(Diagnostics::new(), |all, output| {
-            all.merge(output.diagnostics)
-        })
-        .merge(collisions);
-    (tree, diagnostics)
+        .fold(Made::default(), Made::then);
+        Output::new(
+            made.files,
+            made.diagnostics,
+            Coverage::all(model.security.ids(), Enforcement::Expressed),
+        )
+    }
 }
 
 /// What one kind of item rendered into: files in the order made, and diagnostics.
 #[derive(Debug, Default)]
-struct Output {
-    files: Vec<(OutputPath, GeneratedFile)>,
-    diagnostics: Diagnostics,
+struct Made {
+    files: Vec<OutputFile>,
+    diagnostics: Vec<Diagnostic>,
 }
 
-impl Output {
-    /// The output of an item that gave one file and its diagnostics.
-    fn one(path: Result<OutputPath, Diagnostic>, file: GeneratedFile, found: Diagnostics) -> Self {
-        match path {
-            Ok(path) => Self {
-                files: vec![(path, file)],
-                diagnostics: found,
-            },
-            Err(problem) => Self {
-                files: Vec::new(),
-                diagnostics: found.with(problem),
-            },
+impl Made {
+    /// One file.
+    fn file(path: impl Into<String>, content: Content) -> Self {
+        Self {
+            files: vec![OutputFile::new(path, content)],
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// One diagnostic and no file.
+    fn problem(diagnostic: Diagnostic) -> Self {
+        Self {
+            files: Vec::new(),
+            diagnostics: vec![diagnostic],
+        }
+    }
+
+    /// The same output with `diagnostics` before its own.
+    fn after(self, diagnostics: Vec<Diagnostic>) -> Self {
+        Self {
+            diagnostics: diagnostics.into_iter().chain(self.diagnostics).collect(),
+            ..self
         }
     }
 
@@ -153,23 +109,27 @@ impl Output {
     fn then(self, later: Self) -> Self {
         Self {
             files: self.files.into_iter().chain(later.files).collect(),
-            diagnostics: self.diagnostics.merge(later.diagnostics),
+            diagnostics: self
+                .diagnostics
+                .into_iter()
+                .chain(later.diagnostics)
+                .collect(),
         }
     }
 }
 
-/// The path `text`, or the error `layer` for a name that cannot be an output path.
-fn output_path(text: &str) -> Result<OutputPath, Diagnostic> {
-    OutputPath::try_from(text).map_err(|problem| {
-        Diagnostic::error(
-            Code::Layer,
-            None,
-            Message::new("the generated path ")
-                .then(crate::Stripped::from_untrusted(text))
-                .then(" is not allowed: ")
-                .then(crate::Stripped::from_untrusted(&problem.to_string())),
-        )
-    })
+/// A diagnostic of the adapter about the layer file `at`, when it has one.
+fn found(level: Level, code: &str, at: Option<&Source>, message: String) -> Diagnostic {
+    let diagnostic = Diagnostic::new(level, code, message);
+    match at {
+        Some(source) => diagnostic.about(source.clone()),
+        None => diagnostic,
+    }
+}
+
+/// The file an item is about: the first of its sources.
+fn place(named: &[Source]) -> Option<&Source> {
+    named.first()
 }
 
 #[cfg(test)]

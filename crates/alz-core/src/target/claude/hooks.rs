@@ -4,16 +4,14 @@
 use std::collections::BTreeMap;
 
 use alz_adapter::{
-    Hook, HookEvent, HookMatch, HookRun, HookScript, JsonValue, Model, NeutralEvent, OnFail,
+    Bytes, Content, Diagnostic, Hook, HookEvent, HookMatch, HookRun, HookScript, JsonValue, Level,
+    Model, NeutralEvent, OnFail, OutputFile, Source,
 };
 
-use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
-use crate::render::tree::{FileMode, GeneratedFile, OutputPath};
-use crate::untrusted_text::{QuotedKey, Stripped};
+use crate::untrusted_text::QuotedKey;
 
 use super::document::{map, text};
-use super::frontmatter::place;
-use super::{Output, output_path, tools};
+use super::{Made, found, place, tools};
 
 /// The folder of the copied scripts.
 const HOOKS_DIR: &str = ".claude/hooks";
@@ -25,7 +23,7 @@ const CLAUDE_PROJECT_DIR: &str = "${CLAUDE_PROJECT_DIR}";
 /// The groups of each native event in order, the scripts they run and what the rendering found.
 pub(super) struct Hooks {
     pub(super) events: BTreeMap<String, Vec<JsonValue>>,
-    pub(super) output: Output,
+    pub(super) output: Made,
 }
 
 /// The hooks of `model`, which are those that run on Claude. A script that two hooks run is
@@ -33,7 +31,7 @@ pub(super) struct Hooks {
 pub(super) fn render(model: &Model) -> Hooks {
     let all = all(model);
     Hooks {
-        output: Output {
+        output: Made {
             files: once(all.output.files),
             ..all.output
         },
@@ -42,22 +40,20 @@ pub(super) fn render(model: &Model) -> Hooks {
 }
 
 /// The files in order, each path once: the copies of one script are the same file.
-fn once(files: Vec<(OutputPath, GeneratedFile)>) -> Vec<(OutputPath, GeneratedFile)> {
-    files
-        .into_iter()
-        .fold(Vec::new(), |mut kept, (path, file)| {
-            if kept.iter().all(|(seen, _)| *seen != path) {
-                kept.push((path, file));
-            }
-            kept
-        })
+fn once(files: Vec<OutputFile>) -> Vec<OutputFile> {
+    files.into_iter().fold(Vec::new(), |mut kept, file| {
+        if kept.iter().all(|seen| seen.path != file.path) {
+            kept.push(file);
+        }
+        kept
+    })
 }
 
 fn all(model: &Model) -> Hooks {
     model.hooks.iter().map(one).fold(
         Hooks {
             events: BTreeMap::new(),
-            output: Output::default(),
+            output: Made::default(),
         },
         |hooks, made| Hooks {
             events: match made.group {
@@ -75,35 +71,25 @@ fn all(model: &Model) -> Hooks {
 
 /// What one hook gave: its group under its event (none when its script cannot be written), and
 /// its script and warnings.
-struct Made {
+struct Gave {
     group: Option<(String, JsonValue)>,
-    output: Output,
+    output: Made,
 }
 
-fn one(hook: &Hook) -> Made {
+fn one(hook: &Hook) -> Gave {
     let at = place(&hook.sources);
-    let (blocks, warning) = on_failure(hook, at.as_ref());
-    let warnings = Output {
+    let (blocks, warning) = on_failure(hook, at);
+    let warnings = Made {
         files: Vec::new(),
-        diagnostics: warning
-            .into_iter()
-            .fold(Diagnostics::new(), Diagnostics::with),
+        diagnostics: warning.into_iter().collect(),
     };
-    match command(hook) {
-        Err(problem) => Made {
-            group: None,
-            output: warnings.then(Output {
-                files: Vec::new(),
-                diagnostics: Diagnostics::new().with(problem),
-            }),
-        },
-        Ok((command, script)) => Made {
-            group: Some((event_name(&hook.event), group(hook, &command, blocks))),
-            output: warnings.then(Output {
-                files: script.into_iter().collect(),
-                diagnostics: Diagnostics::new(),
-            }),
-        },
+    let (command, script) = command(hook);
+    Gave {
+        group: Some((event_name(&hook.event), group(hook, &command, blocks))),
+        output: warnings.then(Made {
+            files: script.into_iter().collect(),
+            diagnostics: Vec::new(),
+        }),
     }
 }
 
@@ -122,29 +108,25 @@ fn event_name(event: &HookEvent) -> String {
 
 /// The command line, and the script it runs when the hook has one: copied once to
 /// `.claude/hooks/<layer>/<path inside hooks/>`, so two hooks of one script share the file.
-fn command(hook: &Hook) -> Result<(String, Option<(OutputPath, GeneratedFile)>), Diagnostic> {
+fn command(hook: &Hook) -> (String, Option<OutputFile>) {
     match &hook.run {
-        HookRun::Command(line) => Ok((line.replace(NEUTRAL_PROJECT_DIR, CLAUDE_PROJECT_DIR), None)),
+        HookRun::Command(line) => (line.replace(NEUTRAL_PROJECT_DIR, CLAUDE_PROJECT_DIR), None),
         HookRun::Script(script) => {
-            let path = output_path(&format!("{HOOKS_DIR}/{}/{}", hook.defined_by, script.path))?;
-            Ok((
-                format!("\"{CLAUDE_PROJECT_DIR}/{}\"", path.as_str()),
-                Some((path, copy(script))),
-            ))
+            let path = format!("{HOOKS_DIR}/{}/{}", hook.defined_by, script.path);
+            (
+                format!("\"{CLAUDE_PROJECT_DIR}/{path}\""),
+                Some(copy(path, script)),
+            )
         }
     }
 }
 
-/// The script as a generated file, with its executable bit.
-fn copy(script: &HookScript) -> GeneratedFile {
-    GeneratedFile {
-        bytes: script.content.clone(),
-        mode: if script.executable {
-            FileMode::Executable
-        } else {
-            FileMode::Regular
-        },
-    }
+/// The script as bytes kept as they are, with its executable bit.
+fn copy(path: String, script: &HookScript) -> OutputFile {
+    OutputFile::new(
+        path,
+        Content::Bytes(Bytes::new(script.content.clone()).executable(script.executable)),
+    )
 }
 
 /// The group of a hook: its handlers, and the matcher the hook gives.
@@ -202,15 +184,13 @@ fn handler(
 
 /// `on_fail: deny` as `onFailure: block`, so a crashing guard blocks instead of letting the action
 /// through, and the warning where Claude cannot do that.
-fn on_failure(hook: &Hook, at: Option<&Where>) -> (Option<&'static str>, Option<Diagnostic>) {
+fn on_failure(hook: &Hook, at: Option<&Source>) -> (Option<&'static str>, Option<Diagnostic>) {
     let warn = |what: &str| {
-        Diagnostic::warning(
-            Code::HookOnFail,
-            at.cloned(),
-            Message::new("hook ")
-                .then(QuotedKey::from_untrusted(&hook.id))
-                .then(": ")
-                .then(Stripped::from_untrusted(what)),
+        found(
+            Level::Warning,
+            "hook-on-fail",
+            at,
+            format!("hook {}: {what}", QuotedKey::from_untrusted(&hook.id)),
         )
     };
     match (hook.on_fail, &hook.event) {

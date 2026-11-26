@@ -14,17 +14,40 @@ pub enum Frontmatter {
     Kept(String),
 }
 
+/// One source of a generated header (§4.3): what the file is made from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HeaderSource {
+    /// A file of a layer.
+    LayerFile(Source),
+    /// Another generated file of the repository, as `AGENTS.md` for the header of `CLAUDE.md`:
+    /// a path relative to the repository.
+    GeneratedFile(String),
+    /// A slot stub, which has no file (§7.3).
+    SlotStub,
+}
+
+impl From<Source> for HeaderSource {
+    fn from(source: Source) -> Self {
+        Self::LayerFile(source)
+    }
+}
+
 /// A Markdown file: a body, an optional frontmatter, and the sources of its header.
+///
+/// The core writes the file from these parts and puts the header in (§4.3); there is no field in
+/// which an adapter could write or change it.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct Markdown {
     /// The frontmatter, when the file has one.
     pub frontmatter: Option<Frontmatter>,
-    /// The text after the frontmatter.
+    /// The text after the frontmatter. With a [`Frontmatter::Mapping`] or no frontmatter, the text
+    /// without its final line feed, which the core adds; with [`Frontmatter::Kept`], the text of
+    /// the layer file after its closing `---` line, byte for byte.
     pub body: String,
     /// The sources the core writes the header from (§4.3): an HTML comment line first when there
     /// is no frontmatter, and a YAML comment line right after the opening `---` when there is.
-    pub sources: Vec<Source>,
+    pub sources: Vec<HeaderSource>,
 }
 
 impl Markdown {
@@ -50,6 +73,16 @@ impl Markdown {
     /// The same file with the sources of its header.
     #[must_use]
     pub fn with_sources(self, sources: Vec<Source>) -> Self {
+        Self {
+            sources: sources.into_iter().map(HeaderSource::from).collect(),
+            ..self
+        }
+    }
+
+    /// The same file with these sources of its header, which may also name generated files and
+    /// the slot stub.
+    #[must_use]
+    pub fn with_header_sources(self, sources: Vec<HeaderSource>) -> Self {
         Self { sources, ..self }
     }
 }

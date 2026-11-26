@@ -7,8 +7,8 @@ pub(crate) mod stacks;
 
 use proptest::prelude::{Strategy, prop_assert_eq, proptest};
 
-use super::{ClaudeFiles, is_model_value};
-use crate::adapter_model::testing::{Merged, files_of, layer_from_yaml, merged_with};
+use super::is_model_value;
+use crate::adapter_model::testing::{Emitted, Merged, files_of, layer_from_yaml, merged_with};
 use crate::diagnostic::Diagnostics;
 use crate::render::tree::{FileMode, OutputPath};
 
@@ -43,7 +43,7 @@ fn path(text: &str) -> OutputPath {
 
 /// Renders the stack and compares each golden file, and the paths the adapter made for these
 /// three folders, byte for byte.
-fn matches_expected(layers: &[Layer], options: &str, golden: &[Golden]) -> ClaudeFiles {
+fn matches_expected(layers: &[Layer], options: &str, golden: &[Golden]) -> Emitted {
     let files = files_of(&model(layers, options));
     assert!(!files.diagnostics().has_errors(), "{}", files.diagnostics());
     let made: Vec<&str> = files.tree().paths().map(OutputPath::as_str).collect();
@@ -115,7 +115,7 @@ fn fixture_22_is_written_byte_for_byte() {
 
 // One layer of agents, built here.
 
-fn one_layer(files: &[(&'static str, &'static str)]) -> ClaudeFiles {
+fn one_layer(files: &[(&'static str, &'static str)]) -> Emitted {
     files_of(&model(
         &[Layer {
             yaml: "name: only\nkind: repo\nvisibility: private\n",
@@ -125,7 +125,7 @@ fn one_layer(files: &[(&'static str, &'static str)]) -> ClaudeFiles {
     ))
 }
 
-fn text_of(files: &ClaudeFiles, name: &str) -> String {
+fn text_of(files: &Emitted, name: &str) -> String {
     String::from_utf8(
         files
             .tree()
@@ -388,4 +388,40 @@ proptest! {
         prop_assert_eq!(rendered, leaked.len());
         prop_assert_eq!(first.tree().paths().count(), first.tree().len());
     }
+}
+
+/// The `SKILL.md` of a layer reaches the output as the layer wrote it, in line feeds, with the
+/// core's header as the first line of its frontmatter (§4.3, §8.1): the same bytes as inserting the
+/// header into the text.
+#[test]
+fn a_skill_md_is_kept_byte_for_byte_with_the_header_right_after_the_opening_fence() {
+    use alz_adapter::{Adapter, Context, LayerName, Model, Skill, SkillFile, Source};
+
+    use crate::render::header::{Sources, insert_frontmatter_header};
+    use crate::render::sources::refs_of_sources;
+
+    let text =
+        "---\r\nname: glossary\r\ndescription: \"Terms\"   \r\n---\r\n\r\n# Glossary\r\nBody.\r\n";
+    let source = Source::new(
+        LayerName::try_from("personal").expect("a layer name"),
+        "skills/glossary/SKILL.md",
+    );
+    let mut skill = Skill::new(
+        "glossary",
+        vec![SkillFile::new("SKILL.md", text.as_bytes().to_vec(), false)],
+    );
+    skill.sources = vec![source.clone()];
+    let mut model = Model::new(crate::target::claude().clone());
+    model.skills = vec![skill];
+    let output = super::ClaudeAdapter::new().render(&model, &Context::default());
+    let (tree, found) = crate::render::adapter_output::emit(crate::target::claude(), &output);
+    assert!(!found.has_errors(), "{found}");
+    let refs = refs_of_sources(&[source]).expect("a source that stands in a comment");
+    let mut refs = refs.into_iter();
+    let first = refs.next().expect("one source");
+    let expected = insert_frontmatter_header(text, &Sources::new(first, refs)).expect("a block");
+    let written = tree
+        .get(&path(".claude/skills/glossary/SKILL.md"))
+        .expect("the skill file");
+    assert_eq!(String::from_utf8_lossy(&written.bytes), expected);
 }

@@ -10,11 +10,7 @@ use crate::untrusted_text::Stripped;
 /// §4.5: task boards, docs, specs and local files.
 pub const DEFAULT_PATTERNS: [&str; 4] = ["backlog/**", "docs/**", "specs/**", "*.local.*"];
 
-/// The folders where Claude keeps per-agent memory (target-facts §9): repository-owned lessons.
-pub const CLAUDE_MEMORY_PATTERNS: [&str; 2] =
-    [".claude/agent-memory/**", ".claude/agent-memory-local/**"];
-
-/// The patterns a build leaves alone: the defaults, the target's own and the manifest's
+/// The patterns a build leaves alone: the defaults, the adapters' own and the manifest's
 /// `protected_paths`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Protected(Vec<PathGlob>);

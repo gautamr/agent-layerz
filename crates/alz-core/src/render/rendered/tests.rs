@@ -9,6 +9,7 @@ use crate::merge::testing::{layer, layer_executable, layer_from_yaml};
 use crate::merge::{Placements, merge};
 use crate::render::tree::{FileMode, OutputPath, fold};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
+use crate::target::Registry;
 use crate::target::claude::tests::stacks;
 
 /// A file of the acceptance fixtures, read at compile time.
@@ -35,7 +36,7 @@ fn build(layers: Vec<ResolvedLayer>, manifest: &str) -> (Rendered, ResolvedStack
     let (merged, found) = merge(&stack, &manifest, &Placements::default()).into_parts();
     assert!(!found.has_errors(), "{found}");
     let merged = merged.expect("no error was found");
-    (render(&merged, &manifest), stack)
+    (render(&Registry::builtin(), &merged, &manifest), stack)
 }
 
 fn lines(rendered: &Rendered) -> Vec<String> {

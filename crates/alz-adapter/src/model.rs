@@ -19,6 +19,7 @@ pub use agent::{Agent, AgentTool, Isolation, Memory, ModelProblem};
 pub use hook::{Hook, HookEvent, HookMatch, HookRun, HookScript, NeutralEvent, OnFail};
 pub use items::{
     Command, McpServer, McpTransport, Models, PathRule, Permissions, Skill, SkillFile, SlotStub,
+    TargetInstruction,
 };
 pub use mode::{FloorField, Mode};
 pub use security::{
@@ -39,6 +40,9 @@ pub struct Model {
     /// The target this model is for. A target's own hook events (`<target>:<Event>`) and native
     /// sections are already narrowed to it.
     pub target: TargetId,
+    /// The text that layers add for this target only to its instruction file (§7.1), in stack
+    /// order.
+    pub target_instructions: Vec<TargetInstruction>,
     /// The agents for the target, with the target's native fields (§7.2).
     pub agents: Vec<Agent>,
     /// The skills (§7.3).
@@ -70,6 +74,7 @@ impl Model {
     pub fn new(target: TargetId) -> Self {
         Self {
             target,
+            target_instructions: Vec::new(),
             agents: Vec::new(),
             skills: Vec::new(),
             commands: Vec::new(),

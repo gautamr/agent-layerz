@@ -8,7 +8,7 @@ mod content;
 mod coverage;
 mod diagnostic;
 
-pub use content::{Bytes, Content, Frontmatter, Markdown};
+pub use content::{Bytes, Content, Frontmatter, HeaderSource, Markdown};
 pub use coverage::{Coverage, CoverageEntry, Enforcement};
 pub use diagnostic::{Diagnostic, Level};
 

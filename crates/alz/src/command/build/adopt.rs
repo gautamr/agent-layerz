@@ -5,11 +5,10 @@
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 
-use alz_core::adopt::{
-    ADOPT_ALWAYS, AdoptionInput, AdoptionPlan, Candidates, candidates, plan as plan_adoption,
-};
+use alz_core::adopt::{AdoptionInput, AdoptionPlan, Candidates, candidates, plan as plan_adoption};
 use alz_core::path::SafeRelPath;
 use alz_core::render::write_plan::Observed;
+use alz_core::target::Registry;
 use alz_core::{Diagnostics, Stripped};
 use alz_io::{AdoptionBasis, RepoError, RepoRoot};
 
@@ -81,7 +80,9 @@ fn observe(repository: &RepoRoot, computed: &Computed) -> Result<Candidates, Rep
     let Some((plan, disk)) = pipeline::plan_with_disk(repository, computed)? else {
         return Ok(nothing());
     };
-    let beside = ADOPT_ALWAYS
+    let registry = Registry::builtin();
+    let always = registry.adopted_files();
+    let beside = always
         .iter()
         .chain(&[AGENTS_MD])
         .filter_map(|path| SafeRelPath::try_from(*path).ok())
@@ -90,6 +91,7 @@ fn observe(repository: &RepoRoot, computed: &Computed) -> Result<Candidates, Rep
     Ok(candidates(
         plan.collisions(),
         &disk,
+        &always,
         &beside,
         computed.previous.as_ref(),
     ))
@@ -99,6 +101,7 @@ fn nothing() -> Candidates {
     candidates(
         &[],
         &alz_core::render::write_plan::Disk::default(),
+        &[],
         &BTreeMap::new(),
         None,
     )

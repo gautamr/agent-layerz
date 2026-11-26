@@ -4,16 +4,15 @@
 //! the code of this crate names, `claude` and `codex`, and the adapters that exist.
 
 pub mod claude;
+mod registry;
+
+pub use registry::{RegisterError, Registry};
 
 use std::sync::LazyLock;
 
 use alz_adapter::TargetId;
 
 use crate::diagnostic::{Printable, sealed::Sealed};
-
-/// The target ids of the adapters that render today, in name order (§8 **Targets without an
-/// adapter**). The Codex adapter is not among them until it exists.
-pub const REGISTERED: [&str; 1] = ["claude"];
 
 static CLAUDE: LazyLock<TargetId> = LazyLock::new(|| well_formed("claude"));
 static CODEX: LazyLock<TargetId> = LazyLock::new(|| well_formed("codex"));
@@ -51,19 +50,12 @@ pub(crate) fn id(text: &str) -> TargetId {
 
 #[cfg(test)]
 mod tests {
-    use super::{REGISTERED, claude, codex};
+    use super::{claude, codex};
 
     #[test]
     fn the_named_ids_are_their_words() {
         assert_eq!(claude().as_str(), "claude");
         assert_eq!(codex().as_str(), "codex");
         assert!(claude() < codex());
-    }
-
-    #[test]
-    fn the_registered_adapters_are_listed_in_name_order() {
-        let mut sorted = REGISTERED;
-        sorted.sort_unstable();
-        assert_eq!(REGISTERED, sorted);
     }
 }

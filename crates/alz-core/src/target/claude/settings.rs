@@ -6,16 +6,14 @@ use std::collections::BTreeMap;
 
 use alz_adapter::{Context, JsonValue, Model};
 
-use crate::diagnostic::Diagnostics;
-
 use super::document::{deep_merge, file, map, object, text};
-use super::{Output, hooks, output_path, permissions};
+use super::{Made, hooks, permissions};
 
 /// The settings path.
 const SETTINGS_FILE: &str = ".claude/settings.json";
 
 /// `.claude/settings.json` when it would not be empty, and the hook scripts it runs.
-pub(super) fn render(model: &Model, context: &Context) -> Output {
+pub(super) fn render(model: &Model, context: &Context) -> Made {
     let hooks = hooks::render(model);
     let hook_groups = (!hooks.events.is_empty()).then(|| {
         object(
@@ -44,13 +42,9 @@ pub(super) fn render(model: &Model, context: &Context) -> Output {
         generated,
     );
     let settings_file = if matches!(&settings, JsonValue::Object(entries) if entries.is_empty()) {
-        Output::default()
+        Made::default()
     } else {
-        Output::one(
-            output_path(SETTINGS_FILE),
-            file(&settings),
-            Diagnostics::new(),
-        )
+        Made::file(SETTINGS_FILE, file(settings))
     };
     hooks.output.then(settings_file)
 }

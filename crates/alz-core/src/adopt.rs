@@ -32,7 +32,7 @@ use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedStack};
 use crate::untrusted_text::Stripped;
 
-pub use natives::{ADOPT_ALWAYS, Candidates, candidates};
+pub use natives::{Candidates, candidates};
 
 use draft::{Context, Draft};
 
