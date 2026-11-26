@@ -6,12 +6,11 @@ use std::collections::BTreeSet;
 
 use proptest::prelude::{prop_assert_eq, proptest};
 
-use crate::adapter_model::testing::{layer_executable, merged_with, settings_files_of};
+use crate::adapter_model::testing::{Emitted, layer_executable, merged_with, settings_files_of};
 use crate::json::{JsonValue, parse};
 use crate::lint::parse_document;
 use crate::render::tree::{FileMode, OutputPath};
 use crate::stack::Manifest;
-use crate::target::claude::ClaudeSettingsFiles;
 
 /// The text of a file of an acceptance fixture, read at compile time.
 macro_rules! fixture {
@@ -58,7 +57,7 @@ const SCRIPT: &str = "hooks/scripts/block-secrets.sh";
 const REPO: &str = "name: shop-api\nkind: repo\nvisibility: private\n";
 
 /// Renders the stack under a manifest that adds `options` to its stack.
-fn render(parts: &[Part<'_>], options: &str) -> ClaudeSettingsFiles {
+fn render(parts: &[Part<'_>], options: &str) -> Emitted {
     let layers = parts
         .iter()
         .map(|part| layer_executable(part.yaml, &part.files, None, part.executable))
@@ -84,7 +83,7 @@ fn path(text: &str) -> OutputPath {
     OutputPath::try_from(text).expect("a safe path")
 }
 
-fn lines(files: &ClaudeSettingsFiles) -> Vec<String> {
+fn lines(files: &Emitted) -> Vec<String> {
     files
         .diagnostics()
         .iter()
@@ -93,7 +92,7 @@ fn lines(files: &ClaudeSettingsFiles) -> Vec<String> {
 }
 
 /// Compares the paths, the bytes and the modes with the expected output.
-fn matches_expected(files: &ClaudeSettingsFiles, golden: &[Golden]) {
+fn matches_expected(files: &Emitted, golden: &[Golden]) {
     assert!(!files.diagnostics().has_errors(), "{}", files.diagnostics());
     let made: Vec<&str> = files.tree().paths().map(OutputPath::as_str).collect();
     let mut wanted: Vec<&str> = golden.iter().map(|(name, _, _)| *name).collect();
@@ -286,7 +285,7 @@ fn fixture_19_is_written_byte_for_byte() {
 
 /// The stack of every key the output has: all events, a script two hooks run, a hook for Codex
 /// only, every transport, the default model, settings of the target and workspace folders.
-fn mix() -> ClaudeSettingsFiles {
+fn mix() -> Emitted {
     let parts = [
         personal(
             golden!("mix/input/personal/layer.yaml"),

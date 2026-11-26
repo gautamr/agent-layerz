@@ -3,6 +3,7 @@
 //! (decision-33).
 
 pub mod action_word;
+pub(crate) mod adapter_output;
 pub mod diff;
 pub mod gitignore;
 pub mod glob;

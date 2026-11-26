@@ -13,9 +13,6 @@ use crate::untrusted_text::Stripped;
 
 use super::NativeFile;
 
-/// The files that are adopted even when the build does not collide with them.
-pub const ADOPT_ALWAYS: [&str; 2] = [".claude/settings.json", ".mcp.json"];
-
 /// The file whose paragraphs `CLAUDE.md` shares.
 const AGENTS_MD: &str = "AGENTS.md";
 
@@ -68,13 +65,15 @@ impl Candidates {
     }
 }
 
-/// Picks the files adoption takes. `beside` holds what was observed at [`ADOPT_ALWAYS`] and at
-/// `AGENTS.md`, which the build may not have looked at; an entry that is not a regular file there
+/// Picks the files adoption takes. `always` are the files that are adopted even when the build
+/// does not collide with them: the adapters' `adopted_files` (§4.3, §8.0 **Descriptor.**). `beside`
+/// holds what was observed at those files and at `AGENTS.md`, which the build may not have looked at; an entry that is not a regular file there
 /// is left alone, because a plain build would leave it alone too.
 #[must_use]
 pub fn candidates(
     collisions: &[Collision],
     disk: &Disk,
+    always: &[&str],
     beside: &BTreeMap<SafeRelPath, Observed>,
     previous: Option<&Lock>,
 ) -> Candidates {
@@ -85,16 +84,16 @@ pub fn candidates(
     let from_collisions = collided
         .into_iter()
         .filter_map(|collision| native_of(collision.path(), disk.get(collision.path())));
-    let always = beside
+    let adopted_always = beside
         .iter()
-        .filter(|(path, _)| ADOPT_ALWAYS.contains(&path.as_str()))
+        .filter(|(path, _)| always.contains(&path.as_str()))
         .filter(|(path, observed)| {
             !matches!(observed, Observed::Regular { bytes, .. }
                 if owns(bytes, previous.and_then(|lock| lock.files.get(*path))))
         })
         .filter_map(|(path, observed)| native_of(path, observed));
     Candidates {
-        natives: from_collisions.chain(always).collect(),
+        natives: from_collisions.chain(adopted_always).collect(),
         agents_md: beside
             .iter()
             .find(|(path, _)| path.as_str() == AGENTS_MD)
@@ -108,7 +107,7 @@ pub fn candidates(
         skipped_links: beside
             .iter()
             .filter(|(path, observed)| {
-                ADOPT_ALWAYS.contains(&path.as_str()) && matches!(observed, Observed::Link)
+                always.contains(&path.as_str()) && matches!(observed, Observed::Link)
             })
             .map(|(path, _)| path.clone())
             .collect(),

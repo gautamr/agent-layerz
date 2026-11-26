@@ -12,6 +12,7 @@ use alz_core::render::gitignore::Generated;
 use alz_core::render::rendered::{Rendered, render};
 use alz_core::render::write_plan::{Disk, Inputs, WritePlan, plan_writes};
 use alz_core::stack::{Manifest, ResolvedStack};
+use alz_core::target::Registry;
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped, Where, leak_guard};
 use alz_io::{ReadError, RepoError, RepoRoot, StackResolver, WalkError};
 use std::path::Path;
@@ -162,7 +163,7 @@ fn resolve_and_render(
     let Some(merged) = merging.merged() else {
         return Pipeline::failed(found);
     };
-    let rendered = render(merged, &manifest);
+    let rendered = render(&Registry::builtin(), merged, &manifest);
     let found = found
         .merge(rendered.diagnostics().clone())
         .merge(shadowing_files(repository));

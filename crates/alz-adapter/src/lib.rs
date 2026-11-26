@@ -36,12 +36,12 @@ pub use model::{
     HookEvent, HookMatch, HookRun, HookScript, Isolation, LockedHook, MODEL_VERSION, McpServer,
     McpTransport, Memory, Mode, Model, ModelProblem, ModelVersion, Models, NeutralEvent, OnFail,
     PathRule, Permissions, SecurityItemId, SecurityItems, SettingLayers, Skill, SkillFile,
-    SlotStub,
+    SlotStub, TargetInstruction,
 };
 pub use number::{Finite, NotFinite};
 pub use output::{
-    Bytes, Content, Coverage, CoverageEntry, Diagnostic, Enforcement, Frontmatter, Level, Markdown,
-    Output, OutputFile,
+    Bytes, Content, Coverage, CoverageEntry, Diagnostic, Enforcement, Frontmatter, HeaderSource,
+    Level, Markdown, Output, OutputFile,
 };
 pub use source::Source;
 pub use target_id::{TargetId, TargetIdError};

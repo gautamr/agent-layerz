@@ -103,6 +103,28 @@ impl SlotStub {
     }
 }
 
+/// The text a layer adds for one target only (§7.1, `targets/<target>/<NAME>.extra.md`), such as
+/// the Claude-only block of `CLAUDE.md`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct TargetInstruction {
+    /// The text, as the layer wrote it.
+    pub body: String,
+    /// The layer file it came from.
+    pub source: Source,
+}
+
+impl TargetInstruction {
+    /// A target-only instruction from `source`.
+    #[must_use]
+    pub fn new(body: impl Into<String>, source: Source) -> Self {
+        Self {
+            body: body.into(),
+            source,
+        }
+    }
+}
+
 /// A path-scoped rule (§7.10).
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]

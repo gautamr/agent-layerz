@@ -1,15 +1,27 @@
 use proptest::prelude::{prop_assert, prop_assert_eq, proptest};
 
-use super::{CLAUDE_MEMORY_PATTERNS, Protected};
+use super::Protected;
 use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
 use crate::stack::ProtectedPattern;
+use crate::target::Registry;
 
 fn path(text: &str) -> OutputPath {
     OutputPath::try_from(text).expect("an output path")
 }
 
 fn claude() -> Protected {
-    Protected::new(&CLAUDE_MEMORY_PATTERNS, &[])
+    let registry = Registry::builtin();
+    let patterns: Vec<&str> =
+        registry
+            .descriptor(crate::target::claude())
+            .map_or_else(Vec::new, |descriptor| {
+                descriptor
+                    .protected_patterns
+                    .iter()
+                    .map(String::as_str)
+                    .collect()
+            });
+    Protected::new(&patterns, &[])
 }
 
 #[test]

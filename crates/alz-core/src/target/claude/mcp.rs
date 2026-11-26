@@ -2,29 +2,23 @@
 
 use alz_adapter::{JsonValue, McpTransport, Model};
 
-use crate::diagnostic::Diagnostics;
-
+use super::Made;
 use super::document::{file, map, object, text, texts};
-use super::{Output, output_path};
 
 /// The path of the file.
 const MCP_FILE: &str = ".mcp.json";
 
 /// The file of the enabled servers, none when no server is on.
-pub(super) fn render(model: &Model) -> Output {
+pub(super) fn render(model: &Model) -> Made {
     let servers: Vec<(&str, JsonValue)> = model
         .mcp_servers
         .iter()
         .map(|server| (server.id.as_str(), definition(&server.transport)))
         .collect();
     if servers.is_empty() {
-        Output::default()
+        Made::default()
     } else {
-        Output::one(
-            output_path(MCP_FILE),
-            file(&map([("mcpServers", map(servers))])),
-            Diagnostics::new(),
-        )
+        Made::file(MCP_FILE, file(map([("mcpServers", map(servers))])))
     }
 }
 

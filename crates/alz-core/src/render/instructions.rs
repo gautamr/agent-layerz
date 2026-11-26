@@ -1,5 +1,5 @@
-//! `AGENTS.md` and `CLAUDE.md` (spec §7.1, §7.12, §8.1): the composed instructions of the stack
-//! and the thin Claude file that imports them, each with its generated header (§4.3).
+//! `AGENTS.md` (spec §7.1, §7.12): the composed instructions of the stack, with its generated
+//! header (§4.3). `CLAUDE.md` is the Claude adapter's file (§8.1), not the core's.
 //!
 //! `AGENTS.md` is the header, then one `## <Kind>: <name>` heading for each run of blocks of one
 //! layer with the blocks under it, then the Commits section of the winning commit identity
@@ -9,7 +9,7 @@
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::identity::CommitIdentity;
 use crate::layer::LayerName;
-use crate::merge::{InstructionBlock, Merged, MergedClaudeExtra, Traced};
+use crate::merge::{InstructionBlock, Merged, Traced};
 use crate::render::header::{SourceRef, Sources, html_header};
 use crate::render::sources::refs_of;
 use crate::render::tree::OutputPath;
@@ -17,10 +17,6 @@ use crate::stack::Budgets;
 
 /// The path of the composed instructions.
 const AGENTS_MD: &str = "AGENTS.md";
-/// The path of the Claude file that imports them.
-const CLAUDE_MD: &str = "CLAUDE.md";
-/// The heading of the Claude-only text in `CLAUDE.md`.
-const CLAUDE_SPECIFIC: &str = "## Claude-specific";
 /// The separator of the parts of a composed file.
 const PART_SEPARATOR: &str = "\n\n";
 
@@ -32,16 +28,6 @@ const PART_SEPARATOR: &str = "\n\n";
 #[must_use]
 pub fn agents_md_path() -> OutputPath {
     OutputPath::try_from(AGENTS_MD).expect("AGENTS.md is a safe relative path")
-}
-
-/// The path of `CLAUDE.md`.
-///
-/// # Panics
-///
-/// Never: the literal is a safe relative path, which the tests show.
-#[must_use]
-pub fn claude_md_path() -> OutputPath {
-    OutputPath::try_from(CLAUDE_MD).expect("CLAUDE.md is a safe relative path")
 }
 
 /// The composed `AGENTS.md`: the header, the blocks of every layer and the Commits section.
@@ -121,29 +107,6 @@ impl AgentsMd {
             .map(|message| Diagnostic::error(Code::Budget, None, message))
             .collect()
     }
-}
-
-/// The thin `CLAUDE.md`: the header, the import of `AGENTS.md`, and the `## Claude-specific`
-/// block with the text of each layer's `targets/claude/CLAUDE.extra.md` in stack order (§7.1).
-///
-/// # Errors
-///
-/// An error `layer` for each source of the header that holds a control or format character or
-/// `-->` (§4.3).
-pub fn claude_md(merged: &Merged) -> Result<String, Diagnostics> {
-    let extras = merged.claude_extras();
-    refs_of(extras.iter().map(MergedClaudeExtra::origin)).map(|refs| {
-        let sources = Sources::new(SourceRef::Output(agents_md_path()), refs);
-        let specific = (!extras.is_empty())
-            .then(|| CLAUDE_SPECIFIC.to_owned())
-            .into_iter()
-            .chain(extras.iter().map(|extra| extra.body().to_owned()));
-        finish(
-            [html_header(&sources), format!("@{AGENTS_MD}")]
-                .into_iter()
-                .chain(specific),
-        )
-    })
 }
 
 /// The parts joined by blank lines, ending with one line feed.
