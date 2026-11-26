@@ -1,10 +1,11 @@
 ---
 id: TASK-108
 title: Dispatch targets through an adapter registry with structured output
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
+updated_date: '2026-11-26T05:57:00Z'
 labels:
   - area:adapter
 milestone: m-8
