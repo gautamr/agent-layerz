@@ -1,11 +1,11 @@
 ---
 id: TASK-108
 title: Dispatch targets through an adapter registry with structured output
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-26T07:14:00Z'
+updated_date: '2026-11-26T07:18:00Z'
 labels:
   - area:adapter
 milestone: m-8
@@ -25,10 +25,10 @@ render/rendered.rs matches on the target and holds CLAUDE_MANAGED_FOLDERS and CL
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 render/rendered.rs has no match on a target and no CLAUDE_ constant; adapters come from a Registry value (grep)
-- [ ] #2 CLAUDE.md, the managed folders, the protected patterns and the always-adopted files come from the Claude adapter and its descriptor (grep: no claude_md in render/instructions)
-- [ ] #3 The Claude adapter returns Json and Markdown content, and the core emits it and inserts the §4.3 header (test that an adapter cannot set the header)
-- [ ] #4 Output is byte-identical: the acceptance suite and mise run alz:check pass
+- [x] #1 render/rendered.rs has no match on a target and no CLAUDE_ constant; adapters come from a Registry value (grep)
+- [x] #2 CLAUDE.md, the managed folders, the protected patterns and the always-adopted files come from the Claude adapter and its descriptor (grep: no claude_md in render/instructions)
+- [x] #3 The Claude adapter returns Json and Markdown content, and the core emits it and inserts the §4.3 header (test that an adapter cannot set the header)
+- [x] #4 Output is byte-identical: the acceptance suite and mise run alz:check pass
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -38,3 +38,9 @@ TASK-108 implementation (branch work-108). AC1: render/rendered.rs has no target
 
 Follow-up: a kept SKILL.md whose closing --- is the last bytes with no line feed is now written exactly as before. Frontmatter::Kept's body is the text after the closing --- fence byte for byte (its line feed included when the file has one), and the core writes '---' then that body with no added line feed. Test a_kept_frontmatter_without_a_final_line_feed_stays_as_it_was compares the adapter plus emitter output with the old insert_frontmatter_header result for five texts (LF and CRLF, no final line feed, empty frontmatter, body without a final line feed). mise run rust:ci green (1485 alz-core tests, doc, msrv, deny, audit); mise run alz:check: 67 generated files match.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+An adapter Registry replaces the target match; CLAUDE.md, managed folders, protected patterns and adopted files come from the Claude adapter and its descriptor; adapters return Json, Markdown and Bytes and the core emits them and inserts every header. Output byte-identical for every accepted input. Merged in #43. Spec follow-up: the Model section should name target_instructions and generated or slot-stub header sources.
+<!-- SECTION:FINAL_SUMMARY:END -->

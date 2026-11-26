@@ -1,11 +1,11 @@
 ---
 id: TASK-109
 title: Check every adapter output in the core before the writer
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-26T03:59:00Z'
+updated_date: '2026-11-26T07:18:00Z'
 labels:
   - area:adapter
   - area:security
