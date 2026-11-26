@@ -2,97 +2,25 @@
 //! neutral schema does not model, passed through to that target only, and deep-merged by overlays.
 //! Servers and hooks come only through `mcp.yaml` and `hooks.yaml`, so the keys that would bring
 //! them past those files (`claude.mcpServers`, `codex.mcp_servers`, and `hooks` of either target)
-//! are refused; the keys are the rows of [`AGENT_KEYS`].
+//! are refused. The rows of the refusals and of the types are the target's: its descriptor states
+//! them (`alz_adapter::NativeVocabulary`), and the core reads them through the [`Registry`].
 
 use std::collections::BTreeMap;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
 use crate::merge::{FloatBits, Tree};
 use crate::schema::SchemaErrors;
-use crate::untrusted_text::QuotedKey;
+use crate::target::Registry;
+use crate::untrusted_text::{QuotedKey, Stripped};
 use crate::yaml::fields::Section;
 use crate::yaml::{Mapping, Node, Value};
 use alz_adapter::TargetId;
 
-use super::super::native_keys::Step;
-use super::super::native_types::{CLAUDE_AGENT_FIELDS, Typed};
+use super::super::native_keys::{KeyRules, Step};
+use super::super::native_types::Typed;
 use super::super::protected_variable::codex_policies;
 use super::super::schema_diagnostics;
 use super::ordered_tree::{NativeMap, NativeValue};
-
-/// A key of an agent's native fields that is refused: servers and hooks come only through
-/// `mcp.yaml` and `hooks.yaml` (§7.2).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::item) struct AgentKey {
-    target: &'static str,
-    key: &'static str,
-    owner: &'static str,
-}
-
-impl AgentKey {
-    /// The target whose native fields hold the key.
-    #[must_use]
-    pub const fn target(&self) -> &'static str {
-        self.target
-    }
-
-    /// The key, at the top of the target's mapping.
-    #[must_use]
-    pub const fn key(&self) -> &'static str {
-        self.key
-    }
-
-    /// The place that sets what the key would set.
-    #[must_use]
-    pub const fn owner(&self) -> &'static str {
-        self.owner
-    }
-}
-
-/// The keys of an agent's native fields that duplicate a first-class item. Like the neutral keys
-/// below, they stay in the core until the descriptor's native agent fields take them over.
-pub(in crate::item) const AGENT_KEYS: &[AgentKey] = &[
-    AgentKey {
-        target: "claude",
-        key: "mcpServers",
-        owner: "mcp.yaml",
-    },
-    AgentKey {
-        target: "claude",
-        key: "hooks",
-        owner: "hooks/hooks.yaml",
-    },
-    AgentKey {
-        target: "codex",
-        key: "mcp_servers",
-        owner: "mcp.yaml",
-    },
-    AgentKey {
-        target: "codex",
-        key: "hooks",
-        owner: "hooks/hooks.yaml",
-    },
-];
-
-/// The keys of a target's map that have a neutral field, and so are refused inside it (§7.2).
-/// The spec names `tools`, `model` and `permissionMode` and leaves the rest of the list open; this
-/// is the spec's list.
-fn neutral_keys(target: &TargetId) -> &'static [&'static str] {
-    match target.as_str() {
-        "claude" => &[
-            "name",
-            "description",
-            "tools",
-            "model",
-            "permissionMode",
-            "skills",
-            "isolation",
-            "memory",
-        ],
-        "codex" => &["name", "description", "model", "developer_instructions"],
-        _ => &[],
-    }
-}
 
 /// The native fields of an agent or an overlay: for each target that has some, a mapping. A
 /// target with no `claude:` or `codex:` map has no entry.
@@ -139,14 +67,25 @@ impl NativeFields {
         )
     }
 
-    /// Reads the `claude:` and `codex:` maps of an agent file. Every problem is reported: a value
-    /// that is not a mapping, and each key that has a neutral field, at the key.
-    pub(super) fn read(section: &Section<'_>, at: &Where) -> Result<Self, Diagnostics> {
+    /// Reads the `claude:` and `codex:` maps of an agent file, with the rules that the descriptor
+    /// of each target in `registry` states. Every problem is reported: a value that is not a
+    /// mapping, and each key that has a neutral field, at the key. A map of a target with no rules
+    /// is read as a mapping and nothing more.
+    pub(super) fn read(
+        section: &Section<'_>,
+        at: &Where,
+        registry: &Registry,
+    ) -> Result<Self, Diagnostics> {
         let (fields, problems) = [crate::target::claude(), crate::target::codex()]
             .into_iter()
             .fold(
                 (BTreeMap::new(), Diagnostics::new()),
-                |(fields, problems), target| match read_target(section, target, at) {
+                |(fields, problems), target| match read_target(
+                    section,
+                    target,
+                    at,
+                    registry.key_rules(target),
+                ) {
                     Ok(Some(tree)) => (
                         fields.into_iter().chain([(target.clone(), tree)]).collect(),
                         problems,
@@ -167,6 +106,7 @@ fn read_target(
     section: &Section<'_>,
     target: &TargetId,
     at: &Where,
+    rules: Option<KeyRules<'_>>,
 ) -> Result<Option<NativeMap>, Diagnostics> {
     let path = section.path().target(target);
     section
@@ -178,13 +118,13 @@ fn read_target(
                 .into_iter()
                 .flat_map(Mapping::entries)
                 .filter_map(|(key, _)| {
-                    neutral_key(target, key).map(|name| refusal(target, name, at, key))
+                    neutral_key(rules, key).map(|name| refusal(target, name, at, key))
                 })
                 .collect();
             let fields = map_of(node);
             let found = refused
-                .merge(first_class_keys(target, node, at))
-                .merge(typed_fields(target, node, at))
+                .merge(first_class_keys(target, rules, node, at))
+                .merge(typed_fields(target, rules, node, at))
                 .merge(protected_variables(target, &fields, at));
             if found.has_errors() {
                 Err(found)
@@ -195,37 +135,52 @@ fn read_target(
         .transpose()
 }
 
-/// The problems of the types of a Claude agent's native fields (§7.2): a field that Claude Code
-/// does not read from a subagent's frontmatter, and a value of the wrong type. A key that has a
-/// neutral field, or that duplicates a first-class item, is reported by its own check.
-fn typed_fields(target: &TargetId, node: &Node, at: &Where) -> Diagnostics {
-    match target.as_str() {
-        "claude" => {
-            let reported = |steps: &[Step<'_>]| match steps {
-                [Step::Key(key)] => {
-                    neutral_keys(target).contains(key)
-                        || AGENT_KEYS
-                            .iter()
-                            .any(|row| row.target() == target.as_str() && row.key() == *key)
-                }
-                _ => false,
-            };
-            Typed::new(
-                "claude",
-                Code::Agent,
-                at,
-                " is not a field of a subagent's frontmatter that alz accepts (docs/target-facts.md section 14)",
-                &reported,
-            )
-            .check(CLAUDE_AGENT_FIELDS, node)
-        }
-        _ => Diagnostics::new(),
-    }
+/// The problems of the types of a target's native agent fields (§7.2): a field that its tool does
+/// not read from a subagent's frontmatter, and a value of the wrong type, by the typed fields of
+/// its descriptor. A key that has a neutral field, or that duplicates a first-class item, is
+/// reported by its own check. A target whose descriptor types no agent fields has nothing to check.
+fn typed_fields(
+    target: &TargetId,
+    rules: Option<KeyRules<'_>>,
+    node: &Node,
+    at: &Where,
+) -> Diagnostics {
+    rules.map_or_else(Diagnostics::new, |rules| {
+        let vocabulary = rules.vocabulary();
+        vocabulary
+            .agent_fields
+            .map_or_else(Diagnostics::new, |typed| {
+                let reported = |steps: &[Step<'_>]| match steps {
+                    [Step::Key(key)] => {
+                        vocabulary.agent_neutral_keys.iter().any(|name| name == key)
+                            || vocabulary
+                                .agent_first_class_keys
+                                .iter()
+                                .any(|row| row.path == *key)
+                    }
+                    _ => false,
+                };
+                let unknown = format!(
+                    " is not a field of a subagent's frontmatter that alz accepts ({})",
+                    typed.recorded_in
+                );
+                Typed::new(target.as_str(), Code::Agent, at, &unknown, &reported)
+                    .check(typed.fields, node)
+            })
+    })
 }
 
 /// An error for each key of the native fields that duplicates a first-class item: servers and
 /// hooks (§7.2).
-fn first_class_keys(target: &TargetId, node: &Node, at: &Where) -> Diagnostics {
+fn first_class_keys(
+    target: &TargetId,
+    rules: Option<KeyRules<'_>>,
+    node: &Node,
+    at: &Where,
+) -> Diagnostics {
+    let rows = rules.map_or(&[][..], |rules| {
+        &rules.vocabulary().agent_first_class_keys[..]
+    });
     mapping_of(node)
         .into_iter()
         .flat_map(Mapping::entries)
@@ -233,22 +188,16 @@ fn first_class_keys(target: &TargetId, node: &Node, at: &Where) -> Diagnostics {
             let Value::Text(name) = key.value() else {
                 return None;
             };
-            AGENT_KEYS
-                .iter()
-                .find(|row| row.target() == target.as_str() && row.key() == name)
-                .map(|row| {
-                    Diagnostic::error(
-                        Code::Agent,
-                        Some(at.clone().at(key.at())),
-                        Message::new(QuotedKey::from_untrusted(&format!(
-                            "{target}.{}",
-                            row.key()
-                        )))
+            rows.iter().find(|row| row.path == *name).map(|row| {
+                Diagnostic::error(
+                    Code::Agent,
+                    Some(at.clone().at(key.at())),
+                    Message::new(QuotedKey::from_untrusted(&format!("{target}.{}", row.path)))
                         .then(" is set through ")
-                        .then(row.owner())
+                        .then(Stripped::from_untrusted(&row.set_through))
                         .then(" so every agent gets the same servers and hooks"),
-                    )
-                })
+                )
+            })
         })
         .collect()
 }
@@ -272,13 +221,15 @@ fn mapping_of(node: &Node) -> Option<&Mapping> {
 }
 
 /// The text of `key` when it is a key that has a neutral field.
-fn neutral_key<'a>(target: &TargetId, key: &'a Node) -> Option<&'a str> {
-    if let Value::Text(name) = key.value() {
-        neutral_keys(target)
-            .contains(&name.as_str())
-            .then_some(name.as_str())
-    } else {
-        None
+fn neutral_key<'a>(rules: Option<KeyRules<'_>>, key: &'a Node) -> Option<&'a str> {
+    match (key.value(), rules) {
+        (Value::Text(name), Some(rules)) => rules
+            .vocabulary()
+            .agent_neutral_keys
+            .iter()
+            .any(|neutral| neutral == name)
+            .then_some(name.as_str()),
+        _ => None,
     }
 }
 

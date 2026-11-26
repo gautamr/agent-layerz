@@ -26,6 +26,7 @@ mod rules;
 mod settings;
 mod skills;
 mod tools;
+mod typed_keys;
 
 use alz_adapter::{
     Adapter, Content, Context, Coverage, Descriptor, Diagnostic, Enforcement, Level, Model, Output,

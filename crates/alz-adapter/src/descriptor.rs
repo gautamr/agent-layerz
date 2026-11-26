@@ -4,6 +4,7 @@
 use std::fmt;
 
 use crate::model::ModelVersion;
+use crate::native_type::TypedKeys;
 use crate::target_id::TargetId;
 
 /// The version of a tool, `major.minor.patch`.
@@ -82,44 +83,6 @@ impl Territory {
     #[must_use]
     pub const fn new(files: Vec<String>, folders: Vec<String>) -> Self {
         Self { files, folders }
-    }
-}
-
-/// The type of a native settings key's value (§7.9).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ValueKind {
-    /// Text.
-    Text,
-    /// `true` or `false`.
-    Boolean,
-    /// A whole number.
-    WholeNumber,
-    /// Any number.
-    Number,
-    /// A list.
-    List,
-    /// A mapping.
-    Mapping,
-}
-
-/// A native settings key with its type, as a key path (§7.9 **Key paths.**).
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct SettingsKey {
-    /// The key path, such as `sandbox.enabled` or `**.features.hooks`.
-    pub path: String,
-    /// The type of the value.
-    pub kind: ValueKind,
-}
-
-impl SettingsKey {
-    /// A key.
-    #[must_use]
-    pub fn new(path: impl Into<String>, kind: ValueKind) -> Self {
-        Self {
-            path: path.into(),
-            kind,
-        }
     }
 }
 
@@ -204,27 +167,6 @@ impl FloorKey {
     }
 }
 
-/// A native field of an agent (§7.2) with its type.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct AgentField {
-    /// The field's name, as `maxTurns`.
-    pub name: String,
-    /// The type of its value.
-    pub kind: ValueKind,
-}
-
-impl AgentField {
-    /// A native agent field.
-    #[must_use]
-    pub fn new(name: impl Into<String>, kind: ValueKind) -> Self {
-        Self {
-            name: name.into(),
-            kind,
-        }
-    }
-}
-
 /// The native vocabulary of a target (§8.0 **Descriptor.**). The core merges a target's native
 /// settings with these key rules, so the security floor (§7.6, §7.9, §9.3) stays the core's.
 ///
@@ -233,16 +175,23 @@ impl AgentField {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub struct NativeVocabulary {
-    /// The settings keys with their types.
-    pub settings_keys: Vec<SettingsKey>,
+    /// The settings keys with their types (§7.9 **Typed keys**). `None` when the target's settings
+    /// keys are not typed: its section is checked by the key rules below and nothing else.
+    pub settings_keys: Option<TypedKeys>,
     /// The first-class keys, in the order §7.9 gives them.
     pub first_class_keys: Vec<FirstClassKey>,
     /// The reserved keys, in the order §7.9 gives them.
     pub reserved_keys: Vec<ReservedKey>,
     /// The floor keys, in the order §7.9 gives them.
     pub floor_keys: Vec<FloorKey>,
-    /// The native fields of an agent, in the order §7.2 gives them.
-    pub agent_fields: Vec<AgentField>,
+    /// The native fields of an agent with their types (§7.2). `None` when they are not typed.
+    pub agent_fields: Option<TypedKeys>,
+    /// The keys of the target's agent map that have a neutral field, and so are refused inside it
+    /// (§7.2).
+    pub agent_neutral_keys: Vec<String>,
+    /// The keys of the target's agent map that duplicate a first-class item, each with the file
+    /// that sets it instead (§7.2): servers and hooks.
+    pub agent_first_class_keys: Vec<FirstClassKey>,
     /// The target's own hook events, as `Notification`, for `<target>:<Event>` (§7.5).
     pub hook_events: Vec<String>,
 }
@@ -261,6 +210,32 @@ impl NativeVocabulary {
             first_class_keys,
             reserved_keys,
             floor_keys,
+            ..self
+        }
+    }
+
+    /// The vocabulary with the typed settings keys of §7.9.
+    #[must_use]
+    pub fn with_settings_keys(self, settings_keys: TypedKeys) -> Self {
+        Self {
+            settings_keys: Some(settings_keys),
+            ..self
+        }
+    }
+
+    /// The vocabulary with the native agent fields of §7.2: the neutral keys, the first-class keys
+    /// and, when the target types them, the typed fields.
+    #[must_use]
+    pub fn with_agent_native(
+        self,
+        agent_neutral_keys: Vec<String>,
+        agent_first_class_keys: Vec<FirstClassKey>,
+        agent_fields: Option<TypedKeys>,
+    ) -> Self {
+        Self {
+            agent_fields,
+            agent_neutral_keys,
+            agent_first_class_keys,
             ..self
         }
     }

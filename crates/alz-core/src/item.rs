@@ -41,7 +41,7 @@ pub use list_edit::{EditSegment, EditSign, WrittenEdit};
 pub use mcp::{McpItems, McpRefusal, McpServer, McpServerId, Transport};
 pub use model::{BlankModelName, ConcreteModel, ModelAlias, ModelItems, Models};
 pub use native_keys::{KeyRule, KeyRules, Looseness, Loosening, NativeKey, Step, Strictness};
-pub use native_types::{CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, Ends, Field, Shape, Span, Typed};
+pub use native_types::Typed;
 pub use passthrough::{PassthroughFile, PassthroughItems};
 pub use permission::{
     Binding, DefaultMode, FloorFlag, PermissionItems, PermissionRefusal, PermissionRule,

@@ -17,6 +17,7 @@ mod descriptor;
 mod json;
 mod layer_name;
 mod model;
+mod native_type;
 mod number;
 mod output;
 mod source;
@@ -27,8 +28,8 @@ mod toml;
 pub use adapter::Adapter;
 pub use context::Context;
 pub use descriptor::{
-    AgentField, Descriptor, FirstClassKey, FloorKey, FloorRule, NativeVocabulary, ReservedKey,
-    SettingsKey, Territory, ToolVersion, ToolVersionRange, ValueKind,
+    Descriptor, FirstClassKey, FloorKey, FloorRule, NativeVocabulary, ReservedKey, Territory,
+    ToolVersion, ToolVersionRange,
 };
 pub use json::{DuplicateKey, JsonObject, JsonValue};
 pub use layer_name::{LayerName, LayerNameError};
@@ -39,6 +40,7 @@ pub use model::{
     PathRule, Permissions, SecurityItemId, SecurityItems, SettingLayers, Skill, SkillFile,
     SlotStub, TargetInstruction,
 };
+pub use native_type::{Ends, Field, Shape, Span, TypedKeys};
 pub use number::{Finite, NotFinite};
 pub use output::{
     Bytes, Content, Coverage, CoverageEntry, Diagnostic, Enforcement, Frontmatter, HeaderSource,

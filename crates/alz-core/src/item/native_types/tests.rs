@@ -1,11 +1,32 @@
 use std::collections::BTreeSet;
 
-use crate::item::{CLAUDE_AGENT_FIELDS, CLAUDE_SETTINGS, KeyRule, Step};
+use alz_adapter::{Field, Shape};
+
+use crate::item::{KeyRule, Step};
 use crate::target::Registry;
 
-use super::super::agent::AGENT_KEYS;
+/// Claude's typed settings keys, as its descriptor states them.
+fn claude_settings() -> &'static [Field] {
+    claude_table(|vocabulary| vocabulary.settings_keys)
+}
 
-use super::{Field, Shape};
+/// Claude's typed agent fields, as its descriptor states them.
+fn claude_agent_fields() -> &'static [Field] {
+    claude_table(|vocabulary| vocabulary.agent_fields)
+}
+
+fn claude_table(
+    pick: impl FnOnce(&alz_adapter::NativeVocabulary) -> Option<alz_adapter::TypedKeys>,
+) -> &'static [Field] {
+    pick(
+        &Registry::builtin()
+            .descriptor(crate::target::claude())
+            .expect("the Claude adapter is built in")
+            .vocabulary,
+    )
+    .expect("the Claude descriptor types the keys")
+    .fields
+}
 
 /// Section 14 of the target facts, where every row of the tables is recorded.
 fn recorded() -> &'static str {
@@ -65,8 +86,8 @@ fn below(path: &str, shape: Shape) -> Vec<(String, Shape)> {
 fn every_key_of_the_tables_is_recorded_with_its_path_in_the_target_facts() {
     let facts = recorded();
     for (table, fields) in [
-        ("settings", CLAUDE_SETTINGS),
-        ("agent", CLAUDE_AGENT_FIELDS),
+        ("settings", claude_settings()),
+        ("agent", claude_agent_fields()),
     ] {
         for path in paths("", fields) {
             assert!(
@@ -79,8 +100,8 @@ fn every_key_of_the_tables_is_recorded_with_its_path_in_the_target_facts() {
 
 #[test]
 fn the_tables_have_the_recorded_number_of_rows() {
-    assert_eq!(paths("", CLAUDE_SETTINGS).len(), 147);
-    assert_eq!(paths("", CLAUDE_AGENT_FIELDS).len(), 10);
+    assert_eq!(paths("", claude_settings()).len(), 147);
+    assert_eq!(paths("", claude_agent_fields()).len(), 10);
 }
 
 #[test]
@@ -108,13 +129,13 @@ fn a_key_name_is_listed_once_in_its_mapping() {
             Shape::Either(options) => options.iter().for_each(|option| nested(*option)),
         }
     }
-    unique(CLAUDE_SETTINGS);
-    unique(CLAUDE_AGENT_FIELDS);
+    unique(claude_settings());
+    unique(claude_agent_fields());
 }
 
 #[test]
 fn a_key_that_the_security_table_refuses_is_not_a_typed_key() {
-    for path in paths("", CLAUDE_SETTINGS) {
+    for path in paths("", claude_settings()) {
         if path.contains('*') || path.contains('[') {
             continue;
         }
@@ -137,7 +158,7 @@ fn a_key_that_the_security_table_refuses_is_not_a_typed_key() {
 
 #[test]
 fn every_claude_floor_key_has_a_type() {
-    let typed: BTreeSet<String> = paths("", CLAUDE_SETTINGS).into_iter().collect();
+    let typed: BTreeSet<String> = paths("", claude_settings()).into_iter().collect();
     let registry = Registry::builtin();
     let rules = registry
         .key_rules(crate::target::claude())
@@ -165,12 +186,17 @@ fn an_agent_field_is_neither_a_neutral_key_nor_a_first_class_key() {
         "isolation",
         "memory",
     ];
-    for field in CLAUDE_AGENT_FIELDS {
+    let registry = Registry::builtin();
+    let vocabulary = &registry
+        .descriptor(crate::target::claude())
+        .expect("the Claude adapter is built in")
+        .vocabulary;
+    let first_class = &vocabulary.agent_first_class_keys;
+    assert_eq!(vocabulary.agent_neutral_keys, neutral);
+    for field in claude_agent_fields() {
         assert!(!neutral.contains(&field.name()), "{}", field.name());
         assert!(
-            !AGENT_KEYS
-                .iter()
-                .any(|row| row.target() == "claude" && row.key() == field.name()),
+            !first_class.iter().any(|row| row.path == field.name()),
             "{}",
             field.name()
         );
