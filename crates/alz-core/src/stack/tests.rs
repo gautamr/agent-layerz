@@ -7,7 +7,6 @@ use proptest::prelude::{prop_assert, proptest};
 use crate::item::McpServerId;
 use crate::schema::SchemaErrors;
 use crate::stack::{GitRef, Manifest, ProtectedPattern, Source, StackEntry, WorkspaceDir};
-use crate::target::TargetName;
 use crate::yaml::{Node, YamlText, parse};
 
 const STACK: &str = "stack:\n  - source: path:./.layer\n";
@@ -245,29 +244,34 @@ fn targets_default_to_claude_and_are_a_set_in_declared_order() {
             .expect("valid")
             .targets()
             .iter()
-            .copied()
+            .cloned()
             .collect::<Vec<_>>(),
-        [TargetName::Claude]
+        [crate::target::claude().clone()]
     );
     assert_eq!(
         with("targets: [codex, claude, codex]")
             .expect("valid")
             .targets()
             .iter()
-            .copied()
+            .cloned()
             .collect::<Vec<_>>(),
-        [TargetName::Codex, TargetName::Claude]
+        [
+            crate::target::codex().clone(),
+            crate::target::claude().clone()
+        ]
     );
 }
 
 #[test]
 fn an_unknown_target_names_its_item_and_not_the_value() {
-    let errors = with("targets: [claude, cursor]").expect_err("unknown target");
+    let errors = with("targets: [claude, Cursor]").expect_err("unknown target");
     assert_eq!(
         messages(&errors),
-        ["targets[1] must be a target: claude or codex"]
+        [
+            "targets[1] must be a target id: 1 to 32 characters, a lower-case letter and then lower-case letters, digits and '-'"
+        ]
     );
-    assert!(!printed(&errors).contains("cursor"));
+    assert!(!printed(&errors).contains("Cursor"));
     assert_eq!(
         messages(&with("targets: claude").expect_err("not a list")),
         ["targets must be a list"]
@@ -440,12 +444,12 @@ fn a_section_that_is_not_a_mapping_is_refused() {
 #[test]
 fn every_error_of_one_file_is_reported_in_document_order() {
     let errors = refused(
-        "targets: [x]\nstack:\n  - source: nope\n    ref: [a]\nbudgets:\n  instructions_max_lines: no\nbogus: 1\n",
+        "targets: [X]\nstack:\n  - source: nope\n    ref: [a]\nbudgets:\n  instructions_max_lines: no\nbogus: 1\n",
     );
     assert_eq!(
         messages(&errors),
         [
-            "targets[0] must be a target: claude or codex",
+            "targets[0] must be a target id: 1 to 32 characters, a lower-case letter and then lower-case letters, digits and '-'",
             "stack[0].source must start with path:, github: or git:",
             "stack[0].ref must be text",
             "budgets.instructions_max_lines must be a whole number",
@@ -462,7 +466,7 @@ proptest! {
             format!("stack:\n  - source: path:./a\n    ref: \"a..{secret}\"\n"),
             format!("stack:\n  - source: \"nope-{secret}\"\n"),
             format!("stack:\n  - source: \"git:https://u:{secret}@h/x@v1\"\n"),
-            format!("stack:\n  - source: path:./a\ntargets: [{secret}]\n"),
+            format!("stack:\n  - source: path:./a\ntargets: [X{secret}]\n"),
             format!("stack:\n  - source: path:./a\nworkspace:\n  hub: /{secret}\n"),
         ];
         for document in documents {

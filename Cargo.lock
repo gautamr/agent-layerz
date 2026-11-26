@@ -6,6 +6,7 @@ version = 4
 name = "alz"
 version = "0.1.0"
 dependencies = [
+ "alz-adapter",
  "alz-core",
  "alz-io",
  "alz-test-support",
@@ -26,6 +27,7 @@ dependencies = [
 name = "alz-core"
 version = "0.1.0"
 dependencies = [
+ "alz-adapter",
  "proptest",
  "regex-lite",
  "serde",

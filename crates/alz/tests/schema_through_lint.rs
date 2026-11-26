@@ -130,7 +130,7 @@ mod tests {
     fn a_top_level_key_that_is_not_a_target_or_a_server_id_is_an_error_and_a_build_writes_nothing()
     {
         let cases = [
-            ("settings.yaml", "gemini:\n  env:\n    A: x\n"),
+            ("settings.yaml", "Gemini:\n  env:\n    A: x\n"),
             ("mcp.yaml", "Not An Id:\n  command: tool\n"),
         ];
         for (file, text) in cases {

@@ -26,8 +26,8 @@ use std::mem::discriminant;
 
 use crate::diagnostic::{Code, Diagnostic, Message, Where};
 use crate::merge::Tree;
-use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
+use alz_adapter::TargetId;
 
 /// How a key that has a floor gets stricter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,7 +60,7 @@ pub enum KeyRule {
 /// A row of the table: a key path of a target and what is said about it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NativeKey {
-    target: TargetName,
+    target: &'static str,
     path: &'static str,
     rule: KeyRule,
 }
@@ -68,7 +68,7 @@ pub struct NativeKey {
 impl NativeKey {
     /// The target whose native settings hold the key.
     #[must_use]
-    pub const fn target(&self) -> TargetName {
+    pub const fn target(&self) -> &'static str {
         self.target
     }
 
@@ -123,16 +123,16 @@ fn pattern_matches(pattern: &[&str], steps: &[Step<'_>]) -> bool {
     }
 }
 
-const fn row(target: TargetName, path: &'static str, rule: KeyRule) -> NativeKey {
+const fn row(target: &'static str, path: &'static str, rule: KeyRule) -> NativeKey {
     NativeKey { target, path, rule }
 }
 
 const fn claude(path: &'static str, rule: KeyRule) -> NativeKey {
-    row(TargetName::Claude, path, rule)
+    row("claude", path, rule)
 }
 
 const fn codex(path: &'static str, rule: KeyRule) -> NativeKey {
-    row(TargetName::Codex, path, rule)
+    row("codex", path, rule)
 }
 
 const fn floor(strictness: Strictness) -> KeyRule {
@@ -356,7 +356,7 @@ const WEB_SEARCH: KeyRule = floor(Strictness::Ladder(&[
 /// `mcp.yaml` and `hooks.yaml` (§7.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AgentKey {
-    target: TargetName,
+    target: &'static str,
     key: &'static str,
     owner: &'static str,
 }
@@ -364,7 +364,7 @@ pub struct AgentKey {
 impl AgentKey {
     /// The target whose native fields hold the key.
     #[must_use]
-    pub const fn target(&self) -> TargetName {
+    pub const fn target(&self) -> &'static str {
         self.target
     }
 
@@ -384,22 +384,22 @@ impl AgentKey {
 /// The keys of an agent's native fields that duplicate a first-class item.
 pub const AGENT_KEYS: &[AgentKey] = &[
     AgentKey {
-        target: TargetName::Claude,
+        target: "claude",
         key: "mcpServers",
         owner: "mcp.yaml",
     },
     AgentKey {
-        target: TargetName::Claude,
+        target: "claude",
         key: "hooks",
         owner: "hooks/hooks.yaml",
     },
     AgentKey {
-        target: TargetName::Codex,
+        target: "codex",
         key: "mcp_servers",
         owner: "mcp.yaml",
     },
     AgentKey {
-        target: TargetName::Codex,
+        target: "codex",
         key: "hooks",
         owner: "hooks/hooks.yaml",
     },
@@ -407,15 +407,15 @@ pub const AGENT_KEYS: &[AgentKey] = &[
 
 /// The row of the table for `steps` below the mapping of `target`, when there is one.
 #[must_use]
-pub fn native_key(target: TargetName, steps: &[Step<'_>]) -> Option<&'static NativeKey> {
+pub fn native_key(target: &TargetId, steps: &[Step<'_>]) -> Option<&'static NativeKey> {
     KEYS.iter()
-        .find(|key| key.target == target && key.matches(steps))
+        .find(|key| key.target == target.as_str() && key.matches(steps))
 }
 
 /// The row of `target` that refuses the key at `steps`, when one does: a first-class item or a
 /// reserved key.
 #[must_use]
-pub fn refusal(target: TargetName, steps: &[Step<'_>]) -> Option<&'static NativeKey> {
+pub fn refusal(target: &TargetId, steps: &[Step<'_>]) -> Option<&'static NativeKey> {
     native_key(target, steps).filter(|key| match key.rule {
         KeyRule::FirstClass(_) | KeyRule::Reserved(_) => true,
         KeyRule::Floor(_) => false,
@@ -556,12 +556,12 @@ fn adds(before: &Tree, after: &Tree) -> bool {
 /// against `before`, the settings merged from the more general ones. A key that `before` does not
 /// set, or sets to `null`, is free.
 #[must_use]
-pub fn loosenings(target: TargetName, before: &Tree, after: &Tree) -> Vec<Loosening> {
+pub fn loosenings(target: &TargetId, before: &Tree, after: &Tree) -> Vec<Loosening> {
     descend(target, &[], Some(before), after)
 }
 
 fn descend(
-    target: TargetName,
+    target: &TargetId,
     steps: &[Step<'_>],
     before: Option<&Tree>,
     after: &Tree,

@@ -4,14 +4,12 @@
 
 use std::collections::BTreeSet;
 
-use crate::target::TargetName;
-
 use super::{KEYS, KeyRule, Strictness};
 
-const CLAUDE: TargetName = TargetName::Claude;
-const CODEX: TargetName = TargetName::Codex;
+const CLAUDE: &str = "claude";
+const CODEX: &str = "codex";
 
-type Row = (TargetName, &'static str, KeyRule);
+type Row = (&'static str, &'static str, KeyRule);
 
 const OUTSIDE: KeyRule =
     KeyRule::Reserved("it is read from a user or managed scope, not from a project");
@@ -265,7 +263,7 @@ fn the_table_holds_every_key_the_spec_lists_with_its_rule_and_no_other_row() {
 /// the three lists of the spec do not overlap and each holds only rows of its own kind.
 #[test]
 fn a_key_is_first_class_or_reserved_or_a_floor_never_two_of_them() {
-    let keys = |rows: &'static [Row]| -> BTreeSet<(TargetName, &'static str)> {
+    let keys = |rows: &'static [Row]| -> BTreeSet<(&'static str, &'static str)> {
         rows.iter()
             .map(|(target, path, _)| (*target, *path))
             .collect()

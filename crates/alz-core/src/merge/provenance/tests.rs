@@ -47,7 +47,7 @@ fn provenance_starts_with_one_contribution() {
 #[test]
 fn an_origin_carries_the_layer_file_and_the_versions_of_its_layer() {
     let client = layer_from_yaml(CLIENT_YAML, &[("layer.yaml", CLIENT_YAML)]);
-    let origin = Origin::of_item(&client, ItemPath::LayerYaml).expect("layer.yaml is a file");
+    let origin = Origin::of_item(&client, &ItemPath::LayerYaml).expect("layer.yaml is a file");
     let provenance = Provenance::first(origin, Action::Define);
     let part = &provenance.contributions()[0];
     assert_eq!(
@@ -62,7 +62,7 @@ fn an_origin_carries_the_layer_file_and_the_versions_of_its_layer() {
 fn a_layer_without_a_version_or_pin_is_named_by_its_name_alone() {
     let yaml = "name: shop-api\nkind: repo\nvisibility: private\n";
     let repo = layer_from_yaml(yaml, &[("layer.yaml", yaml)]);
-    let origin = Origin::of_item(&repo, ItemPath::LayerYaml).expect("layer.yaml is a file");
+    let origin = Origin::of_item(&repo, &ItemPath::LayerYaml).expect("layer.yaml is a file");
     let part = Provenance::first(origin, Action::Define);
     assert_eq!(
         SourceRef::of_contribution(&part.contributions()[0])

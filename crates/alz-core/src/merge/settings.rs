@@ -3,7 +3,7 @@
 //! The settings of each target are merged by [`SettingsTree::deep_merge`], a left fold in stack
 //! order: mappings merge key by key, two lists are concatenated and de-duplicated by equality as
 //! trees, and anything else, a change of kind included, is replaced by the more specific value.
-//! The merged settings are an ordered map from [`TargetName`] to the settings of that target; the
+//! The merged settings are an ordered map from [`TargetId`] to the settings of that target; the
 //! only keys at the top level are the known targets, because a file with any other key is
 //! refused when it is read and none of its settings reach the fold.
 //!
@@ -19,12 +19,12 @@ use crate::item::{Settings, SettingsItems, SettingsTree, loosenings, place};
 use crate::merge::action::Action;
 use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// The state of the fold for settings: the settings of each target that some layer set, with the
 /// layers that set them.
 #[derive(Debug, Clone, Default)]
-pub(super) struct SettingsState(BTreeMap<TargetName, Traced<SettingsTree>>);
+pub(super) struct SettingsState(BTreeMap<TargetId, Traced<SettingsTree>>);
 
 impl SettingsState {
     /// The state after one more, more specific, layer.
@@ -49,7 +49,7 @@ impl SettingsState {
             .iter()
             .filter_map(|(target, tree)| {
                 self.0
-                    .get(&target)
+                    .get(target)
                     .map(|before| loosenings(target, &before.value().to_tree(), &tree.to_tree()))
             })
             .flatten()
@@ -59,21 +59,21 @@ impl SettingsState {
             return (self, found);
         }
         let merged = Self(file.iter().fold(self.0, |mut merged, (target, tree)| {
-            let next = match merged.remove(&target) {
+            let next = match merged.remove(target) {
                 Some(before) => {
                     let combined = before.value().clone().deep_merge(tree.clone());
                     before.revised(combined, origin.clone(), Action::Extend)
                 }
                 None => Traced::new(tree.clone(), origin.clone(), Action::Define),
             };
-            merged.insert(target, next);
+            merged.insert(target.clone(), next);
             merged
         }));
         (merged, found)
     }
 
     /// The merged settings.
-    pub(super) fn finish(self) -> BTreeMap<TargetName, Traced<SettingsTree>> {
+    pub(super) fn finish(self) -> BTreeMap<TargetId, Traced<SettingsTree>> {
         self.0
     }
 }

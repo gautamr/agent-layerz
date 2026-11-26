@@ -17,10 +17,10 @@ use crate::schema::{
     Checked, SchemaError, SchemaErrors, refine, refine_list, require, unknown_fields, zip, zip3,
 };
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::{KeyPath, Section};
 use crate::yaml::{self, Node, Value, YamlText};
+use alz_adapter::TargetId;
 
 use super::{Glob, place, schema_diagnostics};
 use vocabulary::HookEvent;
@@ -179,7 +179,7 @@ pub struct Hook {
     trigger: Trigger,
     action: HookAction,
     on_fail: OnFail,
-    targets: Option<OrderedSet<TargetName>>,
+    targets: Option<OrderedSet<TargetId>>,
     timeout: Option<Seconds>,
     lock: Lock,
 }
@@ -211,7 +211,7 @@ impl Hook {
 
     /// The targets the hook is for, `None` for every target. A native event gives its target.
     #[must_use]
-    pub const fn targets(&self) -> Option<&OrderedSet<TargetName>> {
+    pub const fn targets(&self) -> Option<&OrderedSet<TargetId>> {
         self.targets.as_ref()
     }
 
@@ -349,7 +349,7 @@ struct Raw {
     command: Option<CommandLine>,
     timeout: Option<Seconds>,
     on_fail: OnFail,
-    targets: Option<Vec<TargetName>>,
+    targets: Option<Vec<TargetId>>,
     lock: Lock,
 }
 
@@ -368,7 +368,7 @@ impl Raw {
         let third = zip3(
             timeout(section),
             refine::<OnFail>(section, "on_fail"),
-            refine_list::<TargetName>(section, "targets"),
+            refine_list::<TargetId>(section, "targets"),
         );
         let lock = section
             .boolean("locked")
@@ -497,24 +497,24 @@ fn lifecycle(event: LifecycleEvent, filter: &ToolFilter) -> Result<Trigger, Prob
 /// The targets of a hook: those it lists, or for a native event its own target, which it may
 /// list but no other.
 fn reach(
-    listed: Option<Vec<TargetName>>,
+    listed: Option<Vec<TargetId>>,
     trigger: &Trigger,
-) -> Result<Option<OrderedSet<TargetName>>, Problem> {
+) -> Result<Option<OrderedSet<TargetId>>, Problem> {
     let own = match trigger {
         Trigger::Native { event, .. } => Some(event.target()),
         Trigger::Tool { .. } | Trigger::Lifecycle(_) => None,
     };
     match (listed, own) {
         (None, None) => Ok(None),
-        (None, Some(own)) => Ok(Some(OrderedSet::from_iter([own]))),
+        (None, Some(own)) => Ok(Some(OrderedSet::from_iter([own.clone()]))),
         (Some(listed), None) if listed.is_empty() => Err(Problem::NoTargets),
         (Some(listed), None) => Ok(Some(listed.into_iter().collect())),
         (Some(listed), Some(own)) => {
-            let set: OrderedSet<TargetName> = listed.into_iter().collect();
-            if set.as_slice() == [own] {
+            let set: OrderedSet<TargetId> = listed.into_iter().collect();
+            if set.as_slice() == std::slice::from_ref(own) {
                 Ok(Some(set))
             } else {
-                Err(Problem::NativeTargets(own))
+                Err(Problem::NativeTargets(own.clone()))
             }
         }
     }
@@ -532,7 +532,7 @@ enum Problem {
     MatcherOnNeutral,
     MatchNotTool,
     NoTargets,
-    NativeTargets(TargetName),
+    NativeTargets(TargetId),
 }
 
 impl Problem {

@@ -5,14 +5,14 @@
 //! is [`ItemPath::Other`], so every path has exactly one variant.
 
 use crate::path::SafeRelPath;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// The file `targets/claude/CLAUDE.extra.md` (§7.1).
 const CLAUDE_EXTRA: &str = "targets/claude/CLAUDE.extra.md";
 
 /// The kind of item a path of a layer is, with the parts of the path that name it. The text
 /// borrows from the path.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ItemPath<'a> {
     /// `layer.yaml`: the layer's own description (§5.1).
     LayerYaml,
@@ -63,10 +63,10 @@ pub enum ItemPath<'a> {
     Models,
     /// `settings.yaml`.
     Settings,
-    /// `targets/<target>/<path>`, except `CLAUDE.extra.md`: a raw file for a known target.
+    /// `targets/<target>/<path>`, except `CLAUDE.extra.md`: a raw file for a target id (§5.2).
     Passthrough {
         /// The target the file is for.
-        target: TargetName,
+        target: TargetId,
         /// The path inside the target's folder, `/`-separated.
         path: &'a str,
     },
@@ -122,7 +122,7 @@ fn in_folder<'a>(folder: &str, rest: &'a str) -> ItemPath<'a> {
         "targets" => rest
             .split_once('/')
             .and_then(|(target, path)| {
-                TargetName::try_from(target)
+                TargetId::try_from(target)
                     .ok()
                     .map(|target| ItemPath::Passthrough { target, path })
             })

@@ -133,7 +133,7 @@ fn an_overlay_may_add_to_claude_disallowed_tools_and_keeps_the_earlier_entries()
     ));
     assert_eq!(lines(&found), Vec::<String>::new());
     let claude = agent_of(&found)
-        .and_then(|agent| agent.native().of(crate::target::TargetName::Claude))
+        .and_then(|agent| agent.native().of(crate::target::claude()))
         .and_then(|native| native.get("disallowedTools"))
         .map(|value| format!("{:?}", value.to_tree()));
     let shown = claude.expect("the field");

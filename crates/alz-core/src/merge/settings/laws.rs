@@ -11,8 +11,8 @@ use crate::item::{Settings, SettingsTree};
 use crate::layer::LayerName;
 use crate::merge::Tree;
 use crate::merge::testing::origin_of;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
+use alz_adapter::TargetId;
 
 use super::SettingsState;
 
@@ -142,12 +142,12 @@ proptest! {
         a in trees(),
         b in trees(),
     ) {
-        let first = Settings::new([(TargetName::Claude, a.clone())]);
-        let second = Settings::new([(TargetName::Claude, b.clone())]);
+        let first = Settings::new([(crate::target::claude().clone(), a.clone())]);
+        let second = Settings::new([(crate::target::claude().clone(), b.clone())]);
         let (state, _) = SettingsState::default().apply(&first, &origin_of(layer("one")), &here());
         let (state, _) = state.apply(&second, &origin_of(layer("two")), &here());
         let folded = state.finish();
-        let claude = folded.get(&TargetName::Claude).map(|settings| settings.value().clone());
+        let claude = folded.get(crate::target::claude()).map(|settings| settings.value().clone());
         prop_assert_eq!(claude, Some(a.deep_merge(b)));
         prop_assert_eq!(folded.len(), 1);
     }
@@ -235,17 +235,17 @@ impl Floors {
             | Tree::List(_) => SettingsTree::default(),
         };
         Settings::new([
-            (TargetName::Claude, tree(claude)),
-            (TargetName::Codex, tree(codex)),
+            (crate::target::claude().clone(), tree(claude)),
+            (crate::target::codex().clone(), tree(codex)),
         ])
     }
 }
 
 /// The value at `path` of the merged settings of `target`.
-fn held(state: &SettingsState, target: TargetName, path: &[&str]) -> Option<Tree> {
+fn held(state: &SettingsState, target: &TargetId, path: &[&str]) -> Option<Tree> {
     let merged = state.clone().finish();
     path.iter().try_fold(
-        merged.get(&target)?.value().to_tree(),
+        merged.get(target)?.value().to_tree(),
         |tree, key| match tree {
             Tree::Map(mut entries) => entries.remove(*key),
             Tree::Null
@@ -285,7 +285,7 @@ fn rank(tree: &Tree) -> Option<usize> {
 proptest! {
     #[test]
     fn no_floor_key_loosens_down_the_stack(stack in vec(floors(), 0..6)) {
-        let claude = TargetName::Claude;
+        let claude = crate::target::claude();
         let enabled = ["sandbox", "enabled"];
         let auto_allow = ["sandbox", "autoAllowBashIfSandboxed"];
         let allowed = ["sandbox", "network", "allowedDomains"];
@@ -311,8 +311,8 @@ proptest! {
                 prop_assert!(members(&was).iter().all(|item| now.contains(item)));
             }
             // An ordered value never moves down its ranks, and one in no rank never changes.
-            if let Some(was) = held(&before, TargetName::Codex, &web_search) {
-                let now = held(&after, TargetName::Codex, &web_search);
+            if let Some(was) = held(&before, crate::target::codex(), &web_search) {
+                let now = held(&after, crate::target::codex(), &web_search);
                 prop_assert!(now.is_some());
                 let now = now.unwrap_or(Tree::Null);
                 if rank(&was).is_none_or(|rank| rank == 3) {

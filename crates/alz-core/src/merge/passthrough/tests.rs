@@ -1,7 +1,6 @@
 use crate::merge::action::Action;
 use crate::merge::testing::{layer, lines, merged};
 use crate::path::SafeRelPath;
-use crate::target::TargetName;
 
 fn path(text: &str) -> SafeRelPath {
     SafeRelPath::try_from(text).expect("a safe path")
@@ -27,7 +26,7 @@ fn the_most_specific_layer_wins_per_path_and_other_paths_stay() {
     let model = found.merged().expect("merged");
     let claude = model
         .passthrough()
-        .get(&TargetName::Claude)
+        .get(crate::target::claude())
         .expect("claude files");
     let style = claude.get(&path(OUTPUT_STYLE)).expect("the file");
     assert_eq!(style.value().bytes(), b"REPO");
@@ -48,7 +47,7 @@ fn the_most_specific_layer_wins_per_path_and_other_paths_stay() {
     assert_eq!(kept.provenance().contributions().len(), 1);
     let codex = model
         .passthrough()
-        .get(&TargetName::Codex)
+        .get(crate::target::codex())
         .expect("codex files");
     assert_eq!(codex.len(), 1);
 }
@@ -71,8 +70,14 @@ fn the_same_path_under_two_targets_is_two_files() {
             .and_then(|files| files.get(&path("shared.md")))
             .map(|traced| traced.value().bytes().to_vec())
     };
-    assert_eq!(text(TargetName::Claude), Some(b"FOR CLAUDE".to_vec()));
-    assert_eq!(text(TargetName::Codex), Some(b"FOR CODEX".to_vec()));
+    assert_eq!(
+        text(crate::target::claude().clone()),
+        Some(b"FOR CLAUDE".to_vec())
+    );
+    assert_eq!(
+        text(crate::target::codex().clone()),
+        Some(b"FOR CODEX".to_vec())
+    );
 }
 
 #[test]
@@ -122,7 +127,7 @@ fn a_folder_of_targets_that_is_not_a_target_stops_the_merge_and_names_the_file()
         "personal",
         "personal",
         &[
-            ("targets/claud/x.json", "{}"),
+            ("targets/Claud/x.json", "{}"),
             ("targets/README.md", "notes"),
         ],
     )]);
@@ -130,7 +135,7 @@ fn a_folder_of_targets_that_is_not_a_target_stops_the_merge_and_names_the_file()
     assert_eq!(
         lines(&found),
         [
-            "error [passthrough] personal:targets/claud/x.json: this file is below a folder of targets/ that is not a target: claude or codex (\u{a7}7.11)"
+            "error [passthrough] personal:targets/Claud/x.json: this file is below a folder of targets/ that is not a target id (\u{a7}5.2)"
         ]
     );
 }

@@ -7,7 +7,6 @@ use crate::diagnostic::Message;
 use crate::markdown::MarkdownDoc;
 use crate::path::SafeRelPath;
 use crate::render::yaml::{EmitValue, emit};
-use crate::target::TargetName;
 use crate::untrusted_text::{QuotedKey, Stripped};
 use crate::yaml::{Node, Value};
 
@@ -209,7 +208,7 @@ pub(super) fn model_alias(model: &str, from: &str, draft: &mut Draft<'_>) -> Opt
         .aliases_in_definition_order()
         .find(|alias| {
             models
-                .model(alias, TargetName::Claude)
+                .model(alias, crate::target::claude())
                 .is_some_and(|concrete| concrete.as_str() == model)
         })
         .map(|alias| alias.as_str().to_owned());

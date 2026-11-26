@@ -18,12 +18,12 @@ mod tests {
     use std::sync::mpsc;
     use std::time::Duration;
 
+    use alz_core::account::AccountFamily;
     use alz_core::account::{
         AccountName, AllowEntry, AllowFileProblem, AllowState, AllowedSource, NonEmptyTargetMap,
     };
     use alz_core::env::EnvVars;
     use alz_core::path::AbsolutePath;
-    use alz_core::target::TargetName;
     use alz_io::{
         AccountFiles, AllowChange, EnvSnapshot, Home, IgnoreReason, RepositoryPaths, Stage,
         StateDir, StateError, Updated,
@@ -72,7 +72,7 @@ mod tests {
         AllowEntry::new(
             root,
             NonEmptyTargetMap::from_entries([(
-                TargetName::Claude,
+                AccountFamily::Claude,
                 AccountName::try_from(claude).expect("a name"),
             )])
             .expect("a target"),

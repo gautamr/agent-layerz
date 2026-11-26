@@ -118,7 +118,7 @@ impl InstructionState {
                     .claude_extras
                     .into_iter()
                     .chain(items.claude_extra().and_then(|text| {
-                        Origin::of_item(context.layer(), ItemPath::ClaudeExtra).map(|origin| {
+                        Origin::of_item(context.layer(), &ItemPath::ClaudeExtra).map(|origin| {
                             MergedClaudeExtra {
                                 text: text.clone(),
                                 origin,

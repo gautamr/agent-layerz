@@ -2,8 +2,8 @@
 
 use std::fmt;
 
+use crate::account::AccountFamily;
 use crate::account::resolution::{HomeFact, folder_name};
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
 /// `~` for `$HOME`, as given and as its real path.
@@ -43,7 +43,7 @@ impl Shower {
     pub(crate) fn folder(
         &self,
         home: &HomeFact,
-        target: TargetName,
+        target: AccountFamily,
         name: &impl fmt::Display,
     ) -> Stripped {
         match home {

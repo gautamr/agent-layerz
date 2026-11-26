@@ -8,13 +8,13 @@
 
 use std::path::Path;
 
+use alz_core::account::AccountFamily;
 use alz_core::account::{
     AccountChoice, AccountFolders, AllowFileProblem, AllowedFact, ConfigFact, EnvironmentFact,
     ExistingFolders, Explicit, ExplicitName, Facts, FileFact, FileOutcome, HomeFact, ManifestFact,
     NoRepository, VariableFact,
 };
 use alz_core::path::AbsolutePath;
-use alz_core::target::TargetName;
 use alz_core::{Code, Diagnostic, Diagnostics, Message, Stripped};
 use alz_io::{
     AccountFiles, AccountFolderNames, EnvSnapshot, FileStatus, Home, Loaded, ManifestState, NoRoot,
@@ -43,7 +43,7 @@ pub struct Gathered {
 pub fn gather(
     env: &EnvSnapshot,
     directory: &WorkingDirectory,
-    choices: &[(TargetName, AccountChoice)],
+    choices: &[(AccountFamily, AccountChoice)],
 ) -> Result<Gathered, Diagnostic> {
     gather_with(env, directory, choices, Home::locate(env))
 }
@@ -53,7 +53,7 @@ pub fn gather(
 pub fn gather_with(
     env: &EnvSnapshot,
     directory: &WorkingDirectory,
-    choices: &[(TargetName, AccountChoice)],
+    choices: &[(AccountFamily, AccountChoice)],
     home: Home,
 ) -> Result<Gathered, Diagnostic> {
     let files = AccountFiles::new(home.clone(), env, None);
@@ -211,6 +211,6 @@ fn existing_folders(home: &Home) -> ExistingFolders {
     home.path().map_or_else(ExistingFolders::default, |home| {
         let listed = AccountFolderNames::list(home);
         let of = |target| listed.names(target).cloned().collect::<Vec<_>>();
-        ExistingFolders::new(of(TargetName::Claude), of(TargetName::Codex))
+        ExistingFolders::new(of(AccountFamily::Claude), of(AccountFamily::Codex))
     })
 }

@@ -6,12 +6,12 @@ use std::num::NonZeroUsize;
 
 use proptest::prelude::{Just, Strategy, any, prop_assert, prop_assert_eq, prop_oneof, proptest};
 
+use crate::account::AccountFamily;
 use crate::account::{
     AccountName, AllowEntry, AllowFile, AllowState, AllowedSource, NonEmptyTargetMap, Reading,
 };
 use crate::diagnostic::{Position, Where};
 use crate::path::AbsolutePath;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 use crate::yaml::{Mapping, Node, Value};
 
@@ -46,9 +46,9 @@ fn roots(state: &AllowState) -> Vec<&str> {
 
 fn entry(root: &str, claude: &str, codex: Option<&str>, source: &str) -> AllowEntry {
     let account = NonEmptyTargetMap::from_entries(
-        [(TargetName::Claude, claude)]
+        [(AccountFamily::Claude, claude)]
             .into_iter()
-            .chain(codex.map(|name| (TargetName::Codex, name)))
+            .chain(codex.map(|name| (AccountFamily::Codex, name)))
             .map(|(target, name)| (target, AccountName::try_from(name).expect("a name"))),
     )
     .expect("a target");
@@ -73,7 +73,7 @@ fn reads_the_example_of_the_spec() {
     assert_eq!(only.root().as_str(), "/home/you/work/client-c/api");
     assert_eq!(
         only.account()
-            .get(TargetName::Codex)
+            .get(AccountFamily::Codex)
             .map(AccountName::as_str),
         Some("client-c")
     );

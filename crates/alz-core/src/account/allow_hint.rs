@@ -5,12 +5,12 @@
 //! The decision is pure. Whether it is printed at all (a person at a terminal, a root where an
 //! account can apply) is the caller's.
 
+use crate::account::AccountFamily;
 use crate::account::{
     AccountChoice, AllowEntry, AllowFileProblem, CachedDeclaration, DeclaredAccount, MissReason,
 };
 use crate::diagnostic::{Code, Diagnostic, Message};
 use crate::layer::LayerName;
-use crate::target::TargetName;
 use crate::untrusted_text::{Escaped, Stripped};
 
 /// What the note is told besides the layers.
@@ -28,7 +28,7 @@ pub struct HintFacts<'a> {
 }
 
 /// A map of targets to account names as the note shows it, in target order.
-type Shown = Vec<(TargetName, String)>;
+type Shown = Vec<(AccountFamily, String)>;
 
 /// The note, one case for each line of §10.3.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,7 +79,7 @@ pub fn allow_hint(facts: &HintFacts<'_>) -> Option<AllowHint> {
 }
 
 fn declared_map(declaration: &DeclaredAccount) -> Shown {
-    TargetName::ALL
+    AccountFamily::ALL
         .into_iter()
         .filter_map(|target| {
             declaration
@@ -116,7 +116,7 @@ fn changed(entry: &AllowEntry, declaration: &DeclaredAccount) -> Option<AllowHin
 }
 
 /// `claude=client-a, codex=client-a-api`. Account names are validated, so they print as they are.
-fn map_text(map: &[(TargetName, String)]) -> Message {
+fn map_text(map: &[(AccountFamily, String)]) -> Message {
     map.iter()
         .enumerate()
         .fold(Message::new(""), |message, (index, (target, name))| {
@@ -183,7 +183,7 @@ mod tests {
         AllowEntry::new(
             AbsolutePath::try_from("/work/shop").expect("absolute"),
             NonEmptyTargetMap::from_entries([(
-                TargetName::Claude,
+                AccountFamily::Claude,
                 AccountName::try_from("client-a").expect("a name"),
             )])
             .expect("one target"),
@@ -285,11 +285,11 @@ mod tests {
     fn a_changed_declaration_shows_both_maps_and_sources_escaped() {
         let hint = AllowHint::Changed {
             was: (
-                vec![(TargetName::Claude, "client-a".to_owned())],
+                vec![(AccountFamily::Claude, "client-a".to_owned())],
                 "/hub/a".to_owned(),
             ),
             now: (
-                vec![(TargetName::Claude, "client-c".to_owned())],
+                vec![(AccountFamily::Claude, "client-c".to_owned())],
                 "/hub/\u{200B}b".to_owned(),
             ),
         };

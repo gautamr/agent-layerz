@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+use crate::account::AccountFamily;
 use crate::account::AccountName;
 use crate::account::resolution::{
     Applied, BLOCKED, Facts, FailsClosed, FileFact, FileOutcome, Fix, HookApplies, ManifestFact,
@@ -13,7 +14,6 @@ use crate::account::resolution::{
 };
 use crate::account::shower::Shower;
 use crate::diagnostic::{Diagnostics, Message, MessagePart};
-use crate::target::TargetName;
 use crate::untrusted_text::{Quoted, Stripped};
 
 /// The report: standard output as lines, the warnings for standard error, and the exit status.
@@ -139,7 +139,7 @@ fn stale_lines(facts: &Facts, shower: &Shower) -> Vec<Message> {
         .collect()
 }
 
-const fn skip_phrase(reason: SkipReason, target: TargetName) -> SkipText {
+const fn skip_phrase(reason: SkipReason, target: AccountFamily) -> SkipText {
     match reason {
         SkipReason::NoUseChoice => SkipText::Fixed("no alz use choice"),
         SkipReason::NoUserConfig => SkipText::Fixed("no accounts.yaml"),
@@ -165,7 +165,7 @@ const fn skip_phrase(reason: SkipReason, target: TargetName) -> SkipText {
 
 enum SkipText {
     Fixed(&'static str),
-    NoAccount(&'static str, TargetName),
+    NoAccount(&'static str, AccountFamily),
 }
 
 impl SkipText {
@@ -179,7 +179,7 @@ impl SkipText {
     }
 }
 
-fn skipped_lines(skipped: &[Skipped], target: TargetName) -> impl Iterator<Item = Message> + '_ {
+fn skipped_lines(skipped: &[Skipped], target: AccountFamily) -> impl Iterator<Item = Message> + '_ {
     skipped.iter().map(move |skip| {
         Message::new("  ")
             .then(skip.step.as_str())
@@ -191,7 +191,7 @@ fn skipped_lines(skipped: &[Skipped], target: TargetName) -> impl Iterator<Item 
 
 fn target_lines(
     facts: &Facts,
-    target: TargetName,
+    target: AccountFamily,
     found: &TargetResolution,
     shower: &Shower,
 ) -> Vec<Message> {
@@ -245,7 +245,7 @@ fn target_lines(
 
 fn failure_lines(
     facts: &Facts,
-    target: TargetName,
+    target: AccountFamily,
     found: &TargetResolution,
     failure: &FailsClosed,
     shower: &Shower,
@@ -311,7 +311,7 @@ fn failure_headline(
 }
 
 fn hook_line(
-    target: TargetName,
+    target: AccountFamily,
     hook: &HookApplies,
     folder: &impl Fn(&AccountName) -> Stripped,
     blocked: &Stripped,

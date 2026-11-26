@@ -3,6 +3,7 @@
 //! recorded, or into the reason nothing can be offered. Pure: the cache, the file and the terminal
 //! are `alz-io`'s.
 
+use crate::account::AccountFamily;
 use crate::account::cached::{CachedDeclaration, DeclaredAccount, Miss, MissReason};
 use crate::account::declaration::NonEmptyTargetMap;
 use crate::account::resolution::{BLOCKED, ignored_warnings};
@@ -12,7 +13,6 @@ use crate::layer::LayerName;
 use crate::lock::ObjectId;
 use crate::path::AbsolutePath;
 use crate::stack::{GitRef, Source};
-use crate::target::TargetName;
 
 /// The declaration that applies, as `allow` would record it and show it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,7 +106,7 @@ impl Offer {
 pub fn distinct_names(account: &NonEmptyTargetMap<AccountName>) -> Vec<AccountName> {
     account.iter().fold(
         Vec::new(),
-        |mut names, (_, name): (TargetName, &AccountName)| {
+        |mut names, (_, name): (AccountFamily, &AccountName)| {
             if !names.contains(name) {
                 names.push(name.clone());
             }
@@ -155,7 +155,7 @@ enum Offered {
 struct Unusable;
 
 fn declared(root: &AbsolutePath, declaration: &DeclaredAccount) -> Result<Offered, Unusable> {
-    let choices: Vec<(TargetName, AccountChoice)> = TargetName::ALL
+    let choices: Vec<(AccountFamily, AccountChoice)> = AccountFamily::ALL
         .into_iter()
         .filter_map(|target| {
             declaration

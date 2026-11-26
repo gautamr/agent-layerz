@@ -5,11 +5,11 @@
 
 use proptest::prelude::{prop_assert, proptest};
 
+use crate::account::AccountFamily;
 use crate::account::{AccountChoice, AccountDeclaration, AccountName};
 use crate::identity::{EmailAddress, IdentityName};
 use crate::layer::{Description, ForbidPatternText, Kind, LayerMeta, LayerVersion, Visibility};
 use crate::schema::SchemaErrors;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 use crate::yaml::{Node, YamlErrorKind, YamlText, parse};
 
@@ -73,25 +73,25 @@ fn account_per_target_keeps_each_target_and_leaves_the_rest_undecided() {
     let both = with(r#"account: {"claude": "client-a", "codex": "client-a-api"}"#).expect("valid");
     let declared = both.account().expect("declared");
     assert_eq!(
-        declared.choice_for(TargetName::Claude),
+        declared.choice_for(AccountFamily::Claude),
         Some(&AccountChoice::Named(name("client-a")))
     );
     assert_eq!(
-        declared.choice_for(TargetName::Codex),
+        declared.choice_for(AccountFamily::Codex),
         Some(&AccountChoice::Named(name("client-a-api")))
     );
 
     let one = with(r#"account: {"codex": "client-a"}"#).expect("valid");
     let declared = one.account().expect("declared");
-    assert_eq!(declared.choice_for(TargetName::Claude), None);
-    assert!(declared.choice_for(TargetName::Codex).is_some());
+    assert_eq!(declared.choice_for(AccountFamily::Claude), None);
+    assert!(declared.choice_for(AccountFamily::Codex).is_some());
 }
 
 #[test]
 fn a_name_for_every_target_decides_each_target() {
     let meta = with(r#"account: "client-a""#).expect("valid");
     let declared = meta.account().expect("declared");
-    for target in TargetName::ALL {
+    for target in AccountFamily::ALL {
         assert_eq!(
             declared.choice_for(target),
             Some(&AccountChoice::Named(name("client-a")))
@@ -104,7 +104,7 @@ fn default_in_a_map_is_the_default_account() {
     let meta = with(r#"account: {"claude": "default"}"#).expect("valid");
     assert_eq!(
         meta.account()
-            .and_then(|account| account.choice_for(TargetName::Claude)),
+            .and_then(|account| account.choice_for(AccountFamily::Claude)),
         Some(&AccountChoice::Default)
     );
 }

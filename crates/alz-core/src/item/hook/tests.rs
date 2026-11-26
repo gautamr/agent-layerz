@@ -3,7 +3,6 @@ use crate::item::{
     ToolMoment, Trigger,
 };
 use crate::merge::testing::layer;
-use crate::target::TargetName;
 
 /// What the layer `repo` with this `hooks.yaml` and the script `hooks/scripts/ok.sh` gives.
 fn read(yaml: &str) -> (Vec<HookEntry>, Vec<String>) {
@@ -97,7 +96,10 @@ fn a_script_hook_with_a_tool_filter_is_read_whole() {
     assert_eq!(hook.timeout().map(Seconds::get), Some(30));
     assert_eq!(
         hook.targets().map(|targets| targets.as_slice().to_vec()),
-        Some(vec![TargetName::Claude, TargetName::Codex])
+        Some(vec![
+            crate::target::claude().clone(),
+            crate::target::codex().clone()
+        ])
     );
 }
 
@@ -191,7 +193,7 @@ fn a_native_event_takes_a_matcher_and_runs_on_its_target() {
     };
     assert_eq!(
         (event.target(), event.name().as_str()),
-        (TargetName::Codex, "PermissionRequest")
+        (crate::target::codex(), "PermissionRequest")
     );
     assert_eq!(matcher.as_ref().map(Matcher::as_str), Some("Bash"));
     let bare = only_hook("- id: a\n  event: 'claude:Stop'\n  command: x\n");
@@ -291,7 +293,7 @@ fn a_field_that_breaks_its_rule_is_reported_at_its_key_path() {
         ),
         ("command: x\n", "[0].event is required"),
         (
-            "event: stop\n  command: x\n  targets: [vim]\n",
+            "event: stop\n  command: x\n  targets: [Vim]\n",
             "[0].targets[0] must be",
         ),
     ] {

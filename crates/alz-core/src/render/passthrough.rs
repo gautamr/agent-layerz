@@ -13,17 +13,17 @@ use crate::path::SafeRelPath;
 use crate::render::tree::{
     FileMode, FileTree, GeneratedFile, OutputPath, OutputPathError, PathCollision,
 };
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
+use alz_adapter::TargetId;
 
 /// `tree` with the passthrough files of `target` added, and the errors of the files that cannot be.
 pub(crate) fn join(
     tree: FileTree,
     files: &MergedPassthrough,
-    target: TargetName,
+    target: &TargetId,
 ) -> (FileTree, Diagnostics) {
     let generated = tree.clone();
-    let merged = files.get(&target).into_iter().flat_map(Replace::iter);
+    let merged = files.get(target).into_iter().flat_map(Replace::iter);
     merged.fold(
         (tree, Diagnostics::new()),
         |(mut tree, found), (path, file)| {

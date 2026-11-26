@@ -2,15 +2,19 @@
 //! errors"). An error names the field by its key path and what is wrong with it, and never holds the
 //! field's value: the only input text it can hold is a quoted key (an unknown field).
 
-use crate::diagnostic::{Message, Position};
+use alz_adapter::TargetId;
+
+use crate::diagnostic::{Message, MessagePart, Position};
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::tree::{Mapping, Node, Value};
 
 /// One step of a key path: a field the spec names, or the n-th item of a list, counted from 0.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Step {
     /// A field name that the spec defines.
     Field(&'static str),
+    /// A target id used as a key (§5.2 **Target ids**), such as a section of `settings.yaml`.
+    Target(TargetId),
     /// An item of a list.
     Item(usize),
 }
@@ -32,6 +36,12 @@ impl KeyPath {
         self.with(Step::Field(name))
     }
 
+    /// The path of the section of the target `id` in the mapping at this path.
+    #[must_use]
+    pub fn target(&self, id: &TargetId) -> Self {
+        self.with(Step::Target(id.clone()))
+    }
+
     /// The path of the n-th item of the list at this path.
     #[must_use]
     pub fn item(&self, index: usize) -> Self {
@@ -39,7 +49,7 @@ impl KeyPath {
     }
 
     fn with(&self, step: Step) -> Self {
-        Self(self.0.iter().copied().chain([step]).collect())
+        Self(self.0.iter().cloned().chain([step]).collect())
     }
 
     /// The path as the start of a message: names joined with `.`, items as `[n]`.
@@ -57,6 +67,8 @@ impl KeyPath {
             .fold(message, |message, (index, step)| match step {
                 Step::Field(name) if index == 0 => message.then(*name),
                 Step::Field(name) => message.then(".").then(*name),
+                Step::Target(id) if index == 0 => message.then(MessagePart::printable(id)),
+                Step::Target(id) => message.then(".").then(MessagePart::printable(id)),
                 Step::Item(item) => message.then("[").then(*item).then("]"),
             })
     }
@@ -237,6 +249,22 @@ impl<'a> Section<'a> {
             .entries()
             .find(|(key, _)| matches!(key.value(), Value::Text(text) if text == field))
             .map(|(key, _)| key.at())
+    }
+
+    /// The keys that are text, in document order. A key that is not text is left out; the
+    /// reader of the section reports it through [`Section::unknown_fields`].
+    pub fn text_keys(&self) -> impl Iterator<Item = &'a str> + '_ {
+        self.mapping
+            .entries()
+            .filter_map(|(key, _)| match key.value() {
+                Value::Text(name) => Some(name.as_str()),
+                Value::Null
+                | Value::Bool(_)
+                | Value::Int(_)
+                | Value::Float(_)
+                | Value::Seq(_)
+                | Value::Map(_) => None,
+            })
     }
 
     /// The error for every key that is not one of `known`, each as a quoted key, in document

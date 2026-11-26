@@ -14,10 +14,10 @@ use crate::item::{
 };
 use crate::layer::{KindError, LayerNameError, VisibilityError};
 use crate::stack::{BudgetError, GitRefError, SourceError, StackError, WorkspaceDirError};
-use crate::target::TargetError;
 use crate::untrusted_text::Stripped;
 use crate::yaml::Node;
 use crate::yaml::fields::{FieldError, KeyPath, Section};
+use alz_adapter::TargetIdError;
 
 /// A value that is text but breaks the rule of its field. Each variant is the error of one
 /// validated type, and none of them holds the value.
@@ -41,8 +41,8 @@ pub enum Refusal {
     GitRef(GitRefError),
     /// A stack entry's `source`.
     Source(SourceError),
-    /// A target name.
-    Target(TargetError),
+    /// A target id (§5.2).
+    Target(TargetIdError),
     /// A workspace directory.
     WorkspaceDir(WorkspaceDirError),
     /// A budget.
@@ -81,7 +81,9 @@ impl Refusal {
             Self::AccountShape(error) => error.rule(),
             Self::GitRef(error) => error.rule(),
             Self::Source(error) => error.rule(),
-            Self::Target(error) => error.rule(),
+            Self::Target(_) => {
+                "must be a target id: 1 to 32 characters, a lower-case letter and then lower-case letters, digits and '-'"
+            }
             Self::WorkspaceDir(error) => error.rule(),
             Self::Budget(error) => error.rule(),
             Self::Stack(error) => error.rule(),
@@ -117,7 +119,7 @@ refusal_from! {
     AccountShapeError => AccountShape,
     GitRefError => GitRef,
     SourceError => Source,
-    TargetError => Target,
+    TargetIdError => Target,
     WorkspaceDirError => WorkspaceDir,
     BudgetError => Budget,
     StackError => Stack,

@@ -9,10 +9,10 @@ use std::collections::BTreeMap;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
 use crate::merge::{FloatBits, Tree};
 use crate::schema::SchemaErrors;
-use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
 use crate::yaml::fields::Section;
 use crate::yaml::{Mapping, Node, Value};
+use alz_adapter::TargetId;
 
 use super::super::native_keys::{AGENT_KEYS, Step};
 use super::super::native_types::{CLAUDE_AGENT_FIELDS, Typed};
@@ -23,9 +23,9 @@ use super::ordered_tree::{NativeMap, NativeValue};
 /// The keys of a target's map that have a neutral field, and so are refused inside it (§7.2).
 /// The spec names `tools`, `model` and `permissionMode` and leaves the rest of the list open; this
 /// is the spec's list.
-const fn neutral_keys(target: TargetName) -> &'static [&'static str] {
-    match target {
-        TargetName::Claude => &[
+fn neutral_keys(target: &TargetId) -> &'static [&'static str] {
+    match target.as_str() {
+        "claude" => &[
             "name",
             "description",
             "tools",
@@ -35,7 +35,8 @@ const fn neutral_keys(target: TargetName) -> &'static [&'static str] {
             "isolation",
             "memory",
         ],
-        TargetName::Codex => &["name", "description", "model", "developer_instructions"],
+        "codex" => &["name", "description", "model", "developer_instructions"],
+        _ => &[],
     }
 }
 
@@ -45,18 +46,18 @@ const fn neutral_keys(target: TargetName) -> &'static [&'static str] {
 /// Keys inside a mapping keep the order they first appeared in across the stack (TASK-66); see
 /// [`NativeMap`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct NativeFields(BTreeMap<TargetName, NativeMap>);
+pub struct NativeFields(BTreeMap<TargetId, NativeMap>);
 
 impl NativeFields {
     /// The fields of `target`, a mapping, when some layer wrote any.
     #[must_use]
-    pub fn of(&self, target: TargetName) -> Option<&NativeMap> {
-        self.0.get(&target)
+    pub fn of(&self, target: &TargetId) -> Option<&NativeMap> {
+        self.0.get(target)
     }
 
     /// The targets that have fields, in name order, with their mappings.
-    pub fn iter(&self) -> impl Iterator<Item = (TargetName, &NativeMap)> + '_ {
-        self.0.iter().map(|(target, tree)| (*target, tree))
+    pub fn iter(&self) -> impl Iterator<Item = (&TargetId, &NativeMap)> + '_ {
+        self.0.iter()
     }
 
     /// Whether no target has any.
@@ -87,17 +88,19 @@ impl NativeFields {
     /// Reads the `claude:` and `codex:` maps of an agent file. Every problem is reported: a value
     /// that is not a mapping, and each key that has a neutral field, at the key.
     pub(super) fn read(section: &Section<'_>, at: &Where) -> Result<Self, Diagnostics> {
-        let (fields, problems) = TargetName::ALL.into_iter().fold(
-            (BTreeMap::new(), Diagnostics::new()),
-            |(fields, problems), target| match read_target(section, target, at) {
-                Ok(Some(tree)) => (
-                    fields.into_iter().chain([(target, tree)]).collect(),
-                    problems,
-                ),
-                Ok(None) => (fields, problems),
-                Err(found) => (fields, problems.merge(found)),
-            },
-        );
+        let (fields, problems) = [crate::target::claude(), crate::target::codex()]
+            .into_iter()
+            .fold(
+                (BTreeMap::new(), Diagnostics::new()),
+                |(fields, problems), target| match read_target(section, target, at) {
+                    Ok(Some(tree)) => (
+                        fields.into_iter().chain([(target.clone(), tree)]).collect(),
+                        problems,
+                    ),
+                    Ok(None) => (fields, problems),
+                    Err(found) => (fields, problems.merge(found)),
+                },
+            );
         if problems.has_errors() {
             Err(problems)
         } else {
@@ -108,10 +111,10 @@ impl NativeFields {
 
 fn read_target(
     section: &Section<'_>,
-    target: TargetName,
+    target: &TargetId,
     at: &Where,
 ) -> Result<Option<NativeMap>, Diagnostics> {
-    let path = section.field_path(target.as_str());
+    let path = section.path().target(target);
     section
         .node(target.as_str())
         .map(|node| {
@@ -141,15 +144,15 @@ fn read_target(
 /// The problems of the types of a Claude agent's native fields (§7.2): a field that Claude Code
 /// does not read from a subagent's frontmatter, and a value of the wrong type. A key that has a
 /// neutral field, or that duplicates a first-class item, is reported by its own check.
-fn typed_fields(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
-    match target {
-        TargetName::Claude => {
+fn typed_fields(target: &TargetId, node: &Node, at: &Where) -> Diagnostics {
+    match target.as_str() {
+        "claude" => {
             let reported = |steps: &[Step<'_>]| match steps {
                 [Step::Key(key)] => {
                     neutral_keys(target).contains(key)
                         || AGENT_KEYS
                             .iter()
-                            .any(|row| row.target() == target && row.key() == *key)
+                            .any(|row| row.target() == target.as_str() && row.key() == *key)
                 }
                 _ => false,
             };
@@ -162,13 +165,13 @@ fn typed_fields(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
             )
             .check(CLAUDE_AGENT_FIELDS, node)
         }
-        TargetName::Codex => Diagnostics::new(),
+        _ => Diagnostics::new(),
     }
 }
 
 /// An error for each key of the native fields that duplicates a first-class item: servers and
 /// hooks (§7.2).
-fn first_class_keys(target: TargetName, node: &Node, at: &Where) -> Diagnostics {
+fn first_class_keys(target: &TargetId, node: &Node, at: &Where) -> Diagnostics {
     mapping_of(node)
         .into_iter()
         .flat_map(Mapping::entries)
@@ -178,7 +181,7 @@ fn first_class_keys(target: TargetName, node: &Node, at: &Where) -> Diagnostics 
             };
             AGENT_KEYS
                 .iter()
-                .find(|row| row.target() == target && row.key() == name)
+                .find(|row| row.target() == target.as_str() && row.key() == name)
                 .map(|row| {
                     Diagnostic::error(
                         Code::Agent,
@@ -199,10 +202,10 @@ fn first_class_keys(target: TargetName, node: &Node, at: &Where) -> Diagnostics 
 /// The problems of the variables a target's native fields set (§7.9): for Codex any
 /// `shell_environment_policy`. The servers of an agent's native fields are refused, so there is
 /// no server `env` to check.
-fn protected_variables(target: TargetName, fields: &NativeMap, at: &Where) -> Diagnostics {
-    match target {
-        TargetName::Claude => Diagnostics::new(),
-        TargetName::Codex => codex_policies(&fields.sorted(), Code::Agent, at),
+fn protected_variables(target: &TargetId, fields: &NativeMap, at: &Where) -> Diagnostics {
+    match target.as_str() {
+        "codex" => codex_policies(&fields.sorted(), Code::Agent, at),
+        _ => Diagnostics::new(),
     }
 }
 
@@ -215,7 +218,7 @@ fn mapping_of(node: &Node) -> Option<&Mapping> {
 }
 
 /// The text of `key` when it is a key that has a neutral field.
-fn neutral_key(target: TargetName, key: &Node) -> Option<&str> {
+fn neutral_key<'a>(target: &TargetId, key: &'a Node) -> Option<&'a str> {
     if let Value::Text(name) = key.value() {
         neutral_keys(target)
             .contains(&name.as_str())
@@ -225,7 +228,7 @@ fn neutral_key(target: TargetName, key: &Node) -> Option<&str> {
     }
 }
 
-fn refusal(target: TargetName, key: &str, at: &Where, node: &Node) -> Diagnostic {
+fn refusal(target: &TargetId, key: &str, at: &Where, node: &Node) -> Diagnostic {
     Diagnostic::error(
         Code::Agent,
         Some(at.clone().at(node.at())),

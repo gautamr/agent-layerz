@@ -8,9 +8,9 @@ use crate::schema::{
 use crate::stack::budgets::Budgets;
 use crate::stack::entry::DeclaredStack;
 use crate::stack::workspace::Workspace;
-use crate::target::TargetName;
 use crate::yaml::Node;
 use crate::yaml::fields::{KeyPath, Section};
+use alz_adapter::TargetId;
 
 /// The fields a stack manifest knows.
 const FIELDS: [&str; 7] = [
@@ -125,10 +125,10 @@ fn section_or<T>(
         .map_or(Ok(default), |node| read(node, section.field_path(field)))
 }
 
-fn targets(section: &Section<'_>) -> Checked<OrderedSet<TargetName>> {
-    refine_list::<TargetName>(section, "targets").map(|listed| {
+fn targets(section: &Section<'_>) -> Checked<OrderedSet<TargetId>> {
+    refine_list::<TargetId>(section, "targets").map(|listed| {
         listed.map_or_else(
-            || OrderedSet::from_iter([TargetName::Claude]),
+            || OrderedSet::from_iter([crate::target::claude().clone()]),
             |names| names.into_iter().collect(),
         )
     })
@@ -142,7 +142,7 @@ fn protected_paths(section: &Section<'_>) -> Checked<Vec<ProtectedPattern>> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
     stack: DeclaredStack,
-    targets: OrderedSet<TargetName>,
+    targets: OrderedSet<TargetId>,
     workspace: Workspace,
     protected_paths: Vec<ProtectedPattern>,
     mcp_enable: Vec<McpServerId>,
@@ -211,7 +211,7 @@ impl Manifest {
     /// The targets to write for, each once, in the order the manifest declares them: `claude`
     /// when the manifest names none.
     #[must_use]
-    pub const fn targets(&self) -> &OrderedSet<TargetName> {
+    pub const fn targets(&self) -> &OrderedSet<TargetId> {
         &self.targets
     }
 

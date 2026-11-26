@@ -40,8 +40,8 @@ use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
 use crate::path::SafeRelPath;
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
+use alz_adapter::TargetId;
 
 /// The text one overlay added to an agent's body, under the heading of its layer.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -143,7 +143,7 @@ pub struct MergedAgent {
     scalars: AgentScalars,
     tools: Option<OrderedSet<ToolGrant>>,
     skills: OrderedSet<SkillName>,
-    targets: Option<OrderedSet<TargetName>>,
+    targets: Option<OrderedSet<TargetId>>,
     native: NativeFields,
     body: AgentBody,
 }
@@ -212,7 +212,7 @@ fn loosened(
 fn shrinks_disallowed_tools(agent: &MergedAgent, overlay: &AgentOverlay) -> bool {
     let entries = |fields: &NativeFields| -> Vec<Tree> {
         fields
-            .of(TargetName::Claude)
+            .of(crate::target::claude())
             .and_then(|claude| claude.get(DISALLOWED_TOOLS))
             .map_or_else(Vec::new, |value| match value {
                 NativeValue::Null => Vec::new(),
@@ -347,7 +347,7 @@ impl MergedAgent {
 
     /// The targets the agent is restricted to, `None` for every target.
     #[must_use]
-    pub const fn targets(&self) -> Option<&OrderedSet<TargetName>> {
+    pub const fn targets(&self) -> Option<&OrderedSet<TargetId>> {
         self.targets.as_ref()
     }
 

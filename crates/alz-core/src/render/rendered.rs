@@ -17,9 +17,10 @@ use crate::render::passthrough;
 use crate::render::protected::{CLAUDE_MEMORY_PATTERNS, Protected};
 use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
 use crate::stack::{Manifest, ResolvedStack};
-use crate::target::TargetName;
+use crate::target::REGISTERED;
 use crate::target::claude::{ClaudeFiles, ClaudeSettingsFiles};
 use crate::untrusted_text::Stripped;
+use alz_adapter::TargetId;
 
 /// The folders the Claude adapter owns, where a file the build does not make is a collision
 /// (§4.3, §8.1).
@@ -89,7 +90,7 @@ pub fn render(merged: &Merged, manifest: &Manifest) -> Rendered {
     let (agents, agents_found) = agents_md(merged, manifest);
     let made = targets
         .iter()
-        .map(|target| adapter(*target, merged, manifest))
+        .map(|target| adapter(target, merged, manifest))
         .fold(
             (agents, agents_found),
             |(tree, found), (more, more_found)| {
@@ -98,10 +99,10 @@ pub fn render(merged: &Merged, manifest: &Manifest) -> Rendered {
             },
         );
     let (tree, found) = targets.iter().fold(made, |(tree, found), target| {
-        let (tree, more) = passthrough::join(tree, merged.passthrough(), *target);
+        let (tree, more) = passthrough::join(tree, merged.passthrough(), target);
         (tree, found.merge(more))
     });
-    let claude = targets.contains(&TargetName::Claude);
+    let claude = targets.contains(crate::target::claude());
     let protected = Protected::new(
         if claude { &CLAUDE_MEMORY_PATTERNS } else { &[] },
         manifest.protected_paths(),
@@ -134,22 +135,37 @@ fn agents_md(merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
 }
 
 /// The files of one target's adapter, and its diagnostics.
-fn adapter(target: TargetName, merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
-    match target {
-        TargetName::Claude => claude(merged, manifest),
-        TargetName::Codex => (
-            FileTree::new(),
-            Diagnostics::new().with(Diagnostic::error(
-                Code::Target,
-                Some(Where::repository_file(Stripped::from_untrusted(
-                    "layer.yaml",
-                ))),
-                Message::new("the '")
-                    .then(MessagePart::printable(&target))
-                    .then("' adapter is not implemented yet (implemented: claude)"),
-            )),
+fn adapter(target: &TargetId, merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
+    match target.as_str() {
+        "claude" => claude(merged, manifest),
+        "codex" => refused(
+            Message::new("the '")
+                .then(MessagePart::printable(target))
+                .then("' adapter is not implemented yet (implemented: claude)"),
+        ),
+        _ => refused(
+            Message::new("no adapter for '")
+                .then(MessagePart::printable(target))
+                .then("' (available: ")
+                .then(Stripped::from_untrusted(&REGISTERED.join(", ")))
+                .then(")"),
         ),
     }
+}
+
+/// No files, and the error `target` at `layer.yaml` with `message` (§8 **Targets without an
+/// adapter**).
+fn refused(message: Message) -> (FileTree, Diagnostics) {
+    (
+        FileTree::new(),
+        Diagnostics::new().with(Diagnostic::error(
+            Code::Target,
+            Some(Where::repository_file(Stripped::from_untrusted(
+                "layer.yaml",
+            ))),
+            message,
+        )),
+    )
 }
 
 /// `CLAUDE.md`, the agents, skills, commands and rules, `settings.json`, the hooks and `.mcp.json`.

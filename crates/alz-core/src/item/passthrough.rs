@@ -15,8 +15,8 @@ use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
 use crate::layer::{ItemPath, LayerName};
 use crate::path::SafeRelPath;
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
+use alz_adapter::TargetId;
 
 use super::place;
 use super::protected_variable::unchecked;
@@ -24,7 +24,7 @@ use super::protected_variable::unchecked;
 /// One file of `targets/<target>/` of a layer, with the bytes the layer walk kept.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PassthroughFile {
-    target: TargetName,
+    target: TargetId,
     path: SafeRelPath,
     source: SafeRelPath,
     bytes: Vec<u8>,
@@ -34,8 +34,8 @@ pub struct PassthroughFile {
 impl PassthroughFile {
     /// The target the file is for.
     #[must_use]
-    pub const fn target(&self) -> TargetName {
-        self.target
+    pub const fn target(&self) -> &TargetId {
+        &self.target
     }
 
     /// The path inside the target's folder: where the file is written, relative to the root the
@@ -89,55 +89,99 @@ impl PassthroughItems {
     /// problem gives no item. Each file that is read gives a `passthrough` warning.
     #[must_use]
     pub fn read(layer: &ResolvedLayer) -> (Self, Diagnostics) {
+        let (items, found) = Self::scan(layer);
+        let all = found
+            .into_iter()
+            .fold(Diagnostics::new(), |all, entry| match entry {
+                Found::Warning(_, warning) => all.with(warning),
+                Found::Problems(problems) => all.merge(problems),
+            });
+        (items, all)
+    }
+
+    /// Reads the passthrough files of `layer` like [`PassthroughItems::read`], but returns the
+    /// warning of each file with its target instead of in the diagnostics, so a caller that
+    /// knows the targets of the build keeps only the warnings of files that will be written
+    /// (§5.2 **Target ids**).
+    #[must_use]
+    pub fn read_apart(layer: &ResolvedLayer) -> (Self, Vec<(TargetId, Diagnostic)>, Diagnostics) {
+        let (items, found) = Self::scan(layer);
+        let (warnings, problems) = found.into_iter().fold(
+            (Vec::new(), Diagnostics::new()),
+            |(warnings, problems), entry| match entry {
+                Found::Warning(target, warning) => (
+                    warnings.into_iter().chain([(target, warning)]).collect(),
+                    problems,
+                ),
+                Found::Problems(more) => (warnings, problems.merge(more)),
+            },
+        );
+        (items, warnings, problems)
+    }
+
+    /// The files and what was found while reading them, in path order.
+    fn scan(layer: &ResolvedLayer) -> (Self, Vec<Found>) {
         let name = layer.meta().name();
         let (files, found) = layer.contents().iter().fold(
-            (Vec::new(), Diagnostics::new()),
-            |(files, found), (path, bytes)| match ItemPath::of(path) {
-                ItemPath::Passthrough {
-                    target,
-                    path: inner,
-                } => match read_file(
-                    name,
-                    path,
-                    target,
-                    inner,
-                    bytes,
-                    layer.contents().is_executable(path),
-                ) {
-                    Ok((file, warning)) => (
-                        files.into_iter().chain([file]).collect(),
-                        found.with(warning),
-                    ),
-                    Err(problems) => (files, found.merge(problems)),
-                },
-                // Below `targets/`, `Other` is a folder that is not a known target: the known
-                // ones are `Passthrough` and `ClaudeExtra`.
-                ItemPath::Other => (files, found.merge(unknown_target(name, path))),
-                ItemPath::LayerYaml
-                | ItemPath::Instruction { .. }
-                | ItemPath::Agent { .. }
-                | ItemPath::AgentOverlay { .. }
-                | ItemPath::SkillFile { .. }
-                | ItemPath::Command { .. }
-                | ItemPath::Rule { .. }
-                | ItemPath::Hooks
-                | ItemPath::HookScript { .. }
-                | ItemPath::Permissions
-                | ItemPath::Mcp
-                | ItemPath::Models
-                | ItemPath::Settings
-                | ItemPath::ClaudeExtra => (files, found),
+            (Vec::new(), Vec::new()),
+            |(files, found): (Vec<PassthroughFile>, Vec<Found>), (path, bytes)| {
+                let more = |entry: Found| found.iter().cloned().chain([entry]).collect();
+                match ItemPath::of(path) {
+                    ItemPath::Passthrough {
+                        target,
+                        path: inner,
+                    } => match read_file(
+                        name,
+                        path,
+                        target.clone(),
+                        inner,
+                        bytes,
+                        layer.contents().is_executable(path),
+                    ) {
+                        Ok((file, warning)) => (
+                            files.iter().cloned().chain([file]).collect(),
+                            more(Found::Warning(target, warning)),
+                        ),
+                        Err(problems) => (files, more(Found::Problems(problems))),
+                    },
+                    // Below `targets/`, `Other` is a folder that is not a target id: the others are
+                    // `Passthrough` and `ClaudeExtra`.
+                    ItemPath::Other => (files, more(Found::Problems(unknown_target(name, path)))),
+                    ItemPath::LayerYaml
+                    | ItemPath::Instruction { .. }
+                    | ItemPath::Agent { .. }
+                    | ItemPath::AgentOverlay { .. }
+                    | ItemPath::SkillFile { .. }
+                    | ItemPath::Command { .. }
+                    | ItemPath::Rule { .. }
+                    | ItemPath::Hooks
+                    | ItemPath::HookScript { .. }
+                    | ItemPath::Permissions
+                    | ItemPath::Mcp
+                    | ItemPath::Models
+                    | ItemPath::Settings
+                    | ItemPath::ClaudeExtra => (files, found),
+                }
             },
         );
         (Self { files }, found)
     }
 }
 
+/// What reading one file of `targets/` found.
+#[derive(Debug, Clone)]
+enum Found {
+    /// The `passthrough` warning of a file that is read, with the file's target.
+    Warning(TargetId, Diagnostic),
+    /// The problems of a file that is refused, or of a folder that is not a target id.
+    Problems(Diagnostics),
+}
+
 /// The file and its warning, or every problem found in it.
 fn read_file(
     layer: &LayerName,
     source: &SafeRelPath,
-    target: TargetName,
+    target: TargetId,
     inner: &str,
     bytes: &[u8],
     executable: bool,
@@ -188,7 +232,7 @@ fn unknown_target(layer: &LayerName, path: &SafeRelPath) -> Diagnostics {
                     Code::Passthrough,
                     Some(at.clone()),
                     Message::new(
-                        "this file is below a folder of targets/ that is not a target: claude or codex (\u{a7}7.11)",
+                        "this file is below a folder of targets/ that is not a target id (\u{a7}5.2)",
                     ),
                 ))
                 .merge(non_ascii(path, &at))

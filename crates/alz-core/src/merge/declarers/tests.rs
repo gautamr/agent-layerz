@@ -12,13 +12,13 @@ use proptest::prelude::{Just, Strategy, any, prop_assert, prop_assert_eq, prop_o
 
 use super::{Candidate, Declarations, Declared, Reason};
 use crate::account::AccountDeclaration;
+use crate::account::AccountFamily;
 use crate::identity::CommitIdentity;
 use crate::layer::{Kind, LayerName, Visibility};
 use crate::merge::Merging;
 use crate::merge::placement::Placement;
 use crate::merge::testing::{layer_from_yaml, lines, merged_placed, origin_of};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 
 const ERROR_HINT: &str =
     ". Only the first layer, or one private layer with kind: client outside the repository, may";
@@ -296,8 +296,8 @@ fn the_client_layers_whole_account_replaces_the_first_layers_map_included() {
     let (layer, value) = account(&found).declared().winner().expect("a winner");
     assert_eq!(layer.as_str(), "client");
     // The maps are never mixed: the first layer's codex name does not survive.
-    assert!(value.choice_for(TargetName::Claude).is_some());
-    assert_eq!(value.choice_for(TargetName::Codex), None);
+    assert!(value.choice_for(AccountFamily::Claude).is_some());
+    assert_eq!(value.choice_for(AccountFamily::Codex), None);
 }
 
 #[test]

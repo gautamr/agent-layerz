@@ -5,12 +5,12 @@
 
 use std::collections::BTreeSet;
 
+use crate::account::AccountFamily;
 use crate::account::{
     AccountChoice, AccountDeclaration, AccountName, AllowEntry, AllowedSource, CachedDeclaration,
 };
 use crate::diagnostic::Message;
 use crate::path::AbsolutePath;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
 /// `$HOME`: an absolute path, or not, in which case no folder is named and neither file is read.
@@ -157,10 +157,10 @@ pub struct EnvironmentFact {
 impl EnvironmentFact {
     /// The variable of `target`.
     #[must_use]
-    pub const fn variable(&self, target: TargetName) -> &VariableFact {
+    pub const fn variable(&self, target: AccountFamily) -> &VariableFact {
         match target {
-            TargetName::Claude => &self.claude,
-            TargetName::Codex => &self.codex,
+            AccountFamily::Claude => &self.claude,
+            AccountFamily::Codex => &self.codex,
         }
     }
 }
@@ -179,9 +179,9 @@ pub enum ExplicitName {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Explicit {
     /// Step 1: one target, for this run only.
-    pub run: Option<(TargetName, ExplicitName)>,
+    pub run: Option<(AccountFamily, ExplicitName)>,
     /// Step 2: the choice the shell function passes, per target.
-    pub used: Vec<(TargetName, ExplicitName)>,
+    pub used: Vec<(AccountFamily, ExplicitName)>,
 }
 
 /// The account folders that exist, from one listing of `$HOME`. The reserved name `alz-blocked`
@@ -215,20 +215,20 @@ impl ExistingFolders {
     }
 
     /// The names of `target`, in name order.
-    pub fn names(&self, target: TargetName) -> impl Iterator<Item = &AccountName> + '_ {
+    pub fn names(&self, target: AccountFamily) -> impl Iterator<Item = &AccountName> + '_ {
         self.of(target).iter()
     }
 
     /// Whether the folder of `name` exists for `target`.
     #[must_use]
-    pub fn exists(&self, target: TargetName, name: &AccountName) -> bool {
+    pub fn exists(&self, target: AccountFamily, name: &AccountName) -> bool {
         self.of(target).contains(name)
     }
 
-    const fn of(&self, target: TargetName) -> &BTreeSet<AccountName> {
+    const fn of(&self, target: AccountFamily) -> &BTreeSet<AccountName> {
         match target {
-            TargetName::Claude => &self.claude,
-            TargetName::Codex => &self.codex,
+            AccountFamily::Claude => &self.claude,
+            AccountFamily::Codex => &self.codex,
         }
     }
 }

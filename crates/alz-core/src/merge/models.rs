@@ -17,11 +17,11 @@ use crate::merge::action::Action;
 use crate::merge::algebra::Replace;
 use crate::merge::provenance::{Origin, Traced};
 use crate::merge::stack::LayerContext;
-use crate::target::TargetName;
 use crate::untrusted_text::QuotedKey;
+use alz_adapter::TargetId;
 
 /// The models of each target of an alias.
-pub type TargetModels = Replace<TargetName, ConcreteModel>;
+pub type TargetModels = Replace<TargetId, ConcreteModel>;
 
 /// The model routing after the merge.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -68,10 +68,10 @@ impl MergedModels {
     /// The concrete model that `alias` names for `target`. `None` when the alias does not exist
     /// or has no model for the target.
     #[must_use]
-    pub fn model(&self, alias: &ModelAlias, target: TargetName) -> Option<&ConcreteModel> {
+    pub fn model(&self, alias: &ModelAlias, target: &TargetId) -> Option<&ConcreteModel> {
         self.aliases
             .get(alias)
-            .and_then(|targets| targets.value().get(&target))
+            .and_then(|targets| targets.value().get(target))
     }
 
     /// The alias `role` routes to.
@@ -84,14 +84,14 @@ impl MergedModels {
     /// target. `None` when the role is not routed, its alias does not exist or has no model for
     /// the target.
     #[must_use]
-    pub fn for_role(&self, role: &Role, target: TargetName) -> Option<&ConcreteModel> {
+    pub fn for_role(&self, role: &Role, target: &TargetId) -> Option<&ConcreteModel> {
         self.alias_of(role)
             .and_then(|alias| self.model(alias, target))
     }
 
     /// The concrete model of the session's default alias on `target`.
     #[must_use]
-    pub fn for_default(&self, target: TargetName) -> Option<&ConcreteModel> {
+    pub fn for_default(&self, target: &TargetId) -> Option<&ConcreteModel> {
         self.default
             .as_ref()
             .and_then(|alias| self.model(alias.value(), target))

@@ -9,7 +9,6 @@ use crate::item::{
 };
 use crate::merge::testing::{layer, layer_from_yaml, lines, merged};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
 
 // The files of acceptance case 08 (§13.8): a locked and an unlocked hook of the personal layer,
 // disabled by one repo or the other.
@@ -154,7 +153,7 @@ fn case_19_a_native_event_keeps_its_matcher_and_runs_on_its_target_only() {
     let Trigger::Native { event, matcher } = notify.trigger() else {
         panic!("a native event");
     };
-    assert_eq!(event.target(), TargetName::Claude);
+    assert_eq!(event.target(), crate::target::claude());
     assert_eq!(event.name().as_str(), "Notification");
     assert_eq!(
         matcher.as_ref().map(Matcher::as_str),
@@ -162,7 +161,7 @@ fn case_19_a_native_event_keeps_its_matcher_and_runs_on_its_target_only() {
     );
     assert_eq!(
         notify.targets().map(|targets| targets.as_slice().to_vec()),
-        Some(vec![TargetName::Claude])
+        Some(vec![crate::target::claude().clone()])
     );
     assert_eq!(notify.on_fail(), OnFail::Warn);
     let HookAction::Command(command) = notify.action() else {

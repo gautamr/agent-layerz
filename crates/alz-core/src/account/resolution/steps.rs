@@ -15,13 +15,13 @@ use super::outcome::{
     Applied, FailsClosed, Foreign, ManifestProblem, Recorded, Resolution, SkipReason, Skipped,
     Source, Step, TargetResolution, Verdict,
 };
+use crate::account::AccountFamily;
 use crate::account::{
     AccountChoice, AccountName, AllowEntry, CachedDeclaration, DeclaredAccount, Ignored,
 };
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::merge::Reason;
 use crate::path::AbsolutePath;
-use crate::target::TargetName;
 use crate::untrusted_text::{Quoted, Stripped};
 
 /// Decides the account of each target. Reads nothing: `stack` is asked for the declaration only
@@ -33,7 +33,7 @@ pub fn resolve(facts: &Facts, stack: &impl Stack) -> Resolution {
         stack,
         layer: OnceCell::new(),
     };
-    let decided: Vec<(TargetName, TargetResolution, Option<Diagnostic>)> = TargetName::ALL
+    let decided: Vec<(AccountFamily, TargetResolution, Option<Diagnostic>)> = AccountFamily::ALL
         .into_iter()
         .map(|target| {
             let (resolution, warning) = context.target(target);
@@ -61,7 +61,7 @@ pub fn resolve(facts: &Facts, stack: &impl Stack) -> Resolution {
 
 fn default_name_warning(facts: &Facts) -> Option<Diagnostic> {
     let name = facts.config.default_name.as_ref()?;
-    TargetName::ALL
+    AccountFamily::ALL
         .into_iter()
         .any(|target| facts.folders.exists(target, name))
         .then(|| {
@@ -106,13 +106,13 @@ enum Layer {
     /// The step names nothing and nothing fails.
     Skipped(SkipReason),
     /// The allowed declaration applies.
-    Declared(BTreeMap<TargetName, AccountChoice>),
+    Declared(BTreeMap<AccountFamily, AccountChoice>),
     /// The targets that fail closed; a target left out is skipped.
-    Fails(BTreeMap<TargetName, FailsClosed>),
+    Fails(BTreeMap<AccountFamily, FailsClosed>),
 }
 
 impl<S: Stack> Context<'_, S> {
-    fn target(&self, target: TargetName) -> (TargetResolution, Option<Diagnostic>) {
+    fn target(&self, target: AccountFamily) -> (TargetResolution, Option<Diagnostic>) {
         let explicit = self
             .facts
             .explicit
@@ -150,7 +150,7 @@ impl<S: Stack> Context<'_, S> {
 
     fn explicit(
         &self,
-        target: TargetName,
+        target: AccountFamily,
         source: Source,
         name: &ExplicitName,
     ) -> TargetResolution {
@@ -164,7 +164,7 @@ impl<S: Stack> Context<'_, S> {
         }
     }
 
-    fn foreign_warning(&self, target: TargetName) -> Diagnostic {
+    fn foreign_warning(&self, target: AccountFamily) -> Diagnostic {
         let message = Message::new(super::outcome::variable(target)).then(" was set outside alz");
         Diagnostic::warning(
             Code::AccountForeign,
@@ -182,7 +182,7 @@ impl<S: Stack> Context<'_, S> {
     /// account that exists, or a failure.
     fn named(
         &self,
-        target: TargetName,
+        target: AccountFamily,
         choice: &AccountChoice,
         source: Source,
         skipped: Vec<Skipped>,
@@ -214,7 +214,11 @@ impl<S: Stack> Context<'_, S> {
         self.facts.config.default_name.as_ref() == Some(name)
     }
 
-    fn steps_three_to_five(&self, target: TargetName, skipped: Vec<Skipped>) -> TargetResolution {
+    fn steps_three_to_five(
+        &self,
+        target: AccountFamily,
+        skipped: Vec<Skipped>,
+    ) -> TargetResolution {
         let skip = |mut skipped: Vec<Skipped>, step, reason| {
             skipped.push(Skipped { step, reason });
             skipped
@@ -352,7 +356,7 @@ impl<S: Stack> Context<'_, S> {
         }
         LayerStep {
             outcome: Layer::Fails(
-                TargetName::ALL
+                AccountFamily::ALL
                     .into_iter()
                     .filter(|target| {
                         covering
@@ -368,7 +372,7 @@ impl<S: Stack> Context<'_, S> {
 
     fn allowed_root(&self, entry: &AllowEntry, manifest: ManifestFact) -> LayerStep {
         let allowed_targets = || {
-            TargetName::ALL
+            AccountFamily::ALL
                 .into_iter()
                 .filter(|target| entry.account().get(*target).is_some())
         };
@@ -438,7 +442,7 @@ impl<S: Stack> Context<'_, S> {
         }
     }
 
-    fn recorded(&self, target: TargetName, entry: &AllowEntry) -> Recorded {
+    fn recorded(&self, target: AccountFamily, entry: &AllowEntry) -> Recorded {
         let choice = entry
             .account()
             .get(target)
@@ -476,7 +480,7 @@ fn choice_text(choice: &AccountChoice) -> Message {
     }
 }
 
-fn map_text(map: &BTreeMap<TargetName, AccountChoice>) -> Message {
+fn map_text(map: &BTreeMap<AccountFamily, AccountChoice>) -> Message {
     map.iter()
         .enumerate()
         .fold(Message::new(""), |message, (index, (target, choice))| {
@@ -494,8 +498,8 @@ fn map_text(map: &BTreeMap<TargetName, AccountChoice>) -> Message {
 
 fn changed_warning(
     entry: &AllowEntry,
-    recorded: &BTreeMap<TargetName, AccountChoice>,
-    declared: &BTreeMap<TargetName, AccountChoice>,
+    recorded: &BTreeMap<AccountFamily, AccountChoice>,
+    declared: &BTreeMap<AccountFamily, AccountChoice>,
     declaration: &DeclaredAccount,
 ) -> Diagnostic {
     Diagnostic::warning(
@@ -554,7 +558,7 @@ fn reasons_text(reasons: &[Reason]) -> Message {
 /// Step 4 for a declaration: it applies when its map and its source are the recorded ones,
 /// and otherwise every target either names fails closed.
 fn declared_step(entry: &AllowEntry, declaration: &DeclaredAccount) -> LayerStep {
-    let declared: BTreeMap<TargetName, AccountChoice> = TargetName::ALL
+    let declared: BTreeMap<AccountFamily, AccountChoice> = AccountFamily::ALL
         .into_iter()
         .filter_map(|target| {
             declaration
@@ -563,7 +567,7 @@ fn declared_step(entry: &AllowEntry, declaration: &DeclaredAccount) -> LayerStep
                 .map(|choice| (target, choice.clone()))
         })
         .collect();
-    let recorded: BTreeMap<TargetName, AccountChoice> = TargetName::ALL
+    let recorded: BTreeMap<AccountFamily, AccountChoice> = AccountFamily::ALL
         .into_iter()
         .filter_map(|target| {
             entry
@@ -578,7 +582,7 @@ fn declared_step(entry: &AllowEntry, declaration: &DeclaredAccount) -> LayerStep
             warnings: Vec::new(),
         };
     }
-    let affected = TargetName::ALL
+    let affected = AccountFamily::ALL
         .into_iter()
         .filter(|target| declared.contains_key(target) || recorded.contains_key(target));
     LayerStep {

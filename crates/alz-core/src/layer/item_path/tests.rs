@@ -2,7 +2,6 @@ use proptest::prelude::{prop_assert_eq, prop_assume, proptest};
 
 use super::ItemPath;
 use crate::path::SafeRelPath;
-use crate::target::TargetName;
 
 fn path(text: &str) -> SafeRelPath {
     SafeRelPath::try_from(text).expect("a safe path")
@@ -66,14 +65,14 @@ fn every_path_of_the_layout_in_section_4_1_is_one_variant() {
         (
             "targets/claude/.claude/output-styles/x.md",
             ItemPath::Passthrough {
-                target: TargetName::Claude,
+                target: crate::target::claude().clone(),
                 path: ".claude/output-styles/x.md",
             },
         ),
         (
             "targets/codex/config.toml",
             ItemPath::Passthrough {
-                target: TargetName::Codex,
+                target: crate::target::codex().clone(),
                 path: "config.toml",
             },
         ),
@@ -81,14 +80,14 @@ fn every_path_of_the_layout_in_section_4_1_is_one_variant() {
         (
             "targets/claude/sub/CLAUDE.extra.md",
             ItemPath::Passthrough {
-                target: TargetName::Claude,
+                target: crate::target::claude().clone(),
                 path: "sub/CLAUDE.extra.md",
             },
         ),
         (
             "targets/codex/CLAUDE.extra.md",
             ItemPath::Passthrough {
-                target: TargetName::Codex,
+                target: crate::target::codex().clone(),
                 path: "CLAUDE.extra.md",
             },
         ),
@@ -125,7 +124,7 @@ fn any_other_path_is_other() {
         "sub/mcp.yaml",
         "Permissions.yaml",
         "targets/claude",
-        "targets/other/x.md",
+        "targets/Other/x.md",
     ] {
         assert_eq!(ItemPath::of(&path(text)), ItemPath::Other, "{text}");
     }

@@ -6,7 +6,7 @@ use crate::merge::provenance::Traced;
 use crate::merge::testing::{layer, lines_but_slots as lines, merged_without_slots as merged};
 use crate::merge::{Merged, MergedAgent};
 use crate::stack::ResolvedLayer;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 // The files of acceptance case 03 (§13.3) and case 18 (§13.18), read from the fixtures themselves.
 const BASE_03: &str =
@@ -88,7 +88,7 @@ fn show_value(value: &NativeValue) -> String {
     }
 }
 
-fn native_of(model: &Merged, name: &str, target: TargetName) -> String {
+fn native_of(model: &Merged, name: &str, target: &TargetId) -> String {
     show(
         agent(model, name)
             .value()
@@ -219,11 +219,11 @@ fn claude_fields_pass_through_and_overlays_deep_merge_them() {
     let architect = agent(&model, "architect").value();
     let claude = architect
         .native()
-        .of(TargetName::Claude)
+        .of(crate::target::claude())
         .expect("claude fields");
     // The order is that of the source: the base's keys, then the key the overlay added.
     assert_eq!(show(claude), "{effort: high, maxTurns: 60, color: blue}");
-    assert!(architect.native().of(TargetName::Codex).is_none());
+    assert!(architect.native().of(crate::target::codex()).is_none());
 }
 
 // Acceptance case 18, second case: "rejects a claude: field that has a neutral equivalent".
@@ -287,11 +287,11 @@ fn native_maps_deep_merge_nested_maps_and_lists_and_stay_per_target() {
     ));
     // `Stop` keeps its place and gets `two` after `one`; `Start` stays after it.
     assert_eq!(
-        native_of(&model, "a", TargetName::Claude),
+        native_of(&model, "a", crate::target::claude()),
         "{effort: low, disallowedTools: [Bash, Write]}"
     );
     assert_eq!(
-        native_of(&model, "a", TargetName::Codex),
+        native_of(&model, "a", crate::target::codex()),
         "{extras: {Stop: [one, two], Start: [x]}, sandbox: rw, extra: 1}"
     );
 }
@@ -308,7 +308,7 @@ fn native_keys_keep_source_order_and_a_whole_number_key_is_not_hoisted() {
         )],
     )]);
     assert_eq!(
-        native_of(&model, "a", TargetName::Codex),
+        native_of(&model, "a", crate::target::codex()),
         "{zeta: 1, 10: ten, 9: nine, alpha: a}"
     );
 }
@@ -342,7 +342,7 @@ fn a_key_a_later_layer_adds_comes_after_the_existing_ones_and_a_replaced_value_s
         ),
     ]);
     assert_eq!(
-        native_of(&model, "a", TargetName::Codex),
+        native_of(&model, "a", crate::target::codex()),
         "{zeta: 2, mid: {b: 1, a: 9, c: 3}, alpha: changed, 10: ten, aaa: new, 9: nine}"
     );
 }
@@ -354,7 +354,7 @@ fn list_items_that_are_mappings_equal_in_another_key_order_are_one_item() {
         "---\nextends: a\ncodex:\n  l: [{y: 2, x: 1}, 6, 5]\n---\n",
     ));
     assert_eq!(
-        native_of(&model, "a", TargetName::Codex),
+        native_of(&model, "a", crate::target::codex()),
         "{l: [{x: 1, y: 2}, 5, 6]}"
     );
 }
@@ -585,8 +585,8 @@ fn a_yaml_list_in_an_overlay_replaces_the_inherited_list() {
     assert_eq!(
         value
             .targets()
-            .map(|targets| targets.iter().copied().collect::<Vec<_>>()),
-        Some(vec![TargetName::Codex])
+            .map(|targets| targets.iter().cloned().collect::<Vec<_>>()),
+        Some(vec![crate::target::codex().clone()])
     );
 }
 

@@ -83,7 +83,7 @@ mod tests {
     fn a_top_level_key_that_is_no_target_is_refused_and_nothing_of_the_file_is_written() {
         let workspace = Workspace::with(
             None,
-            Some("claude:\n  cleanupPeriodDays: 14\nbogus:\n  key: value\n"),
+            Some("claude:\n  cleanupPeriodDays: 14\nBogus:\n  key: value\n"),
         );
         let before = read_tree(&workspace.repository).expect("read");
         let run = workspace.build();
@@ -91,7 +91,7 @@ mod tests {
         assert!(
             run.stderr.contains("error [settings]")
                 && run.stderr.contains("repo:settings.yaml")
-                && run.stderr.contains("'bogus'"),
+                && run.stderr.contains("'Bogus'"),
             "{}",
             run.stderr
         );

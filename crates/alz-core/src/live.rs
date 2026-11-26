@@ -9,7 +9,6 @@ use std::fmt;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::merge::Merged;
 use crate::probe::Probe;
-use crate::target::TargetName;
 use crate::untrusted_text::Stripped;
 
 /// The agents and skills a build makes for Claude. The probe runs with MCP servers off (spec
@@ -33,7 +32,7 @@ impl Built {
                     agent
                         .value()
                         .targets()
-                        .is_none_or(|targets| targets.contains(&TargetName::Claude))
+                        .is_none_or(|targets| targets.contains(crate::target::claude()))
                 })
                 .map(|(name, _)| name.as_str().to_owned())
                 .collect(),

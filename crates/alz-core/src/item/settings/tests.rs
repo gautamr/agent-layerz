@@ -3,7 +3,7 @@ use proptest::prelude::{prop_assert, prop_assert_eq, proptest};
 use crate::item::{Settings, SettingsItems};
 use crate::merge::Tree;
 use crate::merge::testing::layer;
-use crate::target::TargetName;
+use alz_adapter::TargetId;
 
 /// What the layer `personal` with this `settings.yaml` gives.
 fn read(yaml: &str) -> (Option<Settings>, Vec<String>) {
@@ -42,28 +42,34 @@ fn a_layer_without_settings_yaml_or_with_an_empty_one_has_no_settings() {
 #[test]
 fn the_settings_of_a_file_are_an_ordered_map_keyed_by_target() {
     let settings = only("codex:\n  b: 1\n  a: [x]\nclaude:\n  verbose: true\n  env:\n    FOO: x\n");
-    let targets: Vec<TargetName> = settings.iter().map(|(target, _)| target).collect();
-    assert_eq!(targets, [TargetName::Claude, TargetName::Codex]);
-    let codex = settings.of(TargetName::Codex).expect("codex");
+    let targets: Vec<TargetId> = settings.iter().map(|(target, _)| target.clone()).collect();
+    assert_eq!(
+        targets,
+        [
+            crate::target::claude().clone(),
+            crate::target::codex().clone()
+        ]
+    );
+    let codex = settings.of(crate::target::codex()).expect("codex");
     let keys: Vec<&str> = codex.iter().map(|(key, _)| key).collect();
     assert_eq!(keys, ["a", "b"]);
     assert_eq!(codex.get("b"), Some(&Tree::Int(1)));
-    assert!(settings.of(TargetName::Claude).is_some());
+    assert!(settings.of(crate::target::claude()).is_some());
 }
 
 #[test]
 fn a_file_may_name_one_target_only() {
     let settings = only("codex:\n  a: 1\n");
-    assert!(settings.of(TargetName::Claude).is_none());
-    assert!(settings.of(TargetName::Codex).is_some());
+    assert!(settings.of(crate::target::claude()).is_none());
+    assert!(settings.of(crate::target::codex()).is_some());
 }
 
 #[test]
 fn a_top_level_key_that_is_not_a_known_target_is_refused_naming_the_file_whatever_the_key() {
     for key in [
         "__proto__",
-        "constructor",
-        "prototype",
+        "Constructor",
+        "Prototype",
         "toString",
         "hasOwnProperty",
         "Claude",
@@ -71,13 +77,13 @@ fn a_top_level_key_that_is_not_a_known_target_is_refused_naming_the_file_whateve
         "claude ",
         " codex",
         "claude.env",
-        "codex2",
-        "cursor",
-        "env",
-        "model",
+        "Codex2",
+        "Cursor",
+        "Env",
+        "Model",
         "_",
         "0",
-        "true",
+        "True",
         "~",
     ] {
         for body in ["x: 1\n", "claude:\n    permissions: x\n", "claude: {}\n"] {
@@ -95,21 +101,21 @@ fn a_top_level_key_that_is_not_a_known_target_is_refused_naming_the_file_whateve
 
 #[test]
 fn no_settings_of_a_file_are_read_when_any_top_level_key_is_refused() {
-    let found = refused("claude:\n  verbose: true\ncodex:\n  b: 2\nother:\n  c: 3\n");
+    let found = refused("claude:\n  verbose: true\ncodex:\n  b: 2\nOther:\n  c: 3\n");
     assert_eq!(
         found,
-        ["error [settings] personal:settings.yaml:5:1: unknown field 'other'"]
+        ["error [settings] personal:settings.yaml:5:1: unknown field 'Other'"]
     );
 }
 
 #[test]
 fn every_unknown_key_is_reported_and_one_that_is_not_text_is_named_by_its_kind() {
     assert_eq!(
-        refused("1: x\nfirst: x\nclaude:\n  verbose: true\nsecond: x\n"),
+        refused("1: x\nFirst: x\nclaude:\n  verbose: true\nSecond: x\n"),
         [
             "error [settings] personal:settings.yaml:1:1: an unknown key that is a number",
-            "error [settings] personal:settings.yaml:2:1: unknown field 'first'",
-            "error [settings] personal:settings.yaml:5:1: unknown field 'second'",
+            "error [settings] personal:settings.yaml:2:1: unknown field 'First'",
+            "error [settings] personal:settings.yaml:5:1: unknown field 'Second'",
         ]
     );
 }
@@ -235,8 +241,8 @@ fn a_reserved_name_below_the_top_of_a_target_is_an_ordinary_key() {
     let settings = only(
         "claude:\n  env:\n    permissions: x\n    hooks: y\ncodex:\n  other:\n    work:\n      model: z\n",
     );
-    assert!(settings.of(TargetName::Claude).is_some());
-    assert!(settings.of(TargetName::Codex).is_some());
+    assert!(settings.of(crate::target::claude()).is_some());
+    assert!(settings.of(crate::target::codex()).is_some());
 }
 
 #[test]
@@ -290,7 +296,7 @@ proptest! {
     #[test]
     fn a_top_level_key_is_accepted_exactly_when_it_is_a_target(key in "[A-Za-z_][A-Za-z0-9_]{0,12}") {
         let (settings, found) = read(&format!("{key}:\n  verbose: true\n"));
-        if key == "claude" || key == "codex" {
+        if alz_adapter::TargetId::try_from(key.as_str()).is_ok() {
             prop_assert!(settings.is_some());
             prop_assert_eq!(found, Vec::<String>::new());
         } else {
@@ -355,8 +361,8 @@ fn the_names_of_a_first_class_item_are_ordinary_keys_where_codex_does_not_read_t
     let settings = only(
         "claude:\n  env:\n    features: x\n    profiles: y\ncodex:\n  features:\n    other: true\n  other:\n    work:\n      model_reasoning_effort: high\n  hooks_note:\n    approval_policy: x\n",
     );
-    assert!(settings.of(TargetName::Claude).is_some());
-    assert!(settings.of(TargetName::Codex).is_some());
+    assert!(settings.of(crate::target::claude()).is_some());
+    assert!(settings.of(crate::target::codex()).is_some());
 }
 
 // The reserved keys of the table of native keys (§7.9).
@@ -393,7 +399,7 @@ fn every_key_that_the_table_refuses_is_refused_with_its_path_and_no_value() {
             .map(|segment| if segment == "*" { "x" } else { segment }.to_owned())
             .collect();
         let steps: Vec<_> = names.iter().map(|name| Step::Key(name)).collect();
-        let first = native_key(row.target(), &steps)
+        let first = native_key(&crate::target::id(row.target()), &steps)
             .expect("the table has the row")
             .display_path();
         assert!(
@@ -434,8 +440,8 @@ fn a_floor_key_and_a_key_with_a_similar_name_are_read() {
     let settings = only(
         "claude:\n  sandbox:\n    enabled: true\n    network:\n      allowedDomains: [a.example]\n  env:\n    httpProxyPortX: x\n    statusLineX: x\ncodex:\n  web_search: cached\n  projects:\n    shop:\n      other: 1\n",
     );
-    assert!(settings.of(TargetName::Claude).is_some());
-    assert!(settings.of(TargetName::Codex).is_some());
+    assert!(settings.of(crate::target::claude()).is_some());
+    assert!(settings.of(crate::target::codex()).is_some());
 }
 
 #[test]
