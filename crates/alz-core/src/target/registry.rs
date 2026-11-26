@@ -9,10 +9,13 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
-use alz_adapter::{Adapter, Descriptor, MODEL_VERSION, ModelVersion, TargetId};
+use alz_adapter::{Adapter, Context, Descriptor, MODEL_VERSION, Model, ModelVersion, TargetId};
 use thiserror::Error;
 
+use crate::diagnostic::Diagnostics;
 use crate::diagnostic::{Code, Diagnostic, Message, MessagePart, Where};
+use crate::render::adapter_output;
+use crate::render::tree::FileTree;
 use crate::target::claude::ClaudeAdapter;
 use crate::untrusted_text::Stripped;
 
@@ -107,6 +110,22 @@ impl Registry {
         self.adapter(target).map(Adapter::descriptor)
     }
 
+    /// The files and diagnostics of `target`: its adapter renders the model, and the core checks
+    /// everything it returned (§8.0 **Output checks.**) before it emits the files. `None` when no
+    /// adapter is registered for the target.
+    #[must_use]
+    pub fn render(
+        &self,
+        target: &TargetId,
+        model: &Model,
+        context: &Context,
+    ) -> Option<(FileTree, Diagnostics)> {
+        self.adapter(target).map(|adapter| {
+            let output = adapter.render(model, context);
+            adapter_output::emit(adapter.descriptor(), &model.security, &output)
+        })
+    }
+
     /// The registered target ids, in name order.
     pub fn targets(&self) -> impl Iterator<Item = &TargetId> + '_ {
         self.adapters.keys()
@@ -164,3 +183,6 @@ impl Registry {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod output_checks;

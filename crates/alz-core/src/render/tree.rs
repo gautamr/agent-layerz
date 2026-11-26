@@ -67,7 +67,14 @@ impl OutputPath {
 /// path: see [`OutputPath::folded`].
 #[must_use]
 pub fn fold(path: &SafeRelPath) -> String {
-    path.as_str().nfd().collect::<String>().to_ascii_lowercase()
+    fold_text(path.as_str())
+}
+
+/// [`fold`] for any text, such as a path of an adapter's territory that is not a safe relative
+/// path.
+#[must_use]
+pub fn fold_text(text: &str) -> String {
+    text.nfd().collect::<String>().to_ascii_lowercase()
 }
 
 impl TryFrom<SafeRelPath> for OutputPath {

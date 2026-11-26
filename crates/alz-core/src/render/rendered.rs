@@ -13,7 +13,6 @@ use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::lock::Lock;
 use crate::merge::Merged;
 use crate::path::SafeRelPath;
-use crate::render::adapter_output;
 use crate::render::instructions::{AgentsMd, agents_md_path};
 use crate::render::lock_of::lock_of;
 use crate::render::passthrough;
@@ -136,26 +135,22 @@ fn adapter(
     merged: &Merged,
     manifest: &Manifest,
 ) -> (FileTree, Diagnostics) {
-    registry.adapter(target).map_or_else(
-        || {
+    let context = Context::new(
+        manifest
+            .workspace()
+            .add_dirs()
+            .iter()
+            .map(|dir| dir.as_str().to_owned())
+            .collect(),
+    );
+    registry
+        .render(target, &model_for(merged, target), &context)
+        .unwrap_or_else(|| {
             (
                 FileTree::new(),
                 Diagnostics::new().with(registry.refusal(target)),
             )
-        },
-        |adapter| {
-            let context = Context::new(
-                manifest
-                    .workspace()
-                    .add_dirs()
-                    .iter()
-                    .map(|dir| dir.as_str().to_owned())
-                    .collect(),
-            );
-            let output = adapter.render(&model_for(merged, target), &context);
-            adapter_output::emit(target, &output)
-        },
-    )
+        })
 }
 
 /// A tree of the one file `path` with the text `text`.

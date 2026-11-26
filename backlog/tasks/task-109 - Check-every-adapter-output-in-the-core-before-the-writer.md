@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-26T07:18:00Z'
+updated_date: '2026-11-26T07:32:00Z'
 labels:
   - area:adapter
   - area:security
@@ -36,6 +36,8 @@ decision-40 point 4: the core refuses adapter output that leaves the adapter's t
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-26): decision-40 accepted. When an adapter cannot express a security item (for example a decision class's rules on a target without allow/ask/deny lists), alz fails the build with an error naming the item and the target, never a warning; a layer may opt that target out of the item explicitly.
+
+Implementation (implementer, 2026-11-26). Checks live in alz-core: crates/alz-core/src/render/adapter_output.rs (emit(descriptor, security, output), codes) with submodules paths.rs (territory, core-only paths), limits.rs (10000 files, 16 MiB, 256 MiB), coverage.rs (coverage and not-expressed). Registry::render (target/registry.rs) runs adapter then emit; rendered.rs uses it. Evidence: AC1 registry-level toy adapter tests in crates/alz-core/src/target/registry/output_checks.rs, one per path (outside territory, AGENTS.md, layer.yaml, layer.lock, .layer/x, .git/x, plus case-folded agents.MD); AC2 output_checks.rs a_file_of_more_than_16_mib / more_files_than_the_limit (real limits) and adapter_output/tests.rs limits with small values, incl. the 256 MiB total; AC3 output_checks.rs a_diagnostic_code_of_another_namespace / a_message_with_control_characters_is_stripped and adapter_output/tests.rs own-code and core-code tests; AC4 output_checks.rs one test per kind for missing, doubled and unknown items, the four not-expressed messages, and the_claude_adapter_reports_every_kind_of_item_as_expressed. Claude output byte-identical: all golden-tree and fixture tests, mise run rust:check, rust:ci and alz:check pass unchanged. Notes: an adapter's own code must be in the code tables (Code is a closed enum), so only claude-agent exists today; a not-expressed item is always the error until TASK-127 adds the opt-out; spec-coverage rows for Output checks, Coverage report and Security items a target cannot enforce stay planned with the remaining sentence named (TASK-110 key rules, TASK-127 opt-out and locked-hook case).
 <!-- SECTION:NOTES:END -->
 
 ## Comments
