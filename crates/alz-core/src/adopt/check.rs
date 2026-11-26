@@ -7,6 +7,7 @@ use crate::layer::LayerContents;
 use crate::merge::{Placements, merge};
 use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
+use crate::target::Registry;
 use crate::untrusted_text::Stripped;
 
 use super::draft::Draft;
@@ -18,6 +19,7 @@ pub(super) fn read_back(
     stack: &ResolvedStack,
     manifest: &Manifest,
     placements: &Placements,
+    registry: &Registry,
     draft: &mut Draft<'_>,
 ) {
     let Some((last, general)) = stack.layers().split_last() else {
@@ -37,7 +39,7 @@ pub(super) fn read_back(
         );
         return;
     };
-    let (_, found) = merge(&stack, manifest, placements).into_parts();
+    let (_, found) = merge(&stack, manifest, placements, registry).into_parts();
     for error in found.iter().filter(|found| found.level() == Level::Error) {
         let path = error.at().and_then(Where::layer_path);
         let file = path

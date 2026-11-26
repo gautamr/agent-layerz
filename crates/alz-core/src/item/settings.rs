@@ -1,11 +1,13 @@
 //! The settings of a layer (spec §7.9): `settings.yaml`, namespaced by target.
 //!
-//! The top level takes only the known targets, `claude` and `codex`. Any other key, whatever it
-//! is, is a `settings` error, and none of the file's settings are merged: a file is read into an
-//! ordered map from [`TargetId`] to [`SettingsTree`], so no key of the layer can name anything
-//! but a target. Each target's value must be a mapping, whose keys must not duplicate a
-//! first-class item (permissions, hooks, MCP, model), and which must not set a protected
-//! variable. For Codex that also holds below the top level where Codex reads the same setting
+//! The top level takes only target ids. Any other key, whatever it is, is a `settings` error, and
+//! none of the file's settings are merged: a file is read into an ordered map from [`TargetId`] to
+//! [`SettingsTree`], so no key of the layer can name anything but a target. Each target's value
+//! must be a mapping, whose keys must not duplicate a first-class item (permissions, hooks, MCP,
+//! model) or be reserved, as the key rules of the target's descriptor say, which the [`Registry`]
+//! hands out (§8.0 **Descriptor.**), and which must not set a protected variable. A target with
+//! no key rules, one that has neither an adapter nor a descriptor-only entry, is read as a
+//! mapping and nothing more. For Codex that also holds below the top level where Codex reads the same setting
 //! again: `features.hooks` and `features.codex_hooks` at any depth, and `profile`
 //! and `profiles`, which a project's Codex config does not read.
 //!
@@ -22,12 +24,13 @@ use crate::merge::Tree;
 use crate::path::SafeRelPath;
 use crate::schema::{SchemaError, unknown_fields};
 use crate::stack::ResolvedLayer;
+use crate::target::Registry;
 use crate::yaml::fields::{KeyPath, Section};
 use crate::yaml::{self, Node, Value, YamlText};
 use alz_adapter::TargetId;
 
 use super::agent::tree_of;
-use super::native_keys::{Step, refusal, refusal_error};
+use super::native_keys::{KeyRules, Step, refusal_error};
 use super::native_types::{CLAUDE_SETTINGS, Typed};
 use super::protected_variable::{codex_policies, env_keys, paths};
 use super::{place, schema_diagnostics};
@@ -130,10 +133,11 @@ impl SettingsItems {
         self.file
     }
 
-    /// Reads the settings of `layer`. Every problem of the file is reported; a file with a problem
-    /// gives no item.
+    /// Reads the settings of `layer`, each target's section checked with the key rules that its
+    /// descriptor in `registry` states. Every problem of the file is reported; a file with a
+    /// problem gives no item.
     #[must_use]
-    pub fn read(layer: &ResolvedLayer) -> (Self, Diagnostics) {
+    pub fn read(layer: &ResolvedLayer, registry: &Registry) -> (Self, Diagnostics) {
         layer
             .contents()
             .iter()
@@ -142,7 +146,7 @@ impl SettingsItems {
                 || (Self::default(), Diagnostics::new()),
                 |(path, bytes)| {
                     let at = place(layer.meta().name(), path);
-                    match read_file(&at, bytes) {
+                    match read_file(&at, bytes, registry) {
                         Ok(file) => (
                             Self {
                                 file: file.map(|settings| (path.clone(), settings)),
@@ -157,7 +161,11 @@ impl SettingsItems {
 }
 
 /// The settings of the file, `None` for an empty file.
-fn read_file(at: &Where, bytes: &[u8]) -> Result<Option<Settings>, Diagnostics> {
+fn read_file(
+    at: &Where,
+    bytes: &[u8],
+    registry: &Registry,
+) -> Result<Option<Settings>, Diagnostics> {
     let node = YamlText::from_bytes(bytes)
         .and_then(|text| yaml::parse(&text))
         .map_err(|problem| Diagnostics::new().with(problem.into_diagnostic(at.clone())))?;
@@ -192,7 +200,12 @@ fn read_file(at: &Where, bytes: &[u8]) -> Result<Option<Settings>, Diagnostics> 
                 .filter_map(|(key, target)| section.written_node(key).map(|node| (target, node)))
                 .fold(
                     (BTreeMap::new(), unknown),
-                    |(targets, problems), (target, node)| match read_target(&target, node, at) {
+                    |(targets, problems), (target, node)| match read_target(
+                        &target,
+                        node,
+                        at,
+                        registry.key_rules(&target),
+                    ) {
                         Ok(tree) => (
                             targets.into_iter().chain([(target, tree)]).collect(),
                             problems,
@@ -209,9 +222,14 @@ fn read_file(at: &Where, bytes: &[u8]) -> Result<Option<Settings>, Diagnostics> 
     }
 }
 
-/// The settings of one target: a mapping, without the keys of a first-class item and without a
-/// protected variable.
-fn read_target(target: &TargetId, node: &Node, at: &Where) -> Result<SettingsTree, Diagnostics> {
+/// The settings of one target: a mapping, without the keys of a first-class item or a reserved key
+/// of its key rules, and without a protected variable.
+fn read_target(
+    target: &TargetId,
+    node: &Node,
+    at: &Where,
+    rules: Option<KeyRules<'_>>,
+) -> Result<SettingsTree, Diagnostics> {
     let section = Section::new(node, KeyPath::root().target(target)).map_err(|problem| {
         schema_diagnostics(Code::Settings, at, &SchemaError::from(problem).into())
     })?;
@@ -230,11 +248,17 @@ fn read_target(target: &TargetId, node: &Node, at: &Where) -> Result<SettingsTre
             ));
         }
     };
-    // A section of a target with no checks of its own is read as a mapping and nothing more.
-    let found = refused_keys(target, node, at).merge(match target.as_str() {
-        "claude" => typed_keys(node, at).merge(env_keys(entries.get("env"), paths::CLAUDE_ENV, at)),
-        "codex" => codex_policies(&entries, Code::Settings, at),
-        _ => Diagnostics::new(),
+    // A section of a target with no key rules is read as a mapping and nothing more.
+    let found = rules.map_or_else(Diagnostics::new, |rules| {
+        refused_keys(rules, node, at).merge(match target.as_str() {
+            "claude" => typed_keys(rules, node, at).merge(env_keys(
+                entries.get("env"),
+                paths::CLAUDE_ENV,
+                at,
+            )),
+            "codex" => codex_policies(&entries, Code::Settings, at),
+            _ => Diagnostics::new(),
+        })
     });
     if found.has_errors() {
         Err(found)
@@ -244,10 +268,10 @@ fn read_target(target: &TargetId, node: &Node, at: &Where) -> Result<SettingsTre
 }
 
 /// An error for each key of Claude's settings that is not in the table of typed keys, and for each
-/// value of the wrong type (§7.9). A key that the table of native keys refuses is reported by
+/// value of the wrong type (§7.9). A key that the key rules of the descriptor refuse is reported by
 /// [`refused_keys`], so it is skipped here.
-fn typed_keys(node: &Node, at: &Where) -> Diagnostics {
-    let reported = |steps: &[Step<'_>]| refusal(crate::target::claude(), steps).is_some();
+fn typed_keys(rules: KeyRules<'_>, node: &Node, at: &Where) -> Diagnostics {
+    let reported = |steps: &[Step<'_>]| rules.refusal(steps).is_some();
     Typed::new(
         "claude",
         Code::Settings,
@@ -258,14 +282,14 @@ fn typed_keys(node: &Node, at: &Where) -> Diagnostics {
     .check(CLAUDE_SETTINGS, node)
 }
 
-/// An error for each key of the settings of `target`, at any depth, that the table of native keys
-/// refuses: a key that duplicates a first-class item or is reserved (§7.9). The error prints the
-/// key path of the table, never text of the layer.
-fn refused_keys(target: &TargetId, node: &Node, at: &Where) -> Diagnostics {
-    walk(target, node, &[], at)
+/// An error for each key of the settings of the target, at any depth, that its key rules refuse: a
+/// key that duplicates a first-class item or is reserved (§7.9). The error prints the key path of
+/// the row, never text of the layer.
+fn refused_keys(rules: KeyRules<'_>, node: &Node, at: &Where) -> Diagnostics {
+    walk(rules, node, &[], at)
 }
 
-fn walk(target: &TargetId, node: &Node, steps: &[Step<'_>], at: &Where) -> Diagnostics {
+fn walk(rules: KeyRules<'_>, node: &Node, steps: &[Step<'_>], at: &Where) -> Diagnostics {
     match node.value() {
         Value::Map(mapping) => mapping
             .entries()
@@ -280,16 +304,17 @@ fn walk(target: &TargetId, node: &Node, steps: &[Step<'_>], at: &Where) -> Diagn
                     | Value::Map(_) => Step::Unnamed,
                 };
                 let below = [steps, &[step]].concat();
-                refusal(target, &below)
+                rules
+                    .refusal(&below)
                     .and_then(|row| refusal_error(row, &at.clone().at(key.at())))
                     .into_iter()
                     .collect::<Diagnostics>()
-                    .merge(walk(target, value, &below, at))
+                    .merge(walk(rules, value, &below, at))
             })
             .fold(Diagnostics::new(), Diagnostics::merge),
         Value::Seq(items) => items
             .iter()
-            .map(|item| walk(target, item, &[steps, &[Step::Unnamed]].concat(), at))
+            .map(|item| walk(rules, item, &[steps, &[Step::Unnamed]].concat(), at))
             .fold(Diagnostics::new(), Diagnostics::merge),
         Value::Null | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Text(_) => {
             Diagnostics::new()

@@ -30,6 +30,7 @@ use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
 use crate::merge::{Merged, Placements};
 use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedStack};
+use crate::target::Registry;
 use crate::untrusted_text::Stripped;
 
 pub use natives::{Candidates, candidates};
@@ -83,6 +84,9 @@ pub struct AdoptionInput<'a> {
     /// The bytes of `AGENTS.md` as it is on disk, when there is one: the paragraphs `CLAUDE.md`
     /// shares with it are not adopted twice.
     pub agents_md: Option<&'a [u8]>,
+    /// The adapters of the build, whose descriptors hold the key rules of each target's native
+    /// settings.
+    pub registry: &'a Registry,
 }
 
 /// A native file moved byte for byte into the repo layer.
@@ -316,6 +320,7 @@ pub fn plan(input: &AdoptionInput<'_>) -> Result<AdoptionPlan, AdoptionRefused> 
                 .as_ref()
                 .map_or(input.manifest, |edited| &edited.manifest),
             input.placements,
+            input.registry,
             &mut draft,
         );
     }

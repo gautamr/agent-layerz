@@ -4,6 +4,7 @@
 //! the code of this crate names, `claude` and `codex`, and the adapters that exist.
 
 pub mod claude;
+mod codex;
 mod registry;
 
 pub use registry::{RegisterError, Registry};

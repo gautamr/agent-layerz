@@ -20,6 +20,7 @@ mod tests {
     use alz_core::merge::merge;
     use alz_core::path::{AbsolutePath, SafeRelPath};
     use alz_core::stack::{Manifest, ResolvedStack};
+    use alz_core::target::Registry;
     use alz_io::{AdoptionBasis, EnvSnapshot, RepoError, RepoRoot, StackResolver};
     use alz_test_support::{ScratchDir, read_tree, running_as_root};
 
@@ -103,7 +104,7 @@ mod tests {
             let report = resolver.resolve(&manifest, None);
             let stack: &ResolvedStack = report.stack().expect("the stack resolves");
             let placements = resolver.placements(stack);
-            let merging = merge(stack, &manifest, &placements);
+            let merging = merge(stack, &manifest, &placements, &Registry::builtin());
             let merged = merging.merged().expect("the stack merges");
             let natives: BTreeMap<SafeRelPath, NativeFile> = files
                 .into_iter()
@@ -122,6 +123,7 @@ mod tests {
                 merged,
                 natives: &natives,
                 agents_md: None,
+                registry: &Registry::builtin(),
             })
             .expect("the adoption is planned");
             let layer = stack

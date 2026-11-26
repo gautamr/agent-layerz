@@ -13,6 +13,7 @@ use crate::merge::testing::{layer_from_yaml, merged};
 use crate::merge::{Merged, Placements};
 use crate::path::SafeRelPath;
 use crate::stack::{Manifest, ResolvedStack};
+use crate::target::Registry;
 
 const MANIFEST: &str = "stack:\n  - source: path:../personal\n  - source: path:./.layer   # the repo layer\ntargets: [claude]\n";
 
@@ -78,6 +79,7 @@ fn run(world: &World, files: &[(&str, &str)]) -> Result<AdoptionPlan, AdoptionRe
         merged: &world.merged,
         natives: &natives,
         agents_md: agents_md.as_deref(),
+        registry: &Registry::builtin(),
     })
 }
 

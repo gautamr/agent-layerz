@@ -158,12 +158,13 @@ fn resolve_and_render(
         return Pipeline::failed(found);
     };
     let placements = resolver.placements(stack);
-    let merging = merge(stack, &manifest, &placements);
+    let registry = Registry::builtin();
+    let merging = merge(stack, &manifest, &placements, &registry);
     let found = found.merge(merging.diagnostics().clone());
     let Some(merged) = merging.merged() else {
         return Pipeline::failed(found);
     };
-    let rendered = render(&Registry::builtin(), merged, &manifest);
+    let rendered = render(&registry, merged, &manifest);
     let found = found
         .merge(rendered.diagnostics().clone())
         .merge(shadowing_files(repository));

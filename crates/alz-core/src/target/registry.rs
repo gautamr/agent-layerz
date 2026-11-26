@@ -8,20 +8,27 @@
 
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
+use std::sync::LazyLock;
 
-use alz_adapter::{Adapter, Context, Descriptor, MODEL_VERSION, Model, ModelVersion, TargetId};
+use alz_adapter::{
+    Adapter, Context, Descriptor, MODEL_VERSION, Model, ModelVersion, NativeVocabulary, TargetId,
+};
 use thiserror::Error;
 
 use crate::diagnostic::Diagnostics;
 use crate::diagnostic::{Code, Diagnostic, Message, MessagePart, Where};
+use crate::item::KeyRules;
 use crate::render::adapter_output;
 use crate::render::tree::FileTree;
 use crate::target::claude::ClaudeAdapter;
+use crate::target::codex;
 use crate::untrusted_text::Stripped;
 
 /// The target ids that alz names and that have no adapter yet (§8 **Targets without an
-/// adapter**).
-const PLANNED: [&str; 1] = ["codex"];
+/// adapter**), each with the native vocabulary that `settings.yaml` is validated with until the
+/// adapter's descriptor states it (TASK-110). A descriptor-only entry: key rules and no renderer.
+static PLANNED: LazyLock<BTreeMap<TargetId, NativeVocabulary>> =
+    LazyLock::new(|| BTreeMap::from([(crate::target::codex().clone(), codex::vocabulary())]));
 
 /// Why an adapter cannot be registered.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -110,6 +117,21 @@ impl Registry {
         self.adapter(target).map(Adapter::descriptor)
     }
 
+    /// The key rules of `target`'s native settings (§7.9): those of its adapter's descriptor, or
+    /// for a target that alz names and that has no adapter yet, the descriptor-only entry of the
+    /// core. `None` for any other target, whose section `settings.yaml` reads as a mapping and
+    /// nothing more.
+    #[must_use]
+    pub fn key_rules(&self, target: &TargetId) -> Option<KeyRules<'_>> {
+        self.descriptor(target)
+            .map(|descriptor| KeyRules::new(&descriptor.target, &descriptor.vocabulary))
+            .or_else(|| {
+                PLANNED
+                    .get_key_value(target)
+                    .map(|(planned, vocabulary)| KeyRules::new(planned, vocabulary))
+            })
+    }
+
     /// The files and diagnostics of `target`: its adapter renders the model, and the core checks
     /// everything it returned (§8.0 **Output checks.**) before it emits the files. `None` when no
     /// adapter is registered for the target.
@@ -158,7 +180,7 @@ impl Registry {
                 .collect::<Vec<_>>()
                 .join(", "),
         );
-        let message = if PLANNED.contains(&target.as_str()) {
+        let message = if PLANNED.contains_key(target) {
             Message::new("the '")
                 .then(MessagePart::printable(target))
                 .then("' adapter is not implemented yet (implemented: ")

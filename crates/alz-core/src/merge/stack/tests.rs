@@ -6,6 +6,7 @@ use crate::layer::{LayerContents, LayerMeta, LayerName};
 use crate::lint::parse_document;
 use crate::merge::{Merged, Placement, Placements};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack, Source};
+use crate::target::Registry;
 
 fn layer(name: &str) -> ResolvedLayer {
     let yaml = format!("name: {name}\nkind: personal\nvisibility: public\n");
@@ -37,6 +38,7 @@ fn the_merged_model_lists_the_layers_in_stack_order() {
         &stack(&["one", "two", "three"]),
         &manifest(),
         &Placements::default(),
+        &Registry::builtin(),
     );
     assert!(found.diagnostics().iter().next().is_none());
     let merged = found.merged().expect("no error was found");
@@ -53,8 +55,8 @@ fn merging_the_same_input_twice_gives_equal_results() {
     .into_iter()
     .collect();
     assert_eq!(
-        merge(&stack, &manifest(), &placements),
-        merge(&stack, &manifest(), &placements)
+        merge(&stack, &manifest(), &placements, &Registry::builtin()),
+        merge(&stack, &manifest(), &placements, &Registry::builtin())
     );
 }
 
@@ -115,8 +117,8 @@ proptest! {
             })
             .collect();
         let stack = stack(&chosen);
-        let first = merge(&stack, &manifest(), &placements);
-        prop_assert_eq!(&first, &merge(&stack, &manifest(), &placements));
+        let first = merge(&stack, &manifest(), &placements, &Registry::builtin());
+        prop_assert_eq!(&first, &merge(&stack, &manifest(), &placements, &Registry::builtin()));
         let merged = first.merged().expect("no error was found");
         prop_assert!(names(merged) == chosen);
     }

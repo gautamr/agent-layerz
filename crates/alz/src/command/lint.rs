@@ -15,6 +15,7 @@ use alz_core::lint::{self, LayerLint, LockFile};
 use alz_core::merge::check_alone;
 use alz_core::stack::resolution_failure::layer_unreadable;
 use alz_core::stack::{ResolvedLayer, Source};
+use alz_core::target::Registry;
 use alz_core::{Diagnostic, Diagnostics, Stripped, leak_guard};
 use alz_io::{ReadOnlyDir, StackResolver};
 
@@ -125,7 +126,8 @@ fn files_of(directory: &Path, source: &Stripped, linted: &LayerLint) -> Option<D
 /// The leak guard over a layer's files, then what its readers find in them, each layer alone: a
 /// reference to a more general layer is not checked (§10).
 fn checked_alone(layer: &ResolvedLayer) -> Diagnostics {
-    leak_guard::check(layer.meta(), layer.contents()).merge(check_alone(layer))
+    leak_guard::check(layer.meta(), layer.contents())
+        .merge(check_alone(layer, &Registry::builtin()))
 }
 
 /// Every file of the layer in `directory`, read as a build reads it (§6, §7.13): no link is

@@ -172,9 +172,15 @@ pub enum FloorRule {
     TrueIsStricter,
     /// A boolean whose stricter value is `false`.
     FalseIsStricter,
-    /// Ordered text: the ranks from the loosest to the strictest. A value keeps its rank or moves
-    /// to a stricter one, and a value that is in no rank may not change.
-    Ranked(Vec<String>),
+    /// Ordered text: the ranks from the loosest to the strictest, each rank the values that are
+    /// equally strict. A value keeps its rank or moves to a stricter one, and a value that is in
+    /// no rank may not change.
+    Ranked(Vec<Vec<String>>),
+    /// A list or mapping that gains no entry (list item or mapping key, at any depth) that a more
+    /// general layer did not set.
+    NoAdditions,
+    /// A list that may only grow.
+    Union,
 }
 
 /// A floor key (§7.9): once a layer sets it, a more specific layer may only make it stricter.
@@ -221,6 +227,9 @@ impl AgentField {
 
 /// The native vocabulary of a target (§8.0 **Descriptor.**). The core merges a target's native
 /// settings with these key rules, so the security floor (§7.6, §7.9, §9.3) stays the core's.
+///
+/// The rows of one key path are looked up in the order first-class, floor, reserved, and the first
+/// row whose path matches is the one that applies.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub struct NativeVocabulary {
@@ -236,6 +245,25 @@ pub struct NativeVocabulary {
     pub agent_fields: Vec<AgentField>,
     /// The target's own hook events, as `Notification`, for `<target>:<Event>` (§7.5).
     pub hook_events: Vec<String>,
+}
+
+impl NativeVocabulary {
+    /// The vocabulary with the key rules of §7.9: first-class, reserved and floor keys, each list
+    /// in the order the spec gives it.
+    #[must_use]
+    pub fn with_key_rules(
+        self,
+        first_class_keys: Vec<FirstClassKey>,
+        reserved_keys: Vec<ReservedKey>,
+        floor_keys: Vec<FloorKey>,
+    ) -> Self {
+        Self {
+            first_class_keys,
+            reserved_keys,
+            floor_keys,
+            ..self
+        }
+    }
 }
 
 /// What an adapter states, as static data (§8.0 **Descriptor.**).
