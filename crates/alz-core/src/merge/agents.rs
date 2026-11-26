@@ -423,7 +423,7 @@ impl AgentState {
         context: &LayerContext<'_>,
         floor: Option<&DeclaredFloor>,
     ) -> (Self, Diagnostics) {
-        let (items, read) = AgentItems::read(context.layer());
+        let (items, read) = AgentItems::read(context.layer(), context.registry());
         let (agents, found) = items
             .bases()
             .iter()

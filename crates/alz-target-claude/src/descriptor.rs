@@ -1,12 +1,14 @@
 //! The Claude adapter's descriptor (spec §8.0 **Descriptor.**, §8.1): its static data.
 //!
-//! The native vocabulary holds the key rules of Claude's settings (TASK-110); the typed keys and
-//! the native agent fields stay in the core until their own move.
+//! The native vocabulary holds the key rules of Claude's settings (TASK-110), the typed settings
+//! keys and the native agent fields (TASK-128).
 
 use alz_adapter::{
-    Descriptor, MODEL_VERSION, NativeVocabulary, TargetId, Territory, ToolVersion, ToolVersionRange,
+    Descriptor, FirstClassKey, MODEL_VERSION, NativeVocabulary, TargetId, Territory, ToolVersion,
+    ToolVersionRange, TypedKeys,
 };
 
+use super::typed_keys::{AGENT_FIELDS, SETTINGS_KEYS};
 use super::{TARGET, key_rules};
 
 /// The facts file that records what the adapter relies on.
@@ -27,6 +29,31 @@ const PROTECTED_PATTERNS: [&str; 2] = [".claude/agent-memory/**", ".claude/agent
 /// The files that adoption always takes, when they exist (§4.3).
 const ADOPTED_FILES: [&str; 2] = [".claude/settings.json", ".mcp.json"];
 
+/// Where the typed rows are recorded (target-facts section 14).
+const RECORDED_IN: &str = "docs/target-facts.md section 14";
+
+/// The keys of a subagent's `claude:` map that have a neutral field, and so are refused inside it
+/// (§7.2).
+const AGENT_NEUTRAL_KEYS: [&str; 8] = [
+    "name",
+    "description",
+    "tools",
+    "model",
+    "permissionMode",
+    "skills",
+    "isolation",
+    "memory",
+];
+
+/// The keys of a subagent's `claude:` map that bring servers and hooks past `mcp.yaml` and
+/// `hooks.yaml`, each with the file that sets it (§7.2).
+fn agent_first_class_keys() -> Vec<FirstClassKey> {
+    vec![
+        FirstClassKey::new("mcpServers", "mcp.yaml"),
+        FirstClassKey::new("hooks", "hooks/hooks.yaml"),
+    ]
+}
+
 fn owned(texts: &[&str]) -> Vec<String> {
     texts.iter().map(|text| (*text).to_owned()).collect()
 }
@@ -43,10 +70,17 @@ pub(super) fn descriptor() -> Descriptor {
     descriptor.managed_folders = owned(&MANAGED_FOLDERS);
     descriptor.protected_patterns = owned(&PROTECTED_PATTERNS);
     descriptor.adopted_files = owned(&ADOPTED_FILES);
-    descriptor.vocabulary = NativeVocabulary::default().with_key_rules(
-        key_rules::first_class_keys(),
-        key_rules::reserved_keys(),
-        key_rules::floor_keys(),
-    );
+    descriptor.vocabulary = NativeVocabulary::default()
+        .with_key_rules(
+            key_rules::first_class_keys(),
+            key_rules::reserved_keys(),
+            key_rules::floor_keys(),
+        )
+        .with_settings_keys(TypedKeys::new(SETTINGS_KEYS, "Claude Code", RECORDED_IN))
+        .with_agent_native(
+            owned(&AGENT_NEUTRAL_KEYS),
+            agent_first_class_keys(),
+            Some(TypedKeys::new(AGENT_FIELDS, "Claude Code", RECORDED_IN)),
+        );
     descriptor
 }

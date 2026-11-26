@@ -1,4 +1,5 @@
-//! The key rules of Codex's native settings (spec §7.9 **Security-relevant native keys**), as a
+//! The native vocabulary of Codex (spec §7.9 **Security-relevant native keys**, §7.2 **Native
+//! agent fields**): the key rules of its settings and the keys of its agent map, as a
 //! descriptor-only entry: Codex has no adapter yet (§8 **Targets without an adapter**), but its
 //! `settings.yaml` section is validated now, so its vocabulary lives here until its adapter
 //! exists, and the adapter's descriptor takes it over (TASK-126). The registry hands these rules
@@ -127,7 +128,30 @@ fn reserved_keys() -> Vec<ReservedKey> {
     .collect()
 }
 
-/// The native vocabulary of Codex: key rules only, until its adapter states the rest.
+/// The keys of an agent's `codex:` map that have a neutral field, and so are refused inside it
+/// (§7.2).
+const AGENT_NEUTRAL_KEYS: [&str; 4] = ["name", "description", "model", "developer_instructions"];
+
+/// The keys of an agent's `codex:` map that bring servers and hooks past `mcp.yaml` and
+/// `hooks.yaml` (§7.2).
+fn agent_first_class_keys() -> Vec<FirstClassKey> {
+    vec![
+        FirstClassKey::new("mcp_servers", "mcp.yaml"),
+        FirstClassKey::new("hooks", "hooks/hooks.yaml"),
+    ]
+}
+
+/// The native vocabulary of Codex: key rules and the keys of its agent map, and no typed keys,
+/// until its adapter states the rest.
 pub(super) fn vocabulary() -> NativeVocabulary {
-    NativeVocabulary::default().with_key_rules(first_class_keys(), reserved_keys(), floor_keys())
+    NativeVocabulary::default()
+        .with_key_rules(first_class_keys(), reserved_keys(), floor_keys())
+        .with_agent_native(
+            AGENT_NEUTRAL_KEYS
+                .iter()
+                .map(|key| (*key).to_owned())
+                .collect(),
+            agent_first_class_keys(),
+            None,
+        )
 }

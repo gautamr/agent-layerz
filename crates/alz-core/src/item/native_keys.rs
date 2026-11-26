@@ -132,6 +132,12 @@ impl<'a> KeyRules<'a> {
         self.target
     }
 
+    /// The vocabulary the rules read: the descriptor's, or the registry's descriptor-only entry.
+    #[must_use]
+    pub const fn vocabulary(&self) -> &'a NativeVocabulary {
+        self.vocabulary
+    }
+
     /// The rows in lookup order: first-class, floor, then reserved, each in the descriptor's order.
     pub fn rows(&self) -> impl Iterator<Item = NativeKey<'a>> + use<'a> {
         let target = self.target;
