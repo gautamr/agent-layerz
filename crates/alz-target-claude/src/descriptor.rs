@@ -4,10 +4,10 @@
 //! the native agent fields stay in the core until their own move.
 
 use alz_adapter::{
-    Descriptor, MODEL_VERSION, NativeVocabulary, Territory, ToolVersion, ToolVersionRange,
+    Descriptor, MODEL_VERSION, NativeVocabulary, TargetId, Territory, ToolVersion, ToolVersionRange,
 };
 
-use super::key_rules;
+use super::{TARGET, key_rules};
 
 /// The facts file that records what the adapter relies on.
 const FACTS_FILE: &str = "docs/target-facts.md";
@@ -34,7 +34,7 @@ fn owned(texts: &[&str]) -> Vec<String> {
 /// The descriptor of the Claude adapter.
 pub(super) fn descriptor() -> Descriptor {
     let mut descriptor = Descriptor::new(
-        crate::target::claude().clone(),
+        TargetId::try_from(TARGET).expect("the literal `claude` is a well-formed target id"),
         MODEL_VERSION,
         ToolVersionRange::new(ToolVersion::new(2, 1, 311), ToolVersion::new(2, 2, 0)),
         FACTS_FILE,

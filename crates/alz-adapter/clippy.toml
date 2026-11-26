@@ -1,6 +1,7 @@
-# Twin of crates/alz-core/clippy.toml, without its entries for serde-saphyr and serde_json, which
-# this crate does not depend on. Clippy reads one clippy.toml per crate and does not merge them, so
-# the shared lines must change together with alz-core's: the four `allow-*-in-tests` lines repeat
+# Twin of crates/alz-core/clippy.toml and of crates/alz-target-claude/clippy.toml, without the
+# former's entries for serde-saphyr and serde_json, which this crate does not depend on. Clippy
+# reads one clippy.toml per crate and does not merge them, so the shared lines must change together
+# with theirs: the four `allow-*-in-tests` lines repeat
 # the root clippy.toml, and so does every `disallowed-methods` and `disallowed-types` entry below.
 # An adapter is a pure function (spec §8.0 **Rendering.**), and the contract crate holds only data
 # and the trait, so it may never reach the file system, a process or the environment.

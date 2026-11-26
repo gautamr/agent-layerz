@@ -15,17 +15,14 @@ use crate::stack::Manifest;
 /// The text of a file of an acceptance fixture, read at compile time.
 macro_rules! fixture {
     ($path:literal) => {
-        include_str!(concat!("../../../../../../fixtures/", $path))
+        include_str!(concat!("../../../../../fixtures/", $path))
     };
 }
 
 /// The text of a file of the expected output.
 macro_rules! golden {
     ($path:literal) => {
-        include_str!(concat!(
-            "../../../../tests/fixtures/claude-settings/",
-            $path
-        ))
+        include_str!(concat!("../../../tests/fixtures/claude-settings/", $path))
     };
 }
 

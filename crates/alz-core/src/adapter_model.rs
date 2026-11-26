@@ -36,7 +36,7 @@ use alz_adapter::{Model, TargetId};
 
 use crate::merge::Merged;
 
-pub(crate) use permissions::mode as contract_mode;
+pub(crate) use permissions::neutral_mode;
 
 /// The model of `merged` for `target`: what an adapter for that target reads.
 ///
@@ -62,6 +62,10 @@ pub fn model_for(merged: &Merged, target: &TargetId) -> Model {
     model
 }
 
+/// The Claude adapter on whole stacks: it needs the merge of the core, so it is tested here and
+/// not in `alz-target-claude`.
+#[cfg(test)]
+pub(crate) mod claude_stacks;
 #[cfg(test)]
 pub(crate) mod testing;
 #[cfg(test)]

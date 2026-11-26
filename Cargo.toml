@@ -13,6 +13,7 @@ repository = "https://github.com/gautamr/agent-layerz"
 alz-adapter = { path = "crates/alz-adapter", version = "0.1.0" }
 alz-core = { path = "crates/alz-core", version = "0.1.0" }
 alz-io = { path = "crates/alz-io", version = "0.1.0" }
+alz-target-claude = { path = "crates/alz-target-claude", version = "0.1.0" }
 alz-test-support = { path = "crates/alz-test-support", version = "0.1.0" }
 assert_cmd = "2.2.2"
 clap = { version = "4.6.9", features = ["derive"] }

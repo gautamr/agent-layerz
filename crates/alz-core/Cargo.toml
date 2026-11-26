@@ -10,6 +10,8 @@ publish = false
 
 [dependencies]
 alz-adapter.workspace = true
+# decision-40: the built-in Claude adapter; it depends on alz-adapter only, so no cycle.
+alz-target-claude.workspace = true
 regex-lite.workspace = true
 serde.workspace = true
 serde-saphyr.workspace = true

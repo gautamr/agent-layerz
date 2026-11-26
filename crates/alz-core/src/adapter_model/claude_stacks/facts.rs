@@ -20,7 +20,7 @@ use crate::stack::Manifest;
 use crate::yaml::Value;
 
 /// The facts of the Claude adapter, as the repository records them.
-const TARGET_FACTS: &str = include_str!("../../../../../../docs/target-facts.md");
+const TARGET_FACTS: &str = include_str!("../../../../../docs/target-facts.md");
 
 /// The kinds of file location the adapter writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

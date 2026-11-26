@@ -3,7 +3,6 @@
 //! is a target, and only the registered adapters render one. This module holds the two ids that
 //! the code of this crate names, `claude` and `codex`, and the adapters that exist.
 
-pub mod claude;
 mod codex;
 mod registry;
 

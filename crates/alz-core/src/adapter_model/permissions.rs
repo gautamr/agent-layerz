@@ -17,6 +17,18 @@ pub(crate) const fn mode(mode: PermissionMode) -> Mode {
     }
 }
 
+/// The mode of the neutral vocabulary of a mode of the contract: the inverse of [`mode`].
+pub(crate) const fn neutral_mode(mode: Mode) -> PermissionMode {
+    match mode {
+        Mode::BypassPermissions => PermissionMode::BypassPermissions,
+        Mode::Auto => PermissionMode::Auto,
+        Mode::AcceptEdits => PermissionMode::AcceptEdits,
+        Mode::Default => PermissionMode::Default,
+        Mode::DontAsk => PermissionMode::DontAsk,
+        Mode::Plan => PermissionMode::Plan,
+    }
+}
+
 /// A floor flag as the floor field of the contract.
 pub(super) const fn floor_field(flag: FloorFlag) -> FloorField {
     match flag {

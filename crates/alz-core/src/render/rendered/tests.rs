@@ -4,13 +4,13 @@ use proptest::collection::vec;
 use proptest::prelude::{Strategy, prop_assert, prop_assert_eq, proptest};
 
 use super::{Rendered, render};
+use crate::adapter_model::claude_stacks::stacks;
 use crate::lint::parse_document;
 use crate::merge::testing::{layer, layer_executable, layer_from_yaml};
 use crate::merge::{Placements, merge};
 use crate::render::tree::{FileMode, OutputPath, fold};
 use crate::stack::{Manifest, ResolvedLayer, ResolvedStack};
 use crate::target::Registry;
-use crate::target::claude::tests::stacks;
 
 /// A file of the acceptance fixtures, read at compile time.
 macro_rules! fixture {

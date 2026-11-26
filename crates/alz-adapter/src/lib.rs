@@ -21,6 +21,7 @@ mod number;
 mod output;
 mod source;
 mod target_id;
+mod text;
 mod toml;
 
 pub use adapter::Adapter;
@@ -45,4 +46,5 @@ pub use output::{
 };
 pub use source::Source;
 pub use target_id::{TargetId, TargetIdError};
+pub use text::{QuotedKey, Stripped, is_control, is_format};
 pub use toml::TomlValue;

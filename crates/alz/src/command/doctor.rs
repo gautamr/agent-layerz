@@ -10,9 +10,9 @@ use std::ffi::OsString;
 use std::io::{self, Write};
 use std::path::Path;
 
+use alz_core::doctor::Version;
 use alz_core::doctor::{ClaudeFacts, Facts, Installed, Report};
 use alz_core::live::Built;
-use alz_core::target::claude::facts::Version;
 use alz_core::{Diagnostics, Stripped};
 use alz_io::{
     Purpose, ToolRunner, blocked_folders, claude_account_folders, client_root_of,

@@ -20,9 +20,9 @@ use crate::diagnostic::{Code, Diagnostic, Message, MessagePart, Where};
 use crate::item::KeyRules;
 use crate::render::adapter_output;
 use crate::render::tree::FileTree;
-use crate::target::claude::ClaudeAdapter;
 use crate::target::codex;
 use crate::untrusted_text::Stripped;
+use alz_target_claude::ClaudeAdapter;
 
 /// The target ids that alz names and that have no adapter yet (§8 **Targets without an
 /// adapter**), each with the native vocabulary that `settings.yaml` is validated with until the

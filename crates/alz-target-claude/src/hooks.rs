@@ -5,10 +5,8 @@ use std::collections::BTreeMap;
 
 use alz_adapter::{
     Bytes, Content, Diagnostic, Hook, HookEvent, HookMatch, HookRun, HookScript, JsonValue, Level,
-    Model, NeutralEvent, OnFail, OutputFile, Source,
+    Model, NeutralEvent, OnFail, OutputFile, QuotedKey, Source,
 };
-
-use crate::untrusted_text::QuotedKey;
 
 use super::document::{map, text};
 use super::{Made, found, place, tools};
