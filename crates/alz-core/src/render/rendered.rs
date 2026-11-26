@@ -7,6 +7,7 @@
 //! made it. A [`Rendered`] with an error is not written: [`Rendered::to_write`] gives the tree
 //! only when no error was found.
 
+use crate::adapter_model::model_for;
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, MessagePart, Where};
 use crate::lock::Lock;
 use crate::merge::Merged;
@@ -20,6 +21,7 @@ use crate::stack::{Manifest, ResolvedStack};
 use crate::target::REGISTERED;
 use crate::target::claude::{ClaudeFiles, ClaudeSettingsFiles};
 use crate::untrusted_text::Stripped;
+use alz_adapter::Context;
 use alz_adapter::TargetId;
 
 /// The folders the Claude adapter owns, where a file the build does not make is a collision
@@ -174,9 +176,17 @@ fn claude(merged: &Merged, manifest: &Manifest) -> (FileTree, Diagnostics) {
         Ok(text) => (single(claude_md_path(), &text), Diagnostics::new()),
         Err(problems) => (FileTree::new(), problems),
     };
-    let (files, files_found) = ClaudeFiles::of(merged).into_parts();
-    let (settings, settings_found) =
-        ClaudeSettingsFiles::of(merged, manifest.workspace()).into_parts();
+    let model = model_for(merged, crate::target::claude());
+    let context = Context::new(
+        manifest
+            .workspace()
+            .add_dirs()
+            .iter()
+            .map(|dir| dir.as_str().to_owned())
+            .collect(),
+    );
+    let (files, files_found) = ClaudeFiles::of(&model).into_parts();
+    let (settings, settings_found) = ClaudeSettingsFiles::of(&model, &context).into_parts();
     [(files, files_found), (settings, settings_found)]
         .into_iter()
         .fold((thin, thin_found), |(tree, found), (more, more_found)| {

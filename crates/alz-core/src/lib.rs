@@ -5,6 +5,7 @@
 //! on `alz-io`.
 
 pub mod account;
+pub mod adapter_model;
 pub mod adopt;
 pub mod cache;
 mod diagnostic;

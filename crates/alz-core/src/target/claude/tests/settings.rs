@@ -6,12 +6,12 @@ use std::collections::BTreeSet;
 
 use proptest::prelude::{prop_assert_eq, proptest};
 
-use super::super::ClaudeSettingsFiles;
+use crate::adapter_model::testing::{layer_executable, merged_with, settings_files_of};
 use crate::json::{JsonValue, parse};
 use crate::lint::parse_document;
-use crate::merge::testing::{layer_executable, merged_with};
 use crate::render::tree::{FileMode, OutputPath};
 use crate::stack::Manifest;
+use crate::target::claude::ClaudeSettingsFiles;
 
 /// The text of a file of an acceptance fixture, read at compile time.
 macro_rules! fixture {
@@ -65,7 +65,7 @@ fn render(parts: &[Part<'_>], options: &str) -> ClaudeSettingsFiles {
         .collect();
     let found = merged_with(layers, options);
     assert!(!found.diagnostics().has_errors(), "{}", found.diagnostics());
-    ClaudeSettingsFiles::of(
+    settings_files_of(
         found.merged().expect("no error was found"),
         &workspace(options),
     )

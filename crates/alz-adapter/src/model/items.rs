@@ -153,8 +153,9 @@ pub enum McpTransport {
     Stdio {
         /// The command.
         command: String,
-        /// The arguments.
-        args: Vec<String>,
+        /// The arguments, in order; none when `args` is not written, which differs from a list
+        /// written empty (`args: []`): a target's file keeps the difference.
+        args: Option<Vec<String>>,
         /// The names of the environment variables to pass through; values are never stored.
         env_from: Vec<String>,
     },

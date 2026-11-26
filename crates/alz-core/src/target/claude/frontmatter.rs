@@ -1,36 +1,27 @@
 //! A generated Markdown file with a frontmatter block: the header as the first line of the block,
 //! the YAML of the fields, and the body (spec §4.3, §8.1).
 
+use alz_adapter::Source;
+
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message, Where};
-use crate::merge::{Origin, Provenance};
 use crate::render::tree::GeneratedFile;
 use crate::untrusted_text::Stripped;
 
 use super::{Output, output_path};
 use crate::render::header::{SourceRef, Sources, frontmatter_header};
-use crate::render::sources::refs_of;
+use crate::render::sources::refs_of_sources;
 use crate::render::yaml::{DuplicateKey, EmitMap, EmitValue, emit};
 
-/// The sources of a header from the origins, or the errors `layer` for each that cannot stand in
-/// a comment.
-pub(super) fn sources<'a>(
-    origins: impl IntoIterator<Item = &'a Origin>,
-) -> Result<Sources, Diagnostics> {
-    refs_of(origins).map(|refs| {
+/// The sources of a header from the model's sources, or the errors `layer` for each that cannot
+/// stand in a comment.
+pub(super) fn sources(named: &[Source]) -> Result<Sources, Diagnostics> {
+    refs_of_sources(named).map(|refs| {
         let mut refs = refs.into_iter();
         refs.next().map_or_else(
             || Sources::single(SourceRef::NoInstructions),
             |first| Sources::new(first, refs),
         )
     })
-}
-
-/// The origins of all contributions of `provenance`, most general first.
-pub(super) fn all_origins(provenance: &Provenance) -> impl Iterator<Item = &Origin> + '_ {
-    provenance
-        .contributions()
-        .iter()
-        .map(crate::merge::Contribution::origin)
 }
 
 /// `---`, the header comment, the fields as YAML, `---`, then a blank line and the body when it
@@ -63,12 +54,12 @@ pub(super) fn text(value: &str) -> EmitValue {
     EmitValue::Text(value.to_owned())
 }
 
-/// Where an item's problems are reported: the file of its first contribution.
-pub(super) fn place(provenance: &Provenance) -> Option<Where> {
-    provenance.contributions().first().map(|first| {
+/// Where an item's problems are reported: the file of its first source.
+pub(super) fn place(named: &[Source]) -> Option<Where> {
+    named.first().map(|first| {
         Where::layer_file(
-            Stripped::from_untrusted(first.layer().as_str()),
-            Stripped::from_untrusted(first.file().as_str()),
+            Stripped::from_untrusted(first.layer.as_str()),
+            Stripped::from_untrusted(&first.path),
         )
     })
 }

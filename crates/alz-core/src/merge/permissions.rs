@@ -40,9 +40,59 @@ pub struct MergedPermissions {
     default_mode: Option<Traced<PermissionMode>>,
     floor: Option<PermissionMode>,
     flags: BTreeMap<FloorFlag, Traced<bool>>,
+    declarers: Declarers,
+}
+
+/// The layers that declared each part of the security floor, in stack order, each once. The
+/// provenance of a rule or a flag names only the layer that set it first; the model of an adapter
+/// names every layer that set it (spec §8.0 **Model.**).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct Declarers {
+    deny: BTreeMap<PermissionRule, Vec<LayerName>>,
+    flags: BTreeMap<FloorFlag, Vec<LayerName>>,
+    floor: Vec<LayerName>,
+}
+
+/// `layers` and `layer`, which comes last, once.
+fn with_layer(layers: &[LayerName], layer: &LayerName) -> Vec<LayerName> {
+    layers
+        .iter()
+        .filter(|known| *known != layer)
+        .chain([layer])
+        .cloned()
+        .collect()
+}
+
+/// The rules a layer's edit of a list names itself: the whole list of a replacement, the added
+/// rules of an adjustment.
+fn declared(edit: &ListEdit<PermissionRule>) -> impl Iterator<Item = &PermissionRule> + '_ {
+    match edit {
+        ListEdit::Replace(rules) => rules.iter(),
+        ListEdit::Adjust { add, .. } => add.iter(),
+    }
 }
 
 impl MergedPermissions {
+    /// Every layer that declares the deny rule `rule` in its `permissions.yaml`, in stack order,
+    /// each once. Empty for a rule that no layer declares.
+    #[must_use]
+    pub fn deny_declared_by(&self, rule: &PermissionRule) -> &[LayerName] {
+        self.declarers.deny.get(rule).map_or(&[], Vec::as_slice)
+    }
+
+    /// Every layer that sets `flag` to `true`, in stack order, each once.
+    #[must_use]
+    pub fn flag_set_by(&self, flag: FloorFlag) -> &[LayerName] {
+        self.declarers.flags.get(&flag).map_or(&[], Vec::as_slice)
+    }
+
+    /// Every layer whose `default_mode` with `floor: true` is in force, in stack order, each once:
+    /// a floor that was refused for being looser than an earlier one is not in force.
+    #[must_use]
+    pub fn floor_set_by(&self) -> &[LayerName] {
+        &self.declarers.floor
+    }
+
     /// The layers that set `flag` to `true`, the first as the one that defined it. `None` when no
     /// layer did: the flag is not set, and a flag that is set is never `false`.
     #[must_use]
@@ -191,9 +241,37 @@ pub(super) struct PermissionState {
     mode: Option<Traced<PermissionMode>>,
     held: Held,
     flags: BTreeMap<FloorFlag, Traced<bool>>,
+    declarers: Declarers,
 }
 
 impl PermissionState {
+    /// The declarers after `layer` wrote `file`: it declares the deny rules its edit names, sets
+    /// each flag it writes as `true`, and, when `floored`, has its floor in force.
+    fn declarers_after(&self, file: &Permissions, layer: &LayerName, floored: bool) -> Declarers {
+        let deny = declared(file.deny()).fold(self.declarers.deny.clone(), |mut known, rule| {
+            let layers = with_layer(known.get(rule).map_or(&[], Vec::as_slice), layer);
+            known.insert(rule.clone(), layers);
+            known
+        });
+        let flags = FloorFlag::ALL
+            .into_iter()
+            .filter(|flag| file.flag(*flag) == Some(true))
+            .fold(self.declarers.flags.clone(), |mut known, flag| {
+                let layers = with_layer(known.get(&flag).map_or(&[], Vec::as_slice), layer);
+                known.insert(flag, layers);
+                known
+            });
+        Declarers {
+            deny,
+            flags,
+            floor: if floored {
+                with_layer(&self.declarers.floor, layer)
+            } else {
+                self.declarers.floor.clone()
+            },
+        }
+    }
+
     /// The floor declared so far, with the layer that declared it.
     pub(super) fn declared_floor(&self) -> Option<DeclaredFloor> {
         self.held
@@ -234,6 +312,10 @@ impl PermissionState {
             .collect::<Diagnostics>();
         let (mode, held, found_mode) = self.settle_mode(file.default_mode(), origin, at);
         let (flags, found_flags) = self.settle_flags(file, origin, at);
+        let floored = file.default_mode().is_some_and(|requested| {
+            matches!(requested.binding(), Binding::Floor)
+                && self.held.floor.admits(&requested.mode())
+        });
         (
             Self {
                 allow: self.allow.edited(file.allow(), origin),
@@ -242,6 +324,7 @@ impl PermissionState {
                 mode,
                 held,
                 flags,
+                declarers: self.declarers_after(file, layer, floored),
             },
             found.merge(found_mode).merge(found_flags),
         )
@@ -333,6 +416,7 @@ impl PermissionState {
             default_mode: self.mode,
             floor: self.held.floor.get().copied(),
             flags: self.flags,
+            declarers: self.declarers,
         }
     }
 }

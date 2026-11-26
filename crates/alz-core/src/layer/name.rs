@@ -8,9 +8,10 @@ use thiserror::Error;
 use crate::diagnostic::{Printable, sealed::Sealed};
 
 /// A layer name. Its alphabet is printable ASCII, so it goes into a message as it is, and its
-/// `Ord` is the code point order of §6.
+/// `Ord` is the code point order of §6. It holds the contract's name, so the core gives an adapter
+/// its layers' names without a second check ([`LayerName::to_contract`]).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct LayerName(String);
+pub struct LayerName(alz_adapter::LayerName);
 
 /// Text that is not a layer name. The error holds no input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -29,32 +30,29 @@ impl LayerName {
     /// The name as text.
     #[must_use]
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.0.as_str()
     }
-}
 
-fn is_group_character(byte: u8) -> bool {
-    byte.is_ascii_lowercase() || byte.is_ascii_digit()
+    /// The name as the adapter contract holds it, which is the same text.
+    #[must_use]
+    pub fn to_contract(&self) -> alz_adapter::LayerName {
+        self.0.clone()
+    }
 }
 
 impl TryFrom<&str> for LayerName {
     type Error = LayerNameError;
 
     fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let well_formed = text
-            .split(['-', '.'])
-            .all(|group| !group.is_empty() && group.bytes().all(is_group_character));
-        if well_formed {
-            Ok(Self(text.to_owned()))
-        } else {
-            Err(LayerNameError)
-        }
+        alz_adapter::LayerName::try_from(text)
+            .map(Self)
+            .map_err(|alz_adapter::LayerNameError| LayerNameError)
     }
 }
 
 impl fmt::Display for LayerName {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.0)
+        formatter.write_str(self.0.as_str())
     }
 }
 
@@ -62,7 +60,7 @@ impl Sealed for LayerName {}
 
 impl Printable for LayerName {
     fn printable(&self) -> &str {
-        &self.0
+        self.0.as_str()
     }
 }
 

@@ -41,6 +41,9 @@ pub enum SourceRefError {
     /// `-->`, which would close an HTML comment early.
     #[error("a source in a header must not hold '-->'")]
     ClosesComment,
+    /// A path that is not a safe relative path, from a source an adapter named.
+    #[error("a source in a header must name a safe relative path")]
+    NotSafePath,
 }
 
 /// Checks a piece of a source.
@@ -68,6 +71,18 @@ impl LayerLabel {
         revision.map_or_else(
             || Ok(Self(name.to_string())),
             |revision| checked(revision).map(|()| Self(format!("{name}@{revision}"))),
+        )
+    }
+
+    /// The label of the layer a source of the adapter contract names.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceRefError`] when the revision holds a control or format character or `-->`.
+    pub fn of_source(source: &alz_adapter::Source) -> Result<Self, SourceRefError> {
+        source.revision.as_deref().map_or_else(
+            || Ok(Self(source.layer.to_string())),
+            |revision| checked(revision).map(|()| Self(format!("{}@{revision}", source.layer))),
         )
     }
 
@@ -148,6 +163,20 @@ impl SourceRef {
     pub fn of_origin(origin: &Origin) -> Result<Self, SourceRefError> {
         LayerLabel::of_origin(origin)
             .and_then(|label| Self::layer_file(label, origin.file().clone()))
+    }
+
+    /// The source an adapter named: its layer's label and the layer file.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceRefError`] when the revision or the path holds a control or format character or
+    /// `-->`, or the path is not a safe relative path.
+    pub fn of_source(source: &alz_adapter::Source) -> Result<Self, SourceRefError> {
+        let label = LayerLabel::of_source(source)?;
+        checked(&source.path)?;
+        SafeRelPath::try_from(source.path.as_str())
+            .map_err(|_refused| SourceRefError::NotSafePath)
+            .map(|path| Self::LayerFile { label, path })
     }
 
     /// The source a contribution names: its layer's label and the layer file.

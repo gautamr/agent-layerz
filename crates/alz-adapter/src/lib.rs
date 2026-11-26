@@ -34,8 +34,9 @@ pub use layer_name::{LayerName, LayerNameError};
 pub use model::{
     Agent, AgentTool, Command, DefaultModeFloor, DenyRule, FloorField, FloorFieldItem, Hook,
     HookEvent, HookMatch, HookRun, HookScript, Isolation, LockedHook, MODEL_VERSION, McpServer,
-    McpTransport, Memory, Mode, Model, ModelVersion, Models, NeutralEvent, OnFail, PathRule,
-    Permissions, SecurityItemId, SecurityItems, SettingLayers, Skill, SkillFile, SlotStub,
+    McpTransport, Memory, Mode, Model, ModelProblem, ModelVersion, Models, NeutralEvent, OnFail,
+    PathRule, Permissions, SecurityItemId, SecurityItems, SettingLayers, Skill, SkillFile,
+    SlotStub,
 };
 pub use number::{Finite, NotFinite};
 pub use output::{

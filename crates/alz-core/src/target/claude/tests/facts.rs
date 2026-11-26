@@ -11,15 +11,13 @@
 
 use std::collections::BTreeSet;
 
+use crate::adapter_model::testing::{files_of, layer_executable, merged_with, settings_files_of};
 use crate::json::{JsonValue, parse};
 use crate::lint::parse_document;
 use crate::markdown::MarkdownDoc;
-use crate::merge::testing::{layer_executable, merged_with};
 use crate::render::tree::FileTree;
 use crate::stack::Manifest;
 use crate::yaml::Value;
-
-use super::super::{ClaudeFiles, ClaudeSettingsFiles};
 
 /// The facts of the Claude adapter, as the repository records them.
 const TARGET_FACTS: &str = include_str!("../../../../../../docs/target-facts.md");
@@ -450,8 +448,8 @@ fn rendered() -> FileTree {
         .expect("a manifest")
         .workspace()
         .clone();
-    let (files, files_found) = ClaudeFiles::of(merged).into_parts();
-    let (settings, settings_found) = ClaudeSettingsFiles::of(merged, &workspace).into_parts();
+    let (files, files_found) = files_of(merged).into_parts();
+    let (settings, settings_found) = settings_files_of(merged, &workspace).into_parts();
     assert!(!files_found.has_errors(), "{files_found}");
     assert!(!settings_found.has_errors(), "{settings_found}");
     files
