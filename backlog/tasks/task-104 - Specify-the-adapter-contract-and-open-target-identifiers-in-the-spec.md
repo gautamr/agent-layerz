@@ -1,11 +1,11 @@
 ---
 id: TASK-104
 title: Specify the adapter contract and open target identifiers in the spec
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-26T04:00:00Z'
+updated_date: '2026-11-26T04:07:00Z'
 labels:
   - area:adapter
   - needs:owner-approval
@@ -26,11 +26,11 @@ decision-40 (proposed) turns spec §8's promise that new targets need no core ch
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 LAYERING-SPEC.md has '### 8.0 Adapter contract' stating the model version, the render signature, the output kinds, the territory checks and the coverage report (grep)
-- [ ] #2 §5.2 states the target id grammar, and §8 says a well-formed id without an adapter gives 'no adapter for' while codex keeps its current message (grep)
-- [ ] #3 §10.1 states the adapter code rule (<id>-<word> or a shared adapter code) and the 'target' errors of the output checks (grep)
-- [ ] #4 doc-6 §2 no longer calls the target trait sealed and lists alz-adapter and alz-target-claude (backlog doc view doc-6 | grep)
-- [ ] #5 The spec status line names the minor version bump these changes need (grep)
+- [x] #1 LAYERING-SPEC.md has '### 8.0 Adapter contract' stating the model version, the render signature, the output kinds, the territory checks and the coverage report (grep)
+- [x] #2 §5.2 states the target id grammar, and §8 says a well-formed id without an adapter gives 'no adapter for' while codex keeps its current message (grep)
+- [x] #3 §10.1 states the adapter code rule (<id>-<word> or a shared adapter code) and the 'target' errors of the output checks (grep)
+- [x] #4 doc-6 §2 no longer calls the target trait sealed and lists alz-adapter and alz-target-claude (backlog doc view doc-6 | grep)
+- [x] #5 The spec status line names the minor version bump these changes need (grep)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -81,3 +81,9 @@ Blocked: TASK-105 onward on the adapter track.
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The spec states the adapter contract (§8.0: model 1.0 with four kinds of security item, pure render, output kinds, output checks, coverage report, the error for an unexpressible item and the own-items opt-out), open target ids (§5.2), 'no adapter for', the adapter code rule; doc-6 updated. Owner approved; merged in #39.
+<!-- SECTION:FINAL_SUMMARY:END -->
