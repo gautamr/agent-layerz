@@ -1,11 +1,11 @@
 ---
 id: TASK-112
 title: Turn the target-facts test into a harness every adapter passes
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-26T08:41:00Z'
+updated_date: '2026-11-26T08:47:00Z'
 labels:
   - area:adapter
 milestone: m-8
@@ -26,9 +26,9 @@ crates/alz-core/src/target/claude/tests/facts.rs enforces spec §8 'rely only on
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The harness lists keys from structured output and checks them against an adapter's facts file and subject map: a fake adapter with an unrecorded key fails, a recorded key passes, a stale NO_FACT_RECORDS entry fails (tests)
-- [ ] #2 The Claude facts test uses the harness, with its subject map and NO_FACT_RECORDS unchanged in content (diff)
-- [ ] #3 Each descriptor names its facts file, and spec §8 says the rule applies to every adapter (grep)
+- [x] #1 The harness lists keys from structured output and checks them against an adapter's facts file and subject map: a fake adapter with an unrecorded key fails, a recorded key passes, a stale NO_FACT_RECORDS entry fails (tests)
+- [x] #2 The Claude facts test uses the harness, with its subject map and NO_FACT_RECORDS unchanged in content (diff)
+- [x] #3 Each descriptor names its facts file, and spec §8 says the rule applies to every adapter (grep)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -41,3 +41,9 @@ AC #2 evidence: git diff of crates/alz-core/src/adapter_model/claude_stacks/fact
 AC #3 evidence: Claude's descriptor names docs/target-facts.md (crates/alz-target-claude/src/descriptor.rs FACTS_FILE) and the harness reads that path, refusing an absolute or '..' path. Spec section 8 What an adapter may rely on already reads 'An adapter relies only on what docs/target-facts.md records about the tool, ...' and section 8.0 Descriptor lists 'its facts file ... (section 8 What an adapter may rely on)' with TASK-112; no spec change made. docs/spec-coverage.md rows for section 7.9 Facts, section 8 What an adapter may rely on and section 8.0 Descriptor updated.
 Checks: mise run rust:check, mise run rust:ci and mise run alz:check pass (67 generated files match).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+One facts harness (alz-test-support/src/facts) lists the keys of any adapter's structured output and checks them against the facts file its descriptor names; the Claude facts test uses it with its subject map and exemptions unchanged. §8 already states the rule for every adapter. Merged in #48.
+<!-- SECTION:FINAL_SUMMARY:END -->

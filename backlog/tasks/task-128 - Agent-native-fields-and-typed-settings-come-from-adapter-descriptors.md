@@ -1,9 +1,10 @@
 ---
 id: TASK-128
 title: Agent native fields and typed settings come from adapter descriptors
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-26T07:58:00Z'
+updated_date: '2026-11-26T08:48:00Z'
 labels:
   - area:core
   - refactor
