@@ -1,11 +1,11 @@
 ---
 id: TASK-106
 title: Replace the closed TargetName enum with the open TargetId
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-26T05:09:00Z'
+updated_date: '2026-11-26T05:29:00Z'
 labels:
   - area:adapter
 milestone: m-8
@@ -25,11 +25,11 @@ TargetName {Claude, Codex} is matched in about 40 files; decision-40 point 5 ope
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 grep -rn 'enum TargetName' crates finds nothing
-- [ ] #2 targets: [antigravity] fails with the error 'target' at layer.yaml and the message no adapter for 'antigravity' (available: claude); targets: [codex] keeps its message and exit code (CLI tests)
-- [ ] #3 A layer with antigravity sections in settings.yaml and models.yaml and a targets/antigravity/ folder builds for targets: [claude] with no diagnostic and writes none of them (test)
-- [ ] #4 crates/alz-io/src/account uses its own account-family type and not TargetId (grep)
-- [ ] #5 The acceptance suite, mise run rust:check and mise run alz:check pass with unchanged output
+- [x] #1 grep -rn 'enum TargetName' crates finds nothing
+- [x] #2 targets: [antigravity] fails with the error 'target' at layer.yaml and the message no adapter for 'antigravity' (available: claude); targets: [codex] keeps its message and exit code (CLI tests)
+- [x] #3 A layer with antigravity sections in settings.yaml and models.yaml and a targets/antigravity/ folder builds for targets: [claude] with no diagnostic and writes none of them (test)
+- [x] #4 crates/alz-io/src/account uses its own account-family type and not TargetId (grep)
+- [x] #5 The acceptance suite, mise run rust:check and mise run alz:check pass with unchanged output
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -50,3 +50,9 @@ From TASK-104 (spec, @architect): §5.2 'Target ids' states what this task makes
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Targets are open ids (TargetId of alz-adapter) everywhere in the core; an id without an adapter is 'no adapter for', codex keeps its message; sections of an id not built for are checked and never written; accounts use their own AccountFamily. Output byte-identical. Owner approved the spec wording; merged in #41.
+<!-- SECTION:FINAL_SUMMARY:END -->
