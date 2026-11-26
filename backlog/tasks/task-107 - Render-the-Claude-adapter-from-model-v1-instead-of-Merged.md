@@ -1,10 +1,11 @@
 ---
 id: TASK-107
 title: Render the Claude adapter from model v1 instead of Merged
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
+updated_date: '2026-11-26T05:29:00Z'
 labels:
   - area:adapter
 milestone: m-8
