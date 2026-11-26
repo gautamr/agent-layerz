@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-25T19:53:00Z'
+updated_date: '2026-11-26T03:24:00Z'
 labels:
   - area:adapter
   - needs:owner-approval
@@ -54,6 +54,9 @@ Evidence (2026-11-26, @architect, branch docs/adapter-contract-spec-task-104):
 - docs/spec-coverage.md: 12 new planned rows (§5.2 Target ids; §7.6 Targets that cannot enforce an item; §8 Targets without an adapter; §8.0 and its 7 leads; §10.1 Adapter codes.); summary all 158/24/22/0/204. cargo test -p alz-test-support --test spec_coverage: 9 passed.
 - mise run rust:check: exit 0, 75 'test result: ok' lines, 0 FAILED (diagnostic_codes and spec_coverage guards included).
 - Target facts: none relied on; the contract is alz-internal.
+
+Owner answers (2026-11-26, relayed by the coordinator): the spec is approved. Only the layer that set an item may opt a target out of it (as written). TASK-127 is needed before the Codex adapter only, not 0.2.0: TASK-126 now depends on TASK-127 (deps TASK-112, TASK-115, TASK-119, TASK-127), and TASK-55.8.4 is unchanged. Locked hooks and the default_mode floor are security items too.
+Amendment (second commit, @architect): §8.0 Model. lists four kinds of security item (deny rules, set floor fields, the default_mode floor, locked hooks that run on the target). §7.6 unenforced gains default_mode: true (only in the layer whose floor is in force) and hooks: [ids] (the layer's own locked hooks), with the same own-items rule and a 'permissions' error for anything else. §8.0 Security items a target cannot enforce gives a message for each of the four kinds. §7.5 says a locked hook is a security item rather than TASK-101's warning. The status line says unenforced ships after 0.2.0 with the next minor version. No new anchor, so no new matrix row; TASK-127's ACs were rewritten for the four kinds, and TASK-105 and TASK-109 got comments. cargo test -p alz-test-support --test spec_coverage: 9 passed.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

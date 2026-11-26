@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:08:00Z'
-updated_date: '2026-11-25T19:14:00Z'
+updated_date: '2026-11-26T03:23:00Z'
 labels:
   - area:adapter
   - area:autonomy
@@ -14,6 +14,7 @@ dependencies:
   - TASK-112
   - TASK-115
   - TASK-119
+  - TASK-127
 references:
   - TASK-18
   - decision-40

@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:05:00Z'
+updated_date: '2026-11-26T03:23:00Z'
 labels:
   - area:adapter
 milestone: m-8
@@ -29,3 +30,16 @@ The contract of decision-40 point 2 lives in its own crate, so adapters depend o
 - [ ] #3 The crate exports Model with MODEL_VERSION 1.0, Descriptor, Context, Output, OutputFile with Json, Toml, Markdown and Bytes content, and the Adapter trait with descriptor() and render(&Model, &Context) -> Output (cargo doc -p alz-adapter builds)
 - [ ] #4 Every public struct of the model is #[non_exhaustive] (grep) and mise run rust:ci passes
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @architect
+created: 2026-11-26T03:23:00Z
+
+---
+
+From TASK-104 (@architect): spec §8.0 Model. defines four kinds of security item in model 1.0 (deny rules, set floor fields, the default_mode floor, locked hooks that run on the target), each holding the layers that set it. Model them from the start so the minor version does not need to add them.
+
+---
+<!-- COMMENTS:END -->
