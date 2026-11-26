@@ -9,9 +9,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// Counts the directories this process has made, so two tests never share a name.
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
+/// How many taken names [`ScratchDir::new`] skips before it gives up.
+const NAME_ATTEMPTS: usize = 1000;
+
 /// A new, empty directory under the system's temporary directory, removed with everything in it
 /// when the value is dropped. The name holds the process id and a counter, and the directory is
-/// created exclusively, so a stale or planted path of the same name is an error and not reused.
+/// created exclusively. A run that is cut off leaves its directory behind, and a later process
+/// may get the same id, so a name that is taken is skipped for the next one: a stale or planted
+/// path is never reused and never touched.
 #[derive(Debug)]
 pub struct ScratchDir {
     path: PathBuf,
@@ -22,16 +27,29 @@ impl ScratchDir {
     ///
     /// # Errors
     ///
-    /// The error of creating the directory.
+    /// The error of creating the directory, or `AlreadyExists` once [`NAME_ATTEMPTS`] names in a
+    /// row were taken.
     pub fn new() -> io::Result<Self> {
-        let name = format!(
-            "alz-test-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        );
-        let path = std::env::temp_dir().join(name);
-        fs::create_dir(&path)?;
-        Ok(Self { path })
+        let base = std::env::temp_dir();
+        std::iter::repeat_with(|| {
+            base.join(format!(
+                "alz-test-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ))
+        })
+        .take(NAME_ATTEMPTS)
+        .find_map(|path| match fs::create_dir(&path) {
+            Ok(()) => Some(Ok(Self { path })),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => None,
+            Err(error) => Some(Err(error)),
+        })
+        .unwrap_or_else(|| {
+            Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("{NAME_ATTEMPTS} scratch directory names in a row were taken"),
+            ))
+        })
     }
 
     /// The directory's path.
@@ -249,5 +267,38 @@ impl Drop for ScratchDir {
         // A directory that cannot be removed is left to the system's temporary-file cleanup;
         // a destructor never fails.
         fs::remove_dir_all(&self.path).unwrap_or_default();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The names the next calls of this process would try.
+    fn next_names(count: u64) -> Vec<PathBuf> {
+        let next = NEXT.load(Ordering::Relaxed);
+        (next..next + count)
+            .map(|n| std::env::temp_dir().join(format!("alz-test-{}-{n}", std::process::id())))
+            .collect()
+    }
+
+    #[test]
+    fn a_taken_name_is_skipped_and_the_folder_of_that_name_is_left_untouched() {
+        let planted = next_names(3);
+        for path in &planted {
+            fs::create_dir(path).expect("planted");
+            fs::write(path.join("keep"), "planted").expect("written");
+        }
+        let scratch = ScratchDir::new().expect("a scratch directory past the taken names");
+        assert!(!planted.contains(&scratch.path().to_path_buf()));
+        assert_eq!(
+            scratch.list(""),
+            Vec::<String>::new(),
+            "the new folder is empty"
+        );
+        for path in &planted {
+            assert_eq!(fs::read(path.join("keep")).expect("kept"), b"planted");
+            fs::remove_dir_all(path).expect("cleaned up");
+        }
     }
 }
