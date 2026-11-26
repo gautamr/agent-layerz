@@ -1,11 +1,11 @@
 ---
 id: TASK-105
 title: Create the alz-adapter contract crate with TargetId and model v1
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-26T04:18:00Z'
+updated_date: '2026-11-26T04:35:00Z'
 labels:
   - area:adapter
 milestone: m-8
@@ -25,10 +25,10 @@ The contract of decision-40 point 2 lives in its own crate, so adapters depend o
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 crates/alz-adapter depends on no other alz crate (Cargo.toml) and its clippy.toml bans std::fs, std::process and std::env (grep)
-- [ ] #2 TargetId::try_from accepts exactly the grammar of spec §5.2 (unit tests and a proptest over generated strings)
-- [ ] #3 The crate exports Model with MODEL_VERSION 1.0, Descriptor, Context, Output, OutputFile with Json, Toml, Markdown and Bytes content, and the Adapter trait with descriptor() and render(&Model, &Context) -> Output (cargo doc -p alz-adapter builds)
-- [ ] #4 Every public struct of the model is #[non_exhaustive] (grep) and mise run rust:ci passes
+- [x] #1 crates/alz-adapter depends on no other alz crate (Cargo.toml) and its clippy.toml bans std::fs, std::process and std::env (grep)
+- [x] #2 TargetId::try_from accepts exactly the grammar of spec §5.2 (unit tests and a proptest over generated strings)
+- [x] #3 The crate exports Model with MODEL_VERSION 1.0, Descriptor, Context, Output, OutputFile with Json, Toml, Markdown and Bytes content, and the Adapter trait with descriptor() and render(&Model, &Context) -> Output (cargo doc -p alz-adapter builds)
+- [x] #4 Every public struct of the model is #[non_exhaustive] (grep) and mise run rust:ci passes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -49,3 +49,9 @@ From TASK-104 (@architect): spec §8.0 Model. defines four kinds of security ite
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+crates/alz-adapter holds the adapter contract of spec §8.0: TargetId by the §5.2 grammar, Model 1.0 with the four kinds of security item, Descriptor, Context, Output with four content kinds, Coverage, and the Adapter trait; no other alz crate, no I/O, no unsafe. Merged in #40.
+<!-- SECTION:FINAL_SUMMARY:END -->

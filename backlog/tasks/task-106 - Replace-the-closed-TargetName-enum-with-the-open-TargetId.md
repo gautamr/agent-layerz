@@ -1,11 +1,11 @@
 ---
 id: TASK-106
 title: Replace the closed TargetName enum with the open TargetId
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:05:00Z'
-updated_date: '2026-11-25T19:52:00Z'
+updated_date: '2026-11-26T04:35:00Z'
 labels:
   - area:adapter
 milestone: m-8
