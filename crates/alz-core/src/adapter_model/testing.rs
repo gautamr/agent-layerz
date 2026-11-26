@@ -35,11 +35,6 @@ impl Emitted {
     pub(crate) const fn diagnostics(&self) -> &Diagnostics {
         &self.diagnostics
     }
-
-    /// The tree and the diagnostics, handed over.
-    pub(crate) fn into_parts(self) -> (FileTree, Diagnostics) {
-        (self.tree, self.diagnostics)
-    }
 }
 
 /// The paths of the agents, skills, commands, slot stubs and rules.
@@ -134,4 +129,20 @@ pub(crate) fn claude_md_of(merged: &Merged) -> Result<String, Diagnostics> {
         Some(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
         None => Err(found),
     }
+}
+
+/// The Claude adapter's structured output for a merged stack under a workspace, as the adapter
+/// returns it and before the core emits it, without `CLAUDE.md`: the files and keys that the facts
+/// harness checks (spec §8 **What an adapter may rely on**).
+pub(crate) fn output_of_whole(merged: &Merged, workspace: &Workspace) -> Output {
+    let context = Context::new(
+        workspace
+            .add_dirs()
+            .iter()
+            .map(|dir| dir.as_str().to_owned())
+            .collect(),
+    );
+    let (mut output, _) = output_of(merged, &context);
+    output.files.retain(|file| file.path != "CLAUDE.md");
+    output
 }

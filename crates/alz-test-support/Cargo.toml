@@ -17,6 +17,9 @@ workspace = true
 # `termios` is for `tcsetpgrp`, which hands the terminal to the child's process group.
 rustix = { workspace = true, features = ["pty", "termios"] }
 thiserror.workspace = true
+# decision-40 point 7: the facts harness reads the structured output of any adapter. The contract
+# crate depends on no other alz crate, so this adds no cycle.
+alz-adapter.workspace = true
 
 [[bin]]
 name = "pty-run"

@@ -23,6 +23,8 @@ unicode-normalization.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+# decision-40 point 7: the facts harness every adapter's test uses.
+alz-test-support.workspace = true
 
 [lints]
 workspace = true
