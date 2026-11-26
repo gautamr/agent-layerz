@@ -4,7 +4,7 @@
 //! and reach the merge only through this module, so the adapter's own code never names a merge
 //! type.
 
-use alz_adapter::{Adapter, Context, Output, OutputFile};
+use alz_adapter::{Adapter, Context, Output, OutputFile, SecurityItems};
 
 use crate::adapter_model::model_for;
 use crate::diagnostic::Diagnostics;
@@ -45,15 +45,17 @@ impl Emitted {
 /// The paths of the agents, skills, commands, slot stubs and rules.
 const ITEM_FOLDERS: [&str; 3] = [".claude/agents/", ".claude/skills/", ".claude/rules/"];
 
-/// The adapter's whole output for `merged` under `context`.
-fn output_of(merged: &Merged, context: &Context) -> Output {
-    ClaudeAdapter::new().render(&model_for(merged, crate::target::claude()), context)
+/// The adapter's whole output for `merged` under `context`, with the security items of the model
+/// that its coverage report must account for.
+fn output_of(merged: &Merged, context: &Context) -> (Output, SecurityItems) {
+    let model = model_for(merged, crate::target::claude());
+    (ClaudeAdapter::new().render(&model, context), model.security)
 }
 
 /// The part of `output` whose files `keep` accepts, with the diagnostics whose code `keep_code`
 /// accepts, emitted by the core.
 fn part(
-    output: &Output,
+    (output, security): &(Output, SecurityItems),
     keep: impl Fn(&OutputFile) -> bool,
     keep_code: impl Fn(&str) -> bool,
 ) -> Emitted {
@@ -70,7 +72,8 @@ fn part(
         .cloned()
         .collect();
     let (tree, diagnostics) = emit(
-        crate::target::claude(),
+        ClaudeAdapter::new().descriptor(),
+        security,
         &Output::new(files, diagnostics, output.coverage.clone()),
     );
     Emitted { tree, diagnostics }
@@ -111,9 +114,10 @@ pub(crate) fn settings_files_of(merged: &Merged, workspace: &Workspace) -> Emitt
 
 /// `CLAUDE.md` of a merged stack, or the errors that kept it from being written.
 pub(crate) fn claude_md_of(merged: &Merged) -> Result<String, Diagnostics> {
-    let output = output_of(merged, &Context::default());
+    let (output, security) = output_of(merged, &Context::default());
     let (tree, found) = emit(
-        crate::target::claude(),
+        ClaudeAdapter::new().descriptor(),
+        &security,
         &Output::new(
             output
                 .files

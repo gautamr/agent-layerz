@@ -411,7 +411,11 @@ fn skill_md_written(text: &str) -> (String, String) {
     let mut model = Model::new(crate::target::claude().clone());
     model.skills = vec![skill];
     let output = super::ClaudeAdapter::new().render(&model, &Context::default());
-    let (tree, found) = crate::render::adapter_output::emit(crate::target::claude(), &output);
+    let (tree, found) = crate::render::adapter_output::emit(
+        super::ClaudeAdapter::new().descriptor(),
+        &model.security,
+        &output,
+    );
     assert!(!found.has_errors(), "{found}");
     let refs = refs_of_sources(&[source]).expect("a source that stands in a comment");
     let mut refs = refs.into_iter();
