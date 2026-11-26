@@ -6,10 +6,10 @@
 declare it, and the refusal of layers that set the account variables, none of which changes
 generated output yet. §8.0 adapter contract and the open target ids of §5.2 specified
 (decision-40, TASK-104) and built by TASK-105 to TASK-112 and TASK-127; generated output stays
-byte for byte the same. The wider `targets` grammar, the `no adapter for` error and the
-`unenforced` field of `permissions.yaml` change the layer format and an error text, so they need
-a minor version bump: 0.1.0 to 0.2.0, the first Rust release (TASK-55.8.4), with a CHANGELOG
-entry, or the next minor version for any of them that ships later)
+byte for byte the same. The wider `targets` grammar and the `no adapter for` error change the
+layer format and an error text, so they need a minor version bump: 0.1.0 to 0.2.0, the first
+Rust release (TASK-55.8.4), with a CHANGELOG entry. The `unenforced` field of `permissions.yaml`
+(TASK-127) comes before the Codex adapter, after 0.2.0, and needs the next minor version)
 **Audience:** a coding agent (Claude Code / Codex) implementing the tool, and humans who use it
 **Name:** `agent-layerz`, with the CLI command `alz`
 
@@ -1299,7 +1299,9 @@ Rules:
 - Hook scripts are copied to `.claude/hooks/<layer>/…` (or the target's equivalent) and
   referenced through the project-dir variable, never by absolute path.
 - (Planned, TASK-101.) A hook event a target doesn't support becomes a build **warning** for that target. The
-  report lists which guardrails fall back to pre-commit/CI.
+  report lists which guardrails fall back to pre-commit/CI. A locked hook is a security item
+  instead (§8.0): a target that cannot run it is the error of §8.0 unless its layer opts the
+  target out (§7.6, TASK-127).
 - `id` is any text with a visible character. A diagnostic prints it as a quoted key (§10.1).
 - `timeout` is a positive whole number of seconds (TASK-55.5.8).
 - `on_fail` defaults to `warn`.
@@ -1356,28 +1358,37 @@ default_mode: default
   never `true`, because Claude Code takes that key as a string, and the two `block...` keys as
   booleans (`docs/target-facts.md` §13, TASK-55.5.16).
 
-**Targets that cannot enforce an item** (decision-40, TASK-127). A layer's deny rules and the
-floor fields it sets to `true` are its security items (§8.0 **Model.**). When a target's adapter
+**Targets that cannot enforce an item** (decision-40, TASK-127). A layer's security items
+(§8.0 **Model.**) are its deny rules, the floor fields it sets to `true`, its `default_mode` floor
+(`floor: true`, when it is not refused) and its locked hooks (§7.5). When a target's adapter
 cannot express one, the build fails (§8.0 **Security items a target cannot enforce.**) unless the
-layer that declares the item opts that target out of it, by name, in `unenforced`:
+layer that set the item opts that target out of it, by name, in `unenforced`:
 
 ```yaml
 deny: [ "read:.env*", "bash:rm -rf *" ]
+default_mode: default
+floor: true
 block_writes_outside: true
 unenforced:                          # what this layer accepts that a target does not enforce
   codex:
     deny: [ "bash:rm -rf *" ]        # rules of this layer's own deny
     floor_fields: [ block_writes_outside ]
+    default_mode: true               # this layer's default_mode floor
+    hooks: [ block-secrets ]         # ids of this layer's own locked hooks
 ```
 
 - `unenforced` is a mapping whose keys are target ids (§5.2 **Target ids**). Each value is a
-  mapping with `deny`, a list of rules, and `floor_fields`, a list of the floor field names
-  above, each optional and nothing else.
+  mapping with `deny`, a list of rules; `floor_fields`, a list of the floor field names above;
+  `default_mode`, `true` or `false`; and `hooks`, a list of hook ids (§7.5). Each is optional,
+  and nothing else is allowed. `default_mode: false` is the same as leaving it out.
 - An entry covers only an item of its own layer: a `deny` entry is a rule that this layer's own
-  `deny` adds, and a `floor_fields` entry is a floor field this layer sets to `true`. Any other
-  entry, a key that is not a target id or another shape is a `permissions` error. So a more
-  specific layer can never opt a target out of a more general layer's item, and security only
-  gets stricter down the stack (§9.3).
+  `deny` adds; a `floor_fields` entry is a floor field this layer sets to `true`;
+  `default_mode: true` needs this layer's own `default_mode` with `floor: true`, not refused; and
+  a `hooks` entry is the id of a hook this layer's `hooks/hooks.yaml` defines with
+  `locked: true`. Any other entry, a key that is not a target id or another shape is a
+  `permissions` error at the layer's `permissions.yaml`. So only the layer that set an item can
+  opt a target out of it, a more specific layer never can, and security only gets stricter down
+  the stack (§9.3).
 - `unenforced` is not merged across layers and is never written. An entry for a target that is
   not in `targets`, or whose adapter expresses the item, has no effect.
 - Until TASK-127 `unenforced` is an unknown field of `permissions.yaml`, so a `permissions` error.
@@ -2593,9 +2604,18 @@ enabled MCP servers, models resolved for the target and the target's own native 
 the sources that each generated header names (§4.3). `AGENTS.md` (§7.1, §7.12), passthrough files
 (§7.11) and accounts (§7.13) stay the core's and are not in the model. The model has a version,
 `major.minor`; this spec defines model 1.0. A minor version only adds to the model, and a major
-version may change or remove. Model 1.0 has two kinds of security item: each deny rule of the
-merged permissions and each floor field of §7.6 that is set. Each item holds the layers that
-declare it.
+version may change or remove. Model 1.0 has four kinds of security item:
+- each deny rule of the merged permissions (§7.6);
+- each floor field of §7.6 that is set;
+- the `default_mode` floor (§7.6), when a layer sets `floor: true` and it is not refused: the
+  merged mode is never looser than the strictest floor;
+- each locked hook (§7.5) that runs on the target: every one with a neutral event, and one with a
+  target's own event (`<target>:<Event>`) on that target only. How a hook's failure is handled
+  stays as each adapter's section says (`hook-on-fail`, §8.1).
+
+Each item holds the layers that set it: for a deny rule or a floor field each layer that declares
+it, for the `default_mode` floor each layer whose floor is in force, and for a locked hook the one
+layer that defines it.
 
 **Descriptor.** (TASK-105, TASK-108, TASK-110, TASK-112) Each adapter states, as static data:
 - its target id (§5.2) and the model version it is built for;
@@ -2683,15 +2703,24 @@ version, so a layer that uses it fails the build on that target until the adapte
 The Claude adapter reports every item as expressed.
 
 **Security items a target cannot enforce.** (TASK-127) An item reported `not expressed` is the
-error `target` at `<layer>:permissions.yaml`, never a warning, once for each layer that declares
-the item and does not opt that target out of it (§7.6 **Targets that cannot enforce an item**).
-The message names the item and the target. For a deny rule it is `the '<target>' adapter cannot
-express the deny rule '<rule>' of layer <layer>; remove the target, or list the rule under
-unenforced.<target>.deny in that layer's permissions.yaml`, with the rule stripped (class 1). For
-a floor field it is `the '<target>' adapter cannot express the floor field <field> of layer
-<layer>; remove the target, or list the field under unenforced.<target>.floor_fields in that
-layer's permissions.yaml`. When every layer that declares the item opts the target out of it, the
-build goes on without the item on that target and reports nothing for it.
+error `target` at `<layer>:permissions.yaml`, never a warning, once for each layer that set the
+item and does not opt that target out of it (§7.6 **Targets that cannot enforce an item**). The
+message names the item and the target:
+- a deny rule: `the '<target>' adapter cannot express the deny rule '<rule>' of layer <layer>;
+  remove the target, or list the rule under unenforced.<target>.deny in that layer's
+  permissions.yaml`, with the rule stripped (class 1);
+- a floor field: `the '<target>' adapter cannot express the floor field <field> of layer <layer>;
+  remove the target, or list the field under unenforced.<target>.floor_fields in that layer's
+  permissions.yaml`;
+- the `default_mode` floor: `the '<target>' adapter cannot express the default_mode floor
+  <mode> of layer <layer>; remove the target, or set unenforced.<target>.default_mode to true in
+  that layer's permissions.yaml`;
+- a locked hook: `the '<target>' adapter cannot express the locked hook <id> of layer <layer>;
+  remove the target, or list the hook under unenforced.<target>.hooks in that layer's
+  permissions.yaml`, with the id quoted as a key (§10.1).
+
+When every layer that set the item opts the target out of it, the build goes on without the item
+on that target and reports nothing for it.
 
 ### 8.1 `claude` adapter
 | Neutral item | Output |

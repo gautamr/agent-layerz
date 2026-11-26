@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
-updated_date: '2026-11-25T19:52:00Z'
+updated_date: '2026-11-26T03:23:00Z'
 labels:
   - area:adapter
   - area:security
@@ -47,6 +47,15 @@ created: 2026-11-25T19:52:00Z
 ---
 
 From TASK-104 (spec, @architect): §8.0 'Output checks.' and 'Coverage report.' and §10.1 'Adapter codes.' state what this task makes true, with the limits 10000 files, 16 MiB per file and 256 MiB in all, and the shared adapter codes models, tool-scope and hook-on-fail. The refusal of an item reported not expressed, and the opt-out field unenforced, are TASK-127 (owner decision of 2026-11-26), which depends on this task.
+
+---
+
+author: @architect
+created: 2026-11-26T03:23:00Z
+
+---
+
+From TASK-104, after the owner's answers of 2026-11-26 (@architect): model 1.0 has four kinds of security item (spec §8.0 Model.): deny rules, floor fields that are set, the default_mode floor, and locked hooks that run on the target. The coverage check covers every item of the model, so the Claude adapter must report all four kinds as expressed, although AC #4 names only deny rules and floor fields. TASK-127 AC #4 re-checks the two new kinds.
 
 ---
 <!-- COMMENTS:END -->
