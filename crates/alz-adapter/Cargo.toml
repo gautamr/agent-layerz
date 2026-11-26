@@ -1,0 +1,20 @@
+[package]
+name = "alz-adapter"
+version = "0.1.0"
+description = "The adapter contract of agent-layerz: the model, the descriptor and the output an adapter returns"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# decision-40: the contract depends on no other alz crate, so an adapter depends on it and never
+# on alz-core. thiserror is the one dependency; decision-31 records it.
+[dependencies]
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

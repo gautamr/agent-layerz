@@ -15,6 +15,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "alz-adapter"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "thiserror",
+]
+
+[[package]]
 name = "alz-core"
 version = "0.1.0"
 dependencies = [

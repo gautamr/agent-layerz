@@ -1,0 +1,96 @@
+# Twin of crates/alz-core/clippy.toml, without its entries for serde-saphyr and serde_json, which
+# this crate does not depend on. Clippy reads one clippy.toml per crate and does not merge them, so
+# the shared lines must change together with alz-core's: the four `allow-*-in-tests` lines repeat
+# the root clippy.toml, and so does every `disallowed-methods` and `disallowed-types` entry below.
+# An adapter is a pure function (spec §8.0 **Rendering.**), and the contract crate holds only data
+# and the trait, so it may never reach the file system, a process or the environment.
+
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-print-in-tests = true
+allow-indexing-slicing-in-tests = true
+
+# Effects live in alz-io only (decision-23). Each path is a function or method of the standard library.
+disallowed-methods = [
+    # std::fs
+    { path = "std::fs::canonicalize", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::copy", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::create_dir", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::create_dir_all", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::exists", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::hard_link", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::soft_link", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::metadata", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::read", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::read_dir", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::read_link", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::read_to_string", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::remove_dir", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::remove_dir_all", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::remove_file", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::rename", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::set_permissions", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::symlink_metadata", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::write", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::File::create", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::File::create_new", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::File::open", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::File::options", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::DirBuilder::new", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::OpenOptions::new", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::canonicalize", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::exists", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::is_dir", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::is_file", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::is_symlink", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::metadata", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::read_dir", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::read_link", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::symlink_metadata", reason = "file system access belongs to alz-io" },
+    { path = "std::path::Path::try_exists", reason = "file system access belongs to alz-io" },
+    # std::os::unix::fs
+    { path = "std::os::unix::fs::chown", reason = "file system access belongs to alz-io" },
+    { path = "std::os::unix::fs::chroot", reason = "file system access belongs to alz-io" },
+    { path = "std::os::unix::fs::fchown", reason = "file system access belongs to alz-io" },
+    { path = "std::os::unix::fs::lchown", reason = "file system access belongs to alz-io" },
+    { path = "std::os::unix::fs::symlink", reason = "file system access belongs to alz-io" },
+    # std::process
+    { path = "std::process::Command::new", reason = "running processes belongs to alz-io" },
+    { path = "std::process::abort", reason = "only the binary's main ends the process" },
+    { path = "std::process::exit", reason = "only the binary's main ends the process" },
+    { path = "std::process::id", reason = "process state belongs to alz-io" },
+    # std::env
+    { path = "std::env::args", reason = "arguments arrive through clap in the binary" },
+    { path = "std::env::args_os", reason = "arguments arrive through clap in the binary" },
+    { path = "std::env::current_dir", reason = "the environment belongs to alz-io" },
+    { path = "std::env::current_exe", reason = "the environment belongs to alz-io" },
+    { path = "std::env::home_dir", reason = "the environment belongs to alz-io" },
+    { path = "std::env::remove_var", reason = "the environment is never mutated" },
+    { path = "std::env::set_current_dir", reason = "the environment belongs to alz-io" },
+    { path = "std::env::set_var", reason = "the environment is never mutated" },
+    { path = "std::env::temp_dir", reason = "the environment belongs to alz-io" },
+    { path = "std::env::var", reason = "the environment belongs to alz-io" },
+    { path = "std::env::var_os", reason = "the environment belongs to alz-io" },
+    { path = "std::env::vars", reason = "the environment belongs to alz-io" },
+    { path = "std::env::vars_os", reason = "the environment belongs to alz-io" },
+    # time and the standard streams: the pure core takes them as values or capabilities
+    { path = "std::time::SystemTime::now", reason = "the clock belongs to alz-io" },
+    { path = "std::time::Instant::now", reason = "the clock belongs to alz-io" },
+    { path = "std::io::stdin", reason = "the terminal belongs to the binary and alz-io" },
+    { path = "std::io::stdout", reason = "the terminal belongs to the binary and alz-io" },
+    { path = "std::io::stderr", reason = "the terminal belongs to the binary and alz-io" },
+]
+
+# Types that open or hold an effect handle. Banning the type also stops a value from being named in a
+# signature or a field, which a banned constructor alone would not.
+disallowed-types = [
+    { path = "std::fs::File", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::OpenOptions", reason = "file system access belongs to alz-io" },
+    { path = "std::fs::DirBuilder", reason = "file system access belongs to alz-io" },
+    { path = "std::process::Command", reason = "running processes belongs to alz-io" },
+    { path = "std::net::TcpStream", reason = "networking belongs to alz-io" },
+    { path = "std::net::TcpListener", reason = "networking belongs to alz-io" },
+    { path = "std::net::UdpSocket", reason = "networking belongs to alz-io" },
+    { path = "std::collections::HashMap", reason = "iteration order depends on hashing; use BTreeMap so output is deterministic" },
+    { path = "std::collections::HashSet", reason = "iteration order depends on hashing; use BTreeSet so output is deterministic" },
+]
