@@ -3,6 +3,7 @@
 //! The helpers use only the standard library and the `mkfifo` tool, so no test depends on a
 //! third-party temporary-directory crate. They never read the real home directory.
 
+pub mod facts;
 pub mod pty;
 mod scratch_dir;
 mod tree;
@@ -12,6 +13,14 @@ use std::path::PathBuf;
 
 pub use scratch_dir::ScratchDir;
 pub use tree::{TreeFile, copy_tree, folder_names, read_tree};
+
+/// The root of this repository, where `docs/target-facts.md` is, for the facts harness of an
+/// adapter's test (see [`facts`]). It is the folder two levels above this crate, fixed when the
+/// crate is built, so it is the repository the tests were built from.
+#[must_use]
+pub fn workspace_root() -> PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
 
 /// The path of the running test executable, so that a test can start itself again, for instance
 /// under a pseudo-terminal.

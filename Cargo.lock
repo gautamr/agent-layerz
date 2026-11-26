@@ -29,6 +29,7 @@ version = "0.1.0"
 dependencies = [
  "alz-adapter",
  "alz-target-claude",
+ "alz-test-support",
  "proptest",
  "regex-lite",
  "serde",
@@ -63,6 +64,7 @@ dependencies = [
 name = "alz-test-support"
 version = "0.1.0"
 dependencies = [
+ "alz-adapter",
  "rustix",
  "thiserror",
 ]
