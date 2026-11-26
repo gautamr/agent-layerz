@@ -5,13 +5,16 @@
 //! or a path in a fact is untrusted text and arrives [`Stripped`]; the one name that is compared
 //! with a built name is kept as it is, and is printed only when it equals a built name.
 
+mod claude_version;
+
 use std::collections::BTreeSet;
 use std::fmt;
 
 use crate::diagnostic::Diagnostics;
 use crate::live::Built;
-use crate::target::claude::facts::{VERIFIED_RANGE, Version};
 use crate::untrusted_text::Stripped;
+
+pub use claude_version::{VERIFIED_RANGE, VerifiedRange, Version};
 
 /// A Claude account folder, read for names only (spec §9.1).
 #[derive(Debug, Clone, PartialEq, Eq)]

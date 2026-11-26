@@ -11,7 +11,7 @@ use crate::diagnostic::Diagnostics;
 use crate::render::adapter_output::emit;
 use crate::render::tree::FileTree;
 use crate::stack::Workspace;
-use crate::target::claude::ClaudeAdapter;
+use alz_target_claude::ClaudeAdapter;
 
 pub(crate) use crate::merge::Merged;
 pub(crate) use crate::merge::testing::{

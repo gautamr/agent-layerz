@@ -5,11 +5,17 @@
 //!
 //! Only what `docs/target-facts.md` records about Claude Code drives the output: the agent
 //! frontmatter fields and tool names (§1), skills and commands (§5) and `paths` in a rule (§9).
+//!
+//! The crate depends on `alz-adapter` and on no other alz crate (decision-40), so the compiler
+//! keeps it from seeing the internals of `alz-core` and from reaching `alz-io`; its `clippy.toml`
+//! bans the file system, process and environment functions of the standard library. The tests of
+//! the adapter on whole stacks need the merge of the core and live in `alz-core`.
+
+#![forbid(unsafe_code)]
 
 mod agents;
 mod descriptor;
 mod document;
-pub mod facts;
 mod frontmatter;
 mod hooks;
 mod instructions;
@@ -27,6 +33,9 @@ use alz_adapter::{
 };
 
 pub use tools::{is_model_value, neutral_permission_mode, neutral_tool};
+
+/// The target id of this adapter, `claude`.
+const TARGET: &str = "claude";
 
 /// The Claude adapter.
 #[derive(Debug, Clone)]
@@ -134,4 +143,4 @@ fn place(named: &[Source]) -> Option<&Source> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests;
+mod tests;

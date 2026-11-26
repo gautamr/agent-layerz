@@ -1,5 +1,6 @@
-# Twin of crates/alz-core/clippy.toml. Clippy reads one clippy.toml per crate and does not merge
-# them, so the two files repeat what they share and must change together: the four `allow-*-in-tests`
+# Twin of crates/alz-core/clippy.toml, crates/alz-adapter/clippy.toml and
+# crates/alz-target-claude/clippy.toml. Clippy reads one clippy.toml per crate and does not merge
+# them, so the files repeat what they share and must change together: the four `allow-*-in-tests`
 # lines repeat the root clippy.toml, and so does every shared `disallowed-methods` and
 # `disallowed-types` entry below.
 # This file lacks the clock and the standard output and error bans of the twin, which the binary needs.

@@ -1,8 +1,10 @@
 //! The neutral names of the native names Claude Code uses (spec §8.1, target-facts §1 and §8.5),
 //! the other way round from the adapter's tables, which this module reuses.
 
+use alz_target_claude::{neutral_permission_mode, neutral_tool};
+
+use crate::adapter_model::neutral_mode;
 use crate::item::{NeutralEvent, PermissionMode};
-use crate::target::claude::{neutral_permission_mode, neutral_tool};
 
 /// What a hook command writes for the project folder (spec §7.5); Claude's own variable is
 /// replaced by it.
@@ -28,7 +30,7 @@ pub(super) fn tool(native: &str) -> Option<String> {
     if native.starts_with("mcp__") {
         Some(native.to_owned())
     } else {
-        neutral_tool(native).map(|tool| tool.as_str().to_owned())
+        neutral_tool(native).map(str::to_owned)
     }
 }
 
@@ -77,5 +79,5 @@ pub(super) const fn is_tool_event(event: NeutralEvent) -> bool {
 
 /// The neutral permission mode of a native one.
 pub(super) fn mode(native: &str) -> Option<PermissionMode> {
-    neutral_permission_mode(native)
+    neutral_permission_mode(native).map(neutral_mode)
 }

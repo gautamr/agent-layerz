@@ -5,8 +5,8 @@ use super::{
     WorkspaceState,
 };
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
+use crate::doctor::Version;
 use crate::live::Built;
-use crate::target::claude::facts::Version;
 use crate::untrusted_text::Stripped;
 
 fn names(items: &[&str]) -> BTreeSet<String> {

@@ -28,6 +28,7 @@ name = "alz-core"
 version = "0.1.0"
 dependencies = [
  "alz-adapter",
+ "alz-target-claude",
  "proptest",
  "regex-lite",
  "serde",
@@ -48,6 +49,14 @@ dependencies = [
  "proptest",
  "rustix",
  "thiserror",
+]
+
+[[package]]
+name = "alz-target-claude"
+version = "0.1.0"
+dependencies = [
+ "alz-adapter",
+ "proptest",
 ]
 
 [[package]]

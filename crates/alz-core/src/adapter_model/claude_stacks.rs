@@ -7,10 +7,10 @@ pub(crate) mod stacks;
 
 use proptest::prelude::{Strategy, prop_assert_eq, proptest};
 
-use super::is_model_value;
 use crate::adapter_model::testing::{Emitted, Merged, files_of, layer_from_yaml, merged_with};
 use crate::diagnostic::Diagnostics;
 use crate::render::tree::{FileMode, OutputPath};
+use alz_target_claude::{ClaudeAdapter, is_model_value};
 
 /// A layer of a fixture: its `layer.yaml` and its other files.
 pub(crate) struct Layer {
@@ -410,9 +410,9 @@ fn skill_md_written(text: &str) -> (String, String) {
     skill.sources = vec![source.clone()];
     let mut model = Model::new(crate::target::claude().clone());
     model.skills = vec![skill];
-    let output = super::ClaudeAdapter::new().render(&model, &Context::default());
+    let output = ClaudeAdapter::new().render(&model, &Context::default());
     let (tree, found) = crate::render::adapter_output::emit(
-        super::ClaudeAdapter::new().descriptor(),
+        ClaudeAdapter::new().descriptor(),
         &model.security,
         &output,
     );

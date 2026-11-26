@@ -1,0 +1,21 @@
+[package]
+name = "alz-target-claude"
+version = "0.1.0"
+description = "The Claude adapter of agent-layerz: the neutral model in, Claude Code's files out"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# decision-40 point 6: the adapter depends on the contract crate and on no other alz crate, so it
+# cannot see the internals of alz-core nor reach alz-io, and its clippy.toml bans the file system,
+# process and environment functions of the standard library.
+[dependencies]
+alz-adapter.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true
