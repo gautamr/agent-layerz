@@ -6,9 +6,11 @@ use super::{
 use crate::markdown::MarkdownDoc;
 use crate::merge::testing::layer;
 use crate::merge::{ListEdit, OrderedSet};
+use crate::target::Registry;
 
 fn read(files: &[(&str, &str)]) -> (AgentItems, Vec<String>) {
-    let (items, problems) = AgentItems::read(&layer("personal", "personal", files));
+    let (items, problems) =
+        AgentItems::read(&layer("personal", "personal", files), &Registry::builtin());
     (items, problems.iter().map(ToString::to_string).collect())
 }
 
@@ -512,4 +514,113 @@ fn codex_native_fields_are_not_typed_here() {
         &helper("codex:\n  anything: [1, {a: b}]\n  maxTurns: x\n"),
     )]);
     assert_eq!(found, Vec::<String>::new());
+}
+
+// The native agent fields come from the descriptor of the target through the registry (§7.2,
+// §8.0 **Descriptor.**, TASK-128).
+
+/// The problems of a base agent with this `native` section when a test adapter for `claude` states
+/// `vocabulary`.
+fn read_with_claude_vocabulary(
+    vocabulary: alz_adapter::NativeVocabulary,
+    native: &str,
+) -> Vec<String> {
+    let registry = crate::merge::testing::registry_with_vocabulary("claude", vocabulary);
+    let (_, problems) = AgentItems::read(
+        &layer(
+            "personal",
+            "personal",
+            &[("agents/helper.md", &helper(native))],
+        ),
+        &registry,
+    );
+    problems.iter().map(ToString::to_string).collect()
+}
+
+#[test]
+fn agent_native_fields_are_checked_with_the_descriptor_through_the_registry() {
+    use alz_adapter::{Field, FirstClassKey, NativeVocabulary, Shape, TypedKeys};
+    const ROWS: &[Field] = &[Field::new("turns", Shape::Whole)];
+    let vocabulary = NativeVocabulary::default().with_agent_native(
+        vec!["title".to_owned()],
+        vec![FirstClassKey::new("servers", "mcp.yaml")],
+        Some(TypedKeys::new(
+            ROWS,
+            "Probe Tool",
+            "docs/probe-facts.md section 3",
+        )),
+    );
+    assert_eq!(
+        read_with_claude_vocabulary(vocabulary.clone(), "claude:\n  turns: 3\n"),
+        Vec::<String>::new()
+    );
+    let found = read_with_claude_vocabulary(
+        vocabulary,
+        "claude:\n  turns: secret-value\n  title: x\n  servers: {}\n  other: 1\n",
+    );
+    assert_eq!(found.len(), 4, "{found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|line| line.contains("'claude.title' has a neutral field")),
+        "{found:?}"
+    );
+    assert!(
+        found.iter().any(|line| line
+            .contains("'claude.servers' is set through mcp.yaml so every agent gets the same")),
+        "{found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .any(|line| line.contains("'claude.turns' must be a whole number")),
+        "{found:?}"
+    );
+    assert!(
+        found.iter().any(|line| line.contains(
+            "'claude.other' is not a field of a subagent's frontmatter that alz accepts (docs/probe-facts.md section 3)"
+        )),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_claude_map_of_a_registry_without_a_claude_adapter_is_read_as_a_mapping_and_nothing_more() {
+    let (_, problems) = AgentItems::read(
+        &layer(
+            "personal",
+            "personal",
+            &[(
+                "agents/helper.md",
+                &helper("claude:\n  maxTurns: x\n  model: y\n  hooks: 1\n"),
+            )],
+        ),
+        &Registry::new(),
+    );
+    assert_eq!(problems.iter().count(), 0);
+}
+
+#[test]
+fn codex_keeps_its_agent_validation_through_its_descriptor_only_entry() {
+    let (_, problems) = AgentItems::read(
+        &layer(
+            "personal",
+            "personal",
+            &[(
+                "agents/helper.md",
+                &helper("codex:\n  model: y\n  mcp_servers: {}\n"),
+            )],
+        ),
+        &Registry::new(),
+    );
+    let found: Vec<String> = problems.iter().map(ToString::to_string).collect();
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(
+        found[0].contains("'codex.model' has a neutral field"),
+        "{found:?}"
+    );
+    assert!(
+        found[1].contains("'codex.mcp_servers' is set through mcp.yaml"),
+        "{found:?}"
+    );
 }

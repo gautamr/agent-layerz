@@ -18,14 +18,13 @@ use crate::merge::{Last, ListEdit, OrderedSet};
 use crate::path::SafeRelPath;
 use crate::schema::{Checked, refine, refine_list, require, unknown_fields, zip, zip3};
 use crate::stack::ResolvedLayer;
+use crate::target::Registry;
 use crate::untrusted_text::Stripped;
 use crate::yaml::fields::Section;
 use alz_adapter::TargetId;
 
 use super::list_edit::{WrittenEdit, refine_edit, written_edit};
 use super::{place, read_markdown, schema_diagnostics, zip_diagnostics};
-#[cfg(test)]
-pub(in crate::item) use native::AGENT_KEYS;
 pub use native::NativeFields;
 pub(in crate::item) use native::tree_of;
 pub use ordered_tree::{NativeMap, NativeValue};
@@ -330,23 +329,25 @@ impl AgentItems {
     /// Reads the agent files of `layer`. Every problem is reported; a file with a problem gives
     /// no item.
     #[must_use]
-    pub fn read(layer: &ResolvedLayer) -> (Self, Diagnostics) {
+    pub fn read(layer: &ResolvedLayer, registry: &Registry) -> (Self, Diagnostics) {
         let name = layer.meta().name();
         let (items, diagnostics) = layer.contents().iter().fold(
             (Self::default(), Diagnostics::new()),
             |(items, found), (path, bytes)| match ItemPath::of(path) {
-                ItemPath::Agent { name: stem } => match read_base(name, path, stem, bytes) {
-                    Ok(base) => (
-                        Self {
-                            bases: items.bases.into_iter().chain([base]).collect(),
-                            overlays: items.overlays,
-                        },
-                        found,
-                    ),
-                    Err(problems) => (items, found.merge(problems)),
-                },
+                ItemPath::Agent { name: stem } => {
+                    match read_base(name, path, stem, bytes, registry) {
+                        Ok(base) => (
+                            Self {
+                                bases: items.bases.into_iter().chain([base]).collect(),
+                                overlays: items.overlays,
+                            },
+                            found,
+                        ),
+                        Err(problems) => (items, found.merge(problems)),
+                    }
+                }
                 ItemPath::AgentOverlay { name: stem } => {
-                    match read_overlay(name, path, stem, bytes) {
+                    match read_overlay(name, path, stem, bytes, registry) {
                         Ok(overlay) => (
                             Self {
                                 bases: items.bases,
@@ -421,6 +422,7 @@ fn read_base(
     path: &SafeRelPath,
     stem: &str,
     bytes: &[u8],
+    registry: &Registry,
 ) -> Result<AgentBase, Diagnostics> {
     let (at, doc) = open(layer, path, bytes)?;
     let section = doc.front().section();
@@ -440,7 +442,7 @@ fn read_base(
         ),
     )
     .map_err(|errors| schema_diagnostics(Code::Agent, &at, &errors));
-    let native = NativeFields::read(&section, &at);
+    let native = NativeFields::read(&section, &at, registry);
     let ((((), name, description), ((scalars, tools, skills), targets)), native) =
         zip_diagnostics(schema, native)?;
     if name.as_str() == stem {
@@ -469,6 +471,7 @@ fn read_overlay(
     path: &SafeRelPath,
     stem: &str,
     bytes: &[u8],
+    registry: &Registry,
 ) -> Result<AgentOverlay, Diagnostics> {
     let (at, doc) = open(layer, path, bytes)?;
     let section = doc.front().section();
@@ -506,7 +509,7 @@ fn read_overlay(
         ),
     )
     .map_err(|errors| schema_diagnostics(Code::Agent, &at, &errors));
-    let native = NativeFields::read(&section, &at);
+    let native = NativeFields::read(&section, &at, registry);
     let (
         ((extends, mode, allow_widen), (((), description, scalars), (tools, skills, targets))),
         native,

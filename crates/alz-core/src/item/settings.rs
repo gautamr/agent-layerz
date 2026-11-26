@@ -11,8 +11,9 @@
 //! again: `features.hooks` and `features.codex_hooks` at any depth, and `profile`
 //! and `profiles`, which a project's Codex config does not read.
 //!
-//! For Claude every key and value is also checked against the table of typed keys
-//! ([`CLAUDE_SETTINGS`]): a key that is not in it, and a value of the wrong type, are errors.
+//! When the descriptor of a target states typed settings keys (Claude's does), every key and value
+//! is also checked against that table: a key that is not in it, and a value of the wrong type, are
+//! errors (TASK-128).
 //!
 //! A file with a problem gives no item, so a merged model never holds half a file.
 
@@ -31,7 +32,7 @@ use alz_adapter::TargetId;
 
 use super::agent::tree_of;
 use super::native_keys::{KeyRules, Step, refusal_error};
-use super::native_types::{CLAUDE_SETTINGS, Typed};
+use super::native_types::Typed;
 use super::protected_variable::{codex_policies, env_keys, paths};
 use super::{place, schema_diagnostics};
 
@@ -250,15 +251,13 @@ fn read_target(
     };
     // A section of a target with no key rules is read as a mapping and nothing more.
     let found = rules.map_or_else(Diagnostics::new, |rules| {
-        refused_keys(rules, node, at).merge(match target.as_str() {
-            "claude" => typed_keys(rules, node, at).merge(env_keys(
-                entries.get("env"),
-                paths::CLAUDE_ENV,
-                at,
-            )),
-            "codex" => codex_policies(&entries, Code::Settings, at),
-            _ => Diagnostics::new(),
-        })
+        refused_keys(rules, node, at)
+            .merge(typed_keys(rules, node, at))
+            .merge(match target.as_str() {
+                "claude" => env_keys(entries.get("env"), paths::CLAUDE_ENV, at),
+                "codex" => codex_policies(&entries, Code::Settings, at),
+                _ => Diagnostics::new(),
+            })
     });
     if found.has_errors() {
         Err(found)
@@ -267,19 +266,29 @@ fn read_target(
     }
 }
 
-/// An error for each key of Claude's settings that is not in the table of typed keys, and for each
-/// value of the wrong type (§7.9). A key that the key rules of the descriptor refuse is reported by
-/// [`refused_keys`], so it is skipped here.
+/// An error for each key of the target's settings that is not in the table of typed keys its
+/// descriptor states, and for each value of the wrong type (§7.9). A key that the key rules of the
+/// descriptor refuse is reported by [`refused_keys`], so it is skipped here. A target whose
+/// descriptor states no typed keys has nothing to check.
 fn typed_keys(rules: KeyRules<'_>, node: &Node, at: &Where) -> Diagnostics {
-    let reported = |steps: &[Step<'_>]| rules.refusal(steps).is_some();
-    Typed::new(
-        "claude",
-        Code::Settings,
-        at,
-        " is not a Claude Code settings key that alz accepts (docs/target-facts.md section 14)",
-        &reported,
-    )
-    .check(CLAUDE_SETTINGS, node)
+    rules
+        .vocabulary()
+        .settings_keys
+        .map_or_else(Diagnostics::new, |typed| {
+            let reported = |steps: &[Step<'_>]| rules.refusal(steps).is_some();
+            let unknown = format!(
+                " is not a {} settings key that alz accepts ({})",
+                typed.tool, typed.recorded_in
+            );
+            Typed::new(
+                rules.target().as_str(),
+                Code::Settings,
+                at,
+                &unknown,
+                &reported,
+            )
+            .check(typed.fields, node)
+        })
 }
 
 /// An error for each key of the settings of the target, at any depth, that its key rules refuse: a

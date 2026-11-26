@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use crate::merge::Tree;
 use alz_adapter::TargetId;
 
-use super::super::agent::AGENT_KEYS;
 use super::spec_lists::descriptor_rows;
 use super::{KeyRule, KeyRules, Looseness, Step, Strictness};
 use crate::target::Registry;
@@ -124,9 +123,17 @@ fn a_key_that_is_a_floor_is_not_also_refused() {
 
 #[test]
 fn the_agent_keys_are_servers_and_hooks_of_each_target() {
-    let keys: Vec<_> = AGENT_KEYS
-        .iter()
-        .map(|key| (key.target(), key.key(), key.owner()))
+    let registry = Registry::builtin();
+    let keys: Vec<_> = [crate::target::claude(), crate::target::codex()]
+        .into_iter()
+        .flat_map(|target| {
+            rules(&registry, target)
+                .vocabulary()
+                .agent_first_class_keys
+                .iter()
+                .map(|key| (target.as_str(), key.path.as_str(), key.set_through.as_str()))
+                .collect::<Vec<_>>()
+        })
         .collect();
     assert_eq!(
         keys,

@@ -847,3 +847,44 @@ fn codex_is_validated_without_an_adapter_by_the_descriptor_only_entry_of_the_cor
         ]
     );
 }
+
+#[test]
+fn typed_settings_keys_are_checked_with_the_table_of_the_descriptor() {
+    use alz_adapter::{Field, NativeVocabulary, Shape, TypedKeys};
+    const ROWS: &[Field] = &[
+        Field::new("speed", Shape::Whole),
+        Field::new("mode", Shape::Choice(&["fast", "slow"])),
+    ];
+    let registry = crate::merge::testing::registry_with_vocabulary(
+        "probe",
+        NativeVocabulary::default().with_settings_keys(TypedKeys::new(
+            ROWS,
+            "Probe Tool",
+            "docs/probe-facts.md section 3",
+        )),
+    );
+    let (settings, found) = read_with(&registry, "probe:\n  speed: 3\n  mode: fast\n");
+    assert_eq!(found, Vec::<String>::new());
+    assert!(settings.is_some());
+    let (settings, found) = read_with(
+        &registry,
+        "probe:\n  speed: secret-value\n  mode: medium\n  other: 1\n",
+    );
+    assert_eq!(settings, None);
+    assert_eq!(
+        found,
+        [
+            "error [settings] personal:settings.yaml:2:10: 'probe.speed' must be a whole number",
+            "error [settings] personal:settings.yaml:3:9: 'probe.mode' must be one of fast, slow",
+            "error [settings] personal:settings.yaml:4:3: 'probe.other' is not a Probe Tool settings key that alz accepts (docs/probe-facts.md section 3)",
+        ]
+    );
+}
+
+#[test]
+fn a_target_whose_descriptor_types_no_settings_keys_accepts_any_key_its_key_rules_allow() {
+    // Codex states key rules and no typed keys.
+    let (settings, found) = read_with(&Registry::new(), "codex:\n  anything: [1, {a: b}]\n");
+    assert_eq!(found, Vec::<String>::new());
+    assert!(settings.is_some());
+}

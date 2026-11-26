@@ -2,12 +2,12 @@
 //! frontmatter fields of a subagent that no neutral field covers. Names and types are recorded in
 //! `docs/target-facts.md` §14 (TASK-79).
 //!
-//! A key that the security table ([`super::super::native_keys`]) refuses is not here: the table
+//! A key that the security table (`item::native_keys` of the core) refuses is not here: the table
 //! reports it with its reason. A key that Claude Code reads from a user or managed scope only, or
 //! that §14.4 leaves out, is not here either, so `settings.yaml` refuses it as unlisted. The keys
 //! with a floor are here, because a floor key is accepted: only its value may not get looser.
 
-use super::{Ends, Field, Shape, Span};
+use alz_adapter::{Ends, Field, Shape, Span};
 
 const fn flag(name: &'static str) -> Field {
     Field::new(name, Shape::Bool)
@@ -96,7 +96,7 @@ const SPINNER_TIP: Shape = Shape::Either(&[
 ]);
 
 /// The keys of a project's `.claude/settings.json` that `settings.yaml` accepts under `claude:`.
-pub const CLAUDE_SETTINGS: &[Field] = &[
+pub(super) const SETTINGS_KEYS: &[Field] = &[
     // Model and responses.
     text("$schema"),
     text("advisorModel"),
@@ -300,7 +300,7 @@ pub const CLAUDE_SETTINGS: &[Field] = &[
 /// The frontmatter fields of a Claude subagent that have no neutral field (`claude:` in an agent
 /// file). `tools`, `model`, `permissionMode`, `skills`, `isolation` and `memory` have one, and
 /// `mcpServers` and `hooks` come only through `mcp.yaml` and `hooks.yaml`.
-pub const CLAUDE_AGENT_FIELDS: &[Field] = &[
+pub(super) const AGENT_FIELDS: &[Field] = &[
     Field::new(
         "disallowedTools",
         Shape::Either(&[Shape::Text, Shape::List(&Shape::Text)]),
