@@ -1,10 +1,11 @@
 ---
 id: TASK-111
 title: Move the Claude adapter into the alz-target-claude crate
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
+updated_date: '2026-11-26T08:02:00Z'
 labels:
   - area:adapter
 milestone: m-8
