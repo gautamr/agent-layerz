@@ -1,10 +1,11 @@
 ---
 id: TASK-110
 title: Take native key rules and vocabularies from each adapter's descriptor
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-25T19:06:00Z'
+updated_date: '2026-11-26T07:38:00Z'
 labels:
   - area:adapter
 milestone: m-8
