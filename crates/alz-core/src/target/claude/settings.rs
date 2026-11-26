@@ -4,48 +4,46 @@
 
 use std::collections::BTreeMap;
 
-use crate::diagnostic::Diagnostics;
-use crate::merge::{Merged, Tree};
-use crate::stack::Workspace;
+use alz_adapter::{Context, JsonValue, Model};
 
-use super::document::{file, map, text};
+use crate::diagnostic::Diagnostics;
+
+use super::document::{deep_merge, file, map, object, text};
 use super::{Output, hooks, output_path, permissions};
 
 /// The settings path.
 const SETTINGS_FILE: &str = ".claude/settings.json";
 
 /// `.claude/settings.json` when it would not be empty, and the hook scripts it runs.
-pub(super) fn render(merged: &Merged, workspace: &Workspace) -> Output {
-    let hooks = hooks::render(merged);
+pub(super) fn render(model: &Model, context: &Context) -> Output {
+    let hooks = hooks::render(model);
     let hook_groups = (!hooks.events.is_empty()).then(|| {
-        Tree::Map(
+        object(
             hooks
                 .events
                 .into_iter()
-                .map(|(event, groups)| (event, Tree::List(groups)))
-                .collect(),
+                .map(|(event, groups)| (event, JsonValue::Array(groups))),
         )
     });
-    let model = merged
-        .models()
-        .for_default(crate::target::claude())
-        .map(|model| text(model.as_str()));
+    let default_model = model.models.default.as_deref().map(text);
     let generated = map([
-        permissions::render(merged, workspace).map(|tree| ("permissions", tree)),
-        hook_groups.map(|tree| ("hooks", tree)),
-        model.map(|tree| ("model", tree)),
+        permissions::render(model, context).map(|value| ("permissions", value)),
+        hook_groups.map(|value| ("hooks", value)),
+        default_model.map(|value| ("model", value)),
     ]
     .into_iter()
     .flatten());
-    let settings = merged
-        .settings()
-        .get(crate::target::claude())
-        .map_or_else(
-            || Tree::Map(BTreeMap::new()),
-            |traced| traced.value().to_tree(),
-        )
-        .deep_merge(generated);
-    let settings_file = if matches!(&settings, Tree::Map(entries) if entries.is_empty()) {
+    let settings = deep_merge(
+        object(
+            model
+                .settings
+                .entries()
+                .map(|(key, value)| (key.to_owned(), value.clone()))
+                .collect::<BTreeMap<_, _>>(),
+        ),
+        generated,
+    );
+    let settings_file = if matches!(&settings, JsonValue::Object(entries) if entries.is_empty()) {
         Output::default()
     } else {
         Output::one(

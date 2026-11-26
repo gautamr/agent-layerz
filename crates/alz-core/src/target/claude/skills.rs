@@ -1,9 +1,9 @@
 //! `.claude/skills/<name>/` (spec §8.1, target-facts §5): every file of a winning skill folder,
 //! a command as a skill only the user can invoke, and the stub of a slot no layer filled.
 
+use alz_adapter::{Command, Model, Skill, Source};
+
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
-use crate::item::{Command, Skill, SkillDirectory, SkillName};
-use crate::merge::{Merged, Origin, Traced};
 use crate::render::header::{SourceRef, Sources, insert_frontmatter_header};
 use crate::render::tree::{FileMode, GeneratedFile};
 use crate::render::yaml::EmitValue;
@@ -17,51 +17,33 @@ const SKILLS_DIR: &str = ".claude/skills";
 const SKILL_FILE: &str = "SKILL.md";
 
 /// The skills, commands and slot stubs as files.
-pub(super) fn render(merged: &Merged) -> Output {
-    let skills = merged
-        .skills()
-        .iter()
-        .map(|(_, traced)| match traced.value() {
-            Skill::Directory(directory) => directory_files(directory, traced),
-            Skill::Command(command) => command_file(command, traced),
-        });
-    let stubs = merged.slot_stubs().keys().map(stub_file);
-    skills.chain(stubs).fold(Output::default(), Output::then)
+pub(super) fn render(model: &Model) -> Output {
+    let skills = model.skills.iter().map(directory_files);
+    let commands = model.commands.iter().map(command_file);
+    let stubs = model.slot_stubs.iter().map(|stub| stub_file(&stub.name));
+    skills
+        .chain(commands)
+        .chain(stubs)
+        .fold(Output::default(), Output::then)
 }
 
-/// The origin that defined the skill that stands: its last contribution, since a skill replaces
-/// the whole definition before it.
-fn winning(traced: &Traced<Skill>) -> impl Iterator<Item = &Origin> + '_ {
-    traced
-        .provenance()
-        .contributions()
-        .last()
-        .map(crate::merge::Contribution::origin)
-        .into_iter()
-}
-
-fn directory_files(directory: &SkillDirectory, traced: &Traced<Skill>) -> Output {
-    sources(winning(traced)).map_or_else(
+fn directory_files(skill: &Skill) -> Output {
+    sources(&skill.sources).map_or_else(
         |problems| Output {
             files: Vec::new(),
             diagnostics: problems,
         },
-        |sources| {
-            directory
-                .files()
+        |header| {
+            skill
+                .files
                 .iter()
                 .map(|skill_file| {
-                    let within = skill_file.within().collect::<Vec<_>>().join("/");
-                    let path = output_path(&format!("{SKILLS_DIR}/{}/{within}", directory.name()));
-                    if within == SKILL_FILE {
-                        skill_markdown(
-                            skill_file.bytes(),
-                            &sources,
-                            path,
-                            place(traced.provenance()),
-                        )
+                    let path =
+                        output_path(&format!("{SKILLS_DIR}/{}/{}", skill.name, skill_file.path));
+                    if skill_file.path == SKILL_FILE {
+                        skill_markdown(&skill_file.content, &header, path, &skill.sources)
                     } else {
-                        let mode = if skill_file.executable() {
+                        let mode = if skill_file.executable {
                             FileMode::Executable
                         } else {
                             FileMode::Regular
@@ -69,7 +51,7 @@ fn directory_files(directory: &SkillDirectory, traced: &Traced<Skill>) -> Output
                         Output::one(
                             path,
                             GeneratedFile {
-                                bytes: skill_file.bytes().to_vec(),
+                                bytes: skill_file.content.clone(),
                                 mode,
                             },
                             Diagnostics::new(),
@@ -84,33 +66,34 @@ fn directory_files(directory: &SkillDirectory, traced: &Traced<Skill>) -> Output
 /// `SKILL.md` with the header as the first line of its frontmatter.
 fn skill_markdown(
     bytes: &[u8],
-    sources: &Sources,
+    header: &Sources,
     path: Result<crate::render::tree::OutputPath, Diagnostic>,
-    at: Option<crate::diagnostic::Where>,
+    named: &[Source],
 ) -> Output {
     let made = std::str::from_utf8(bytes)
         .ok()
-        .and_then(|markdown| insert_frontmatter_header(markdown, sources).ok());
+        .and_then(|markdown| insert_frontmatter_header(markdown, header).ok());
     match made {
         Some(markdown) => Output::one(path, GeneratedFile::text(&markdown), Diagnostics::new()),
         None => Output {
             files: Vec::new(),
             diagnostics: Diagnostics::new().with(Diagnostic::error(
                 Code::Skill,
-                at,
+                place(named),
                 Message::new("SKILL.md has no frontmatter block to put the header in"),
             )),
         },
     }
 }
 
-fn command_file(command: &Command, traced: &Traced<Skill>) -> Output {
+fn command_file(command: &Command) -> Output {
     let fields = [
-        Some(("name", text(command.name().as_str()))),
-        Some(("description", text(command.description().as_str()))),
+        Some(("name", text(&command.name))),
+        Some(("description", text(&command.description))),
         command
-            .argument_hint()
-            .map(|hint| ("argument-hint", text(hint.as_str()))),
+            .argument_hint
+            .as_deref()
+            .map(|hint| ("argument-hint", text(hint))),
         Some(("disable-model-invocation", EmitValue::Bool(true))),
     ]
     .into_iter()
@@ -118,17 +101,17 @@ fn command_file(command: &Command, traced: &Traced<Skill>) -> Output {
     .map(|(key, value)| (key.to_owned(), value))
     .collect();
     file(
-        &format!("{SKILLS_DIR}/{}/{SKILL_FILE}", command.name()),
-        sources(winning(traced)),
+        &format!("{SKILLS_DIR}/{}/{SKILL_FILE}", command.name),
+        sources(&command.sources),
         fields,
-        command.body(),
+        &command.body,
         Diagnostics::new(),
     )
 }
 
-fn stub_file(name: &SkillName) -> Output {
+fn stub_file(name: &str) -> Output {
     let fields = vec![
-        ("name".to_owned(), text(name.as_str())),
+        ("name".to_owned(), text(name)),
         (
             "description".to_owned(),
             text(&format!("Slot stub: {name} is not defined for this repo")),

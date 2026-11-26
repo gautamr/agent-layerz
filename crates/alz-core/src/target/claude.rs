@@ -1,5 +1,6 @@
 //! The Claude adapter's files for agents, skills, commands, slot stubs and rules (spec §8.1),
-//! made from the merged model alone. The result is a [`FileTree`] and the diagnostics of the
+//! made from the model of the adapter contract alone (`alz_adapter::Model`, spec §8.0), never from
+//! the merge types of the core. The result is a [`FileTree`] and the diagnostics of the
 //! rendering; nothing is written.
 //!
 //! Only what `docs/target-facts.md` records about Claude Code drives the output: the agent
@@ -18,9 +19,8 @@ mod skills;
 mod tools;
 
 use crate::diagnostic::{Code, Diagnostic, Diagnostics, Message};
-use crate::merge::Merged;
 use crate::render::tree::{FileTree, GeneratedFile, OutputPath};
-use crate::stack::Workspace;
+use alz_adapter::{Context, Model};
 
 pub use tools::{is_model_value, neutral_permission_mode, neutral_tool};
 
@@ -33,13 +33,13 @@ pub struct ClaudeFiles {
 }
 
 impl ClaudeFiles {
-    /// Renders every agent, skill, command, slot stub and rule of `merged`.
+    /// Renders every agent, skill, command, slot stub and rule of `model`.
     #[must_use]
-    pub fn of(merged: &Merged) -> Self {
+    pub fn of(model: &Model) -> Self {
         let (tree, diagnostics) = assemble(vec![
-            agents::render(merged),
-            skills::render(merged),
-            rules::render(merged),
+            agents::render(model),
+            skills::render(model),
+            rules::render(model),
         ]);
         Self { tree, diagnostics }
     }
@@ -76,11 +76,9 @@ pub struct ClaudeSettingsFiles {
 impl ClaudeSettingsFiles {
     /// Renders `.claude/settings.json`, the copied hook scripts and `.mcp.json`.
     #[must_use]
-    pub fn of(merged: &Merged, workspace: &Workspace) -> Self {
-        let (tree, diagnostics) = assemble(vec![
-            settings::render(merged, workspace),
-            mcp::render(merged),
-        ]);
+    pub fn of(model: &Model, context: &Context) -> Self {
+        let (tree, diagnostics) =
+            assemble(vec![settings::render(model, context), mcp::render(model)]);
         Self { tree, diagnostics }
     }
 

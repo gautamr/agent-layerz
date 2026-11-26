@@ -37,6 +37,17 @@ pub enum Memory {
     Local,
 }
 
+/// Why an agent has no `model` for the target when it asked for one (§7.8, §8.1). An agent that
+/// has none for another reason, such as a role that no alias routes, has no problem: it uses the
+/// session's model.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModelProblem {
+    /// The agent's `model` is not an alias of `models.yaml`. The text is the `model` as written.
+    NotAnAlias(String),
+    /// The alias, which the agent names or its role routes to, has no model for the target.
+    NoModelForTarget(String),
+}
+
 /// An agent for one target, after its overlays are applied (§7.2).
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -50,6 +61,9 @@ pub struct Agent {
     /// The model, resolved through the routing for this target (§7.8); none when the alias has
     /// no model for the target.
     pub model: Option<String>,
+    /// Why `model` is none when the agent asked for one; none when it has a model or asked for
+    /// none. Never set together with `model`.
+    pub model_problem: Option<ModelProblem>,
     /// The `permission_mode`, when set.
     pub permission_mode: Option<Mode>,
     /// The skills the agent preloads.
@@ -79,6 +93,7 @@ impl Agent {
             description: description.into(),
             tools: None,
             model: None,
+            model_problem: None,
             permission_mode: None,
             skills: Vec::new(),
             isolation: Isolation::None,

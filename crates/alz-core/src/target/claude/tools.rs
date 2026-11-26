@@ -1,47 +1,51 @@
 //! The native names of Claude Code for the neutral vocabulary (spec §8.1, target-facts §1).
+//!
+//! The adapter reads the names of the model, which are text: a neutral tool is `read`, an `mcp__`
+//! tool keeps its name. The two reverse functions at the end serve adoption, which reads Claude's
+//! files into the neutral vocabulary of the core.
 
-use crate::item::{Memory, NeutralTool, PermissionMode, ToolGrant, ToolName};
+use alz_adapter::{Memory, Mode};
+
+use crate::item::{NeutralTool, PermissionMode};
 
 /// The native name of a tool: the neutral tools by the table of §8.1, an `mcp__` tool as written.
-pub(super) fn tool(name: &ToolName) -> String {
+pub(super) fn tool(name: &str) -> String {
     match name {
-        ToolName::Neutral(neutral) => match neutral {
-            NeutralTool::Read => "Read",
-            NeutralTool::Write => "Write",
-            NeutralTool::Edit => "Edit",
-            NeutralTool::Grep => "Grep",
-            NeutralTool::Glob => "Glob",
-            NeutralTool::Bash => "Bash",
-            NeutralTool::WebFetch => "WebFetch",
-            NeutralTool::WebSearch => "WebSearch",
-            NeutralTool::Agent => "Agent",
-            NeutralTool::NotebookEdit => "NotebookEdit",
-            NeutralTool::TodoWrite => "TodoWrite",
-            NeutralTool::Skill => "Skill",
-        }
-        .to_owned(),
-        ToolName::Mcp(_) => name.as_str().to_owned(),
+        "read" => "Read",
+        "write" => "Write",
+        "edit" => "Edit",
+        "grep" => "Grep",
+        "glob" => "Glob",
+        "bash" => "Bash",
+        "web_fetch" => "WebFetch",
+        "web_search" => "WebSearch",
+        "agent" => "Agent",
+        "notebook_edit" => "NotebookEdit",
+        "todo_write" => "TodoWrite",
+        "skill" => "Skill",
+        other => other,
     }
+    .to_owned()
 }
 
 /// The Claude rule of a permission or hook entry: `<tool>:<pattern>` is `<Tool>(<pattern>)` and a
-/// bare `<tool>` is `<Tool>` (target-facts §7b).
-pub(super) fn rule(grant: &ToolGrant) -> String {
-    let native = tool(grant.tool());
-    grant.scope().map_or(native.clone(), |scope| {
-        format!("{native}({})", scope.as_str())
-    })
+/// bare `<tool>` is `<Tool>` (target-facts §7b). The tool is the text before the first `:`.
+pub(super) fn rule(entry: &str) -> String {
+    entry.split_once(':').map_or_else(
+        || tool(entry),
+        |(name, scope)| format!("{}({scope})", tool(name)),
+    )
 }
 
 /// The native `permissionMode` of a neutral mode.
-pub(super) const fn permission_mode(mode: PermissionMode) -> &'static str {
+pub(super) const fn permission_mode(mode: Mode) -> &'static str {
     match mode {
-        PermissionMode::BypassPermissions => "bypassPermissions",
-        PermissionMode::Auto => "auto",
-        PermissionMode::AcceptEdits => "acceptEdits",
-        PermissionMode::Default => "default",
-        PermissionMode::DontAsk => "dontAsk",
-        PermissionMode::Plan => "plan",
+        Mode::BypassPermissions => "bypassPermissions",
+        Mode::Auto => "auto",
+        Mode::AcceptEdits => "acceptEdits",
+        Mode::Default => "default",
+        Mode::DontAsk => "dontAsk",
+        Mode::Plan => "plan",
     }
 }
 
@@ -91,7 +95,7 @@ pub fn neutral_tool(native: &str) -> Option<NeutralTool> {
         Skill,
     ]
     .into_iter()
-    .find(|neutral| tool(&ToolName::Neutral(*neutral)) == native)
+    .find(|neutral| tool(neutral.as_str()) == native)
 }
 
 /// The neutral mode that Claude calls `native`, by the adapter's table of permission modes, and `manual`
@@ -104,5 +108,5 @@ pub fn neutral_permission_mode(native: &str) -> Option<PermissionMode> {
     }
     [BypassPermissions, Auto, AcceptEdits, Default, DontAsk, Plan]
         .into_iter()
-        .find(|mode| permission_mode(*mode) == native)
+        .find(|mode| permission_mode(crate::adapter_model::contract_mode(*mode)) == native)
 }

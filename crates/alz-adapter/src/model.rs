@@ -15,7 +15,7 @@ mod mode;
 mod security;
 mod version;
 
-pub use agent::{Agent, AgentTool, Isolation, Memory};
+pub use agent::{Agent, AgentTool, Isolation, Memory, ModelProblem};
 pub use hook::{Hook, HookEvent, HookMatch, HookRun, HookScript, NeutralEvent, OnFail};
 pub use items::{
     Command, McpServer, McpTransport, Models, PathRule, Permissions, Skill, SkillFile, SlotStub,

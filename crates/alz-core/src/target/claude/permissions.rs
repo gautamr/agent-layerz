@@ -4,9 +4,7 @@
 //! This is the only place that writes the three floor keys, and it writes each exactly when a
 //! layer set the field to `true`.
 
-use crate::item::{FloorFlag, PermissionRule};
-use crate::merge::{Merged, Traced, Tree};
-use crate::stack::Workspace;
+use alz_adapter::{Context, FloorField, JsonValue, Model};
 
 use super::document::{map, text, texts};
 use super::tools;
@@ -14,11 +12,11 @@ use super::tools;
 /// The Claude key of a floor field, and the value that switches it on. Claude takes
 /// `disableBypassPermissionsMode` as the string `"disable"`, and the two `block` keys as booleans
 /// (target-facts §13.4).
-const fn floor_entry(flag: FloorFlag) -> (&'static str, FloorValue) {
-    match flag {
-        FloorFlag::DisableBypassMode => ("disableBypassPermissionsMode", FloorValue::Disable),
-        FloorFlag::BlockReadsOutside => ("blockReadsOutsideWorkingDirectories", FloorValue::Set),
-        FloorFlag::BlockWritesOutside => ("blockWritesOutsideWorkingDirectories", FloorValue::Set),
+const fn floor_entry(field: FloorField) -> (&'static str, FloorValue) {
+    match field {
+        FloorField::DisableBypassMode => ("disableBypassPermissionsMode", FloorValue::Disable),
+        FloorField::BlockReadsOutside => ("blockReadsOutsideWorkingDirectories", FloorValue::Set),
+        FloorField::BlockWritesOutside => ("blockWritesOutsideWorkingDirectories", FloorValue::Set),
     }
 }
 
@@ -32,49 +30,40 @@ enum FloorValue {
 }
 
 impl FloorValue {
-    fn tree(self) -> Tree {
+    fn value(self) -> JsonValue {
         match self {
             Self::Disable => text("disable"),
-            Self::Set => Tree::Bool(true),
+            Self::Set => JsonValue::Bool(true),
         }
     }
 }
 
 /// The `permissions` mapping, `None` when nothing is set.
-pub(super) fn render(merged: &Merged, workspace: &Workspace) -> Option<Tree> {
-    let permissions = merged.permissions();
-    let rules = |list: &[Traced<PermissionRule>]| -> Option<Tree> {
+pub(super) fn render(model: &Model, context: &Context) -> Option<JsonValue> {
+    let permissions = &model.permissions;
+    let rules = |list: &[String]| -> Option<JsonValue> {
         (!list.is_empty()).then(|| {
-            Tree::List(
+            JsonValue::Array(
                 list.iter()
-                    .map(|rule| Tree::Text(tools::rule(rule.value().grant())))
+                    .map(|rule| JsonValue::Text(tools::rule(rule)))
                     .collect(),
             )
         })
     };
-    let directories = (!workspace.add_dirs().is_empty()).then(|| {
-        texts(
-            workspace
-                .add_dirs()
-                .iter()
-                .map(crate::stack::WorkspaceDir::as_str),
-        )
+    let directories = (!context.additional_directories.is_empty())
+        .then(|| texts(context.additional_directories.iter().map(String::as_str)));
+    let floors = permissions.floor_fields.iter().map(|field| {
+        let (key, value) = floor_entry(*field);
+        (key, value.value())
     });
-    let floors = FloorFlag::ALL
-        .into_iter()
-        .filter(|flag| permissions.is_set(*flag))
-        .map(|flag| {
-            let (key, value) = floor_entry(flag);
-            (key, value.tree())
-        });
-    let entries: Vec<(&str, Tree)> = [
-        rules(permissions.allow()).map(|tree| ("allow", tree)),
-        rules(permissions.ask()).map(|tree| ("ask", tree)),
-        rules(permissions.deny()).map(|tree| ("deny", tree)),
+    let entries: Vec<(&str, JsonValue)> = [
+        rules(&permissions.allow).map(|value| ("allow", value)),
+        rules(&permissions.ask).map(|value| ("ask", value)),
+        rules(&permissions.deny).map(|value| ("deny", value)),
         permissions
-            .default_mode()
-            .map(|mode| ("defaultMode", text(tools::permission_mode(*mode.value())))),
-        directories.map(|tree| ("additionalDirectories", tree)),
+            .default_mode
+            .map(|mode| ("defaultMode", text(tools::permission_mode(mode)))),
+        directories.map(|value| ("additionalDirectories", value)),
     ]
     .into_iter()
     .flatten()
