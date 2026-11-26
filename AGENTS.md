@@ -81,9 +81,12 @@ run `mise run alz:build`. Never edit generated files.
 - `docs/LAYERING-SPEC.md` is the contract. Change the spec in the same pull request as behaviour.
 - `docs/target-facts.md` holds verified facts about Claude Code and Codex. Adapters may only
   rely on facts recorded there.
-- `crates/alz-core` is the pure domain: stack, merge rules per item type, adapters, adoption
-  planning, rendering, the leak guard and secret scan, identity checks. It has no file system,
-  process or environment access.
+- `crates/alz-core` is the pure domain: stack, merge rules per item type, the adapter registry
+  and the model it hands adapters, adoption planning, rendering and the output checks, the leak
+  guard and secret scan, identity checks. It has no file system, process or environment access.
+- `crates/alz-adapter` is the adapter contract (spec §8.0, decision-40): the model, descriptor,
+  output and the `Adapter` trait. `crates/alz-target-claude` is the Claude adapter; it depends
+  on `alz-adapter` only, so it cannot reach core internals or do I/O.
 - `crates/alz-io` holds every effect (files, git, the layer cache, the terminal, processes)
   behind capability types. `crates/alz` is the thin binary that wires them and owns the exit
   codes. `crates/alz-test-support` has the test helpers.
