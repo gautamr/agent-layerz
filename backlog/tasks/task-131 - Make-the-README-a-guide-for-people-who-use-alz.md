@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-28T02:59:00Z'
-updated_date: '2026-11-28T03:07:00Z'
+updated_date: '2026-11-28T15:41:00Z'
 labels:
   - area:docs
 milestone: m-1
@@ -28,6 +28,10 @@ The README mixes user and developer content and has four errors: alz:build is sa
 - [x] #2 Every command and option in the README exists in the CLI today (alz --help and each subcommand's --help)
 - [x] #3 The quick start runs as written in a scratch repository
 - [x] #4 The four errors in the description are fixed (read the file)
+- [x] #5 No migration section: the README presents alz as a new release (owner, 2026-11-28)
+- [x] #6 A status section near the top shows each coding agent's adapter status and each feature's status with ✅ 🔜 🙋
+- [x] #7 Install lists Homebrew and mise first, marked as coming with the first release, then from source, which works today
+- [x] #8 An algebra section states the merge structures and their laws and links docs/algebra.md
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -35,6 +39,8 @@ The README mixes user and developer content and has four errors: alz:build is sa
 <!-- SECTION:NOTES:BEGIN -->
 Checks: every command and option checked against alz --help and each subcommand's --help (doctor and lint rows reworded to match, the doctor row against a real alz doctor run). The quick start ran in a scratch repository with a real tagged public layer: init, build --adopt (54 files), ls and check --skip-identity passed. That run showed a layer's commit_identity becomes the scratch repository's git identity, so the README no longer names anyone's layer as one to try, and it says what a layer can set. alz init --kind layer scaffolded a layer.
 Review (fresh-context reviewer) found and fixed: the 0.1.0 section could not tell the two installs apart because the Rust alz also reports 0.1.0 (it now tells them apart by symlink or regular file), and it said layers keep working when CHANGELOG says some fail; CHANGELOG cited the old heading; the cache path left out XDG_CACHE_HOME; the garbled settings bullet in Safety is now a list; 'the clone now fails' is now timeless.
+
+Owner feedback, 2026-11-28: drop the 0.1.0 migration; a prominent status matrix with emoji, including adapters; the algebra and its laws; Homebrew and mise as the default install, then from source. Done. Homebrew and mise are marked 🔜 because no release, tap or release assets exist yet (TASK-55.8.1-55.8.4). The commands assume the tap repository gautamr/homebrew-tap (brew install gautamr/tap/alz) and mise's github backend (mise use -g github:gautamr/agent-layerz, which picks the release asset by OS and architecture). CHANGELOG no longer points to a migration section. Every relative link and anchor in README, CONTRIBUTING and docs/algebra.md resolves (script check).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

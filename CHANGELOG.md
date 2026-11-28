@@ -8,10 +8,8 @@ All notable changes to agent-layerz are recorded here. The format follows
 
 ### Changed
 
-- `alz` is one Rust binary with no runtime. Until the first Rust release is published, build it
-  from a clone with `mise run install:local` (README, Install). 0.1.0 was installed from a
-  package registry and leaves a symlink named `alz` on the `PATH`, which `mise run install:local`
-  will not replace: remove that install first (README, "Moving from 0.1.0").
+- `alz` is one Rust binary with no runtime, installed as the README's Install section says. The
+  JavaScript package of 0.1.0 is deprecated.
 - The Rust `alz` checks layer files more strictly than 0.1.0, as
   `docs/LAYERING-SPEC.md` §5.2, §7.2, §7.7, §7.8, §7.9, §9.2 and §10.1 say (TASK-55.5). A layer
   that 0.1.0 accepts can fail when the repository moves to the Rust `alz`:
