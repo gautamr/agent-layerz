@@ -3,10 +3,10 @@ id: TASK-97
 title: >-
   Record the facts behind 11 Claude output keys that target-facts does not
   record
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-25T14:45:00Z'
-updated_date: '2026-11-25T15:33:00Z'
+updated_date: '2026-11-27T10:39:00Z'
 labels:
   - bug
   - area:docs
@@ -22,9 +22,9 @@ Spec §8 says an adapter relies only on what docs/target-facts.md records. A tes
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each of the 11 keys has a verified row in docs/target-facts.md (DOCS at least)
-- [ ] #2 NO_FACT_RECORDS in the facts test is empty and the test passes
-- [ ] #3 The spec-coverage row for §8 What an adapter may rely on is covered
+- [x] #1 Each of the 11 keys has a verified row in docs/target-facts.md (DOCS at least)
+- [x] #2 NO_FACT_RECORDS in the facts test is empty and the test passes
+- [x] #3 The spec-coverage row for §8 What an adapter may rely on is covered
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -39,4 +39,12 @@ SMOKE in a throwaway project with HOME and CLAUDE_CONFIG_DIR set to empty throwa
 Recorded: target-facts §5 (3 rows), §7 (5 rows), §7b (3 rows); header and §0 sources updated. NO_FACT_RECORDS emptied. spec-coverage: §8 What an adapter may rely on covered (the four facts tests), its known-differences line removed, summaries §8 4/1/1/0, all 155/24/9/3, TASK-55.9.7 gap rows 0.
 No key differs from what the adapter writes; no bug task filed.
 Checks: cargo test -p alz-core --lib target::claude::tests::facts: 4 passed. mise run rust:check: exit 0, 63 test suites, 2149 passed, 0 failed (spec_coverage guard 9 passed).
+
+2026-11-27, closing check on main b44386e: the work merged in PR #32. cargo test -p alz-core --lib adapter_model::claude_stacks::facts: 3 passed (the test fails on any output key without a verified target-facts row, so all 11 keys are recorded); NO_FACT_RECORDS is empty (crates/alz-core/src/adapter_model/claude_stacks/facts.rs:270); cargo test -p alz-test-support --test spec_coverage: 9 passed; docs/spec-coverage.md marks §8 What an adapter may rely on covered. mise run rust:check exit 0 the same day.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Recorded in docs/target-facts.md the Claude facts behind the 11 output keys the adapter wrote without a verified row (skill name, description, argument-hint; permissions allow, ask, deny; .mcp.json command, args, env, type, url), from DOCS and SMOKE on Claude Code 2.1.323. NO_FACT_RECORDS is empty and §8 What an adapter may rely on is covered. Merged in PR #32 and reviewed there; no key differed from what alz writes. Closed by the owner's approval on 2026-11-27.
+<!-- SECTION:FINAL_SUMMARY:END -->
