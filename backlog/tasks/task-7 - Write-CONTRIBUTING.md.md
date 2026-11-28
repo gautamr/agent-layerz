@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-19T17:13:00Z'
-updated_date: '2026-11-28T03:06:00Z'
+updated_date: '2026-11-28T15:38:00Z'
 labels:
   - area:docs
 milestone: m-1
@@ -27,6 +27,9 @@ Contributors need the setup, the test conventions and the rules this project hol
 - [x] #3 States Conventional Commits with the task ID and one task per pull request
 - [x] #4 States that adapter behaviour must rest on a recorded fact in docs/target-facts.md
 - [x] #5 Explains that AGENTS.md, CLAUDE.md and .claude/ are generated from .layer/ with `mise run alz:build`
+- [ ] #6 docs/algebra.md states each merge structure, its laws, what each law gives and the property test that checks it, with further reading (read the file; every named test exists)
+- [ ] #7 CONTRIBUTING shows the algebra with a small example that compiles and passes, and invites adapters for other coding agents
+- [ ] #8 A pull request template and issue forms for a bug, a feature request and an adapter exist under .github/
 <!-- AC:END -->
 
 ## Implementation Plan
