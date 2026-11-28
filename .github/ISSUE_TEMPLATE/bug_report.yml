@@ -1,0 +1,43 @@
+name: Bug report
+description: alz does something the spec or the docs say it should not.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report a security problem in a public issue. Open an issue that asks for a private contact, without any details of the problem.
+        Remove client, employer and private names, secrets and paths from your machine from everything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, and what it printed or changed.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: Name the README section or the LAYERING-SPEC section, if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest layer.yaml and layer files that show it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: alz version
+      description: The output of `alz --version`, and how you installed it.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: The OS and architecture, and the coding agent's version (for example `claude --version`).

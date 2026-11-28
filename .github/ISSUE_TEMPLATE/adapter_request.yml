@@ -1,0 +1,35 @@
+name: Adapter for a coding agent
+description: Propose or offer to write an adapter for another coding agent.
+labels: [enhancement, help wanted]
+body:
+  - type: input
+    id: agent
+    attributes:
+      label: Coding agent
+      description: Its name and the version you use.
+    validations:
+      required: true
+  - type: textarea
+    id: native
+    attributes:
+      label: Native configuration
+      description: |
+        The files and settings it reads for instructions, subagents, skills, hooks, permissions, MCP servers and models, with links to its documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: facts
+    attributes:
+      label: Facts you can check
+      description: |
+        What you can verify by running the tool (SMOKE), from its --help (HELP) or from its docs (DOCS). Adapters rely only on facts recorded in docs/target-facts.md.
+  - type: dropdown
+    id: help
+    attributes:
+      label: Will you write it?
+      options:
+        - Yes, I would like to write it
+        - I can help test it
+        - No, I am asking for it
+    validations:
+      required: true
