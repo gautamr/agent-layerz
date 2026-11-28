@@ -115,10 +115,12 @@ kept at the edges, in `alz-io`. A new dependency needs a recorded decision first
 
 ## The algebra in practice
 
-Every value a layer can set merges through a small algebraic structure with written laws:
-last-writer-wins, a union, a list edit, a deep merge, or a floor that only gets stricter.
-[docs/algebra.md](docs/algebra.md) states each structure, its laws and the property test that
-checks them. When you add something a layer can set, first choose the structure it merges with.
+Most values a layer can set merge through a small algebraic structure with written laws:
+last-writer-wins, a union, a list edit, a rule chain, a deep merge, or a floor that only gets
+stricter. Where security is at stake, the merge also refuses a value that would loosen what a
+more general layer set. [docs/algebra.md](docs/algebra.md) states each structure, its laws, the
+refusals and the property tests that check them. When you add something a layer can set, first
+choose the structure it merges with.
 
 Say a new setting must only get stricter down the stack, as permission modes do. Order its
 values from loosest to strictest and use `Floor`, whose merge is `max`:
@@ -142,14 +144,16 @@ fn a_repo_layer_cannot_loosen_what_the_personal_layer_set() {
 }
 
 #[test]
-fn deny_lists_only_grow() {
+fn a_union_keeps_every_earlier_rule() {
     let personal: OrderedSet<&str> = ["read:.env*"].into_iter().collect();
     let repo: OrderedSet<&str> = ["bash:rm -rf *", "read:.env*"].into_iter().collect();
     assert_eq!(personal.merge(repo).as_slice(), ["read:.env*", "bash:rm -rf *"]);
 }
 ```
 
-The examples prove two cases. A law covers every case, so state it as a property and let
+A union alone does not stop a layer from removing a rule: a list a layer can edit with `-[…]`
+or `[…]` also needs the merge to refuse an edit that drops an inherited rule, as the permissions
+merge does for `deny`. The examples prove two cases. A law covers every case, so state it as a property and let
 [proptest](https://proptest-rs.github.io/proptest/) generate the inputs:
 
 ```rust
@@ -176,9 +180,10 @@ When no existing structure fits, write a new one in `crates/alz-core/src/merge/a
 
 1. Give it a `merge(self, later)` method, where `later` is the more specific value.
 2. State its laws in its doc comment, and its exceptions too: `Tree::deep_merge` is associative
-   only over kind-consistent trees, and its tests show the counterexample.
+   only over trees of one shape, and its tests show the counterexample.
 3. Give each law a property test: at least associativity and the identity, plus idempotence,
-   commutativity or monotonicity where the rule needs them.
+   commutativity or monotonicity where the rule needs them. If a looser value must be refused,
+   test that the merge refuses it and names the layer.
 4. State the merge rule in `docs/LAYERING-SPEC.md` §7 and add the structure to docs/algebra.md.
 
 ## Write an adapter for another coding agent

@@ -1,10 +1,12 @@
 # The algebra of agent-layerz
 
-`alz` merges layers with a small set of algebraic structures. Each one has written laws, and a
-property test checks each law on thousands of generated inputs. This page states the
-structures, their laws, what each law buys you, and where its test lives. The rules themselves
-are in [LAYERING-SPEC §7](LAYERING-SPEC.md#7-merge-rules); the code is in
-[`crates/alz-core/src/merge/algebra/`](../crates/alz-core/src/merge/algebra/).
+Most of what a layer can set merges through a small algebraic structure with written laws, and
+a property test checks each law on generated inputs. Where a law alone cannot keep the stack
+safe, the merge also refuses some values: it stops with an error instead of loosening anything.
+This page states the structures and their laws, says what each law gives you and where its test
+is, and lists the exceptions. The rules themselves are in
+[LAYERING-SPEC §7](LAYERING-SPEC.md#7-merge-rules), and the code is in
+[`crates/alz-core/src/merge/`](../crates/alz-core/src/merge/).
 
 ## The model
 
@@ -14,21 +16,21 @@ A stack is a list of layers, most general first: personal, then client, then rep
 L₁, L₂, …, Lₙ          (L₁ most general, Lₙ the repo layer)
 ```
 
-For each item type (agents, skills, permissions, settings and the rest), every layer contributes
-a value vᵢ, possibly empty. Each type has a binary operation `⊕`, written
-`earlier.merge(later)` in the code, where the right operand is the more specific value. The
-merged item is a left fold:
+For an item that merges through a structure, every layer contributes a value vᵢ, possibly empty.
+The structure has a binary operation `⊕`, written `earlier.merge(later)` in the code, whose right
+operand is the more specific value. The merged item is a left fold:
 
 ```text
 v = e ⊕ v₁ ⊕ v₂ ⊕ … ⊕ vₙ        e is the identity: "this layer says nothing"
 ```
 
-The build is then a pure function of its inputs: the layers' content and the pinned revisions
-in `layer.lock`.
+The build as a whole is a pure function of its inputs: the layers' content and the revisions
+pinned in `layer.lock`.
 
 ```text
-build : (layers, lock) → files                  same inputs, byte-identical files (§6)
-check : build(layers, lock) = files in the repo  what `alz check` decides
+build : (layers, lock) → files       same inputs give byte-identical files (spec §6)
+check : files in the repo = build(layers, lock)
+        and the git identity matches the declared one, unless --skip-identity
 ```
 
 ## The structures
@@ -36,96 +38,142 @@ check : build(layers, lock) = files in the repo  what `alz check` decides
 | Structure | `a ⊕ b` | Algebra | Laws under test | Used for |
 | --- | --- | --- | --- | --- |
 | [`Last<T>`](../crates/alz-core/src/merge/algebra/last.rs) | `b` when set, else `a` | the last-writer-wins monoid | associative; unset is the identity on both sides | an agent's scalar fields |
-| [`Replace<K, V>`](../crates/alz-core/src/merge/algebra/replace.rs) | union of maps, `b`'s value wins per key | a monoid | associative; the empty map is the identity | skills, commands, MCP servers, model aliases, instruction blocks by file name, passthrough files by path |
-| [`OrderedSet<T>`](../crates/alz-core/src/merge/algebra/ordered_set.rs) | union, keeping each item's first occurrence | an idempotent monoid; as a set, a join-semilattice | associative, idempotent, commutative as a set, the empty set is the identity, no item held twice | `allow`, `ask` and `deny` lists, a rule's paths, hook order |
-| [`ListEdit<T>`](../crates/alz-core/src/merge/algebra/list_edit.rs) | composition of `+[…]`, `-[…]` and `[…]` edits | a monoid acting on lists | composition is associative; applying `a ⊕ b` equals applying `a` then `b`; the empty edit is the identity | an agent's tools and skills, permission list edits |
-| [`Tree::deep_merge`](../crates/alz-core/src/merge/algebra/deep_merge.rs) | maps merge per key, lists by `OrderedSet` union, any other value: `b` wins | a monoid on kind-consistent trees | associative when every path keeps one kind; a tree merged with itself is settled | `settings.yaml`, an agent's native fields |
-| [`Floor<T>`](../crates/alz-core/src/merge/algebra/floor.rs) | `max(a, b)` on a scale where larger is stricter | a bounded join-semilattice | associative, commutative, idempotent, unset is the identity, monotone | `default_mode` with `floor: true`, an overlay's `permission_mode`, `locked` hooks, floor settings |
-| [`covers`](../crates/alz-core/src/merge/algebra/narrowing.rs) | not an operation: `a ≽ b` when tool entry `a` grants everything `b` does | a preorder | reflexive, transitive | narrowing an agent's tools in an overlay |
+| [`Replace<K, V>`](../crates/alz-core/src/merge/algebra/replace.rs) | union of maps, `b`'s value wins per key | a monoid | associative; the empty map is the identity on both sides | skills, commands, MCP servers, model aliases, passthrough files by path |
+| [`OrderedSet<T>`](../crates/alz-core/src/merge/algebra/ordered_set.rs) | union, keeping each item's first occurrence | an idempotent monoid; as a set, a join-semilattice | associative, idempotent, commutative as a set, the empty set is the identity on both sides, no item held twice | `allow`, `ask` and `deny` lists, a rule's paths, the lists inside settings |
+| [`ListEdit<T>`](../crates/alz-core/src/merge/algebra/list_edit.rs) | the edit that does `a`, then `b` | a monoid of `+[…]`, `-[…]` and `[…]` edits that acts on lists without duplicates | composition is associative; applying `a ⊕ b` equals applying `a`, then `b`; the empty edit is the identity up to applying it | an agent's tools and skills, edits of the permission lists |
+| [`RuleChain`](../crates/alz-core/src/merge/rules.rs) | a defining file discards what came before; an extending file adds to it | a monoid | associative, with an identity | path-scoped rules |
+| [`Tree::deep_merge`](../crates/alz-core/src/merge/algebra/deep_merge.rs) | maps merge per key, lists by `OrderedSet` union, any other value: `b` wins | a semigroup on trees of one shape | associative when every path keeps one kind; at the top of `settings.yaml`, the empty settings are the identity; merging a layer twice changes nothing more | `settings.yaml` |
+| [`NativeMap`](../crates/alz-core/src/item/agent/ordered_tree.rs) | the same deep merge, keeping the order in which keys first appeared | a semigroup | associative, in value and in key order | an agent's native fields (`claude:`, `codex:`) |
+| [`Floor<T>`](../crates/alz-core/src/merge/algebra/floor.rs) | `max(a, b)` on an order where larger is stricter | a bounded join-semilattice | associative, commutative, idempotent, unset is the identity, monotone | `default_mode` with `floor: true` |
+| [`covers`](../crates/alz-core/src/merge/algebra/narrowing.rs) | not an operation: `a ≽ b` when tool entry `a` grants everything `b` does | a preorder | reflexive, transitive | the tools an overlay may leave an agent |
 
 ### Last-writer-wins: `Last` and `Replace`
 
-`Last` is the simplest monoid there is: the right operand wins when it says anything. `Replace`
-is the same rule applied key by key, so a repo layer's `review` skill replaces the personal
-layer's `review` skill and leaves every other skill alone.
+`Last` keeps the right operand when it says anything. `Replace` applies the same rule key by key,
+so a repo layer's `review` skill replaces the personal layer's `review` skill and leaves every
+other skill alone.
 
 ### Union: `OrderedSet`
 
-Permission lists only grow down the stack, and listing a rule twice must not change the
-result. That is idempotence (`a ⊕ a = a`). Read as plain sets, the lists form a
-join-semilattice ordered by inclusion. The sequence order is kept for readable output: the
-earlier list sets the order, so the operation is commutative as a set but not as a sequence.
+Listing a rule twice must not change the result. That is idempotence (`a ⊕ a = a`). Read as
+plain sets, the lists form a join-semilattice ordered by inclusion. The sequence order is kept
+for readable output: the earlier list sets the order, so the operation is commutative as a set
+but not as a sequence.
 
 ### Edits: `ListEdit`
 
-A layer may edit an inherited list instead of restating it: `+[a]` adds, `-[b]` removes, and
-`[c]` replaces. Edits compose into one edit, and composition is a monoid action on lists:
+A layer may edit an inherited list instead of restating it: `+[a]` adds, `-[b]` removes and
+`[c]` replaces. Edits form a monoid that acts on lists without duplicates:
 
 ```text
 apply(a ⊕ b, xs) = apply(b, apply(a, xs))
 ```
 
 So a stack of edits can be folded into one edit before it meets the base list, and the result is
-the same as applying them one by one.
+the same as applying them one by one. The test of the identity compares the results of applying
+edits, not the edits themselves.
+
+### Rules: `RuleChain`
+
+A path-scoped rule is named by its file. A layer that defines the rule discards everything
+before it; a layer with `mode: extend` appends its body and adds its globs. Each layer's say on
+one rule is a `RuleChain`, and their merge is associative with an identity.
 
 ### Settings: `Tree::deep_merge`
 
 Settings are trees. Maps merge key by key, lists are unioned, and any other value is replaced.
-This is associative only when every path keeps the same kind (map, list or scalar) in all the
-trees merged. The test
-`a_path_that_changes_kind_is_not_associative_which_is_why_the_law_is_for_consistent_trees` shows
-the counterexample. Take a list, then a scalar, then a list: the left fold gives the last list,
-but merging the last two first gives both lists. The spec chooses the left fold, so the law is
-stated for kind-consistent trees only.
+Three laws hold, each within limits:
 
-### Security: `Floor`
+- **Associativity**, when every path keeps the same kind (map, list or scalar) in all the trees
+  merged. The test
+  `a_path_that_changes_kind_is_not_associative_which_is_why_the_law_is_for_consistent_trees`
+  shows the counterexample. Take a list, then a scalar, then a list: the left fold gives the last
+  list, but merging the last two first gives both lists. The spec chooses the left fold, so the
+  law is stated for trees of one shape.
+- **An identity** only at the top of `settings.yaml`, where the empty settings change nothing.
+  A scalar has no identity.
+- **Merging a layer twice changes nothing more**: `(a ⊕ b) ⊕ b = a ⊕ b`, for lists without
+  repeated items. Plain idempotence fails when a list repeats an item, since `[1, 1] ⊕ [1, 1]`
+  is `[1]`. Once a tree has been merged with itself it is settled:
+  `(t ⊕ t) ⊕ (t ⊕ t) = t ⊕ t`.
 
-Security settings sit on a scale ordered from loosest to strictest. For permission modes:
+An agent's native fields merge the same way through `NativeMap`, which also keeps the order in
+which keys first appeared, so generated files list them in a stable order.
+
+### Security: `Floor`, and refusing what loosens
+
+Permission modes are ordered from loosest to strictest:
 
 ```text
 bypass_permissions < auto < accept_edits < default < dont_ask < plan
 ```
 
-`Floor` merges with `max`, the join of that order, so for every value `b` a later layer writes:
+A `default_mode` declared with `floor: true` is a `Floor`. Its merge is `max`, the join of that
+order, so for every later value `b`:
 
 ```text
-a ⊕ b ≥ a                                             monotone: a layer can tighten, never loosen
+a ⊕ b ≥ a            monotone: the floor can rise, never fall
 ```
 
-This one inequality is why a repo layer cannot loosen a personal layer's permission floor or
-unlock its locked hook. A deny rule is never removed downstream either: the permissions merge
-refuses an edit that drops one. Both are property tests:
+A join on its own would quietly absorb a looser value. That is not what a person who set a
+floor wants to happen, so wherever security is at stake the merge refuses instead. A more
+specific layer that tries to loosen any of these gets a build error that names the layer:
 
-- `a_more_specific_layer_cannot_loosen_the_deny_rules_or_the_default_mode`
-- `merging_a_further_layer_either_refuses_or_keeps_the_denies_and_the_floor`
+| What a layer tries | Refused by | Property test |
+| --- | --- | --- |
+| A `default_mode` looser than a floor | `permission-floor` error | `a_more_specific_layer_cannot_loosen_the_deny_rules_or_the_default_mode` |
+| Removing an inherited deny rule | the permissions merge | `merging_a_further_layer_either_refuses_or_keeps_the_denies_and_the_floor` |
+| Clearing a permission floor flag once set | the permissions merge | `a_flag_that_is_true_stays_true_down_the_stack` |
+| Disabling a locked hook | the hooks merge | `no_later_layer_can_disable_a_locked_hook` |
+| Loosening a floor key in `settings.yaml` | the settings merge | `no_floor_key_loosens_down_the_stack` |
+| An overlay's `permission_mode` looser than its agent's | the agents merge | `an_overlay_never_loosens_the_permission_mode` |
 
-They are in [`merge/permissions/laws.rs`](../crates/alz-core/src/merge/permissions/laws.rs).
+So the merge is partial: defined when the more specific layer keeps every floor, and an error
+otherwise. On the values where it is defined, security only gets stricter down the stack.
 
 ### Narrowing: `covers`
 
-An overlay may narrow an agent's tools but not widen them. `covers(a, b)` holds when entry `a`
-grants everything `b` does. For example, `docs/**` covers `docs/adr/**`, and `mise run *` covers
-`mise run test` but not `mise run a; b`. The relation is a preorder: reflexive and transitive.
-Transitivity matters. Each overlay checks its entries only against the agent it refines, and
-transitivity makes the check hold for the whole chain of overlays. That is also why
-`docs/**/**` covers only itself: the plain rule would break transitivity.
+An overlay may narrow an agent's tools but not widen them, unless it sets `allow_widen: true`,
+which a public layer may not. `covers(a, b)` holds when entry `a` grants everything `b` does. For
+example, `docs/**` covers `docs/adr/**`, and `mise run *` covers `mise run test` but not
+`mise run a; b`. The relation is a preorder: reflexive and transitive. Transitivity matters:
+each overlay checks its entries only against the agent it refines, and transitivity makes the
+check hold for the whole chain of overlays. It is also why `docs/**/**` covers only itself,
+because the plain rule would break transitivity.
+
+## What is not a single structure
+
+Some items merge by rules that no one structure states:
+
+- **Instructions** are concatenated in stack order, each layer's blocks under that layer's
+  heading. A file with `mode: replace` or `mode: remove` acts on the blocks of more general layers
+  with the same file name, and a file without `mode` adds a block.
+- **Hooks** are entries and disables. A later layer may disable a hook a more general one
+  defined, a layer may not disable its own, and an id defined twice in one layer is an error.
+- **Commit identity** comes from the first layer, or wholly from one private client layer
+  (spec §7.12).
+
+These are why the laws are stated per structure, not for whole layers. Merging two layers into
+one before the rest of the stack can change the result: a hook defined in one and disabled in the
+other becomes a layer that disables its own hook, which is an error.
 
 ## Why the laws matter
 
 | Law | What it gives you |
 | --- | --- |
-| Associativity | You can merge part of a stack on its own, such as a client hub's layers, and the result does not change. Bracketing never matters, so a long stack and a pre-merged one give the same merged items. |
-| Identity | A layer that does not mention an item leaves it alone, and an empty layer is harmless. |
-| Idempotence | Repeating a rule, a path or a hook changes nothing, so duplicates in sources cannot drift the output. |
-| Commutativity as a set | The permissions you end up with do not depend on which layer listed a rule first; only the printed order does. |
-| Monotonicity | Security only gets stricter down the stack. A repository cannot weaken what its owner or client requires. |
+| Associativity | Folding a structure's values in any grouping gives the same value, so the code is free to fold a stack step by step or all at once. |
+| Identity | A layer that says nothing about an item leaves it alone. |
+| Idempotence | A repeated rule or path changes nothing, so duplicates in sources cannot change the output. |
+| Commutativity as a set | When layers only add rules, the permissions you end up with do not depend on which layer listed a rule first; only the printed order does. With edits, order matters: `[a]` then `+[b]` gives both rules, and `+[b]` then `[a]` gives `a` only. |
+| Monotonicity, with refusal | Security only gets stricter down the stack. A repository cannot weaken what its owner or client requires, and an attempt is an error, not a silent change. |
 | Determinism | Output is a function of the inputs, so `alz check` in CI is an equation, not a heuristic. |
 
 ## How the laws are tested
 
 Each law is a [`proptest`](https://proptest-rs.github.io/proptest/) property beside the
-structure. proptest generates random values, checks the equation, and shrinks a failure to a
-minimal counterexample. For example, the associativity of `Floor`:
+structure. proptest generates random values (256 cases per property by default), checks the
+equation, and shrinks a failure to a minimal counterexample. For example, the associativity of
+`Floor`:
 
 ```rust
 proptest! {
@@ -139,11 +187,12 @@ proptest! {
 }
 ```
 
-The merge of each item type then has its own law tests over whole layers. They are in
-`merge/permissions/laws.rs`, `merge/settings/laws.rs` and `merge/passthrough/laws.rs`. The
+The merge of each item type has its own property tests over whole layers too, for example in
+`merge/permissions/laws.rs`, `merge/settings/laws.rs`, `merge/passthrough/laws.rs`,
+`merge/hooks/tests.rs`, `merge/rules/tests.rs` and `merge/agents/overlay_strictness.rs`. The
 acceptance tests of [spec §13](LAYERING-SPEC.md#13-acceptance-tests) check the same guarantees
-end to end on fixture repositories. [spec-coverage.md](spec-coverage.md) maps each requirement
-to its test.
+end to end on fixture repositories, and [spec-coverage.md](spec-coverage.md) maps each
+requirement to its test.
 
 ## Further reading
 

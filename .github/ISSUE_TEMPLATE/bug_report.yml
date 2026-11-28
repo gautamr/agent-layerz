@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Do not report a security problem in a public issue.
+        Do not report a security problem in a public issue. Open an issue that asks for a private contact, without any details of the problem.
         Remove client, employer and private names, secrets and paths from your machine from everything you paste.
   - type: textarea
     id: what
