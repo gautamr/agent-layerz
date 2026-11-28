@@ -3,7 +3,7 @@
 Write your coding-agent configuration once, in layers, and compose it into every repository.
 
 Instructions, subagents, skills, hooks, permissions, MCP servers and model choices live in
-**layers**: a public personal layer, a private client layer, the repository's own layer. `alz`
+**layers**: a public personal layer, a private client layer, the repo layer. `alz`
 merges them with fixed, documented rules and writes the native files each agent reads
 (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) into the repository. The output is committed,
 so CI, teammates and every account on your machine see the same setup.
@@ -22,7 +22,8 @@ personal (public)  →  client (private)  →  repo (.layer/)  ──alz build�
   so switching between Claude Code accounts (`CLAUDE_CONFIG_DIR`) never changes what an agent
   sees. `alz doctor` reports user-level agents or skills that would shadow the built ones.
 - **Reviewable and reproducible.** Generated files carry a header naming their sources, and
-  `layer.lock` pins every layer's revision. `alz check` fails in CI when the two disagree.
+  `layer.lock` pins every layer's revision. `alz check` fails in CI when the generated files or
+  the lock no longer match the layers.
 - **Adopts what you already have.** `alz build --adopt` turns a repo's hand-written `.claude/`,
   `CLAUDE.md`, `AGENTS.md` and `.mcp.json` into layer sources with the same effect.
 
@@ -62,27 +63,31 @@ The task replaces the installed file in place and prints the version it replaced
 ### Uninstall
 
 ```sh
-rm ~/.local/bin/alz                 # or wherever you installed it
-rm -rf ~/.cache/agent-layerz        # optional: the layer cache, rebuilt on the next build
+rm ~/.local/bin/alz                                          # or wherever you installed it
+rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/agent-layerz"        # the layer cache
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/agent-layerz"  # accounts accepted with `alz account allow`
 ```
 
-If you ran `alz account allow`, the accounts you accepted are in
-`${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`; remove that folder too. The files
-`alz` generated in your repositories are ordinary committed files and stay where they are.
+The files `alz` generated in your repositories are ordinary committed files and stay where they
+are.
 
 ### Moving from 0.1.0
 
-How you move from 0.1.0 depends on how you installed it:
+The 0.1.0 release ran on Node.js. The Rust `alz` still reports version 0.1.0 until its first
+release, so the version does not tell the two apart. Check what `alz` on your `PATH` is:
 
-- **From the JavaScript package registry.** That install left a symlink named `alz` on your
-  `PATH`, and `mise run install:local` refuses to replace a symlink. Remove the package with the
-  tool that installed it, delete the `alz` link if one remains (`command -v alz` shows where),
-  then install as above.
-- **From a clone, as a regular file.** `mise run install:local` replaces the file and prints the
-  version it replaced.
+```sh
+ls -l "$(command -v alz)"
+```
 
-Layers and repositories built with 0.1.0 keep working, with the stricter checks that
-[CHANGELOG.md](CHANGELOG.md) lists.
+- **A symlink** (into a Node.js package folder) is the 0.1.0 release from the JavaScript
+  package registry. `mise run install:local` refuses to replace a symlink. Remove the package
+  with the tool that installed it, delete the link if it remains, then install as above.
+- **A regular file** is a build from a clone. `mise run install:local` replaces it; its output
+  then shows the git revision it was built from.
+
+The layer and lock formats do not change, but the Rust `alz` checks layers more strictly, so a
+layer that 0.1.0 accepted can fail. [CHANGELOG.md](CHANGELOG.md) lists each check.
 
 ## Quick start
 
@@ -193,19 +198,19 @@ commit_identity:
 | `alz diff` | Show what the next build would change. |
 | `alz ls [--live]` | List built items and the layer that decides each. `--live` asks Claude Code what it loaded (one short model call) and fails on anything missing. |
 | `alz explain <type> <name>` | Every layer that contributed to an item, in order, and the merged result. |
-| `alz doctor` | Name collisions in account dirs, installed tool version, slots, budgets. |
+| `alz doctor` | Agents and skills in account folders that collide with the built ones, the installed Claude Code version against the verified range, files Claude Code also loads from folders around the repository, and the build's own diagnostics. |
 | `alz account which` | The account each target (Claude Code, Codex) would use in this directory, where it comes from and why each other source was skipped; read-only. Exits 1 when a named account cannot apply. |
 | `alz account allow [--remove]` | Accept (or withdraw) the account this repository's layers name: shows what it would record and asks you to type each account name. Only a person at a terminal outside an agent session can run it; there is no `--yes`. Writes `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`. Until it runs, a layer-named account does not apply; `alz build` and `alz check` print the command on a terminal. |
-| `alz lint [--layer <path>]` | Validate a layer: schema, leak guard for public layers, slots. |
+| `alz lint [--layer <path>]` | Validate a layer (`--layer`), or this repository's stack and lock: schema, leak guard for public layers, slots. |
 
 ## Safety
 
-- `alz` writes only inside the repository and its cache (`~/.cache/agent-layerz`), and, for
-  `alz account allow` only, `allowed.yaml` in `${XDG_STATE_HOME:-~/.local/state}/agent-layerz`
-  (never inside a repository, an account folder or a git work tree or, for a linked file, the
-  directory of its real path, which passes the same checks; missing parent folders are created
-  with mode 0700).
-  It never overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
+- `alz` writes only inside the repository and its layer cache,
+  `${XDG_CACHE_HOME:-~/.cache}/agent-layerz`. The one exception is `alz account allow`, which
+  writes `allowed.yaml` in `${XDG_STATE_HOME:-~/.local/state}/agent-layerz`. That file may never
+  lie inside a repository, an account folder or a git work tree, and neither may its real path
+  when it is a link. Missing parent folders are created with mode 0700.
+- It never overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
 - The only git config it writes is the missing `user.name` and `user.email` in the repository's
   own `.git/config`, by `init` and `build --adopt`; never a global or system file.
 - It never reads credentials or `.env` files, and never stores secret values: MCP servers name
@@ -214,14 +219,17 @@ commit_identity:
   names do not leak into a public layer.
 - Remote layers (`github:` and remote `git:` URLs) are cloned with the local and `file`
   transports blocked, so a repository cannot make them read a folder inside itself. If your
-  `url.<base>.insteadOf` rewrites such a URL to a local mirror path, the clone now fails; name
+  `url.<base>.insteadOf` rewrites such a URL to a local mirror path, the clone fails; name
   the mirror as a local `git:` path instead.
 - No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
-  `XDG_STATE_HOME` or `XDG_CACHE_HOME` through its settings, an MCP server's `env_from`, an
-  agent's native MCP servers or a passthrough settings, `.mcp.json`, agent or `.toml` file
-  (under any target), and passthrough paths must be ASCII. The
-  build fails and names the layer, never the value. This covers declarative configuration
-  only; hooks and MCP commands run code and are not checked.
+  `XDG_STATE_HOME` or `XDG_CACHE_HOME` through any of:
+  - its settings;
+  - an MCP server's `env_from`;
+  - an agent's native MCP servers;
+  - a passthrough settings, `.mcp.json`, agent or `.toml` file, under any target.
+
+  The build fails and names the layer, never the value. This covers declarative configuration
+  only; hooks and MCP commands run code and are not checked. Passthrough paths must be ASCII.
 - Layers can ship hooks, which your agent runs as commands. Use layers you trust, and pin remote
   ones to a tag or commit.
 
