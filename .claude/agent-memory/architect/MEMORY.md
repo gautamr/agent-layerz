@@ -8,3 +8,5 @@
 - [R5 planning facts](reference_r5_planning_facts.md) — no Codex adapter in reference; adopt keeps manifest comments; lock-ownership hazard; names in headers
 - [R6 planning facts](reference_r6_planning_facts.md) — git follows linked .git/config; std home_dir getuid; rustix termios/pty; Rust init lacks stack step
 - [Drift list audit](reference_drift_list_audit.md) — script over git show base vs HEAD; "(R6)" rows go stale; run drift cases only with -t "reference drift"
+- [Spec guards](reference_spec_guards.md) — lines starting ** are anchors; code tables need a case per code and level; reuse codes
+- [Long decision filenames](long-decision-filenames.md) — long decision titles break Edit (ENAMETOOLONG); keep titles short or splice bodies via bash
