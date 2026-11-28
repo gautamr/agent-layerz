@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-28T02:59:00Z'
-updated_date: '2026-11-28T15:41:00Z'
+updated_date: '2026-11-28T15:51:00Z'
 labels:
   - area:docs
 milestone: m-1
@@ -24,14 +24,14 @@ The README mixes user and developer content and has four errors: alz:build is sa
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 README sections serve a user: what it is, install (from source), update, uninstall, moving from 0.1.0, quick start, layers, commands, safety, status; the Development section is replaced by a link to CONTRIBUTING.md (read the file)
+- [x] #1 README sections serve a user: what it is, status, why, install (Homebrew, mise, from source), uninstall, quick start, layers, commit identity, commands, safety, the algebra; the Development section is replaced by a link to CONTRIBUTING.md (read the file)
 - [x] #2 Every command and option in the README exists in the CLI today (alz --help and each subcommand's --help)
 - [x] #3 The quick start runs as written in a scratch repository
 - [x] #4 The four errors in the description are fixed (read the file)
 - [x] #5 No migration section: the README presents alz as a new release (owner, 2026-11-28)
 - [x] #6 A status section near the top shows each coding agent's adapter status and each feature's status with ✅ 🔜 🙋
-- [x] #7 Install lists Homebrew and mise first, marked as coming with the first release, then from source, which works today
-- [x] #8 An algebra section states the merge structures and their laws and links docs/algebra.md
+- [x] #7 Install lists Homebrew and mise first, marked as coming with the first binary release, then from source, which works today
+- [x] #8 An algebra section states the merge structures and their laws as docs/algebra.md does, and links it
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -41,10 +41,12 @@ Checks: every command and option checked against alz --help and each subcommand'
 Review (fresh-context reviewer) found and fixed: the 0.1.0 section could not tell the two installs apart because the Rust alz also reports 0.1.0 (it now tells them apart by symlink or regular file), and it said layers keep working when CHANGELOG says some fail; CHANGELOG cited the old heading; the cache path left out XDG_CACHE_HOME; the garbled settings bullet in Safety is now a list; 'the clone now fails' is now timeless.
 
 Owner feedback, 2026-11-28: drop the 0.1.0 migration; a prominent status matrix with emoji, including adapters; the algebra and its laws; Homebrew and mise as the default install, then from source. Done. Homebrew and mise are marked 🔜 because no release, tap or release assets exist yet (TASK-55.8.1-55.8.4). The commands assume the tap repository gautamr/homebrew-tap (brew install gautamr/tap/alz) and mise's github backend (mise use -g github:gautamr/agent-layerz, which picks the release asset by OS and architecture). CHANGELOG no longer points to a migration section. Every relative link and anchor in README, CONTRIBUTING and docs/algebra.md resolves (script check).
+
+Second review (on the algebra) fixed here: the Floor row names only the default_mode floor, with refusals in their own sentence; hook order is no longer listed under the union; rule chains are listed; deep merge is a semigroup on trees of one shape; 'every merge' is now 'most merges', and 'thousands' is gone; associativity is stated per structure, without the hub example; the coding-agent table says Subagents and lists Windsurf, like CONTRIBUTING; the emoji moved out of the Install headings so the anchors stay plain. Links and anchors in README, CONTRIBUTING and docs/algebra.md resolve (script check).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-The README now serves people who use alz: install from source, update, uninstall (binary, layer cache, account state), moving from 0.1.0 by install kind, the quick start with a placeholder layer and a note on what a layer can set, corrected doctor, lint and status text; the Development section is replaced by a link to CONTRIBUTING.md. The four errors from the description are fixed. Reviewed in a fresh context; findings fixed. Depends on TASK-7 (CONTRIBUTING.md).
+The README now serves people who use alz. A status section near the top shows each coding agent's adapter and each feature with ✅ 🔜 🙋. Install lists Homebrew and mise (🔜, from the first binary release), then from source (✅), plus uninstall. The quick start uses a placeholder layer and a note on what a layer can set. The doctor, lint and account text is corrected. A section on the algebra states the merge structures, their laws and the refusals, and links docs/algebra.md. The migration section is gone, at the owner's request, and the Development section is replaced by a link to CONTRIBUTING.md. Two fresh-context reviews; findings fixed. Depends on TASK-7.
 <!-- SECTION:FINAL_SUMMARY:END -->

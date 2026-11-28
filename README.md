@@ -22,11 +22,11 @@ personal (public)  →  client (private)  →  repo (.layer/)  ──alz build�
 
 ### Coding agents
 
-| Coding agent | Instructions | Agents | Skills and commands | Hooks | Permissions | MCP servers | Models | Settings |
+| Coding agent | Instructions | Subagents | Skills and commands | Hooks | Permissions | MCP servers | Models | Settings |
 | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | Claude Code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | OpenAI Codex CLI | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
-| Gemini CLI, GitHub Copilot, Cursor, OpenCode, others | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 |
+| Gemini CLI, GitHub Copilot, Cursor, OpenCode, Windsurf, others | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 |
 
 Each coding agent is an adapter: a pure function from the merged layers to that agent's native
 files. [CONTRIBUTING.md](CONTRIBUTING.md#write-an-adapter-for-another-coding-agent) explains how
@@ -37,7 +37,7 @@ to write one.
 | Area | Feature | Status |
 | --- | --- | :-: |
 | Layers | Personal, client and repo layers from `github:`, `git:` and `path:` sources, pinned in `layer.lock` | ✅ |
-| Merging | Fixed merge rules for every item, with algebraic laws checked by property tests ([the algebra](docs/algebra.md)) | ✅ |
+| Merging | Fixed merge rules for every item, most of them algebraic structures whose laws are checked by property tests ([the algebra](docs/algebra.md)) | ✅ |
 | Merging | Agent overlays that narrow tools and never widen them | ✅ |
 | Safety | Permission floor: a deny rule, a floor mode or a locked hook cannot be loosened down the stack | ✅ |
 | Safety | Leak guard and secret scan for public layers | ✅ |
@@ -73,26 +73,26 @@ rules and acceptance tests are in [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md)
 
 `alz` is one Rust binary with no runtime, for macOS and Linux.
 
-### Homebrew 🔜
+### Homebrew
 
-Available from the first release:
+🔜 Available from the first binary release:
 
 ```sh
 brew install gautamr/tap/alz
 ```
 
-### mise 🔜
+### mise
 
-Available from the first release. [mise](https://mise.jdx.dev) installs the binary from the
-GitHub release:
+🔜 Available from the first binary release. [mise](https://mise.jdx.dev) installs the binary
+from the GitHub release:
 
 ```sh
 mise use -g github:gautamr/agent-layerz
 ```
 
-### From source ✅
+### From source
 
-Works today. You need [mise](https://mise.jdx.dev), which installs the Rust toolchain this
+✅ Works today. You need [mise](https://mise.jdx.dev), which installs the Rust toolchain this
 repository pins, git 2.30 or newer and a POSIX shell.
 
 ```sh
@@ -273,8 +273,8 @@ commit_identity:
 
 ## The algebra
 
-Every merge in `alz` is an algebraic structure with written laws, and a property test checks
-each law on thousands of generated inputs. A stack of layers is a fold:
+Most merges in `alz` are algebraic structures with written laws, and a property test checks each
+law on generated inputs. A stack of layers is a fold:
 
 ```text
 v = e ⊕ v₁ ⊕ v₂ ⊕ … ⊕ vₙ        layers from most general to most specific; e: "says nothing"
@@ -282,25 +282,29 @@ v = e ⊕ v₁ ⊕ v₂ ⊕ … ⊕ vₙ        layers from most general to most
 
 | Structure | Merge `a ⊕ b` | Laws | Used for |
 | --- | --- | --- | --- |
-| Last-writer-wins | `b` when set, else `a` | monoid: associative, with identity | an agent's scalar fields; skills, commands and MCP servers by name |
-| Ordered union | `a ∪ b`, first occurrence kept | idempotent monoid; commutative as a set | `allow`, `ask` and `deny` lists, hook order |
-| List edit | `+[…]`, `-[…]`, `[…]` composed | monoid acting on lists: `apply(a ⊕ b) = apply(b) ∘ apply(a)` | an agent's tools and skills |
-| Deep merge | maps per key, lists by union, else `b` | associative on kind-consistent trees | settings |
-| Floor | `max(a, b)` on a strictness order | join-semilattice; monotone: `a ⊕ b ≥ a` | permission modes, locked hooks |
+| Last-writer-wins | `b` when set, else `a`; per key for named items | monoid: associative, with identity | an agent's scalar fields; skills, commands, MCP servers and model aliases by name |
+| Ordered union | `a ∪ b`, first occurrence kept | idempotent monoid; commutative as a set | `allow`, `ask` and `deny` lists, a rule's paths |
+| List edit | `+[…]`, `-[…]`, `[…]` composed | monoid acting on lists: `apply(a ⊕ b) = apply(b) ∘ apply(a)` | an agent's tools and skills, permission list edits |
+| Rule chain | a defining file resets, an extending file adds | monoid | path-scoped rules |
+| Deep merge | maps per key, lists by union, else `b` | semigroup on trees of one shape | settings, an agent's native fields |
+| Floor | `max(a, b)` on a strictness order | join-semilattice; monotone: `a ⊕ b ≥ a` | the `default_mode` floor |
 | Narrowing | `a ≽ b`: `a` grants all `b` does | preorder: reflexive, transitive | overlays may only narrow tools |
 
-These laws are what you rely on:
+Where a law alone cannot keep the stack safe, the merge refuses instead. Removing a deny rule,
+loosening a floor, disabling a locked hook or loosening an overlay's permission mode is a build
+error that names the layer, so security only gets stricter down the stack.
 
-- Associativity: a hub's layers merge the same whether they are merged on their own first or
-  inside the full stack.
-- Identity: a layer that says nothing changes nothing.
-- Idempotence: a repeated rule changes nothing.
-- Monotonicity: security only gets stricter down the stack.
-- Determinism: same inputs, byte-identical files, so `alz check` is an equation.
+What the laws give you:
 
-[docs/algebra.md](docs/algebra.md) has each law, its property test, the one known exception
-(deep merge when a path changes kind) and a reading list, from property-based testing to
-lattices, CRDTs and reproducible builds.
+- Associativity: each structure folds the same in any grouping.
+- Identity: a layer that says nothing about an item leaves it alone.
+- Idempotence: a repeated rule or path changes nothing.
+- Determinism: same inputs give byte-identical files, so `alz check` is an equation.
+
+[docs/algebra.md](docs/algebra.md) states each law at the level its test checks it. It also gives
+the exceptions (deep merge when a path changes kind, and the items that are not one structure,
+such as instructions and hooks) and a reading list, from property-based testing to lattices,
+CRDTs and reproducible builds.
 
 ## Contributing
 
