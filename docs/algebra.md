@@ -146,3 +146,103 @@ end to end on fixture repositories. [spec-coverage.md](spec-coverage.md) maps ea
 to its test.
 
 ## Further reading
+
+A path from practice to theory. Each entry says what it adds to this page.
+
+### Start here: laws as tests
+
+- John Hughes, *How to Specify It! A Guide to Writing Properties of Pure Functions* (TFP 2019,
+  LNCS 12053, 2020). <https://doi.org/10.1007/978-3-030-47147-7_4>. Five ways to find the
+  properties of a pure function, compared by cost and by the bugs they find.
+- Koen Claessen, John Hughes, *QuickCheck: A Lightweight Tool for Random Testing of Haskell
+  Programs* (ICFP 2000). <https://doi.org/10.1145/351240.351266>. The paper that started
+  property-based testing; proptest descends from it.
+- *The Proptest Book*. <https://proptest-rs.github.io/proptest/>. Strategies, shrinking and
+  recursive values: what the law tests here use to generate layers and trees.
+- Fred Hebert, *Property-Based Testing with PropEr, Erlang, and Elixir* (Pragmatic Bookshelf,
+  2019). <https://pragprog.com/titles/fhproper/property-based-testing-with-proper-erlang-and-elixir/>.
+  Designing generators and finding properties; the ideas carry over to proptest.
+- Sandy Maguire, *Algebra-Driven Design* (Leanpub, 2020). <https://leanpub.com/algebra-driven-design>.
+  Design an abstraction by its laws first, then derive the code and its tests from them.
+
+### Monoids and orders
+
+- Brent A. Yorgey, *Monoids: Theme and Variations* (Haskell Symposium 2012).
+  <https://doi.org/10.1145/2364506.2364520>, free copy <https://core.ac.uk/download/76383233.pdf>.
+  Building a library from monoids, including a monoid acting on another structure, the shape of
+  `ListEdit`.
+- B. A. Davey, H. A. Priestley, *Introduction to Lattices and Order*, 2nd ed. (Cambridge
+  University Press, 2002). <https://doi.org/10.1017/CBO9780511809088>. Partial orders,
+  semilattices and monotone maps: the mathematics of `Floor` and `covers`.
+- Brendan Fong, David I. Spivak, *Seven Sketches in Compositionality* (2018; Cambridge
+  University Press, 2019). <https://arxiv.org/abs/1803.05316>. Chapter 1 covers preorders, joins,
+  monotone maps and Galois connections.
+- Bartosz Milewski, *Category Theory for Programmers* (2014–2019).
+  <https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/>, free PDF
+  <https://github.com/hmemcpy/milewski-ctfp-pdf>. Monoids, functors and composition, for
+  programmers.
+
+### Merging that converges
+
+- Marc Shapiro, Nuno Preguiça, Carlos Baquero, Marek Zawirski, *Conflict-Free Replicated Data
+  Types* (SSS 2011). <https://doi.org/10.1007/978-3-642-24550-3_29>, with the report *A
+  comprehensive study of Convergent and Commutative Replicated Data Types*
+  <https://hal.inria.fr/inria-00555588>. Merges that are joins on a semilattice converge: the
+  laws of `OrderedSet` and `Floor`.
+- Paulo Sérgio Almeida, *Approaches to Conflict-free Replicated Data Types* (ACM Computing
+  Surveys, 2024). <https://arxiv.org/abs/2310.18220>. A current survey of state-based merges and
+  how to compose them.
+- Martin Kleppmann, Alastair R. Beresford, *A Conflict-Free Replicated JSON Datatype* (IEEE TPDS,
+  2017). <https://arxiv.org/abs/1608.03960>. A deterministic merge of nested maps and lists, a
+  relative of `Tree::deep_merge`.
+- Lindsey Kuper, Ryan R. Newton, *LVars: Lattice-based Data Structures for Deterministic
+  Parallelism* (FHPC 2013). <https://doi.org/10.1145/2502323.2502326>. Writes that only move up a
+  lattice give deterministic results.
+- Neil Conway, William R. Marczak, Peter Alvaro, Joseph M. Hellerstein, David Maier, *Logic and
+  Lattices for Distributed Programming* (SoCC 2012). <https://doi.org/10.1145/2391229.2391230>.
+  Programs built from lattices and monotone functions between them.
+- Joseph M. Hellerstein, Peter Alvaro, *Keeping CALM: When Distributed Consistency is Easy*
+  (CACM, 2020). <https://arxiv.org/abs/1901.01930>. Why monotone programs need no coordination.
+
+### Deterministic builds
+
+- Andrey Mokhov, Neil Mitchell, Simon Peyton Jones, *Build Systems à la Carte* (ICFP 2018).
+  <https://doi.org/10.1145/3236774>. Build systems as pure functions over a store.
+- Eelco Dolstra, *The Purely Functional Software Deployment Model* (PhD thesis, Utrecht, 2006).
+  <https://dspace.library.uu.nl/handle/1874/7540>. The work behind Nix: an output is a function
+  of its declared inputs.
+- Reproducible Builds. <https://reproducible-builds.org/>. Practical sources of
+  non-determinism and how to remove them.
+
+### Related configuration systems
+
+- *The Logic of CUE*. <https://cuelang.org/docs/concept/the-logic-of-cue/>. Every value sits in
+  one lattice and merging is the meet, so order never matters. Comparing it with this page
+  shows where `alz` differs: here the more specific layer wins.
+- NixOS Manual, *Option Definitions*. <https://nixos.org/manual/nixos/stable/#sec-option-definitions>.
+  Priorities, ordering and per-type merges in a large layered configuration.
+- Paul Hoffman, James M. Snell, *RFC 7396: JSON Merge Patch* (2014).
+  <https://www.rfc-editor.org/rfc/rfc7396>. The common deep-merge rule, where arrays are
+  replaced whole; `alz` unions them instead.
+- Scott Wlaschin, *Domain Modeling Made Functional* (Pragmatic Bookshelf, 2018).
+  <https://pragprog.com/titles/swdddf/domain-modeling-made-functional/>. Types that make invalid
+  states unrepresentable, and a pure core with effects at the edges, as `alz-core` and `alz-io`
+  are split.
+
+### Courses
+
+- David I. Spivak, Brendan Fong, *18.S097 Applied Category Theory* (MIT OpenCourseWare, 2019).
+  <https://ocw.mit.edu/courses/18-s097-applied-category-theory-january-iap-2019/>. Lectures that
+  follow *Seven Sketches*, with problem sets.
+- Brendan Fong, Bartosz Milewski, David I. Spivak, *Programming with Categories* (MIT, 2020).
+  <http://brendanfong.com/programmingcats.html>, lectures
+  <https://www.youtube.com/playlist?list=PLhgq-BqyZ7i7MTGhUROZy3BOICnVixETS>. Category theory
+  through programming, with no background assumed.
+- Bartosz Milewski, *Category Theory*, Part I (lectures).
+  <https://www.youtube.com/playlist?list=PLbgaMIhjbmEnaH_LTkxLI7FMa2HsnawM_>.
+
+### Beyond sampling: proofs
+
+- *The Kani Rust Verifier*. <https://model-checking.github.io/kani/>. A model checker that proves
+  a property for all inputs within a bound, where proptest samples them. The laws on this page
+  are candidates for Kani proofs.
