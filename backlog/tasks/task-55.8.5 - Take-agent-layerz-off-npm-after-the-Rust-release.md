@@ -4,7 +4,7 @@ title: Take agent-layerz off npm after the Rust release
 status: To Do
 assignee: []
 created_date: '2026-11-24T17:45:00Z'
-updated_date: '2026-11-24T18:25:00Z'
+updated_date: '2026-11-27T06:36:00Z'
 labels:
   - owner:human
   - area:release
@@ -32,4 +32,6 @@ decision-39: no npm distribution; the owner removes the package. npm's unpublish
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner (2026-11-24): unpublish the npm package agent-layerz rather than deprecate it, accepting that the name may be claimed later. The owner does it.
+
+2026-11-27, owner in session: "I deprecated agent-layerz in NPM console". So the name is kept, not given up, which replaces the 2026-11-24 choice to unpublish. npm view agent-layerz shows both versions (0.0.0-stage, 0.1.0) deprecated with npm's default message, 'Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.' AC #1 also wants the message to point to the GitHub releases and Homebrew, so it is reset with npm deprecate after 0.2.0 (TASK-55.8.4). The local TypeScript alz (~/.local/bin/alz) was removed the same day.
 <!-- SECTION:NOTES:END -->
