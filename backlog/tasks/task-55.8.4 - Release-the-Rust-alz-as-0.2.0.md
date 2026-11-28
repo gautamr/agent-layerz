@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@release-engineer'
 created_date: '2026-11-24T17:45:00Z'
-updated_date: '2026-11-25T19:14:00Z'
+updated_date: '2026-11-28T15:41:00Z'
 labels:
   - area:release
   - area:docs
@@ -40,4 +40,6 @@ The first Rust release replaces the npm 0.1.0 for users. Its layer checks are st
 Owner (2026-11-24): the private security tasks are disclosed with the 0.2.0 release (a Security section in CHANGELOG and the release notes, optionally GitHub advisories); until then they stay private, then their files are committed and closed.
 
 Owner (2026-11-26): the adapter contract (TASK-104 to TASK-112) ships before 0.2.0; the release waits for TASK-112. Autonomy and the WASM host follow in later releases.
+
+README (TASK-131) already lists Homebrew, mise (github backend, mise use -g github:gautamr/agent-layerz) and from source, with Homebrew and mise marked 🔜 and the status table's Install row 🔜. At release: remove those markers, set the rows to ✅, and check that both commands install the release (release asset names must let mise's github backend pick one per OS and architecture). AC #4 should then also name mise.
 <!-- SECTION:NOTES:END -->

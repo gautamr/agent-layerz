@@ -1,9 +1,13 @@
 # agent-layerz
 
+[![CI](https://github.com/gautamr/agent-layerz/actions/workflows/rust.yml/badge.svg)](https://github.com/gautamr/agent-layerz/actions/workflows/rust.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust 1.100](https://img.shields.io/badge/rust-1.100-orange.svg)](Cargo.toml)
+
 Write your coding-agent configuration once, in layers, and compose it into every repository.
 
 Instructions, subagents, skills, hooks, permissions, MCP servers and model choices live in
-**layers**: a public personal layer, a private client layer, the repository's own layer. `alz`
+**layers**: a public personal layer, a private client layer, the repo layer. `alz`
 merges them with fixed, documented rules and writes the native files each agent reads
 (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.mcp.json`) into the repository. The output is committed,
 so CI, teammates and every account on your machine see the same setup.
@@ -11,6 +15,44 @@ so CI, teammates and every account on your machine see the same setup.
 ```text
 personal (public)  →  client (private)  →  repo (.layer/)  ──alz build──▶  AGENTS.md, CLAUDE.md, .claude/, .mcp.json
 ```
+
+## Status
+
+✅ works today · 🔜 planned · 🙋 help wanted
+
+### Coding agents
+
+| Coding agent | Instructions | Subagents | Skills and commands | Hooks | Permissions | MCP servers | Models | Settings |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| Claude Code | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| OpenAI Codex CLI | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
+| Gemini CLI, GitHub Copilot, Cursor, OpenCode, Windsurf, others | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 | 🙋 |
+
+Each coding agent is an adapter: a pure function from the merged layers to that agent's native
+files. [CONTRIBUTING.md](CONTRIBUTING.md#write-an-adapter-for-another-coding-agent) explains how
+to write one.
+
+### Features
+
+| Area | Feature | Status |
+| --- | --- | :-: |
+| Layers | Personal, client and repo layers from `github:`, `git:` and `path:` sources, pinned in `layer.lock` | ✅ |
+| Merging | Fixed merge rules for every item, most of them algebraic structures whose laws are checked by property tests ([the algebra](docs/algebra.md)) | ✅ |
+| Merging | Agent overlays that narrow tools and never widen them | ✅ |
+| Safety | Permission floor: a deny rule, a floor mode or a locked hook cannot be loosened down the stack | ✅ |
+| Safety | Leak guard and secret scan for public layers | ✅ |
+| Build | Deterministic, byte-identical builds; `alz check` for CI; `alz diff` | ✅ |
+| Build | Adoption of hand-written `.claude/`, `CLAUDE.md`, `AGENTS.md` and `.mcp.json` (`build --adopt`) | ✅ |
+| Insight | `alz ls`, `alz explain`, `alz doctor`, `alz lint`; `alz ls --live` asks Claude Code what it loaded | ✅ |
+| Identity | Commit identity declared by a layer and checked by `alz check` | ✅ |
+| Accounts | `alz account which` and `alz account allow` | ✅ |
+| Accounts | Starting a tool with the account a repository's layers name | 🔜 |
+| Autonomy | Autonomy levels mapped onto each agent's permission modes | 🔜 |
+| Install | From source | ✅ |
+| Install | Release binaries, Homebrew and mise | 🔜 |
+
+The version is 0.x: formats can still change between minor versions. The full design, merge
+rules and acceptance tests are in [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md).
 
 ## Why
 
@@ -22,64 +64,86 @@ personal (public)  →  client (private)  →  repo (.layer/)  ──alz build�
   so switching between Claude Code accounts (`CLAUDE_CONFIG_DIR`) never changes what an agent
   sees. `alz doctor` reports user-level agents or skills that would shadow the built ones.
 - **Reviewable and reproducible.** Generated files carry a header naming their sources, and
-  `layer.lock` pins every layer's revision. `alz check` fails in CI when the two disagree.
+  `layer.lock` pins every layer's revision. `alz check` fails in CI when the generated files or
+  the lock no longer match the layers.
 - **Adopts what you already have.** `alz build --adopt` turns a repo's hand-written `.claude/`,
   `CLAUDE.md`, `AGENTS.md` and `.mcp.json` into layer sources with the same effect.
 
 ## Install
 
-`alz` is one Rust binary with no runtime. Releases of ready-made binaries and a Homebrew formula
-are being prepared; until the first one is published, build `alz` from a clone. This needs
-[mise](https://mise.jdx.dev) (it installs the Rust toolchain this repository pins), git 2.30 or
-newer and a POSIX shell (macOS or Linux):
+`alz` is one Rust binary with no runtime, for macOS and Linux.
+
+### Homebrew
+
+🔜 Available from the first binary release:
+
+```sh
+brew install gautamr/tap/alz
+```
+
+### mise
+
+🔜 Available from the first binary release. [mise](https://mise.jdx.dev) installs the binary
+from the GitHub release:
+
+```sh
+mise use -g github:gautamr/agent-layerz
+```
+
+### From source
+
+✅ Works today. You need [mise](https://mise.jdx.dev), which installs the Rust toolchain this
+repository pins, git 2.30 or newer and a POSIX shell.
 
 ```sh
 git clone https://github.com/gautamr/agent-layerz.git
 cd agent-layerz
+mise trust                  # the first time: allow mise to use this repository's mise.toml
 mise run install:local
 alz --version
 ```
 
-The task builds `alz` from the locked dependencies and installs it as a regular executable at
-`~/.local/bin/alz`. It creates no symlink. Set `PREFIX` (installs to `$PREFIX/bin`), `BIN_DIR` or
-`ALZ_NAME` to choose another place or name. It prints the version, the git revision and the
-SHA-256 of the installed file. Run it again after `git pull` to update.
-
-### Leaving a 0.1.0 install behind
-
-Version 0.1.0 was installed from the JavaScript package registry. That install leaves a symlink
-named `alz` on your `PATH`, and `mise run install:local` refuses to replace a symlink. Remove the
-old install with the tool that made it, delete the leftover `alz` link if one remains, then run
-`mise run install:local`.
-Layers and repositories built with 0.1.0 keep working, with the stricter checks that
-[CHANGELOG.md](CHANGELOG.md) lists.
-
-## Development
-
-The Rust workspace is in `crates/`; [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md) is the
-contract. All commands run through mise, which pins the toolchain:
+`mise run install:local` builds `alz` from the locked dependencies and installs it as one
+regular file at `~/.local/bin/alz`, never a symlink. It prints the version, the git revision and
+the SHA-256 of the installed file, and warns when the folder is not on your `PATH`. To install
+somewhere else, set `PREFIX` (installs to `$PREFIX/bin`), `BIN_DIR` or `ALZ_NAME`:
 
 ```sh
-mise run rust:check   # format check, clippy with -D warnings, and every test
-mise run rust:ci      # the full local set: check, rustdoc, MSRV, cargo-deny, cargo-audit
-mise run rust:build   # build the release binary at target/release/alz
-mise run alz:check    # fail if this repository's generated agent config is out of date
-mise run alz:build    # rebuild this repository's agent config (needs the personal layer next to the clone)
+BIN_DIR=~/bin mise run install:local        # installs ~/bin/alz
+ALZ_NAME=alz-next mise run install:local    # installs ~/.local/bin/alz-next
 ```
+
+To update, run `git pull` in the clone and `mise run install:local` again. It replaces the
+installed file in place and prints the version it replaced.
+
+### Uninstall
+
+```sh
+rm ~/.local/bin/alz                                          # or wherever you installed it
+rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/agent-layerz"        # the layer cache
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/agent-layerz"  # accounts accepted with `alz account allow`
+```
+
+The files `alz` generated in your repositories are ordinary committed files and stay where they
+are.
 
 ## Quick start
 
 In an existing repository:
 
 ```sh
-alz init --stack github:<you>/agent-layerz-personal@v1.0.0   # optional: --hub ../client-hub
+alz init --stack github:<owner>/<layer-repo>@<tag>   # optional: --hub ../client-hub
 alz build --adopt     # moves hand-written agent config into .layer/, then builds
 alz ls                # every agent, skill, rule, hook and MCP server, and the layer it comes from
 alz check             # in CI: fails when the generated files or the lock are out of date
 ```
 
-Without a personal layer yet, `alz init` alone gives a repo layer in `.layer/`; add more
-general layers to `layer.yaml` later.
+`github:<owner>/<layer-repo>@<tag>` is your personal layer: a git repository, pinned to one of
+its tags. `alz init --kind layer` in an empty folder scaffolds one. Use only layers you trust: when
+the repository has no git identity of its own, `alz init` and `alz build --adopt` set it from
+the layer's `commit_identity`, and the layer's hooks run as commands.
+Without a personal layer yet, `alz init` alone gives a repo layer in `.layer/`; add more general
+layers to `layer.yaml` later.
 
 ## Layers
 
@@ -105,7 +169,7 @@ The repository lists its stack, most general first, in `layer.yaml`:
 
 ```yaml
 stack:
-  - source: github:<you>/agent-layerz-personal@v1.0.0
+  - source: github:<owner>/<layer-repo>@<tag>
   - source: path:../client-hub/layer
     ref: layer-v0.3.0          # read from this git tag, not the working tree
   - source: path:./.layer      # the repo layer, always last
@@ -172,19 +236,19 @@ commit_identity:
 | `alz diff` | Show what the next build would change. |
 | `alz ls [--live]` | List built items and the layer that decides each. `--live` asks Claude Code what it loaded (one short model call) and fails on anything missing. |
 | `alz explain <type> <name>` | Every layer that contributed to an item, in order, and the merged result. |
-| `alz doctor` | Name collisions in account dirs, installed tool version, slots, budgets. |
+| `alz doctor` | Agents and skills in account folders that collide with the built ones, the installed Claude Code version against the verified range, files Claude Code also loads from folders around the repository, and the build's own diagnostics. |
 | `alz account which` | The account each target (Claude Code, Codex) would use in this directory, where it comes from and why each other source was skipped; read-only. Exits 1 when a named account cannot apply. |
 | `alz account allow [--remove]` | Accept (or withdraw) the account this repository's layers name: shows what it would record and asks you to type each account name. Only a person at a terminal outside an agent session can run it; there is no `--yes`. Writes `${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`. Until it runs, a layer-named account does not apply; `alz build` and `alz check` print the command on a terminal. |
-| `alz lint [--layer <path>]` | Validate a layer: schema, leak guard for public layers, slots. |
+| `alz lint [--layer <path>]` | Validate a layer (`--layer`), or this repository's stack and lock: schema, leak guard for public layers, slots. |
 
 ## Safety
 
-- `alz` writes only inside the repository and its cache (`~/.cache/agent-layerz`), and, for
-  `alz account allow` only, `allowed.yaml` in `${XDG_STATE_HOME:-~/.local/state}/agent-layerz`
-  (never inside a repository, an account folder or a git work tree or, for a linked file, the
-  directory of its real path, which passes the same checks; missing parent folders are created
-  with mode 0700).
-  It never overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
+- `alz` writes only inside the repository and its layer cache,
+  `${XDG_CACHE_HOME:-~/.cache}/agent-layerz`. The one exception is `alz account allow`, which
+  writes `allowed.yaml` in `${XDG_STATE_HOME:-~/.local/state}/agent-layerz`. That file may never
+  lie inside a repository, an account folder or a git work tree, and neither may its real path
+  when it is a link. Missing parent folders are created with mode 0700.
+- It never overwrites a file it did not generate: that is a collision, unless you pass `--adopt`.
 - The only git config it writes is the missing `user.name` and `user.email` in the repository's
   own `.git/config`, by `init` and `build --adopt`; never a global or system file.
 - It never reads credentials or `.env` files, and never stores secret values: MCP servers name
@@ -193,25 +257,62 @@ commit_identity:
   names do not leak into a public layer.
 - Remote layers (`github:` and remote `git:` URLs) are cloned with the local and `file`
   transports blocked, so a repository cannot make them read a folder inside itself. If your
-  `url.<base>.insteadOf` rewrites such a URL to a local mirror path, the clone now fails; name
+  `url.<base>.insteadOf` rewrites such a URL to a local mirror path, the clone fails; name
   the mirror as a local `git:` path instead.
 - No layer may set `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `XDG_CONFIG_HOME`,
-  `XDG_STATE_HOME` or `XDG_CACHE_HOME` through its settings, an MCP server's `env_from`, an
-  agent's native MCP servers or a passthrough settings, `.mcp.json`, agent or `.toml` file
-  (under any target), and passthrough paths must be ASCII. The
-  build fails and names the layer, never the value. This covers declarative configuration
-  only; hooks and MCP commands run code and are not checked.
+  `XDG_STATE_HOME` or `XDG_CACHE_HOME` through any of:
+  - its settings;
+  - an MCP server's `env_from`;
+  - an agent's native MCP servers;
+  - a passthrough settings, `.mcp.json`, agent or `.toml` file, under any target.
+
+  The build fails and names the layer, never the value. This covers declarative configuration
+  only; hooks and MCP commands run code and are not checked. Passthrough paths must be ASCII.
 - Layers can ship hooks, which your agent runs as commands. Use layers you trust, and pin remote
   ones to a tag or commit.
 
-## Status
+## The algebra
 
-Early (0.x). The Claude Code adapter is complete; Codex and other targets are planned. The full
-design, merge rules and acceptance tests are in [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md).
-Also planned: optional account switching, where alz chooses each repository's Claude Code or
-Codex account folder and never reads logins. The design is in
-[LAYERING-SPEC §7.13](docs/LAYERING-SPEC.md#713-account-selection) (decision-15).
+Most merges in `alz` are algebraic structures with written laws, and a property test checks each
+law on generated inputs. A stack of layers is a fold:
+
+```text
+v = e ⊕ v₁ ⊕ v₂ ⊕ … ⊕ vₙ        layers from most general to most specific; e: "says nothing"
+```
+
+| Structure | Merge `a ⊕ b` | Laws | Used for |
+| --- | --- | --- | --- |
+| Last-writer-wins | `b` when set, else `a`; per key for named items | monoid: associative, with identity | an agent's scalar fields; skills, commands, MCP servers and model aliases by name |
+| Ordered union | `a ∪ b`, first occurrence kept | idempotent monoid; commutative as a set | `allow`, `ask` and `deny` lists, a rule's paths |
+| List edit | `+[…]`, `-[…]`, `[…]` composed | monoid acting on lists: `apply(a ⊕ b) = apply(b) ∘ apply(a)` | an agent's tools and skills, permission list edits |
+| Rule chain | a defining file resets, an extending file adds | monoid | path-scoped rules |
+| Deep merge | maps per key, lists by union, else `b` | semigroup on trees of one shape | settings, an agent's native fields |
+| Floor | `max(a, b)` on a strictness order | join-semilattice; monotone: `a ⊕ b ≥ a` | the `default_mode` floor |
+| Narrowing | `a ≽ b`: `a` grants all `b` does | preorder: reflexive, transitive | overlays may only narrow tools |
+
+Where a law alone cannot keep the stack safe, the merge refuses instead. Removing a deny rule,
+loosening a floor, disabling a locked hook or loosening an overlay's permission mode is a build
+error that names the layer, so security only gets stricter down the stack.
+
+What the laws give you:
+
+- Associativity: each structure folds the same in any grouping.
+- Identity: a layer that says nothing about an item leaves it alone.
+- Idempotence: a repeated rule or path changes nothing.
+- Determinism: same inputs give byte-identical files, so `alz check` is an equation.
+
+[docs/algebra.md](docs/algebra.md) states each law at the level its test checks it. It also gives
+the exceptions (deep merge when a path changes kind, and the items that are not one structure,
+such as instructions and hooks) and a reading list, from property-based testing to lattices,
+CRDTs and reproducible builds.
+
+## Contributing
+
+Contributions are welcome, especially adapters for more coding agents.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers building from source, the checks, the algebra with a
+worked example, how to write an adapter, and how changes are proposed. Use the issue forms for
+bugs, feature requests and adapter proposals.
 
 ## License
 
-MIT
+[MIT](LICENSE)

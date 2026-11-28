@@ -4,6 +4,7 @@ title: Create the release environment and the Homebrew tap repository
 status: To Do
 assignee: []
 created_date: '2026-11-24T17:44:00Z'
+updated_date: '2026-11-28T15:41:00Z'
 labels:
   - owner:human
   - area:release
@@ -26,3 +27,9 @@ Only the owner can change repository settings and create repositories (delivery-
 - [ ] #2 Only the owner can create v* tags (tag ruleset, owner comment)
 - [ ] #3 The tap repository exists, and the release environment holds a credential that can write only to it (owner comment)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+README (TASK-131) installs with brew install gautamr/tap/alz, which assumes the tap repository is named homebrew-tap. If another name is chosen, change the README in the same pull request.
+<!-- SECTION:NOTES:END -->
