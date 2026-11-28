@@ -83,6 +83,7 @@ when you changed a workflow.
 | `fixtures/` | The input repositories of the acceptance suite (spec §13), with their layers. |
 | `crates/alz/tests/fixtures/golden/` | The files each of those repositories must build to; its README says how they are kept. |
 | `docs/LAYERING-SPEC.md` | The contract: what `alz` must do. |
+| `docs/algebra.md` | The merge structures, their laws and the tests that check them. |
 | `docs/spec-coverage.md` | Which test proves each requirement of the spec; a test fails when it is out of date. |
 | `backlog/decisions/` | Recorded decisions, cited in the code and the spec as `decision-N`. |
 | `docs/target-facts.md` | Verified facts about Claude Code and Codex. |
@@ -112,12 +113,110 @@ kept at the edges, in `alz-io`. A new dependency needs a recorded decision first
   content, writes or deletes files, runs git or handles hooks, permissions or secrets gets a
   security review; the `threat-model` skill has the checklist.
 
+## The algebra in practice
+
+Most values a layer can set merge through a small algebraic structure with written laws:
+last-writer-wins, a union, a list edit, a rule chain, a deep merge, or a floor that only gets
+stricter. Where security is at stake, the merge also refuses a value that would loosen what a
+more general layer set. [docs/algebra.md](docs/algebra.md) states each structure, its laws, the
+refusals and the property tests that check them. When you add something a layer can set, first
+choose the structure it merges with.
+
+Say a new setting must only get stricter down the stack, as permission modes do. Order its
+values from loosest to strictest and use `Floor`, whose merge is `max`:
+
+```rust
+use alz_core::merge::{Floor, OrderedSet};
+
+/// How much a session may do on its own, loosest first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Autonomy {
+    Free,
+    Ask,
+    ReadOnly,
+}
+
+#[test]
+fn a_repo_layer_cannot_loosen_what_the_personal_layer_set() {
+    let personal = Floor::at(Autonomy::Ask);
+    let repo = Floor::at(Autonomy::Free);
+    assert_eq!(personal.merge(repo).get(), Some(&Autonomy::Ask));
+}
+
+#[test]
+fn a_union_keeps_every_earlier_rule() {
+    let personal: OrderedSet<&str> = ["read:.env*"].into_iter().collect();
+    let repo: OrderedSet<&str> = ["bash:rm -rf *", "read:.env*"].into_iter().collect();
+    assert_eq!(personal.merge(repo).as_slice(), ["read:.env*", "bash:rm -rf *"]);
+}
+```
+
+A union alone does not stop a layer from removing a rule: a list a layer can edit with `-[…]`
+or `[…]` also needs the merge to refuse an edit that drops an inherited rule, as the permissions
+merge does for `deny`. The examples prove two cases. A law covers every case, so state it as a property and let
+[proptest](https://proptest-rs.github.io/proptest/) generate the inputs:
+
+```rust
+use proptest::prelude::{prop_assert, proptest, Just, Strategy};
+
+fn floors() -> impl Strategy<Value = Floor<Autonomy>> {
+    proptest::option::of(proptest::prop_oneof![
+        Just(Autonomy::Free),
+        Just(Autonomy::Ask),
+        Just(Autonomy::ReadOnly)
+    ])
+    .prop_map(|level| level.map_or_else(Floor::default, Floor::at))
+}
+
+proptest! {
+    #[test]
+    fn a_later_layer_never_lowers_the_floor(earlier in floors(), later in floors()) {
+        prop_assert!(earlier.clone().merge(later) >= earlier);
+    }
+}
+```
+
+When no existing structure fits, write a new one in `crates/alz-core/src/merge/algebra/`:
+
+1. Give it a `merge(self, later)` method, where `later` is the more specific value.
+2. State its laws in its doc comment, and its exceptions too: `Tree::deep_merge` is associative
+   only over trees of one shape, and its tests show the counterexample.
+3. Give each law a property test: at least associativity and the identity, plus idempotence,
+   commutativity or monotonicity where the rule needs them. If a looser value must be refused,
+   test that the merge refuses it and names the layer.
+4. State the merge rule in `docs/LAYERING-SPEC.md` §7 and add the structure to docs/algebra.md.
+
+## Write an adapter for another coding agent
+
+`alz` turns one neutral model into each coding agent's native files through an adapter. The
+Claude Code adapter is complete. Adapters for the others are wanted, and each one makes every
+layer work in one more tool:
+
+| Coding agent | Adapter |
+| --- | --- |
+| Claude Code | ✅ Complete (`crates/alz-target-claude`) |
+| OpenAI Codex CLI | 🔜 Planned; its facts are partly recorded in `docs/target-facts.md` |
+| Gemini CLI, GitHub Copilot, Cursor, OpenCode, Windsurf and others | 🙋 Wanted |
+
+An adapter is a pure function from the model to files. It depends only on the `alz-adapter`
+crate, so it cannot do I/O or reach core internals. To write one:
+
+1. Open an issue with the **Adapter for a coding agent** form. It asks for the agent's native
+   files and the facts you can check.
+2. Record those facts in `docs/target-facts.md` with their evidence level. The
+   `verify-target-fact` skill describes the method.
+3. Read the adapter contract in [spec §8](docs/LAYERING-SPEC.md#8-target-adapters) and the
+   `Adapter` trait in `crates/alz-adapter`. Use `crates/alz-target-claude` as the example.
+4. Write the adapter as a new `crates/alz-target-<agent>` crate, with tests from the spec.
+
 ## Work and pull requests
 
 - Work is tracked on a [Backlog.md](https://github.com/MrLesk/Backlog.md) board in `backlog/`.
   Read and change it with the `backlog` CLI, never by editing its files. Pick a task, or open an
-  issue to propose one.
-- One task, one pull request.
+  issue to propose one. The issue forms are for a bug report, a feature request and an adapter
+  for a coding agent. A feature request asks how the new setting merges.
+- One task, one pull request. The pull request template lists the checks and asks for the
+  commands you ran.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) and end
   with the task ID, for example `feat(adopt): adopt hand-written hooks (task-12)`.
 - Commit under your own name. The `Commits` section of the generated `AGENTS.md` names the

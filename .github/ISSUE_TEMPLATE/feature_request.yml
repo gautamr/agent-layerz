@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a new command, option, layer feature or merge rule.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: The behaviour you want, as a user would see it (commands, layer files, output).
+    validations:
+      required: true
+  - type: textarea
+    id: merge
+    attributes:
+      label: How it merges
+      description: |
+        If it adds or changes something a layer can set: how should two layers combine it?
+        Which existing structure fits (last-writer-wins, union, list edit, deep merge, floor), and which laws must hold? See docs/algebra.md.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways to solve it, including what you do today.
