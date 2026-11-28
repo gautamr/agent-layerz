@@ -95,10 +95,12 @@ alz ls                # every agent, skill, rule, hook and MCP server, and the l
 alz check             # in CI: fails when the generated files or the lock are out of date
 ```
 
-`github:<owner>/<layer-repo>@<tag>` is your personal layer, pinned to a git tag. To try `alz`
-with a public one first, use `github:gautamr/agent-layerz-personal@v0.5.0`, the layer this
-repository is built with. Without a personal layer yet, `alz init` alone gives a repo layer in
-`.layer/`; add more general layers to `layer.yaml` later.
+`github:<owner>/<layer-repo>@<tag>` is your personal layer: a git repository, pinned to one of
+its tags. `alz init --kind layer` in an empty folder scaffolds one. Use only layers you trust: when
+the repository has no git identity of its own, `alz init` and `alz build --adopt` set it from
+the layer's `commit_identity`, and the layer's hooks run as commands.
+Without a personal layer yet, `alz init` alone gives a repo layer in `.layer/`; add more general
+layers to `layer.yaml` later.
 
 ## Layers
 
