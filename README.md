@@ -28,10 +28,9 @@ personal (public)  →  client (private)  →  repo (.layer/)  ──alz build�
 
 ## Install
 
-`alz` is one Rust binary with no runtime. Releases of ready-made binaries and a Homebrew formula
-are being prepared; until the first one is published, build `alz` from a clone. This needs
-[mise](https://mise.jdx.dev) (it installs the Rust toolchain this repository pins), git 2.30 or
-newer and a POSIX shell (macOS or Linux):
+`alz` is one Rust binary with no runtime. Ready-made binaries and a Homebrew formula are not
+published yet, so build it from a clone. You need [mise](https://mise.jdx.dev), which installs the
+Rust toolchain this repository pins, git 2.30 or newer and a POSIX shell (macOS or Linux).
 
 ```sh
 git clone https://github.com/gautamr/agent-layerz.git
@@ -40,46 +39,66 @@ mise run install:local
 alz --version
 ```
 
-The task builds `alz` from the locked dependencies and installs it as a regular executable at
-`~/.local/bin/alz`. It creates no symlink. Set `PREFIX` (installs to `$PREFIX/bin`), `BIN_DIR` or
-`ALZ_NAME` to choose another place or name. It prints the version, the git revision and the
-SHA-256 of the installed file. Run it again after `git pull` to update.
-
-### Leaving a 0.1.0 install behind
-
-Version 0.1.0 was installed from the JavaScript package registry. That install leaves a symlink
-named `alz` on your `PATH`, and `mise run install:local` refuses to replace a symlink. Remove the
-old install with the tool that made it, delete the leftover `alz` link if one remains, then run
-`mise run install:local`.
-Layers and repositories built with 0.1.0 keep working, with the stricter checks that
-[CHANGELOG.md](CHANGELOG.md) lists.
-
-## Development
-
-The Rust workspace is in `crates/`; [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md) is the
-contract. All commands run through mise, which pins the toolchain:
+`mise run install:local` builds `alz` from the locked dependencies and installs it as one
+regular file at `~/.local/bin/alz`, never a symlink. It prints the version, the git revision and
+the SHA-256 of the installed file, and warns when the folder is not on your `PATH`. To install
+somewhere else, set `PREFIX` (installs to `$PREFIX/bin`), `BIN_DIR` or `ALZ_NAME`:
 
 ```sh
-mise run rust:check   # format check, clippy with -D warnings, and every test
-mise run rust:ci      # the full local set: check, rustdoc, MSRV, cargo-deny, cargo-audit
-mise run rust:build   # build the release binary at target/release/alz
-mise run alz:check    # fail if this repository's generated agent config is out of date
-mise run alz:build    # rebuild this repository's agent config (needs the personal layer next to the clone)
+BIN_DIR=~/bin mise run install:local        # installs ~/bin/alz
+ALZ_NAME=alz-next mise run install:local    # installs ~/.local/bin/alz-next
 ```
+
+### Update
+
+```sh
+cd agent-layerz
+git pull
+mise run install:local
+```
+
+The task replaces the installed file in place and prints the version it replaced.
+
+### Uninstall
+
+```sh
+rm ~/.local/bin/alz                 # or wherever you installed it
+rm -rf ~/.cache/agent-layerz        # optional: the layer cache, rebuilt on the next build
+```
+
+If you ran `alz account allow`, the accounts you accepted are in
+`${XDG_STATE_HOME:-~/.local/state}/agent-layerz/allowed.yaml`; remove that folder too. The files
+`alz` generated in your repositories are ordinary committed files and stay where they are.
+
+### Moving from 0.1.0
+
+How you move from 0.1.0 depends on how you installed it:
+
+- **From the JavaScript package registry.** That install left a symlink named `alz` on your
+  `PATH`, and `mise run install:local` refuses to replace a symlink. Remove the package with the
+  tool that installed it, delete the `alz` link if one remains (`command -v alz` shows where),
+  then install as above.
+- **From a clone, as a regular file.** `mise run install:local` replaces the file and prints the
+  version it replaced.
+
+Layers and repositories built with 0.1.0 keep working, with the stricter checks that
+[CHANGELOG.md](CHANGELOG.md) lists.
 
 ## Quick start
 
 In an existing repository:
 
 ```sh
-alz init --stack github:<you>/agent-layerz-personal@v1.0.0   # optional: --hub ../client-hub
+alz init --stack github:<owner>/<layer-repo>@<tag>   # optional: --hub ../client-hub
 alz build --adopt     # moves hand-written agent config into .layer/, then builds
 alz ls                # every agent, skill, rule, hook and MCP server, and the layer it comes from
 alz check             # in CI: fails when the generated files or the lock are out of date
 ```
 
-Without a personal layer yet, `alz init` alone gives a repo layer in `.layer/`; add more
-general layers to `layer.yaml` later.
+`github:<owner>/<layer-repo>@<tag>` is your personal layer, pinned to a git tag. To try `alz`
+with a public one first, use `github:gautamr/agent-layerz-personal@v0.5.0`, the layer this
+repository is built with. Without a personal layer yet, `alz init` alone gives a repo layer in
+`.layer/`; add more general layers to `layer.yaml` later.
 
 ## Layers
 
@@ -105,7 +124,7 @@ The repository lists its stack, most general first, in `layer.yaml`:
 
 ```yaml
 stack:
-  - source: github:<you>/agent-layerz-personal@v1.0.0
+  - source: github:<owner>/<layer-repo>@<tag>
   - source: path:../client-hub/layer
     ref: layer-v0.3.0          # read from this git tag, not the working tree
   - source: path:./.layer      # the repo layer, always last
@@ -208,9 +227,15 @@ commit_identity:
 
 Early (0.x). The Claude Code adapter is complete; Codex and other targets are planned. The full
 design, merge rules and acceptance tests are in [docs/LAYERING-SPEC.md](docs/LAYERING-SPEC.md).
-Also planned: optional account switching, where alz chooses each repository's Claude Code or
-Codex account folder and never reads logins. The design is in
+`alz account which` and `alz account allow` show and accept the account a repository's layers
+name. Switching to that account when you start a tool in the repository is planned; alz never
+reads logins. The design is in
 [LAYERING-SPEC §7.13](docs/LAYERING-SPEC.md#713-account-selection) (decision-15).
+
+## Contributing
+
+To work on agent-layerz itself (building from source, the checks, how this repository builds
+its own agent config, and how changes are proposed), read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
