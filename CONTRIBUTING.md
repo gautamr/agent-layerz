@@ -12,6 +12,7 @@ and clippy, cargo-deny, cargo-audit, actionlint and zizmor.
 ```sh
 git clone https://github.com/gautamr/agent-layerz.git
 cd agent-layerz
+mise trust      # the first time: allow mise to use this repository's mise.toml
 mise install
 mise run rust:check
 ```
@@ -27,7 +28,7 @@ Keep a stable `alz` for your own repositories and try your working copy under an
 | --- | --- |
 | A stable `alz` on your `PATH`, built from `main` | `git switch main && mise run install:local` |
 | Your working copy installed as `alz-dev`, beside the stable one | `ALZ_NAME=alz-dev mise run install:local` |
-| Your working copy without installing it | `cargo run -p alz -- <command>` |
+| Your working copy without installing it | `mise run rust:build` in the clone, then `<clone>/target/release/alz <command>` from any folder |
 
 `install:local` builds from the locked dependencies and installs one regular file at
 `~/.local/bin/alz`, never a symlink. `PREFIX` (installs to `$PREFIX/bin`), `BIN_DIR` and
@@ -46,21 +47,26 @@ runs in.
 | After changing `.github/workflows/` | `mise run workflows:lint` | actionlint, and zizmor's security checks |
 | After changing `.layer/` | `mise run alz:build`, then `mise run alz:check` | Rebuild this repository's agent config and check it is current |
 
-`mise run test` and `mise run lint` run the two halves of `rust:check` on their own. CI runs
-the same mise tasks on macOS and Linux, so a green local `rust:ci` means CI should pass too.
+`mise run test` and `mise run lint` run the two halves of `rust:check` on their own.
+
+CI runs the same mise tasks. On macOS and Linux it runs `rust:check` and `rust:doc`. On Linux it
+also runs `rust:msrv`, `rust:deny`, `rust:audit`, `alz:check -- --skip-identity` and
+`workflows:lint`. Before a pull request, run `rust:ci` and `alz:check`, and `workflows:lint`
+when you changed a workflow.
 
 ## This repository builds itself
 
 `alz` manages this repository's own agent configuration. `AGENTS.md`, `CLAUDE.md`, `.claude/`,
 `.mcp.json` and `layer.lock` are generated from two layers: the public personal layer, which
-`layer.yaml` names as a pinned `github:` source, and the repository layer in `.layer/`.
+`layer.yaml` names as a pinned `github:` source, and the repo layer in `.layer/`.
 
 - Never edit a generated file. Change `.layer/`, then run `mise run alz:build`. Commit the
   source change and the generated files together.
 - `alz:build` and `alz:check` build `alz` from your working copy first, so a change to the code
   can change the generated files too. `alz:check` fails when they are out of date.
-- The first build fetches the personal layer into `~/.cache/agent-layerz`, which needs network
-  access. Later builds use the cache.
+- The first build fetches the personal layer into the layer cache,
+  `${XDG_CACHE_HOME:-~/.cache}/agent-layerz`, which needs network access. Later builds use the
+  cache.
 - `alz check` also compares your git identity with the one the personal layer declares. If you
   are not the owner, run `mise run alz:check -- --skip-identity`, as CI does.
 
@@ -74,22 +80,28 @@ the same mise tasks on macOS and Linux, so a green local `rust:ci` means CI shou
 | `crates/alz-io` | Every effect (files, git, the layer cache, the terminal, processes) behind capability types. |
 | `crates/alz` | The thin binary: it wires the capabilities together and owns the exit codes. |
 | `crates/alz-test-support` | Test helpers. |
-| `fixtures/` | Whole repositories with their layers and the expected output. |
+| `fixtures/` | The input repositories of the acceptance suite (spec §13), with their layers. |
+| `crates/alz/tests/fixtures/golden/` | The files each of those repositories must build to; its README says how they are kept. |
 | `docs/LAYERING-SPEC.md` | The contract: what `alz` must do. |
+| `docs/spec-coverage.md` | Which test proves each requirement of the spec; a test fails when it is out of date. |
+| `backlog/decisions/` | Recorded decisions, cited in the code and the spec as `decision-N`. |
 | `docs/target-facts.md` | Verified facts about Claude Code and Codex. |
 
 Code follows the rules in `.claude/rules/rust.md`: a functional style, typed errors and effects
-kept at the edges, in `alz-io`.
+kept at the edges, in `alz-io`. A new dependency needs a recorded decision first (the
+`record-decision` skill).
 
 ## The spec, tests and target facts
 
 - **The spec is the contract.** A change in behaviour changes `docs/LAYERING-SPEC.md` in the same
   pull request.
 - **Tests come from the spec.** A test asserts what a section of the spec requires, not what the
-  code happens to do. Write it first and watch it fail. Unit tests sit beside the code;
-  integration and command tests are in `crates/*/tests/`; whole-repository cases are fixtures
-  in `fixtures/NN-<topic>/`. The `spec-test` skill in `.claude/skills/spec-test/` says which kind
-  of test fits a requirement and how to write it.
+  code happens to do. Write it first and watch it fail. Unit tests sit beside the code, and
+  integration and command tests are in `crates/*/tests/`. The acceptance tests of spec §13 build
+  whole repositories: the inputs are in `fixtures/NN-<topic>/`, and the expected output is in
+  `crates/alz/tests/fixtures/golden/`. The `spec-test` skill in `.claude/skills/spec-test/` says
+  which kind of test fits a requirement and how to write it, and `docs/spec-coverage.md` must
+  name the new test.
 - **Adapters rely only on recorded facts.** An adapter may depend on how Claude Code or Codex
   behaves only when `docs/target-facts.md` records that behaviour, with how it was checked:
   SMOKE (observed by running the tool), HELP (its `--help`), DOCS (vendor documentation, cited)
@@ -108,8 +120,10 @@ kept at the edges, in `alz-io`.
 - One task, one pull request.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) and end
   with the task ID, for example `feat(adopt): adopt hand-written hooks (task-12)`.
-- Commit under your own name. An agent's commit ends with a `Co-Authored-By:` trailer naming
-  the agent.
+- Commit under your own name. The `Commits` section of the generated `AGENTS.md` names the
+  owner's identity, because the owner's personal layer declares it. It applies only in the
+  owner's clone: in yours, tell your coding agent to commit as you. An agent's commit ends with
+  a `Co-Authored-By:` trailer naming the agent.
 - Releases are published only by CI. Never publish, tag or yank a release from your machine.
 - This repository is public. Never put client, employer or private project names, secrets or
   paths from your machine into code, tests, docs, tasks or commit messages.

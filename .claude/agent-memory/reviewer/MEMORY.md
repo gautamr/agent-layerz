@@ -3,4 +3,5 @@
 - [Private FRAMEWORK-GAPS.md](project_private_framework_gaps.md) — git-excluded work order with client names; expected there, never quote it
 - [Description bullets vs ACs](project_description_bullets_vs_acs.md) — subtask Descriptions list required cases; ACs get ticked anyway, grep each bullet
 - [Spec-coverage audits](project_spec_coverage_audits.md) — rows omit existing tests and spec messages go unasserted; grep the message text, sort gaps into missing vs unnamed
+- [Docs review checks](project_docs_review_checks.md) — CHANGELOG cites README headings; crate version vs migration text; fixture NN is not spec §13 item
 - [Empty decision bodies](project_empty_decision_bodies.md) — backlog decisions can carry only a title; read the body of every cited decision
